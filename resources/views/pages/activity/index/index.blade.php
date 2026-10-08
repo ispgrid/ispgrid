@@ -13,7 +13,7 @@
         </div>
     </div>
 
-    <x-ui.table>
+    <x-ui.table class="[&_td]:align-top">
         <x-slot:head>
             <x-ui.th>{{ __('When') }}</x-ui.th>
             <x-ui.th>{{ __('Staff') }}</x-ui.th>

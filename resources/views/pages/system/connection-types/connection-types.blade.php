@@ -26,10 +26,10 @@
                     @if ($editingId === $type->id)
                         <form wire:submit="rename" class="flex items-start gap-2">
                             <div class="flex-1">
-                                <x-ui.input wire:model="editingName" :label="__('Name')" class="py-1" maxlength="50" />
+                                <x-ui.input wire:model="editingName" :aria-label="__('Name')" class="py-1" maxlength="50" />
                             </div>
-                            <x-ui.button type="submit" size="sm" class="mt-7">{{ __('Save') }}</x-ui.button>
-                            <x-ui.button variant="ghost" size="sm" class="mt-7" wire:click="cancelEdit">{{ __('Cancel') }}</x-ui.button>
+                            <x-ui.button type="submit" size="sm" class="mt-0.5">{{ __('Save') }}</x-ui.button>
+                            <x-ui.button variant="ghost" size="sm" class="mt-0.5" wire:click="cancelEdit">{{ __('Cancel') }}</x-ui.button>
                         </form>
                     @else
                         {{ $type->name }}

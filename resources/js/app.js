@@ -1,13 +1,15 @@
-document.addEventListener('alpine:init', () => {
-    window.Alpine.store('appearance', {
-        value: localStorage.getItem('appearance') ?? 'system',
+import { Alpine, Livewire } from '../../vendor/livewire/livewire/dist/livewire.esm';
 
-        set(value) {
-            this.value = value;
-            localStorage.setItem('appearance', value);
+Alpine.store('appearance', {
+    value: localStorage.getItem('appearance') ?? 'system',
 
-            const dark = value === 'dark' || (value === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            document.documentElement.classList.toggle('dark', dark);
-        },
-    });
+    set(value) {
+        this.value = value;
+        localStorage.setItem('appearance', value);
+
+        const dark = value === 'dark' || (value === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+    },
 });
+
+Livewire.start();

@@ -2,6 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         @include('partials.head')
+        @livewireStyles
     </head>
     <body class="min-h-screen bg-white text-zinc-900 antialiased dark:bg-zinc-900 dark:text-zinc-100" x-data="{ sidebarOpen: false }">
         <div class="lg:flex">
@@ -40,6 +41,8 @@
         </div>
 
         <x-ui.toast />
+
+        @livewireScriptConfig
 
     </body>
 </html>

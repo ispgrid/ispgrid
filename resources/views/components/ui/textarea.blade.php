@@ -11,7 +11,7 @@
     $error = $name && isset($errors) ? $errors->first($name) : null;
 @endphp
 
-<div class="grid gap-1.5">
+<div class="grid content-start gap-1.5">
     @if ($label)
         <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}</label>
     @endif

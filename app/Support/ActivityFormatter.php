@@ -55,6 +55,8 @@ final class ActivityFormatter
     }
 
     /**
+     * A delete records only the old values: show them as what was removed, not as a change to empty.
+     *
      * @return list<array{field: string, old: ?string, new: ?string}>
      */
     public static function changes(Activity $activity): array
@@ -62,6 +64,10 @@ final class ActivityFormatter
         $changes = collect($activity->attribute_changes ?? [])->toArray();
         $new = $changes['attributes'] ?? [];
         $old = $changes['old'] ?? [];
+
+        if ($activity->event === 'deleted' && $new === []) {
+            [$new, $old] = [$old, []];
+        }
 
         $rows = [];
 

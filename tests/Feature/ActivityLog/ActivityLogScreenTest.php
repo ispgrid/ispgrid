@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AppSetting;
+use App\Models\ConnectionType;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -55,6 +56,15 @@ it('filters by staff member', function () {
         ->set('staff', (string) $this->me->id)
         ->assertSee('phone_digits')
         ->assertDontSee('currency_symbol');
+});
+
+it('names what a delete removed instead of showing it changed to empty', function () {
+    ConnectionType::factory()->create(['name' => 'Fibre'])->delete();
+
+    Livewire::test('pages::activity.index')
+        ->set('type', (new ConnectionType)->getMorphClass())
+        ->assertSeeInOrder(['Deleted', 'Fibre'])
+        ->assertDontSee('(empty)');
 });
 
 it('calls a deleted staff login Disabled', function () {
