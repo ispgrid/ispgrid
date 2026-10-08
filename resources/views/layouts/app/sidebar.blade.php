@@ -41,6 +41,5 @@
 
         <x-ui.toast />
 
-        @fluxScripts
     </body>
 </html>

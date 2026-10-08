@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e30a0f266ca56913540f3ba183b799c1",
+    "content-hash": "301224b42dfa4cd96fbc5578d33e9294",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2505,72 +2505,6 @@
                 "source": "https://github.com/livewire/blaze/tree/v1.0.19"
             },
             "time": "2026-09-15T09:45:15+00:00"
-        },
-        {
-            "name": "livewire/flux",
-            "version": "v2.20.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/livewire/flux.git",
-                "reference": "ee9ad7f91087ea117a2c80993a14cb25bb902f70"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/livewire/flux/zipball/ee9ad7f91087ea117a2c80993a14cb25bb902f70",
-                "reference": "ee9ad7f91087ea117a2c80993a14cb25bb902f70",
-                "shasum": ""
-            },
-            "require": {
-                "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
-                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
-                "illuminate/view": "^10.0|^11.0|^12.0|^13.0",
-                "laravel/prompts": "^0.1|^0.2|^0.3",
-                "livewire/livewire": "^3.7.4|^4.0|dev-main",
-                "php": "^8.1",
-                "symfony/console": "^6.0|^7.0|^8.0"
-            },
-            "conflict": {
-                "livewire/blaze": "<1.0.0-beta.2"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "aliases": {
-                        "Flux": "Flux\\Flux"
-                    },
-                    "providers": [
-                        "Flux\\FluxServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Flux\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "proprietary"
-            ],
-            "authors": [
-                {
-                    "name": "Caleb Porzio",
-                    "email": "calebporzio@gmail.com"
-                }
-            ],
-            "description": "The official UI component library for Livewire.",
-            "keywords": [
-                "components",
-                "flux",
-                "laravel",
-                "livewire",
-                "ui"
-            ],
-            "support": {
-                "issues": "https://github.com/livewire/flux/issues",
-                "source": "https://github.com/livewire/flux/tree/v2.20.1"
-            },
-            "time": "2026-09-28T18:14:53+00:00"
         },
         {
             "name": "livewire/livewire",
