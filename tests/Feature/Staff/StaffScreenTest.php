@@ -1,0 +1,74 @@
+<?php
+
+use App\Models\User;
+use Livewire\Livewire;
+
+beforeEach(function () {
+    $this->admin = User::factory()->create(['name' => 'Admin']);
+    $this->actingAs($this->admin);
+});
+
+it('lists active and disabled staff', function () {
+    User::factory()->create(['name' => 'Ravi']);
+    User::factory()->trashed()->create(['name' => 'Old Hand']);
+
+    $this->get(route('staff.index'))
+        ->assertOk()
+        ->assertSee('Ravi')
+        ->assertSee('Old Hand')
+        ->assertSee('Disabled');
+});
+
+it('adds a staff member who can then log in', function () {
+    Livewire::test('pages::staff.index')
+        ->set('name', 'Meera')
+        ->set('email', 'meera@example.com')
+        ->set('password', 'secret-pass-123')
+        ->set('password_confirmation', 'secret-pass-123')
+        ->call('add')
+        ->assertHasNoErrors()
+        ->assertDispatched('modal-close', name: 'add-staff')
+        ->assertDispatched('toast');
+
+    auth()->logout();
+
+    $this->post(route('login.store'), ['email' => 'meera@example.com', 'password' => 'secret-pass-123'])
+        ->assertRedirect(route('dashboard', absolute: false));
+});
+
+it('tells staff to restore a disabled member instead of adding them again', function () {
+    User::factory()->trashed()->create(['email' => 'gone@example.com']);
+
+    Livewire::test('pages::staff.index')
+        ->set('name', 'Gone Again')
+        ->set('email', 'gone@example.com')
+        ->set('password', 'secret-pass-123')
+        ->set('password_confirmation', 'secret-pass-123')
+        ->call('add')
+        ->assertHasErrors(['email'])
+        ->assertSee('A disabled staff member uses this email. Restore them instead.');
+
+    expect(User::withTrashed()->where('email', 'gone@example.com')->count())->toBe(1);
+});
+
+it('does not let staff disable themselves', function () {
+    Livewire::test('pages::staff.index')
+        ->call('disable', $this->admin->id)
+        ->assertForbidden();
+
+    expect($this->admin->fresh()->trashed())->toBeFalse();
+});
+
+it('disables and restores another staff member', function () {
+    $other = User::factory()->create();
+
+    Livewire::test('pages::staff.index')->call('disable', $other->id)->assertDispatched('toast');
+    expect($other->fresh()->trashed())->toBeTrue();
+
+    Livewire::test('pages::staff.index')->call('restore', $other->id)->assertDispatched('toast');
+    expect($other->fresh()->trashed())->toBeFalse();
+});
+
+it('links the System menu to the staff screen', function () {
+    $this->get(route('dashboard'))->assertSee(route('staff.index'));
+});

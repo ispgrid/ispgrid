@@ -3,4 +3,5 @@
 </x-ui.nav-group>
 
 <x-ui.nav-group :heading="__('System')">
+    <x-ui.nav-item :href="route('staff.index')" icon="users" :current="request()->routeIs('staff.*')">{{ __('Staff') }}</x-ui.nav-item>
 </x-ui.nav-group>
