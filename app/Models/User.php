@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
@@ -36,6 +37,30 @@ class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, LogsActivity, Notifiable, PasskeyAuthenticatable, SoftDeletes, TwoFactorAuthenticatable;
+
+    /**
+     * Disabling a staff member logs them out everywhere, so a restore never revives an old cookie or session.
+     */
+    protected static function booted(): void
+    {
+        static::deleted(function (User $user): void {
+            if (! $user->isForceDeleting()) {
+                $user->endSessions();
+            }
+        });
+    }
+
+    /**
+     * Log this staff member out on every device: a new remember token, and their database sessions removed.
+     */
+    public function endSessions(): void
+    {
+        $this->forceFill(['remember_token' => Str::random(60)])->saveQuietly();
+
+        if (config('session.driver') === 'database') {
+            DB::table(config('session.table', 'sessions'))->where('user_id', $this->getKey())->delete();
+        }
+    }
 
     /**
      * Only name and email are logged: never the password, remember token or two-factor secrets.

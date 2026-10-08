@@ -69,6 +69,7 @@ class CreateStaff extends Command
         )->validate();
 
         $staff->update(['password' => $password]);
+        $staff->endSessions();
 
         $this->info("Password reset for {$staff->email}.");
 
