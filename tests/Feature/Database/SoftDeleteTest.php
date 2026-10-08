@@ -8,6 +8,7 @@ use App\Models\IpRange;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\User;
 
 it('keeps the row when a record is deleted', function (string $model) {
     $record = $model::factory()->create();
@@ -24,4 +25,5 @@ it('keeps the row when a record is deleted', function (string $model) {
     'address list' => AddressList::class,
     'connection type' => ConnectionType::class,
     'router' => Nas::class,
+    'staff user' => User::class,
 ]);
