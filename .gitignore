@@ -57,7 +57,8 @@ yarn-error.log
 /.cursor
 /.factory
 /.gemini
-/.github
+/.github/*
+!/.github/workflows/
 /.grok
 /.junie
 /.kiro
