@@ -13,7 +13,7 @@ class CreateNewUser implements CreatesNewUsers
     use PasswordValidationRules, ProfileValidationRules;
 
     /**
-     * Validate and create a newly registered user.
+     * Validate and create a staff login (Staff screen and staff:create; public registration is off).
      *
      * @param  array<string, string>  $input
      */
