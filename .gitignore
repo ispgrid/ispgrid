@@ -68,3 +68,6 @@ yarn-error.log
 /.trae
 /.windsurf
 /.zencoder
+
+# Superpowers plan workspaces (agent scratch)
+/.superpowers/
