@@ -22,6 +22,15 @@ it('seeds the attribute allowlist without the attributes the forms or isp own', 
         ->not->toContain('Mikrotik-Rate-Limit', 'Framed-Pool', 'Framed-IP-Address', 'Session-Timeout');
 });
 
+it('does not bring back a connection type the operator renamed', function () {
+    $this->seed(DatabaseSeeder::class);
+    ConnectionType::query()->where('name', 'Home')->firstOrFail()->update(['name' => 'Residential']);
+
+    $this->seed(DatabaseSeeder::class);
+
+    expect(ConnectionType::withTrashed()->where('name', 'Home')->exists())->toBeFalse();
+});
+
 it('does not duplicate or overwrite reference data when run again', function () {
     $this->seed(DatabaseSeeder::class);
     AppSetting::put('currency_code', 'USD');
