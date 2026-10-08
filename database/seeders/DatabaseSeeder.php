@@ -11,15 +11,22 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Reference data for every install (safe to run again on upgrade).
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            RadiusSettingSeeder::class,
+            AppSettingSeeder::class,
+            ConnectionTypeSeeder::class,
+            RadiusAttributeSeeder::class,
         ]);
+
+        if (app()->isLocal()) {
+            User::query()->firstOrCreate(
+                ['email' => 'test@example.com'],
+                ['name' => 'Test User', 'password' => 'password', 'email_verified_at' => now()],
+            );
+        }
     }
 }
