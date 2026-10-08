@@ -5,6 +5,7 @@ use App\Models\ConnectionType;
 use App\Models\RadiusAttribute;
 use App\Models\RadiusSetting;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\RadiusAttributeSeeder;
 
 it('seeds the FreeRADIUS settings row with the disabled pool on expiry', function () {
     $this->seed(DatabaseSeeder::class);
@@ -42,4 +43,15 @@ it('does not duplicate or overwrite reference data when run again', function () 
         ->and(RadiusSetting::current()->disabled_users_pool)->toBe('blocked')
         ->and(RadiusSetting::query()->count())->toBe(1)
         ->and(ConnectionType::query()->where('name', 'Home')->count())->toBe(1);
+});
+
+it('corrects the attribute allowlist on every seed run', function () {
+    $this->seed(RadiusAttributeSeeder::class);
+    RadiusAttribute::query()->where('name', 'Framed-Route')->update(['type' => 'integer', 'repeatable' => false]);
+
+    $this->seed(RadiusAttributeSeeder::class);
+
+    expect(RadiusAttribute::query()->where('name', 'Framed-Route')->firstOrFail())
+        ->type->toBe('text')
+        ->repeatable->toBeTrue();
 });

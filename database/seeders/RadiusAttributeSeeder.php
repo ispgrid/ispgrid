@@ -11,6 +11,8 @@ class RadiusAttributeSeeder extends Seeder
      * Attributes staff may add as custom reply attributes. Not listed on purpose: Framed-IP-Address,
      * Framed-Pool, Mikrotik-Rate-Limit, Mikrotik-Address-List (own form fields) and Session-Timeout,
      * Reply-Message and the Mikrotik limit attributes (set by isp).
+     *
+     * The app owns this table, so every run corrects type, repeatable and description.
      */
     public function run(): void
     {
@@ -26,7 +28,7 @@ class RadiusAttributeSeeder extends Seeder
         ];
 
         foreach ($attributes as [$name, $type, $repeatable, $description]) {
-            RadiusAttribute::query()->firstOrCreate(['name' => $name], [
+            RadiusAttribute::query()->updateOrCreate(['name' => $name], [
                 'type' => $type,
                 'repeatable' => $repeatable,
                 'description' => $description,

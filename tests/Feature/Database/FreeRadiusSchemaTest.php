@@ -41,6 +41,8 @@ it('refreshes an existing MAC binding instead of adding a second row', function 
     expect(DB::table('account_macs')->count())->toBe(1);
 });
 
+// isp never reaches this insert: it checks the MAC's owner first, and its own upsert would silently
+// update the row. The unique key tested here is the last line of defence behind that check.
 it('refuses to bind one MAC to two accounts', function () {
     bindMac('alice', 'AABBCCDDEEFF');
 
