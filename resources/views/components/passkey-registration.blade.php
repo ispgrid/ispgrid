@@ -66,50 +66,36 @@
     }"
 >
     <template x-if="!supported">
-        <flux:text>{{ __('Passkeys are not supported in this browser.') }}</flux:text>
+        <x-ui.text muted>{{ __('Passkeys are not supported in this browser.') }}</x-ui.text>
     </template>
 
     <template x-if="supported && !showForm">
         <div>
-            <flux:button
-                variant="primary"
-                icon="plus"
-                x-on:click="showForm = true"
-            >
-                {{ __('Add passkey') }}
-            </flux:button>
+            <x-ui.button icon="plus" x-on:click="showForm = true">{{ __('Add passkey') }}</x-ui.button>
         </div>
     </template>
 
     <template x-if="supported && showForm">
-        <div class="space-y-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-4">
-            <flux:input
-                label="{{ __('Passkey name') }}"
+        <div class="space-y-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+            <x-ui.input
+                id="passkey-name"
+                :label="__('Passkey name')"
                 x-model="name"
-                placeholder="{{ __('e.g., MacBook Pro, iPhone') }}"
+                :placeholder="__('e.g., MacBook Pro, iPhone')"
                 x-on:keydown.enter.prevent="register()"
                 x-ref="passkeyNameInput"
                 x-init="$nextTick(() => $refs.passkeyNameInput?.focus())"
+                :description="__('Give this passkey a name to help you identify it later.')"
             />
-            <flux:text class="!mt-1">{{ __('Give this passkey a name to help you identify it later.') }}</flux:text>
 
             <p x-show="error" x-text="error" x-cloak class="text-sm text-red-600 dark:text-red-400"></p>
 
             <div class="flex gap-2">
-                <flux:button
-                    variant="primary"
-                    x-on:click="register()"
-                    x-bind:disabled="loading || !name.trim()"
-                >
+                <x-ui.button x-on:click="register()" x-bind:disabled="loading || !name.trim()">
                     <span x-show="!loading">{{ __('Register passkey') }}</span>
                     <span x-show="loading" x-cloak>{{ __('Registering...') }}</span>
-                </flux:button>
-                <flux:button
-                    variant="ghost"
-                    x-on:click="cancel()"
-                >
-                    {{ __('Cancel') }}
-                </flux:button>
+                </x-ui.button>
+                <x-ui.button variant="ghost" x-on:click="cancel()">{{ __('Cancel') }}</x-ui.button>
             </div>
         </div>
     </template>

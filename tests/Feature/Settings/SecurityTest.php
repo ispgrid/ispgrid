@@ -108,6 +108,7 @@ class SecurityTest extends TestCase
             ->call('updatePassword');
 
         $response->assertHasNoErrors();
+        $response->assertDispatched('toast', message: 'Password updated.');
 
         $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
     }
