@@ -358,6 +358,13 @@ check "Unlisted day counts as a full-day slot"   Accept "$(ppp t_slot_full pass 
 section "Routers (nas table)"
 probe "Router loaded from the nas table is answered" 127.0.0.3 ma ANSWERED
 probe "Deleted router gets no answer"            127.0.0.4 ma DROPPED
+probe "Old router: plain request answered"       127.0.0.3 plain ANSWERED
+probe "Old router: Proxy-State without Message-Auth dropped" 127.0.0.3 proxy-state DROPPED
+probe "Old router: Proxy-State with Message-Auth answered" 127.0.0.3 ma-proxy-state ANSWERED
+probe "New router: request with Message-Auth answered" 127.0.0.2 ma ANSWERED
+probe "New router: request without Message-Auth dropped" 127.0.0.2 plain DROPPED
+probe "New router: Proxy-State without Message-Auth dropped" 127.0.0.2 proxy-state DROPPED
+probe "Wrong Message-Auth dropped by FreeRADIUS itself" 127.0.0.2 bad-ma DROPPED
 
 section "Accounting"
 acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" 2>&1)"

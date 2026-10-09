@@ -44,6 +44,7 @@
 #    Isp-Disabled-Pool    1 = accepted into the disabled pool for one of those reasons
 #    Isp-Throttled        1 = accepted into the disabled pool by the reject throttle
 #    Isp-Reject-Reason    why the request was rejected; stored in radpostauth.reply_msg
+#    Isp-Require-Ma       1 = the router must send Message-Authenticator (nas.require_message_auth)
 #
 
 server isp {
@@ -66,6 +67,28 @@ listen {
 }
 
 authorize {
+	#
+	#  0. Blast-RADIUS (CVE-2024-3596). FreeRADIUS 3.2 applies no Message-Authenticator rule to routers
+	#     loaded from the nas table, so this server does it and sends no answer at all (do_not_respond):
+	#       - a request with Proxy-State but no Message-Authenticator, from any router;
+	#       - a request without Message-Authenticator from a router with nas.require_message_auth = 1
+	#         (the app sets it from the RouterOS version: 7.15 and later, 6.49.18 and later).
+	#     A wrong Message-Authenticator never gets here: FreeRADIUS drops the packet itself.
+	#     The router is found by the packet's source address, the same way FreeRADIUS finds the client.
+	#     Routers that send Message-Authenticator (all current RouterOS) never cost a query.
+	#
+	if (!&Message-Authenticator) {
+		if (&Proxy-State) {
+			do_not_respond
+		}
+		update control {
+			&Isp-Require-Ma := "%{sql:SELECT require_message_auth FROM nas WHERE nasname = '%{Packet-Src-IP-Address}' AND deleted_at IS NULL LIMIT 1}"
+		}
+		if ("%{control:Isp-Require-Ma}" == "1") {
+			do_not_respond
+		}
+	}
+
 	filter_username
 
 	#
