@@ -65,6 +65,20 @@ seed() {
   sql "INSERT INTO ipoes (account_id, username, ip_address) VALUES
          (0, 't_ipoe', '10.99.0.10'), (0, 't_ipoe2', '10.99.0.11'), (0, 't_ipoe_hs', '10.99.0.12'),
          (0, 't_ipoe_gone', '10.99.0.13');"
+  add_user t_ipoe_off  IPOE    2 1 "01 Jan 2030 00:00"
+  add_user t_ipoe_sus  IPOE    3 1 "01 Jan 2030 00:00"
+  add_user t_ipoe_term IPOE    4 1 "01 Jan 2030 00:00"
+  add_user t_ipoe_exp  IPOE    1 1 "01 Jan 2020 00:00" 1
+  add_user t_ipoe_hard IPOE    1 1 "01 Jan 2020 00:00" 0
+  add_user t_ipoe_noplan IPOE  1 1 "01 Jan 2030 00:00"
+  add_user t_ipoe_q    IPOE    1 1 "01 Jan 2030 00:00"
+  sql "DELETE FROM radusergroup WHERE username = 't_ipoe_noplan';
+       INSERT INTO radreply (username, attribute, op, value) VALUES
+         ('t_ipoe_off', 'Framed-IP-Address', ':=', '10.99.0.20'), ('t_ipoe_q', 'Isp-Data-Limit', ':=', '1000');
+       INSERT INTO ipoes (account_id, username, ip_address) VALUES
+         (0, 't_ipoe_off', '10.99.0.20'), (0, 't_ipoe_sus', '10.99.0.21'), (0, 't_ipoe_term', '10.99.0.22'),
+         (0, 't_ipoe_exp', '10.99.0.23'), (0, 't_ipoe_hard', '10.99.0.24'), (0, 't_ipoe_noplan', '10.99.0.25'),
+         (0, 't_ipoe_q', '10.99.0.26');"
   sql "DELETE FROM radusergroup WHERE username IN ('t_noplan', 't_hs_noplan')"
 
   # Limits: t_q_fup / t_q_big on the plan with a 1 GB limit and fair usage, the rest per user
@@ -356,6 +370,23 @@ acct "User-Name=$I2\nAcct-Status-Type=Start\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Ad
 acct "User-Name=$I2\nAcct-Status-Type=Stop\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.99.0.10\nCalling-Station-Id=$I2\nAcct-Session-Time=60\n"
 rows=$(sql "SELECT GROUP_CONCAT(CONCAT(username, ':', acctstoptime IS NOT NULL)) FROM radacct WHERE acctsessionid = 't-ipoe-1'")
 result $([[ "$rows" == "t_ipoe:1" ]] && echo 1 || echo 0) "Accounting under the account name, Start and Stop in one row" "(rows: $rows)"
+
+section "IPoE disabled pool (notice page)"
+check "Inactive IPoE -> disabled pool 1M/1M"     Accept "$(maclogin DE:AD:00:00:00:20 10.99.0.20)" \
+      'Framed-Pool = "disabled_pool"' 'Mikrotik-Rate-Limit = "1M/1M"' 'Account is inactive' '!Framed-IP-Address' '!40M'
+bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_ipoe_off'")
+result $([[ "$bound" -eq 0 ]] && echo 1 || echo 0) "  no device bound while disabled" "($bound rows)"
+check "Suspended IPoE -> disabled pool"          Accept "$(maclogin DE:AD:00:00:00:21 10.99.0.21)" \
+      'Framed-Pool = "disabled_pool"' 'Account is suspended'
+check "Terminated IPoE -> reject"                Reject "$(maclogin DE:AD:00:00:00:22 10.99.0.22)" 'Account is terminated'
+check "Expired IPoE, expire type 1 -> disabled pool" Accept "$(maclogin DE:AD:00:00:00:23 10.99.0.23)" \
+      'Framed-Pool = "disabled_pool"' 'Account expired'
+check "Expired IPoE, expire type 0 -> reject"    Reject "$(maclogin DE:AD:00:00:00:24 10.99.0.24)" 'Account expired'
+check "IPoE without a plan -> disabled pool"     Accept "$(maclogin DE:AD:00:00:00:25 10.99.0.25)" \
+      'Framed-Pool = "disabled_pool"' 'No plan assigned'
+used t_ipoe_q 2000 60 "NOW() - INTERVAL 1 MINUTE"
+check "IPoE over the limit, no fair usage -> disabled pool" Accept "$(maclogin DE:AD:00:00:00:26 10.99.0.26)" \
+      'Framed-Pool = "disabled_pool"' 'Data limit reached'
 
 section "Request validation"
 check "Unknown user, same answer as wrong pass"  Reject "$(ppp t_nobody pass $M5)" 'Wrong Password'

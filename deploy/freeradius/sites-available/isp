@@ -44,7 +44,8 @@
 #    Isp-Password-Failed  1 = the password check failed
 #    Isp-Online-Sessions  Hotspot: open sessions from other devices
 #    Isp-Plan-Count       plan groups of the user (0 = no plan)
-#    Isp-Disabled-Reason  inactive, expired (type 1) or no plan: PPPoE gets the disabled pool
+#    Isp-Disabled-Reason  inactive, suspended, expired (type 1), no plan, limit, slot: PPPoE and IPoE get the
+#                         disabled pool
 #    Isp-Disabled-Pool    1 = accepted into the disabled pool for one of those reasons
 #    Isp-Throttled        1 = accepted into the disabled pool by the reject throttle
 #    Isp-Reject-Reason    why the request was rejected; stored in radpostauth.reply_msg
@@ -752,11 +753,12 @@ post-auth {
 	}
 
 	#
-	#     Disabled pool: PPPoE connects at 1M/1M in the disabled pool. Hotspot and IPoE have no
-	#     disabled pool, so they are rejected with the same message.
+	#     Disabled pool: PPPoE and IPoE connect at 1M/1M in the disabled pool (the router sends IPoE
+	#     web traffic to the notice page). Hotspot (login page) is rejected with the same message,
+	#     which the login page shows.
 	#
 	if (&control:Isp-Disabled-Reason) {
-		if (&control:Acct-Packet-Type == "PPP") {
+		if ((&control:Acct-Packet-Type == "PPP") || (&control:Acct-Service-Type == "IPOE")) {
 			update control {
 				&Isp-Disabled-Pool := 1
 			}
