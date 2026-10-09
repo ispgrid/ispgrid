@@ -4,6 +4,7 @@
 
 <x-ui.nav-group :heading="__('Network')">
     <x-ui.nav-item :href="route('routers.index')" icon="server-stack" :current="request()->routeIs('routers.*')">{{ __('Routers') }}</x-ui.nav-item>
+    <x-ui.nav-item :href="route('pools.index')" icon="circle-stack" :current="request()->routeIs('pools.*')">{{ __('Pools') }}</x-ui.nav-item>
 </x-ui.nav-group>
 
 <x-ui.nav-group :heading="__('System')">
