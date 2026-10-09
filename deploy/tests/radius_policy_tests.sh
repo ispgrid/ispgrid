@@ -49,6 +49,10 @@ seed() {
   add_user t_hs_off    HOTSPOT 2 0 "01 Jan 2030 00:00"
   add_user t_hs_noplan HOTSPOT 1 0 "01 Jan 2030 00:00"
   add_user t_badrow    PPP     1 0 "01 Jan 2030 00:00"
+  add_user t_suspended PPP     3 0 "01 Jan 2030 00:00"
+  add_user t_terminated PPP    4 0 "01 Jan 2030 00:00"
+  add_user t_status9   PPP     9 0 "01 Jan 2030 00:00"
+  add_user t_hs_sus    HOTSPOT 3 0 "01 Jan 2030 00:00"
   sql "DELETE FROM radusergroup WHERE username IN ('t_noplan', 't_hs_noplan')"
 
   # Limits: t_q_fup / t_q_big on the plan with a 1 GB limit and fair usage, the rest per user
@@ -276,6 +280,13 @@ check "Expired, expire type 1 -> disabled pool"  Accept "$(ppp t_exp_soft pass $
 check "  same, wrong password"                   Reject "$(ppp t_exp_soft wrong $M2)" 'Wrong Password'
 check "No plan -> disabled pool 1M/1M"           Accept "$(ppp t_noplan pass $M2)" \
       'Framed-Pool = "disabled_pool"' 'Mikrotik-Rate-Limit = "1M/1M"' 'No plan assigned'
+check "Suspended -> disabled pool 1M/1M"         Accept "$(ppp t_suspended pass $M2)" \
+      'Framed-Pool = "disabled_pool"' 'Mikrotik-Rate-Limit = "1M/1M"' 'Account is suspended'
+check "Terminated -> reject"                     Reject "$(ppp t_terminated pass $M2)" 'Account is terminated'
+logged "  reason logged"                         t_terminated 'Account is terminated'
+check "  same, wrong password: no account info"  Reject "$(ppp t_terminated wrong $M2)" 'Wrong Password'
+check "Unknown status (9) counts as inactive"    Accept "$(ppp t_status9 pass $M2)" \
+      'Framed-Pool = "disabled_pool"' 'Account is inactive'
 
 section "Hotspot (no MAC binding, Acct-Mac-Type = devices online at once)"
 check "Hotspot login, any MAC"                   Accept "$(login t_hs pass $M1)" 'Mikrotik-Rate-Limit = "40M/40M"'
@@ -290,6 +301,7 @@ sql "UPDATE radacct SET acctstoptime = NOW() WHERE acctuniqueid = 't-hs-2'"
 check "Third device after one logged out"        Accept "$(login t_hs pass $M5)"
 check "Hotspot inactive account"                 Reject "$(login t_hs_off pass $M6)" 'Account is inactive'
 check "Hotspot account with no plan"             Reject "$(login t_hs_noplan pass $M6)" 'No plan assigned'
+check "Hotspot suspended account"                Reject "$(login t_hs_sus pass $M6)" 'Account is suspended'
 check "Hotspot account via PPP"                  Reject "$(ppp t_hs pass $M3)" 'may only connect via HOTSPOT'
 spam $((LIMIT + 1)) "$(login t_hs_lock wrong $M5)"
 check "Hotspot locked after $((LIMIT + 1)) wrong passwords" Reject "$(login t_hs_lock pass $M6)" 'Too many failed logins'

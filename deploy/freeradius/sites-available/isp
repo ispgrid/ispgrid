@@ -15,7 +15,8 @@
 #  Data (stock FreeRADIUS schema, written by the management app):
 #    radcheck         per user: Cleartext-Password, Expiration, Acct-Service-Type (PPP|IPOE|HOTSPOT),
 #                     Acct-Mac-Type (PPP: max bound devices, HOTSPOT: max devices online at once,
-#                     0 = no limit), Acct-Status-Id (1 = active, else inactive), optional Expire-Type
+#                     0 = no limit), Acct-Status-Id (1 active, 2 inactive, 3 suspended,
+#                     4 terminated; other values = 2), optional Expire-Type
 #    radusergroup     user -> plan group (no row = "No plan assigned", disabled pool)
 #    radgroupreply    per plan: Mikrotik-Rate-Limit, Framed-Pool, Mikrotik-Address-List (op "=")
 #    radreply         per user: Framed-IP-Address, overrides such as Mikrotik-Rate-Limit (op ":=")
@@ -460,6 +461,16 @@ post-auth {
 	elsif ((&control:Acct-Packet-Type == "LOGIN") && (!&control:Acct-Service-Type || ((&control:Acct-Service-Type != "IPOE") && (&control:Acct-Service-Type != "HOTSPOT")))) {
 		update control {
 			&Isp-Reject-Reason := "Error: %{User-Name} may only connect via %{%{control:Acct-Service-Type}:-an unknown service}"
+		}
+	}
+	elsif (&control:Acct-Status-Id && (&control:Acct-Status-Id == 4)) {
+		update control {
+			&Isp-Reject-Reason := "Account is terminated"
+		}
+	}
+	elsif (&control:Acct-Status-Id && (&control:Acct-Status-Id == 3)) {
+		update control {
+			&Isp-Disabled-Reason := "Account is suspended"
 		}
 	}
 	elsif (!&control:Acct-Status-Id || (&control:Acct-Status-Id != 1)) {
