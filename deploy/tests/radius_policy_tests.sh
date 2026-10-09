@@ -20,7 +20,7 @@ seed() {
   sql "DELETE FROM radcheck WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
        DELETE FROM radreply WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
        DELETE FROM radusergroup WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
-       DELETE FROM radgroupreply WHERE groupname IN ('t_plan40', 't_plan_fup');
+       DELETE FROM radgroupreply WHERE groupname IN ('t_plan40', 't_plan_fup', 't_plan_lists');
        DELETE FROM account_macs WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
        DELETE FROM reject_counters WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
        DELETE FROM radacct WHERE username LIKE 't\_%' OR acctsessionid LIKE 't-%';
@@ -33,7 +33,10 @@ seed() {
          ('t_plan_fup', 'Mikrotik-Rate-Limit', '=', '40M/40M'),
          ('t_plan_fup', 'Framed-Pool', '=', 'pppoe'),
          ('t_plan_fup', 'Isp-Data-Limit', '=', '1000000000'),
-         ('t_plan_fup', 'Isp-Fup-Rate', '=', '2M/2M');"
+         ('t_plan_fup', 'Isp-Fup-Rate', '=', '2M/2M'),
+         ('t_plan_lists', 'Mikrotik-Rate-Limit', '=', '40M/40M'),
+         ('t_plan_lists', 'Isp-Plan-Address-List', '+=', 't_plan_a'),
+         ('t_plan_lists', 'Isp-Plan-Address-List', '+=', 't_plan_b');"
 
   # user  type  status  mac_limit (PPP: bound devices, HOTSPOT: online at once)  expiration  [expire_type]
   add_user t_ppp       PPP     1 1 "01 Jan 2030 00:00"
@@ -79,6 +82,12 @@ seed() {
          (0, 't_ipoe_off', '10.99.0.20'), (0, 't_ipoe_sus', '10.99.0.21'), (0, 't_ipoe_term', '10.99.0.22'),
          (0, 't_ipoe_exp', '10.99.0.23'), (0, 't_ipoe_hard', '10.99.0.24'), (0, 't_ipoe_noplan', '10.99.0.25'),
          (0, 't_ipoe_q', '10.99.0.26');"
+  add_user t_lists_plan PPP    1 0 "01 Jan 2030 00:00"
+  add_user t_lists_own PPP     1 0 "01 Jan 2030 00:00"
+  add_user t_lists_off PPP     2 0 "01 Jan 2030 00:00"
+  sql "UPDATE radusergroup SET groupname = 't_plan_lists' WHERE username IN ('t_lists_plan', 't_lists_own', 't_lists_off');
+       INSERT INTO radreply (username, attribute, op, value) VALUES
+         ('t_lists_own', 'Mikrotik-Address-List', '+=', 't_own_a'), ('t_lists_own', 'Mikrotik-Address-List', '+=', 't_own_b');"
   sql "DELETE FROM radusergroup WHERE username IN ('t_noplan', 't_hs_noplan')"
 
   # Limits: t_q_fup / t_q_big on the plan with a 1 GB limit and fair usage, the rest per user
@@ -444,6 +453,14 @@ check "Hotspot outside the slot -> reject"       Reject "$(login t_slot_hs pass 
 check "Boost, inside the slot"                   Accept "$(ppp t_boost_in pass $M2)" 'Mikrotik-Rate-Limit = "100M/100M"'
 check "Boost, outside the slot"                  Accept "$(ppp t_boost_out pass $M2)" 'Mikrotik-Rate-Limit = "40M/40M"'
 check "Unlisted day counts as a full-day slot"   Accept "$(ppp t_slot_full pass $M2)" 'Framed-Pool = "pppoe"'
+
+section "Address lists"
+check "Plan's two lists are sent"                Accept "$(ppp t_lists_plan pass $M2)" \
+      'Mikrotik-Address-List = "t_plan_a"' 'Mikrotik-Address-List = "t_plan_b"' '!Isp-' '!Attr-'
+check "Account's own lists replace the plan's"   Accept "$(ppp t_lists_own pass $M2)" \
+      'Mikrotik-Address-List = "t_own_a"' 'Mikrotik-Address-List = "t_own_b"' '!t_plan_a' '!t_plan_b'
+check "No lists in the disabled pool"            Accept "$(ppp t_lists_off pass $M2)" \
+      'Framed-Pool = "disabled_pool"' '!Mikrotik-Address-List'
 
 section "Router binding (Isp-Nas)"
 check "Bound to this router"                     Accept "$(ppp t_bound pass $M2)" 'Mikrotik-Rate-Limit = "40M/40M"'

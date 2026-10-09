@@ -19,8 +19,8 @@
 #                     4 terminated; other values = 2), optional Expire-Type, optional Isp-Nas (the only
 #                     router allowed, its IP)
 #    radusergroup     user -> plan group (no row = "No plan assigned", disabled pool)
-#    radgroupreply    per plan: Mikrotik-Rate-Limit, Framed-Pool, Mikrotik-Address-List (op "=")
-#    radreply         per user: Framed-IP-Address, overrides such as Mikrotik-Rate-Limit (op ":=")
+#    radgroupreply    per plan: Mikrotik-Rate-Limit, Framed-Pool (op "="), Isp-Plan-Address-List (op "+=")
+#    radreply         per user: Framed-IP-Address, overrides (op ":="), Mikrotik-Address-List (op "+=")
 #    account_macs     bound device MACs (mac_norm = 12 uppercase hex digits): PPPoE routers, the IPoE device
 #    ipoes            IPoE: device IP -> account username (ip_address, username)
 #    reject_counters  recent rejects per user and MAC (PPPoE) or per user (Hotspot, mac = '')
@@ -559,6 +559,23 @@ post-auth {
 		&Isp-Slot-Mode !* ANY
 		&Isp-Slot-Rate !* ANY
 		&Isp-Slot-Full-Days !* ANY
+	}
+
+	#
+	#  Address lists: an account with its own lists (Mikrotik-Address-List, radreply "+=") gets only
+	#  those; otherwise it gets its plan's (Isp-Plan-Address-List, radgroupreply "+="). The plan uses
+	#  its own attribute because FreeRADIUS adds a plan's "+=" rows to the account's, which would send
+	#  both. The disabled pool and rejects drop all of them further down.
+	#
+	if (!&reply:Mikrotik-Address-List) {
+		foreach &reply:Isp-Plan-Address-List {
+			update reply {
+				&Mikrotik-Address-List += "%{Foreach-Variable-0}"
+			}
+		}
+	}
+	update reply {
+		&Isp-Plan-Address-List !* ANY
 	}
 
 	#
