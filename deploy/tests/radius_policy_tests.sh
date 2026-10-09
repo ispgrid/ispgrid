@@ -105,6 +105,29 @@ add_user() {
   fi
 }
 
+#  Test routers (nas rows, loaded when FreeRADIUS starts): 127.0.0.2 requires Message-Authenticator,
+#  127.0.0.3 doesn't, 127.0.0.4 is deleted. FreeRADIUS is restarted once when they had to be (re)created.
+PROBE_SECRET="t_probe_secret"
+seed_routers() {
+  local want="127.0.0.2:1:1,127.0.0.3:0:1,127.0.0.4:0:0" have
+  have=$(sql "SELECT GROUP_CONCAT(CONCAT(nasname, ':', require_message_auth, ':', deleted_at IS NULL) ORDER BY nasname) FROM nas WHERE shortname LIKE 't\_router\_%'")
+  [[ "$have" == "$want" ]] && return 0
+  sql "DELETE FROM nas WHERE shortname LIKE 't\_router\_%';
+       INSERT INTO nas (nasname, shortname, type, secret, require_message_auth, deleted_at) VALUES
+         ('127.0.0.2', 't_router_new', 'other', '$PROBE_SECRET', 1, NULL),
+         ('127.0.0.3', 't_router_old', 'other', '$PROBE_SECRET', 0, NULL),
+         ('127.0.0.4', 't_router_gone', 'other', '$PROBE_SECRET', 0, NOW());"
+  systemctl restart freeradius && sleep 2
+  echo "(FreeRADIUS restarted to load the test routers)"
+}
+
+#  probe <name> <router ip> <mode> <ANSWERED|DROPPED>: one hand-built request (radius_blast_probe.py)
+probe() {
+  local got
+  got=$(python3 /usr/local/bin/radius_blast_probe.py "$2" "$PROBE_SECRET" "$3")
+  result $([[ "$got" == "$4" ]] && echo 1 || echo 0) "$1" "(got $got, want $4)" "router $2, mode $3: $got (want $4)"
+}
+
 #  A finished session in radacct: used <user> <bytes> <seconds> <SQL start time>
 used() {
   local id="$1-$RANDOM$RANDOM"
@@ -210,6 +233,7 @@ OTHERDAY=${DAYS[$(( $(date +%u) % 7 ))]}
 TO_MIDNIGHT=$(( $(date -d 'tomorrow 00:00' +%s) - $(date +%s) ))
 
 seed
+seed_routers
 
 M1="D4:45:E8:00:00:01"; M2="D4:45:E8:00:00:02"; M3="D4-45-E8-00-00-03"; M4="d445.e800.0004"
 M5="D4:45:E8:00:00:05"; M6="D4:45:E8:00:00:06"; M7="D4:45:E8:00:00:07"
@@ -330,6 +354,10 @@ check "Hotspot outside the slot -> reject"       Reject "$(login t_slot_hs pass 
 check "Boost, inside the slot"                   Accept "$(ppp t_boost_in pass $M2)" 'Mikrotik-Rate-Limit = "100M/100M"'
 check "Boost, outside the slot"                  Accept "$(ppp t_boost_out pass $M2)" 'Mikrotik-Rate-Limit = "40M/40M"'
 check "Unlisted day counts as a full-day slot"   Accept "$(ppp t_slot_full pass $M2)" 'Framed-Pool = "pppoe"'
+
+section "Routers (nas table)"
+probe "Router loaded from the nas table is answered" 127.0.0.3 ma ANSWERED
+probe "Deleted router gets no answer"            127.0.0.4 ma DROPPED
 
 section "Accounting"
 acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" 2>&1)"
