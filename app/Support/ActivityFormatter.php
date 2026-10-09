@@ -2,8 +2,14 @@
 
 namespace App\Support;
 
+use App\Models\AddressList;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
+use App\Models\Ip;
+use App\Models\IpRange;
+use App\Models\Nas;
+use App\Models\Pool;
+use App\Models\RadiusSetting;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
@@ -20,6 +26,12 @@ final class ActivityFormatter
         User::class => 'Staff',
         AppSetting::class => 'App setting',
         ConnectionType::class => 'Connection type',
+        Nas::class => 'Router',
+        Pool::class => 'Pool',
+        IpRange::class => 'IP range',
+        Ip::class => 'IP address',
+        AddressList::class => 'Address list',
+        RadiusSetting::class => 'FreeRADIUS settings',
     ];
 
     public static function subjectType(?string $class): string
@@ -32,7 +44,12 @@ final class ActivityFormatter
         $subject = $activity->subject;
 
         return match (true) {
-            $subject instanceof User, $subject instanceof ConnectionType => $subject->name,
+            $subject instanceof User, $subject instanceof ConnectionType,
+            $subject instanceof Pool, $subject instanceof AddressList => $subject->name,
+            $subject instanceof Nas => $subject->shortname ?? $subject->nasname,
+            $subject instanceof IpRange => $subject->name.' ('.$subject->network.')',
+            $subject instanceof Ip => $subject->address,
+            $subject instanceof RadiusSetting => __('FreeRADIUS settings'),
             $subject instanceof AppSetting => $subject->key,
             default => '#'.$activity->subject_id,
         };

@@ -1,6 +1,11 @@
 <?php
 
+use App\Models\AddressList;
 use App\Models\ConnectionType;
+use App\Models\Ip;
+use App\Models\IpRange;
+use App\Models\Nas;
+use App\Models\Pool;
 use App\Models\User;
 
 it('lets staff disable other staff but not themselves', function () {
@@ -13,8 +18,16 @@ it('lets staff disable other staff but not themselves', function () {
 
 it('gives every staff member the system screens', function (string $ability) {
     expect(User::factory()->create()->can($ability))->toBeTrue();
-})->with(['manage-app-settings', 'view-activity-log']);
+})->with(['manage-app-settings', 'view-activity-log', 'manage-radius-settings']);
 
 it('lets every staff member manage connection types', function (string $ability) {
     expect(User::factory()->create()->can($ability, ConnectionType::factory()->create()))->toBeTrue();
 })->with(['update', 'delete', 'restore']);
+
+it('lets every staff member manage the network records', function (string $model, string $ability) {
+    expect(User::factory()->create()->can($ability, $model::factory()->create()))->toBeTrue();
+})->with([Nas::class, Pool::class, IpRange::class, AddressList::class])->with(['update', 'delete', 'restore']);
+
+it('lets every staff member take an IP out of the inventory and put it back', function (string $ability) {
+    expect(User::factory()->create()->can($ability, Ip::factory()->create()))->toBeTrue();
+})->with(['delete', 'restore']);
