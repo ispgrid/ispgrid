@@ -2,6 +2,10 @@
     <x-ui.nav-item :href="route('dashboard')" icon="home" :current="request()->routeIs('dashboard')">{{ __('Dashboard') }}</x-ui.nav-item>
 </x-ui.nav-group>
 
+<x-ui.nav-group :heading="__('Network')">
+    <x-ui.nav-item :href="route('routers.index')" icon="server-stack" :current="request()->routeIs('routers.*')">{{ __('Routers') }}</x-ui.nav-item>
+</x-ui.nav-group>
+
 <x-ui.nav-group :heading="__('System')">
     <x-ui.nav-item :href="route('staff.index')" icon="users" :current="request()->routeIs('staff.*')">{{ __('Staff') }}</x-ui.nav-item>
     <x-ui.nav-item :href="route('app-settings.edit')" icon="cog-6-tooth" :current="request()->routeIs('app-settings.*')">{{ __('App settings') }}</x-ui.nav-item>
