@@ -53,6 +53,10 @@ seed() {
   add_user t_terminated PPP    4 0 "01 Jan 2030 00:00"
   add_user t_status9   PPP     9 0 "01 Jan 2030 00:00"
   add_user t_hs_sus    HOTSPOT 3 0 "01 Jan 2030 00:00"
+  add_user t_bound     PPP     1 0 "01 Jan 2030 00:00"
+  add_user t_bound_other PPP   1 0 "01 Jan 2030 00:00"
+  sql "INSERT INTO radcheck (username, attribute, op, value) VALUES
+         ('t_bound', 'Isp-Nas', ':=', '127.0.0.1'), ('t_bound_other', 'Isp-Nas', ':=', '10.9.9.9');"
   sql "DELETE FROM radusergroup WHERE username IN ('t_noplan', 't_hs_noplan')"
 
   # Limits: t_q_fup / t_q_big on the plan with a 1 GB limit and fair usage, the rest per user
@@ -366,6 +370,13 @@ check "Hotspot outside the slot -> reject"       Reject "$(login t_slot_hs pass 
 check "Boost, inside the slot"                   Accept "$(ppp t_boost_in pass $M2)" 'Mikrotik-Rate-Limit = "100M/100M"'
 check "Boost, outside the slot"                  Accept "$(ppp t_boost_out pass $M2)" 'Mikrotik-Rate-Limit = "40M/40M"'
 check "Unlisted day counts as a full-day slot"   Accept "$(ppp t_slot_full pass $M2)" 'Framed-Pool = "pppoe"'
+
+section "Router binding (Isp-Nas)"
+check "Bound to this router"                     Accept "$(ppp t_bound pass $M2)" 'Mikrotik-Rate-Limit = "40M/40M"'
+check "Bound to another router -> reject"        Reject "$(ppp t_bound_other pass $M2)" 'Login not allowed on this router'
+logged "  reason logged"                         t_bound_other 'bound to 10.9.9.9'
+counted=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username = 't_bound_other'")
+result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  not counted by the throttle" "($counted rows)"
 
 section "Routers (nas table)"
 probe "Router loaded from the nas table is answered" 127.0.0.3 ma ANSWERED

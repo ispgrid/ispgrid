@@ -16,7 +16,8 @@
 #    radcheck         per user: Cleartext-Password, Expiration, Acct-Service-Type (PPP|IPOE|HOTSPOT),
 #                     Acct-Mac-Type (PPP: max bound devices, HOTSPOT: max devices online at once,
 #                     0 = no limit), Acct-Status-Id (1 active, 2 inactive, 3 suspended,
-#                     4 terminated; other values = 2), optional Expire-Type
+#                     4 terminated; other values = 2), optional Expire-Type, optional Isp-Nas (the only
+#                     router allowed, its IP)
 #    radusergroup     user -> plan group (no row = "No plan assigned", disabled pool)
 #    radgroupreply    per plan: Mikrotik-Rate-Limit, Framed-Pool, Mikrotik-Address-List (op "=")
 #    radreply         per user: Framed-IP-Address, overrides such as Mikrotik-Rate-Limit (op ":=")
@@ -232,6 +233,22 @@ authorize {
 				&Isp-Expired := 1
 			}
 		}
+	}
+
+	#
+	#  4b. Router binding: an account with Isp-Nas (radcheck) may only log in through that router,
+	#      found by the packet's source address like the client itself. A password can't fix it, so it
+	#      is rejected here and not counted by the throttle.
+	#
+	if (&control:Isp-Nas && (&control:Isp-Nas != &Packet-Src-IP-Address)) {
+		update reply {
+			&Reply-Message := "Login not allowed on this router"
+		}
+		update control {
+			&Isp-Reject-Reason := "Login not allowed on this router (%{Packet-Src-IP-Address}, bound to %{control:Isp-Nas})"
+			&Isp-Count-Reject := 0
+		}
+		reject
 	}
 
 	#
