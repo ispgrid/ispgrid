@@ -325,7 +325,10 @@ new #[Title('Plan')] class extends Component
         $columns = $this->columns();
         $customRows = $this->customAttributeRows();
 
-        DB::transaction(function () use ($plan, $columns, $customRows, $sync): void {
+        // Fetch the plan again inside the transaction: on a deadlock retry, a model updated by the rolled-back
+        // attempt looks unchanged and would skip its UPDATE while the sync still writes the new values.
+        DB::transaction(function () use ($columns, $customRows, $sync): void {
+            $plan = $this->planId === null ? null : Plan::query()->lockForUpdate()->findOrFail($this->planId);
             $before = $plan === null ? ['address_lists' => '', 'custom_attributes' => ''] : $this->relationSummary($plan);
 
             if ($plan === null) {

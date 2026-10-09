@@ -290,3 +290,21 @@ it('saves nothing when the FreeRADIUS rows cannot be written', function () {
     expect($plan->fresh()->name)->toBe('Home')
         ->and($plan->addressLists()->count())->toBe(0);
 });
+
+it('removes the row of a feature switched off on the form', function (string $field, string|bool $off, string $attribute) {
+    $plan = Plan::factory()->create([
+        'slug' => 'full', 'limit_after' => 100, 'daily_time_hours' => 4,
+        'is_fup' => true, 'fup_upload' => '2M', 'fup_download' => '2M',
+        'pool_id' => Pool::factory()->create()->id,
+    ]);
+    app(SyncPlanToRadius::class)->handle($plan);
+    expect(planRows('full'))->toHaveKey($attribute);
+
+    Livewire::test('pages::plans.form', ['plan' => $plan->id])->set($field, $off)->call('save')->assertHasNoErrors();
+
+    expect(planRows('full'))->not->toHaveKey($attribute)->toHaveKey('Mikrotik-Rate-Limit');
+})->with([
+    'fair usage' => ['is_fup', false, 'Isp-Fup-Rate'],
+    'a limit' => ['daily_time_hours', '', 'Isp-Daily-Time'],
+    'the pool' => ['pool_id', '', 'Framed-Pool'],
+]);

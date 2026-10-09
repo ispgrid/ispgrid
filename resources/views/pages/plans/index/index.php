@@ -88,7 +88,10 @@ new #[Title('Plans')] class extends Component
         $plan = Plan::onlyTrashed()->findOrFail($planId);
         $this->authorize('restore', $plan);
 
-        DB::transaction(function () use ($plan): void {
+        // Fetched again inside the transaction, so a deadlock retry restores the row instead of a model that
+        // already looks restored.
+        DB::transaction(function () use ($planId): void {
+            $plan = Plan::onlyTrashed()->lockForUpdate()->findOrFail($planId);
             $plan->restore();
             app(SyncPlanToRadius::class)->handle($plan);
         }, attempts: 3);

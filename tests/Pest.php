@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,6 +18,18 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+/*
+| Retry tests need the app's own transaction to be the outer one: inside RefreshDatabase's wrapping
+| transaction, Laravel rethrows a deadlock instead of retrying. They empty the tables before and after
+| each test instead, so nothing they write reaches another test.
+*/
+pest()->extend(TestCase::class)
+    ->use(DatabaseTruncation::class)
+    ->afterEach(function () {
+        $this->truncateDatabaseTables();
+    })
+    ->in('Retry');
 
 /*
 |--------------------------------------------------------------------------
