@@ -10,3 +10,7 @@ it('returns the outline path data of a known icon', function () {
 it('refuses an icon name it does not know', function () {
     Heroicons::paths('rocket');
 })->throws(InvalidArgumentException::class, 'Unknown icon [rocket].');
+
+it('has the Plans menu icon', function () {
+    expect(Heroicons::paths('rectangle-stack'))->not->toBeEmpty();
+});
