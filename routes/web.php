@@ -13,6 +13,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('network/address-lists', 'pages::network.address-lists')->name('address-lists.index');
     Route::livewire('staff', 'pages::staff.index')->name('staff.index');
     Route::livewire('system/app-settings', 'pages::system.app-settings')->name('app-settings.edit');
+    Route::livewire('system/freeradius', 'pages::system.radius-settings')->name('radius-settings.edit');
     Route::livewire('system/connection-types', 'pages::system.connection-types')->name('connection-types.index');
     Route::livewire('activity', 'pages::activity.index')->name('activity.index');
 });
