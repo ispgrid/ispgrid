@@ -321,8 +321,19 @@ authorize {
 			&Isp-Mac-Bound := "%{sql:SELECT mac_norm FROM account_macs WHERE username = '%{User-Name}' LIMIT 1}"
 		}
 		if ("%{control:Isp-Mac-Bound}" == "") {
-			#  The IP decides the account, so a MAC bound elsewhere may bind here too (a technician's
-			#  laptop testing several customers, or one box doing PPPoE and IPoE).
+			#  A MAC belongs to one account (account_macs.mac_norm is unique), like for PPPoE.
+			update control {
+				&Isp-Mac-Owners := "%{sql:SELECT COUNT(*) FROM account_macs WHERE mac_norm = '%{control:Isp-Mac}'}"
+			}
+			if (&control:Isp-Mac-Owners > 0) {
+				update reply {
+					&Reply-Message := "Login not allowed from this device"
+				}
+				update control {
+					&Isp-Reject-Reason := "MAC %{Calling-Station-Id} is bound to another account"
+				}
+				reject
+			}
 			update control {
 				&Isp-Learn-Mac := 1
 			}

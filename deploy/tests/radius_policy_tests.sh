@@ -361,8 +361,10 @@ result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  IPoE rejects are never c
 sql "DELETE FROM account_macs WHERE username = 't_ipoe'"
 note "Setup: Reset device (the account_macs row of t_ipoe deleted)"
 check "After Reset device, the new device binds" Accept "$(maclogin $I2 10.99.0.10)" "New device $I2 registered"
-check "Same device on another account's IP binds there too" Accept "$(maclogin $I2 10.99.0.11)" "New device $I2 registered"
-logged "  logged under that account"            t_ipoe2 'New device'
+check "Device bound to another account -> reject" Reject "$(maclogin $I2 10.99.0.11)" 'Login not allowed from this device'
+logged "  reason logged"                         t_ipoe2 'bound to another account'
+bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_ipoe2'")
+result $([[ "$bound" -eq 0 ]] && echo 1 || echo 0) "  not bound (a MAC belongs to one account)" "($bound rows)"
 check "IP not assigned (a page-login device)"   Reject "$(maclogin $I3 10.99.0.99)"
 logged "  logged as not an IPoE device"          "$I3" 'Not an IPoE device (IP 10.99.0.99 not assigned, login page shown)'
 check "MAC login without the device IP"          Reject "$(maclogin $I3)" 'without the device IP'
