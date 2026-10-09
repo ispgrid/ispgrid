@@ -6,6 +6,9 @@ Route::redirect('/', '/dashboard')->name('home');
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
+    Route::livewire('plans', 'pages::plans.index')->name('plans.index');
+    Route::livewire('plans/create', 'pages::plans.form')->name('plans.create');
+    Route::livewire('plans/{plan}/edit', 'pages::plans.form')->name('plans.edit');
     Route::livewire('network/routers', 'pages::network.routers')->name('routers.index');
     Route::livewire('network/pools', 'pages::network.pools')->name('pools.index');
     Route::livewire('network/ip-ranges', 'pages::network.ip-ranges')->name('ip-ranges.index');

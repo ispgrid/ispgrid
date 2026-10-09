@@ -13,6 +13,7 @@
         },
     }"
     x-on:toast.window="add($event.detail.message, $event.detail.variant)"
+    @if (session('toast')) x-init="add(@js(session('toast')))" @endif
     aria-live="polite"
     class="pointer-events-none fixed end-4 bottom-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2"
 >

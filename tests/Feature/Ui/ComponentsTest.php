@@ -46,3 +46,31 @@ it('keeps a danger toast until it is dismissed', function () {
         ->assertSee("if (toast.variant !== 'danger')", false)
         ->assertSee('aria-label="Dismiss"', false);
 });
+
+it('shows a toast the previous page left in the session', function () {
+    $this->withSession(['toast' => 'Plan saved.'])
+        ->blade('<x-ui.toast />')
+        ->assertSee("x-init=\"add('Plan saved.')\"", false);
+});
+
+it('marks only the tabs that hold an error', function () {
+    $view = $this->blade(
+        '<x-ui.tabs :tabs="$tabs" :invalid="[\'speed\']">Body</x-ui.tabs>',
+        ['tabs' => ['general' => 'General', 'speed' => 'Speed']],
+    );
+
+    $view->assertSeeInOrder(['General', 'Speed', '(has errors)']);
+    expect(substr_count((string) $view, '(has errors)'))->toBe(1);
+});
+
+it('folds a menu group away unless one of its pages is open', function () {
+    $this->blade('<x-ui.nav-group name="network" heading="Network" collapsible>Links</x-ui.nav-group>')
+        ->assertSee("x-data=\"navGroup('network', false)\"", false)
+        ->assertSee('aria-expanded="false"', false)
+        ->assertSee('x-cloak', false);
+
+    $this->blade('<x-ui.nav-group name="network" heading="Network" collapsible :active="true">Links</x-ui.nav-group>')
+        ->assertSee("x-data=\"navGroup('network', true)\"", false)
+        ->assertSee('aria-expanded="true"', false)
+        ->assertDontSee('x-cloak', false);
+});

@@ -5,6 +5,7 @@ use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\IpRange;
 use App\Models\Nas;
+use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\User;
 
@@ -31,3 +32,7 @@ it('lets every staff member manage the network records', function (string $model
 it('lets every staff member take an IP out of the inventory and put it back', function (string $ability) {
     expect(User::factory()->create()->can($ability, Ip::factory()->create()))->toBeTrue();
 })->with(['delete', 'restore']);
+
+it('lets every staff member manage plans', function (string $ability) {
+    expect(User::factory()->create()->can($ability, Plan::factory()->create()))->toBeTrue();
+})->with(['update', 'delete', 'restore']);

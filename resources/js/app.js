@@ -24,4 +24,28 @@ document.addEventListener('livewire:navigating', (event) => {
     event.detail.onSwap(() => applyAppearance(localStorage.getItem('appearance') ?? 'system'));
 });
 
+// A collapsible menu group: open while one of its pages is current, otherwise as the viewer last left it.
+Alpine.data('navGroup', (name, active) => ({
+    open: active,
+
+    init() {
+        if (!active) {
+            try {
+                this.open = localStorage.getItem(`nav-group:${name}`) === 'open';
+            } catch {
+                // Storage blocked: stay closed.
+            }
+        }
+    },
+
+    toggle() {
+        this.open = !this.open;
+        try {
+            localStorage.setItem(`nav-group:${name}`, this.open ? 'open' : 'closed');
+        } catch {
+            // Storage blocked: the group still opens, it is just not remembered.
+        }
+    },
+}));
+
 Livewire.start();
