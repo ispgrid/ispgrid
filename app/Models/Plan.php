@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * A service plan. Its slug is the FreeRADIUS group name and never changes.
@@ -25,7 +27,34 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Plan extends Model
 {
     /** @use HasFactory<PlanFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, LogsActivity, SoftDeletes;
+
+    /**
+     * The database defaults, so a plan created in this request does not log them as changed on its first update.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_fup' => false,
+        'slot_full_days' => false,
+    ];
+
+    /**
+     * Every column staff edit on the plan form. Address lists and custom attributes live in other tables; the
+     * form logs their changes itself.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logOnly([
+            'slug', 'name', 'validity', 'description', 'price',
+            'upload', 'download', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
+            'burst_time', 'priority', 'min_upload', 'min_download',
+            'is_fup', 'limit_after', 'fup_upload', 'fup_download',
+            'time_limit_hours', 'daily_data_gb', 'daily_time_hours', 'monthly_data_gb', 'monthly_time_hours',
+            'slot_mode', 'slot_days', 'slot_from', 'slot_to', 'slot_full_days', 'slot_upload', 'slot_download',
+            'pool_id',
+        ])->logOnlyDirty()->dontLogEmptyChanges();
+    }
 
     /**
      * @return array<string, string>
@@ -33,11 +62,33 @@ class Plan extends Model
     protected function casts(): array
     {
         return [
+            'validity' => 'integer',
             'price' => 'decimal:2',
+            'burst_time' => 'integer',
+            'priority' => 'integer',
             'is_fup' => 'boolean',
-            'slot_full_days' => 'boolean',
+            'limit_after' => 'integer',
+            'time_limit_hours' => 'integer',
+            'daily_data_gb' => 'integer',
+            'daily_time_hours' => 'integer',
+            'monthly_data_gb' => 'integer',
+            'monthly_time_hours' => 'integer',
             'slot_mode' => SlotMode::class,
+            'slot_from' => 'integer',
+            'slot_to' => 'integer',
+            'slot_full_days' => 'boolean',
+            'pool_id' => 'integer',
         ];
+    }
+
+    /**
+     * Customers on this plan (live ones; deleted accounts are left out by the soft-delete scope).
+     *
+     * @return HasMany<Account, $this>
+     */
+    public function accounts(): HasMany
+    {
+        return $this->hasMany(Account::class);
     }
 
     /**

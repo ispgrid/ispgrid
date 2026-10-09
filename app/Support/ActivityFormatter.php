@@ -8,6 +8,7 @@ use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\IpRange;
 use App\Models\Nas;
+use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Models\User;
@@ -31,6 +32,7 @@ final class ActivityFormatter
         IpRange::class => 'IP range',
         Ip::class => 'IP address',
         AddressList::class => 'Address list',
+        Plan::class => 'Plan',
         RadiusSetting::class => 'FreeRADIUS settings',
     ];
 
@@ -45,7 +47,7 @@ final class ActivityFormatter
 
         return match (true) {
             $subject instanceof User, $subject instanceof ConnectionType,
-            $subject instanceof Pool, $subject instanceof AddressList => $subject->name,
+            $subject instanceof Pool, $subject instanceof AddressList, $subject instanceof Plan => $subject->name,
             $subject instanceof Nas => $subject->shortname ?? $subject->nasname,
             $subject instanceof IpRange => $subject->name.' ('.$subject->network.')',
             $subject instanceof Ip => $subject->address,

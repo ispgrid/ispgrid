@@ -4,8 +4,10 @@ use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\Nas;
+use App\Models\Plan;
 use App\Models\RadiusSetting;
 use App\Models\User;
+use App\Support\ActivityFormatter;
 use Database\Seeders\RadiusSettingSeeder;
 use Spatie\Activitylog\Models\Activity;
 
@@ -107,4 +109,18 @@ it('records an IP taken out of the inventory but not every IP a range adds', fun
 
     expect(Activity::query()->where('subject_type', $ip->getMorphClass())->pluck('event')->all())
         ->toBe(['deleted', 'restored']);
+});
+
+it('records a plan speed change with the old and new value', function () {
+    $plan = Plan::factory()->create(['name' => 'Home 25', 'download' => '25M']);
+
+    $plan->update(['download' => '50M']);
+
+    $activity = Activity::query()->latest('id')->firstOrFail();
+    $changes = collect($activity->attribute_changes)->toArray();
+
+    expect($changes['old'])->toBe(['download' => '25M'])
+        ->and($changes['attributes'])->toBe(['download' => '50M'])
+        ->and(ActivityFormatter::subjectType($activity->subject_type))->toBe('Plan')
+        ->and(ActivityFormatter::subjectName($activity))->toBe('Home 25');
 });
