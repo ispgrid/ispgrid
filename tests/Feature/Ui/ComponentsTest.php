@@ -40,3 +40,9 @@ it('opens a modal only for its own name', function () {
         ->assertSee("name: 'add-staff'", false)
         ->assertSee('Body');
 });
+
+it('keeps a danger toast until it is dismissed', function () {
+    $this->blade('<x-ui.toast />')
+        ->assertSee("if (toast.variant !== 'danger')", false)
+        ->assertSee('aria-label="Dismiss"', false);
+});

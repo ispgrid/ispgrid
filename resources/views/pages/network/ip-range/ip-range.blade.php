@@ -50,7 +50,9 @@
             <tr wire:key="ip-{{ $row['id'] }}">
                 <x-ui.td class="font-medium tabular-nums">{{ $row['address'] }}</x-ui.td>
                 <x-ui.td>
-                    @if ($row['state'] === 'removed')
+                    @if ($row['state'] === 'gateway')
+                        <x-ui.badge>{{ __('Gateway') }}</x-ui.badge>
+                    @elseif ($row['state'] === 'removed')
                         <x-ui.badge>{{ __('Taken out') }}</x-ui.badge>
                     @elseif ($row['state'] === 'given-out')
                         <x-ui.badge color="blue">{{ __('Given out') }}</x-ui.badge>

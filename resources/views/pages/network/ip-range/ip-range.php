@@ -88,7 +88,7 @@ new #[Title('IP range')] class extends Component
     }
 
     /**
-     * @return list<array{model: Ip, id: int, address: string, state: string, customer: ?string}>
+     * @return list<array{model: Ip, id: int, address: string, state: 'gateway'|'removed'|'given-out'|'free', customer: ?string}>
      */
     #[Computed]
     public function rows(): array
@@ -98,6 +98,7 @@ new #[Title('IP range')] class extends Component
             'id' => $ip->id,
             'address' => $ip->address,
             'state' => match (true) {
+                $ip->address === $this->range->gateway => 'gateway',
                 $ip->trashed() => 'removed',
                 $ip->is_used || $ip->account !== null => 'given-out',
                 default => 'free',
@@ -132,6 +133,12 @@ new #[Title('IP range')] class extends Component
 
         if ($this->range->trashed()) {
             $this->toast(__('Restore the range first.'), 'danger');
+
+            return;
+        }
+
+        if ($ip->address === $this->range->gateway) {
+            $this->toast(__(':address is the gateway of this range, so no customer may get it.', ['address' => $ip->address]), 'danger');
 
             return;
         }

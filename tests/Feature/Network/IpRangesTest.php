@@ -187,3 +187,22 @@ it('opens a range page and links the Network menu to the ranges', function () {
     $this->get(route('ip-ranges.show', $range))->assertOk();
     $this->get(route('dashboard'))->assertSee(route('ip-ranges.index'));
 });
+
+it('will not put the gateway back into the inventory', function () {
+    addRange(['network' => '10.28.0.0/29', 'gateway' => '10.28.0.1']);
+    $range = IpRange::query()->sole();
+
+    Livewire::test('pages::network.ip-ranges')
+        ->call('edit', $range->id)
+        ->set('gateway', '10.28.0.6')
+        ->call('save');
+
+    $gateway = Ip::onlyTrashed()->where('address', '10.28.0.6')->sole();
+
+    Livewire::test('pages::network.ip-range', ['ipRange' => $range->id])
+        ->assertDontSee('wire:click="restoreIp('.$gateway->id.')"', false)
+        ->call('restoreIp', $gateway->id)
+        ->assertDispatched('toast', variant: 'danger');
+
+    expect($gateway->fresh()->trashed())->toBeTrue();
+});

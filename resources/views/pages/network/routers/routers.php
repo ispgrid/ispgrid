@@ -49,10 +49,18 @@ new #[Title('Routers')] class extends Component
             ->select('nas.*')
             ->withCount('accounts')
             ->addSelect([
+                // Answered requests only: isp logs requests it drops (Blast-RADIUS checks) with reply '0'.
                 'last_auth_at' => DB::table('radpostauth')->selectRaw('max(authdate)')
-                    ->whereColumn('radpostauth.nasipaddress', 'nas.nasname'),
+                    ->whereColumn('radpostauth.nasipaddress', 'nas.nasname')
+                    ->where('reply', '!=', '0'),
+                'last_reply' => DB::table('radpostauth')->select('reply')
+                    ->whereColumn('radpostauth.nasipaddress', 'nas.nasname')
+                    ->orderByDesc('authdate')->orderByDesc('id')
+                    ->limit(1),
+                // Open sessions only, so a router's whole accounting history is never read.
                 'last_acct_at' => DB::table('radacct')->selectRaw('max(coalesce(acctupdatetime, acctstarttime))')
-                    ->whereColumn('radacct.nasipaddress', 'nas.nasname'),
+                    ->whereColumn('radacct.nasipaddress', 'nas.nasname')
+                    ->whereNull('acctstoptime'),
             ])
             ->orderByRaw('deleted_at is not null')
             ->orderBy('shortname')
@@ -60,7 +68,7 @@ new #[Title('Routers')] class extends Component
     }
 
     /**
-     * @return list<array{model: Nas, id: int, name: string, address: string, version: ?string, warning: ?string, customers: int, heard: ?string, silent: bool, trashed: bool}>
+     * @return list<array{model: Nas, id: int, name: string, address: string, version: ?string, warning: ?string, customers: int, heard: ?string, silent: bool, dropping: bool, trashed: bool}>
      */
     #[Computed]
     public function rows(): array
@@ -82,6 +90,7 @@ new #[Title('Routers')] class extends Component
                 'heard' => $heard?->diffForHumans(),
                 'silent' => ! $router->trashed()
                     && ($heard === null || ($router->updated_at !== null && $heard->lt($router->updated_at))),
+                'dropping' => ! $router->trashed() && $router->last_reply === '0',
                 'trashed' => $router->trashed(),
             ];
         })->all();

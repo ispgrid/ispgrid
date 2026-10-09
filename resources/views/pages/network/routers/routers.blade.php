@@ -43,6 +43,9 @@
                     @else
                         {{ $row['heard'] }}
                     @endif
+                    @if ($row['dropping'])
+                        <x-ui.badge color="red" class="mt-1">{{ __('Requests are being dropped: no Message-Authenticator. Check the RouterOS version.') }}</x-ui.badge>
+                    @endif
                 </x-ui.td>
                 <x-ui.td class="text-end whitespace-nowrap">
                     @if ($row['trashed'])

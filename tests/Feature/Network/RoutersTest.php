@@ -171,6 +171,19 @@ it('shows whether each router has sent a request since it was last saved', funct
         ->assertSeeInOrder(['silent', 'No request received since the last save', 'talking', '5 minutes ago']);
 });
 
+it('does not count dropped requests as heard and says they are being dropped', function () {
+    Nas::factory()->create(['shortname' => 'dropping', 'nasname' => '10.0.0.3', 'updated_at' => now()->subHour()]);
+    DB::table('radpostauth')->insert([
+        'username' => 'alice', 'reply' => '0', 'nasipaddress' => '10.0.0.3', 'authdate' => now()->subMinutes(2),
+        'reply_msg' => 'Dropped: no Message-Authenticator (this router must send it)',
+    ]);
+
+    Livewire::test('pages::network.routers')
+        ->assertSee('No request received since the last save')
+        ->assertSee('Requests are being dropped: no Message-Authenticator. Check the RouterOS version.')
+        ->assertDontSee('2 minutes ago');
+});
+
 it('fills in a generated secret', function () {
     Livewire::test('pages::network.routers')
         ->call('create')
