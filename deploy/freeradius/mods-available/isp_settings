@@ -1,0 +1,22 @@
+#  -*- text -*-
+#
+#  Caches the one-row settings table for the isp virtual server (step 3), so it is read
+#  once a day instead of on every request. The cache lives in memory: restart FreeRADIUS
+#  after changing settings to load the new values at once.
+#
+cache isp_settings {
+	driver = "rlm_cache_rbtree"
+	key = "settings"
+	ttl = 86400
+	add_stats = no
+
+	update {
+		&control:Expire-Type := &control:Expire-Type
+		&control:Disabled-Users-Pool := &control:Disabled-Users-Pool
+		&control:Reject-Requests := &control:Reject-Requests
+		&control:Reject-Session-Timeout := &control:Reject-Session-Timeout
+		&control:Default-Session-Timeout := &control:Default-Session-Timeout
+		&control:Count-And-Reject := &control:Count-And-Reject
+		&control:Reject-Packet-Interval := &control:Reject-Packet-Interval
+	}
+}
