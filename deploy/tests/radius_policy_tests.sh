@@ -361,8 +361,8 @@ result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  IPoE rejects are never c
 sql "DELETE FROM account_macs WHERE username = 't_ipoe'"
 note "Setup: Reset device (the account_macs row of t_ipoe deleted)"
 check "After Reset device, the new device binds" Accept "$(maclogin $I2 10.99.0.10)" "New device $I2 registered"
-check "Device bound to another IPoE account"    Reject "$(maclogin $I2 10.99.0.11)" 'Login not allowed from this device'
-logged "  reason logged"                         t_ipoe2 'bound to another account'
+check "Same device on another account's IP binds there too" Accept "$(maclogin $I2 10.99.0.11)" "New device $I2 registered"
+logged "  logged under that account"            t_ipoe2 'New device'
 check "IP not assigned (a page-login device)"   Reject "$(maclogin $I3 10.99.0.99)"
 logged "  logged as not an IPoE device"          "$I3" 'Not an IPoE device (IP 10.99.0.99 not assigned, login page shown)'
 check "MAC login without the device IP"          Reject "$(maclogin $I3)" 'without the device IP'
@@ -475,9 +475,13 @@ probe "Router loaded from the nas table is answered" 127.0.0.3 ma ANSWERED
 probe "Deleted router gets no answer"            127.0.0.4 ma DROPPED
 probe "Old router: plain request answered"       127.0.0.3 plain ANSWERED
 probe "Old router: Proxy-State without Message-Auth dropped" 127.0.0.3 proxy-state DROPPED
+logged "  logged with the reason"               t_probe 'Dropped: Proxy-State without Message-Authenticator'
 probe "Old router: Proxy-State with Message-Auth answered" 127.0.0.3 ma-proxy-state ANSWERED
 probe "New router: request with Message-Auth answered" 127.0.0.2 ma ANSWERED
 probe "New router: request without Message-Auth dropped" 127.0.0.2 plain DROPPED
+logged "  logged with the reason"               t_probe 'Dropped: no Message-Authenticator'
+accepted=$(sql "SELECT COUNT(*) FROM radpostauth WHERE username = 't_probe' AND reply = 'Access-Accept'")
+result $([[ "$accepted" -eq 0 ]] && echo 1 || echo 0) "  never logged as an accept" "($accepted rows)"
 probe "New router: Proxy-State without Message-Auth dropped" 127.0.0.2 proxy-state DROPPED
 probe "Wrong Message-Auth dropped by FreeRADIUS itself" 127.0.0.2 bad-ma DROPPED
 

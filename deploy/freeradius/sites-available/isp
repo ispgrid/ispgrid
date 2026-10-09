@@ -81,15 +81,22 @@ authorize {
 	#     A wrong Message-Authenticator never gets here: FreeRADIUS drops the packet itself.
 	#     The router is found by the packet's source address, the same way FreeRADIUS finds the client.
 	#     Routers that send Message-Authenticator (all current RouterOS) never cost a query.
+	#     Post-auth still runs for a dropped request; it only logs the reason (radpostauth) and stops.
 	#
 	if (!&Message-Authenticator) {
 		if (&Proxy-State) {
+			update control {
+				&Isp-Reject-Reason := "Dropped: Proxy-State without Message-Authenticator (Blast-RADIUS)"
+			}
 			do_not_respond
 		}
 		update control {
 			&Isp-Require-Ma := "%{sql:SELECT require_message_auth FROM nas WHERE nasname = '%{Packet-Src-IP-Address}' AND deleted_at IS NULL LIMIT 1}"
 		}
 		if ("%{control:Isp-Require-Ma}" == "1") {
+			update control {
+				&Isp-Reject-Reason := "Dropped: no Message-Authenticator (this router must send it)"
+			}
 			do_not_respond
 		}
 	}
@@ -314,18 +321,8 @@ authorize {
 			&Isp-Mac-Bound := "%{sql:SELECT mac_norm FROM account_macs WHERE username = '%{User-Name}' LIMIT 1}"
 		}
 		if ("%{control:Isp-Mac-Bound}" == "") {
-			update control {
-				&Isp-Mac-Owners := "%{sql:SELECT COUNT(*) FROM account_macs WHERE mac_norm = '%{control:Isp-Mac}'}"
-			}
-			if (&control:Isp-Mac-Owners > 0) {
-				update reply {
-					&Reply-Message := "Login not allowed from this device"
-				}
-				update control {
-					&Isp-Reject-Reason := "MAC %{Calling-Station-Id} is bound to another account"
-				}
-				reject
-			}
+			#  The IP decides the account, so a MAC bound elsewhere may bind here too (a technician's
+			#  laptop testing several customers, or one box doing PPPoE and IPoE).
 			update control {
 				&Isp-Learn-Mac := 1
 			}
@@ -525,6 +522,14 @@ session {
 }
 
 post-auth {
+	#
+	#  Dropped in authorize step 0 (Blast-RADIUS): log the reason, send nothing, do nothing else.
+	#
+	if (&control:Response-Packet-Type == Do-Not-Respond) {
+		-sql
+		return
+	}
+
 	#
 	#  Plan limits and time slots arrive in the reply list (plan rows in radgroupreply with "=",
 	#  user overrides in radreply with ":=", so the user wins). Move them to control so they are
