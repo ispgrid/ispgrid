@@ -28,8 +28,8 @@ function newPlanForm(): Testable
         ->set('slug', 'home_25')
         ->set('validity', '30')
         ->set('price', '599')
-        ->set('upload', '25M')
-        ->set('download', '25M');
+        ->set('upload_speed', '25M')
+        ->set('download_speed', '25M');
 }
 
 /**
@@ -46,6 +46,16 @@ it('adds a plan and writes it to FreeRADIUS', function () {
     expect(Plan::query()->sole())->slug->toBe('home_25')->name->toBe('Home 25')
         ->and(planRows('home_25'))->toBe(['Mikrotik-Rate-Limit' => '25M/25M'])
         ->and(session('toast'))->toBe('Plan saved. Customers who are online get the change at their next login.');
+});
+
+it('binds no field to a name the browser side of Livewire uses for file uploads', function () {
+    $html = Livewire::test('pages::plans.form')->html();
+
+    expect($html)->not->toMatch('/wire:model(\.\w+)*="(upload|uploadMultiple|removeUpload|cancelUpload)"/');
+});
+
+it('leaves the checks to the server, so a bad field on a hidden tab cannot silently block the save', function () {
+    Livewire::test('pages::plans.form')->assertSeeHtml('<form wire:submit="save" novalidate');
 });
 
 it('refuses a slug FreeRADIUS cannot use as a group name', function (string $slug) {
@@ -80,7 +90,7 @@ it('does not open a deleted plan for editing', function () {
 });
 
 it('refuses a speed without a unit', function () {
-    newPlanForm()->set('download', '25m')->call('save')->assertHasErrors(['download']);
+    newPlanForm()->set('download_speed', '25m')->call('save')->assertHasErrors(['download_speed']);
 
     expect(Plan::query()->count())->toBe(0);
 });

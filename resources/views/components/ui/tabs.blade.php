@@ -1,7 +1,7 @@
 @props(['tabs', 'default' => null, 'invalid' => []])
 
 <div x-data="{ active: @js($default ?? array_key_first($tabs)) }" {{ $attributes }}>
-    <div role="tablist" class="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-700">
+    <div role="tablist" class="flex gap-1 overflow-x-auto border-b contain-inline-size border-zinc-200 dark:border-zinc-700">
         @foreach ($tabs as $key => $label)
             <button
                 type="button"

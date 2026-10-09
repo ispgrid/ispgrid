@@ -9,7 +9,7 @@
         <x-ui.alert variant="danger">{{ __('Nothing was saved. Fix the fields on the marked tabs and save again.') }}</x-ui.alert>
     @endif
 
-    <form wire:submit="save" class="grid gap-6">
+    <form wire:submit="save" novalidate class="grid gap-6">
         <x-ui.card>
             <x-ui.tabs :tabs="$this->tabs" :invalid="$this->invalidTabs()">
                 <x-ui.tab-panel name="general" class="grid gap-5">
@@ -25,8 +25,8 @@
                 <x-ui.tab-panel name="speed" class="grid gap-5">
                     <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
                     <div class="grid gap-5 sm:grid-cols-2">
-                        <x-ui.input wire:model="upload" :label="__('Upload')" required autocomplete="off" />
-                        <x-ui.input wire:model="download" :label="__('Download')" required autocomplete="off" />
+                        <x-ui.input wire:model="upload_speed" :label="__('Upload')" required autocomplete="off" />
+                        <x-ui.input wire:model="download_speed" :label="__('Download')" required autocomplete="off" />
                     </div>
 
                     <div>

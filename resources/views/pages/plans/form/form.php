@@ -39,7 +39,7 @@ new #[Title('Plan')] class extends Component
      */
     private const TABS = [
         'general' => ['slug', 'name', 'validity', 'price', 'description'],
-        'speed' => ['upload', 'download', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
+        'speed' => ['upload_speed', 'download_speed', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
             'burst_time', 'priority', 'min_upload', 'min_download'],
         'limits' => ['limit_after', 'time_limit_hours', 'daily_data_gb', 'daily_time_hours', 'monthly_data_gb',
             'monthly_time_hours', 'is_fup', 'fup_upload', 'fup_download'],
@@ -49,13 +49,21 @@ new #[Title('Plan')] class extends Component
     ];
 
     /**
-     * Form fields held as text, filled from the plan's columns of the same name.
+     * Form fields held as text, filled from the plan's columns of the same name (or the one in COLUMNS).
      */
     private const TEXT_FIELDS = ['slug', 'name', 'validity', 'price', 'description',
-        'upload', 'download', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
+        'upload_speed', 'download_speed', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
         'burst_time', 'priority', 'min_upload', 'min_download',
         'limit_after', 'time_limit_hours', 'daily_data_gb', 'daily_time_hours', 'monthly_data_gb', 'monthly_time_hours',
         'fup_upload', 'fup_download', 'slot_from', 'slot_to', 'slot_upload', 'slot_download', 'pool_id'];
+
+    /**
+     * Fields named apart from their column: in the browser, $wire.upload is Livewire's file upload, so a field
+     * called upload would show that function instead of the speed.
+     *
+     * @var array<string, string>
+     */
+    private const COLUMNS = ['upload_speed' => 'upload', 'download_speed' => 'download'];
 
     #[Locked]
     public ?int $planId = null;
@@ -70,9 +78,9 @@ new #[Title('Plan')] class extends Component
 
     public string $description = '';
 
-    public string $upload = '';
+    public string $upload_speed = '';
 
-    public string $download = '';
+    public string $download_speed = '';
 
     public string $burst_upload = '';
 
@@ -154,7 +162,7 @@ new #[Title('Plan')] class extends Component
         $this->planId = $model->id;
 
         foreach (self::TEXT_FIELDS as $field) {
-            $this->{$field} = (string) ($model->{$field} ?? '');
+            $this->{$field} = (string) ($model->{self::COLUMNS[$field] ?? $field} ?? '');
         }
 
         $this->is_fup = $model->is_fup;
@@ -368,8 +376,8 @@ new #[Title('Plan')] class extends Component
             'validity' => ['required', 'integer', 'between:1,3650'],
             'price' => ['required', 'numeric', 'decimal:0,2', 'between:0,9999999999.99'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'upload' => ['required', 'string', 'max:20'],
-            'download' => ['required', 'string', 'max:20'],
+            'upload_speed' => ['required', 'string', 'max:20'],
+            'download_speed' => ['required', 'string', 'max:20'],
             'burst_upload' => $speed,
             'burst_download' => $speed,
             'threshold_upload' => $speed,
@@ -427,13 +435,18 @@ new #[Title('Plan')] class extends Component
      */
     private function speedErrors(): array
     {
-        $errors = (new RateLimit(
-            $this->upload, $this->download,
+        $rateErrors = (new RateLimit(
+            $this->upload_speed, $this->download_speed,
             $this->nullIfEmpty($this->burst_upload), $this->nullIfEmpty($this->burst_download),
             $this->nullIfEmpty($this->threshold_upload), $this->nullIfEmpty($this->threshold_download),
             $this->intOrNull($this->burst_time), $this->intOrNull($this->priority),
             $this->nullIfEmpty($this->min_upload), $this->nullIfEmpty($this->min_download),
         ))->errors();
+        $errors = [];
+
+        foreach ($rateErrors as $field => $message) {
+            $errors[array_search($field, self::COLUMNS, true) ?: $field] = $message;
+        }
 
         if ($this->is_fup) {
             foreach ((new RateLimit($this->fup_upload, $this->fup_download))->errors() as $field => $message) {
@@ -524,8 +537,8 @@ new #[Title('Plan')] class extends Component
             'validity' => (int) $this->validity,
             'price' => $this->price,
             'description' => $this->nullIfEmpty($this->description),
-            'upload' => $this->upload,
-            'download' => $this->download,
+            'upload' => $this->upload_speed,
+            'download' => $this->download_speed,
             'burst_upload' => $this->nullIfEmpty($this->burst_upload),
             'burst_download' => $this->nullIfEmpty($this->burst_download),
             'threshold_upload' => $this->nullIfEmpty($this->threshold_upload),
