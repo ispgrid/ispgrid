@@ -21,7 +21,8 @@
 #    radusergroup     user -> plan group (no row = "No plan assigned", disabled pool)
 #    radgroupreply    per plan: Mikrotik-Rate-Limit, Framed-Pool, Mikrotik-Address-List (op "=")
 #    radreply         per user: Framed-IP-Address, overrides such as Mikrotik-Rate-Limit (op ":=")
-#    account_macs     bound PPPoE device MACs (mac_norm = 12 uppercase hex digits)
+#    account_macs     bound device MACs (mac_norm = 12 uppercase hex digits): PPPoE routers, the IPoE device
+#    ipoes            IPoE: device IP -> account username (ip_address, username)
 #    reject_counters  recent rejects per user and MAC (PPPoE) or per user (Hotspot, mac = '')
 #    radacct          open sessions, for the Hotspot online limit
 #    settings         one row, cached for 24 hours by mods-enabled/isp_settings.
@@ -29,7 +30,8 @@
 #
 #  Per-request attributes (control list, defined in /etc/freeradius/3.0/dictionary):
 #    Isp-Mac              Calling-Station-Id as 12 uppercase hex digits
-#    Isp-User-Mac         IPoE: User-Name normalised the same way
+#    Isp-Ipoe-Login       1 = a Hotspot MAC login (IPoE); Isp-Ipoe-Ip its IP, Isp-Ipoe-User the account
+#    Isp-Mac-Bound        IPoE: the MAC already bound to the account ('' = none)
 #    Isp-User-Found       1 = the user exists
 #    Isp-Count-Reject     1 = a reject of this request counts towards the throttle
 #    Isp-Mac-Known        PPPoE: 1 = the MAC is bound to this user
@@ -114,6 +116,7 @@ authorize {
 		&Isp-Disabled-Pool := 0
 		&Isp-Throttled := 0
 		&Isp-Fup := 0
+		&Isp-Ipoe-Login := 0
 	}
 
 	#
@@ -188,6 +191,39 @@ authorize {
 	}
 
 	#
+	#  3b. IPoE: the Hotspot's MAC login (User-Name = password = the device MAC, which no account name can
+	#      look like) is matched to an account by the device's IP (ipoes.ip_address). The request then
+	#      continues under the account's username, so every lookup, radpostauth and radacct use the name.
+	#      The MAC stays in Calling-Station-Id (Isp-Mac).
+	#      An IP no account has is a page-login device on a shared Hotspot (its MAC is tried first):
+	#      rejected, never counted, and the router shows its login page.
+	#
+	if ((&control:Acct-Packet-Type == "LOGIN") && (&User-Name =~ /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i)) {
+		update control {
+			&Isp-Ipoe-Login := 1
+			&Isp-Ipoe-Ip := "%{%{Mikrotik-Host-IP}:-%{Framed-IP-Address}}"
+		}
+		if ("%{control:Isp-Ipoe-Ip}" == "") {
+			update reply {
+				&Reply-Message := "Error: MAC login without the device IP"
+			}
+			reject
+		}
+		update control {
+			&Isp-Ipoe-User := "%{sql:SELECT username FROM ipoes WHERE ip_address = '%{control:Isp-Ipoe-Ip}' LIMIT 1}"
+		}
+		if ("%{control:Isp-Ipoe-User}" == "") {
+			update control {
+				&Isp-Reject-Reason := "Not an IPoE device (IP %{control:Isp-Ipoe-Ip} not assigned, login page shown)"
+			}
+			reject
+		}
+		update request {
+			&User-Name := "%{control:Isp-Ipoe-User}"
+		}
+	}
+
+	#
 	#  4. Load the user: radcheck -> control, radreply + plan group replies -> reply.
 	#     An unknown user gets the same answer as a wrong password.
 	#
@@ -253,28 +289,77 @@ authorize {
 
 	#
 	#  5. Devices.
-	#     IPoE: the login must come from the account's own MAC; no password is checked.
+	#     IPoE: the MAC login from the account's IP; the first device is learned, then only that one.
 	#     PPPoE: a MAC that is bound elsewhere, or a new MAC when every device slot is taken,
 	#     can never log in, so it is rejected before the password check and not counted.
 	#     Hotspot: no MAC binding (phones rotate MACs); the online limit is applied in post-auth.
 	#
-	if ((&control:Acct-Packet-Type == "LOGIN") && (&control:Acct-Service-Type == "IPOE")) {
-		if (&User-Name =~ /^([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})$/i) {
-			update control {
-				&Isp-User-Mac := "%{toupper:%{1}%{2}%{3}%{4}%{5}%{6}}"
-			}
-		}
-		if (&control:Isp-User-Mac && (&control:Isp-User-Mac == &control:Isp-Mac)) {
-			update control {
-				&Auth-Type := Accept
-			}
-		}
-		else {
+	if (&control:Acct-Service-Type == "IPOE") {
+		#
+		#  IPoE: only the MAC login from the account's IP (step 3b), no password. One device: the
+		#  first MAC is learned into account_macs after the accept; another MAC is refused until
+		#  Reset device in the app deletes the binding. Never counted by the reject throttle.
+		#
+		if (&control:Isp-Ipoe-Login != 1) {
 			update reply {
-				&Reply-Message := "Error: IPoE login must come from the MAC registered to the account"
+				&Reply-Message := "Wrong Password"
+			}
+			update control {
+				&Isp-Reject-Reason := "IPoE account: login only by MAC from its IP"
 			}
 			reject
 		}
+		update control {
+			&Isp-Mac-Bound := "%{sql:SELECT mac_norm FROM account_macs WHERE username = '%{User-Name}' LIMIT 1}"
+		}
+		if ("%{control:Isp-Mac-Bound}" == "") {
+			update control {
+				&Isp-Mac-Owners := "%{sql:SELECT COUNT(*) FROM account_macs WHERE mac_norm = '%{control:Isp-Mac}'}"
+			}
+			if (&control:Isp-Mac-Owners > 0) {
+				update reply {
+					&Reply-Message := "Login not allowed from this device"
+				}
+				update control {
+					&Isp-Reject-Reason := "MAC %{Calling-Station-Id} is bound to another account"
+				}
+				reject
+			}
+			update control {
+				&Isp-Learn-Mac := 1
+			}
+		}
+		elsif ("%{control:Isp-Mac-Bound}" == "%{control:Isp-Mac}") {
+			update control {
+				&Isp-Mac-Known := 1
+			}
+		}
+		else {
+			if ("%{control:Isp-Mac-Bound}" =~ /^(..)(..)(..)(..)(..)(..)$/) {
+				update control {
+					&Isp-Reject-Reason := "IP %{control:Isp-Ipoe-Ip} is bound to another device (%{1}:%{2}:%{3}:%{4}:%{5}:%{6}), reset in the app"
+				}
+			}
+			update reply {
+				&Reply-Message := "Login not allowed from this device"
+			}
+			reject
+		}
+		update control {
+			&Auth-Type := Accept
+		}
+	}
+	elsif (&control:Isp-Ipoe-Login == 1) {
+		#  A MAC login whose IP belongs to an account of another type (bad data). Not counted, so a device
+		#  retrying can never lock that account's own Hotspot login.
+		update reply {
+			&Reply-Message := "Wrong Password"
+		}
+		update control {
+			&Isp-Reject-Reason := "IP %{control:Isp-Ipoe-Ip} is assigned to %{User-Name}, which is not an IPoE account"
+			&Isp-Count-Reject := 0
+		}
+		reject
 	}
 	elsif ((&control:Acct-Packet-Type == "PPP") && (&control:Acct-Service-Type == "PPP") && (&control:Acct-Mac-Type > 0)) {
 		update control {
@@ -411,6 +496,20 @@ authenticate {
 }
 
 preacct {
+	#
+	#  IPoE: the Hotspot sends accounting under the device MAC. Store it under the account's username,
+	#  found by the device IP like the login (authorize step 3b).
+	#
+	if ((&User-Name =~ /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i) && (&Mikrotik-Host-IP || &Framed-IP-Address)) {
+		update control {
+			&Isp-Ipoe-User := "%{sql:SELECT username FROM ipoes WHERE ip_address = '%{%{Mikrotik-Host-IP}:-%{Framed-IP-Address}}' LIMIT 1}"
+		}
+		if ("%{control:Isp-Ipoe-User}" != "") {
+			update request {
+				&User-Name := "%{control:Isp-Ipoe-User}"
+			}
+		}
+	}
 	preprocess
 	acct_unique
 }

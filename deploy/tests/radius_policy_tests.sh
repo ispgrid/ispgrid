@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 #  End-to-end tests for the "isp" virtual server (auth 1812, acct 1813).
-#  Seeds its own fixtures (users t_*, IPoE MAC AA:BB:CC:00:00:01, plan group t_plan40),
+#  Seeds its own fixtures (users t_*, IPoE IPs 10.99.0.x, plan groups t_plan*),
 #  so it can be re-run at any time. Usage: radius_policy_tests.sh
 #
 #  Settings are cached by FreeRADIUS for 24 hours: restart it after changing the settings table.
@@ -23,8 +23,9 @@ seed() {
        DELETE FROM radgroupreply WHERE groupname IN ('t_plan40', 't_plan_fup');
        DELETE FROM account_macs WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
        DELETE FROM reject_counters WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
-       DELETE FROM radacct WHERE username LIKE 't\_%';
-       DELETE FROM radpostauth WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
+       DELETE FROM radacct WHERE username LIKE 't\_%' OR acctsessionid LIKE 't-%';
+       DELETE FROM radpostauth WHERE username LIKE 't\_%' OR username = '$IPOE_USER' OR username LIKE 'DE:AD:%';
+       DELETE FROM ipoes WHERE username LIKE 't\_%';
 
        INSERT INTO radgroupreply (groupname, attribute, op, value) VALUES
          ('t_plan40', 'Mikrotik-Rate-Limit', '=', '40M/40M'),
@@ -44,7 +45,6 @@ seed() {
   add_user t_hs        HOTSPOT 1 2 "01 Jan 2030 00:00"
   add_user t_hs_lock   HOTSPOT 1 0 "01 Jan 2030 00:00"
   add_user t_throttle  PPP     1 2 "01 Jan 2030 00:00"
-  add_user "$IPOE_USER" IPOE   1 0 "01 Jan 2030 00:00"
   add_user t_noplan    PPP     1 0 "01 Jan 2030 00:00"
   add_user t_hs_off    HOTSPOT 2 0 "01 Jan 2030 00:00"
   add_user t_hs_noplan HOTSPOT 1 0 "01 Jan 2030 00:00"
@@ -57,6 +57,14 @@ seed() {
   add_user t_bound_other PPP   1 0 "01 Jan 2030 00:00"
   sql "INSERT INTO radcheck (username, attribute, op, value) VALUES
          ('t_bound', 'Isp-Nas', ':=', '127.0.0.1'), ('t_bound_other', 'Isp-Nas', ':=', '10.9.9.9');"
+  # IPoE: found by the device IP. t_ipoe_hs has an ipoes row but is no IPoE account (bad data);
+  # t_ipoe_gone has an ipoes row but no rows in radcheck (a deleted account).
+  add_user t_ipoe      IPOE    1 1 "01 Jan 2030 00:00"
+  add_user t_ipoe2     IPOE    1 1 "01 Jan 2030 00:00"
+  add_user t_ipoe_hs   HOTSPOT 1 0 "01 Jan 2030 00:00"
+  sql "INSERT INTO ipoes (account_id, username, ip_address) VALUES
+         (0, 't_ipoe', '10.99.0.10'), (0, 't_ipoe2', '10.99.0.11'), (0, 't_ipoe_hs', '10.99.0.12'),
+         (0, 't_ipoe_gone', '10.99.0.13');"
   sql "DELETE FROM radusergroup WHERE username IN ('t_noplan', 't_hs_noplan')"
 
   # Limits: t_q_fup / t_q_big on the plan with a 1 GB limit and fair usage, the rest per user
@@ -232,6 +240,10 @@ ppp()   { echo "User-Name=$1\nUser-Password=$2\nService-Type=Framed-User\nFramed
 pppc()  { echo "User-Name=$1\nCHAP-Password=$2\nService-Type=Framed-User\nFramed-Protocol=PPP\nCalling-Station-Id=$3\nCalled-Station-Id=pppoe-test\nNAS-IP-Address=127.0.0.1\n"; }
 pppm()  { echo "User-Name=$1\nMS-CHAP-Password=$2\nService-Type=Framed-User\nFramed-Protocol=PPP\nCalling-Station-Id=$3\nCalled-Station-Id=pppoe-test\nNAS-IP-Address=127.0.0.1\n"; }
 login() { echo "User-Name=$1\nUser-Password=$2\nService-Type=Login-User\nCalling-Station-Id=$3\nCalled-Station-Id=hotspot-test\nNAS-IP-Address=127.0.0.1\n"; }
+#  maclogin <MAC> [device IP]: the Hotspot's MAC login for IPoE (User-Name = password = MAC)
+maclogin() { echo "User-Name=$1\nUser-Password=$1\nService-Type=Login-User\nCalling-Station-Id=$1\nCalled-Station-Id=hotspot-test\nNAS-IP-Address=127.0.0.1\n${2:+Framed-IP-Address=$2\nMikrotik-Host-IP=$2\n}"; }
+#  acct <attributes>: send one Accounting-Request, ignore the answer
+acct() { printf '%b' "$1" | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" >/dev/null 2>&1; }
 
 #  Time-slot fixtures are built around the current hour and weekday.
 DAYS=(Mo Tu We Th Fr Sa Su)
@@ -310,9 +322,40 @@ check "Hotspot account via PPP"                  Reject "$(ppp t_hs pass $M3)" '
 spam $((LIMIT + 1)) "$(login t_hs_lock wrong $M5)"
 check "Hotspot locked after $((LIMIT + 1)) wrong passwords" Reject "$(login t_hs_lock pass $M6)" 'Too many failed logins'
 
-section "IPoE"
-check "IPoE MAC login, no password check"        Accept "$(login "$IPOE_USER" x aa-bb-cc-00-00-01)"
-check "IPoE login from a different MAC"          Reject "$(login "$IPOE_USER" x AA:BB:CC:00:00:99)" "MAC registered to the account"
+I1="DE:AD:00:00:00:01"; I2="DE:AD:00:00:00:02"; I3="DE:AD:00:00:00:03"
+section "IPoE (Hotspot MAC login, account found by the device IP)"
+check "First device on the account's IP: accept, MAC learned" Accept "$(maclogin $I1 10.99.0.10)" \
+      'Mikrotik-Rate-Limit = "40M/40M"' "New device $I1 registered"
+logged "  logged under the account name"         t_ipoe 'New device'
+bound=$(sql "SELECT GROUP_CONCAT(mac_norm) FROM account_macs WHERE username = 't_ipoe'")
+result $([[ "$bound" == "DEAD00000001" ]] && echo 1 || echo 0) "  MAC bound to the account" "(bound: '$bound')"
+check "Same device again"                        Accept "$(maclogin $I1 10.99.0.10)" '!New device'
+check "Another device on the same IP -> reject"  Reject "$(maclogin $I2 10.99.0.10)" 'Login not allowed from this device'
+logged "  reason names the bound device"         t_ipoe "IP 10.99.0.10 is bound to another device ($I1), reset in the app"
+spam 12 "$(maclogin $I2 10.99.0.10)"
+counted=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username IN ('t_ipoe', '$I2')")
+result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  IPoE rejects are never counted" "($counted rows)"
+sql "DELETE FROM account_macs WHERE username = 't_ipoe'"
+note "Setup: Reset device (the account_macs row of t_ipoe deleted)"
+check "After Reset device, the new device binds" Accept "$(maclogin $I2 10.99.0.10)" "New device $I2 registered"
+check "Device bound to another IPoE account"    Reject "$(maclogin $I2 10.99.0.11)" 'Login not allowed from this device'
+logged "  reason logged"                         t_ipoe2 'bound to another account'
+check "IP not assigned (a page-login device)"   Reject "$(maclogin $I3 10.99.0.99)"
+logged "  logged as not an IPoE device"          "$I3" 'Not an IPoE device (IP 10.99.0.99 not assigned, login page shown)'
+check "MAC login without the device IP"          Reject "$(maclogin $I3)" 'without the device IP'
+check "IPoE account by username and password"   Reject "$(login t_ipoe pass $M6)" 'Wrong Password'
+logged "  reason logged"                         t_ipoe 'IPoE account: login only by MAC from its IP'
+check "IP of a non-IPoE account (bad data)"     Reject "$(maclogin $I3 10.99.0.12)"
+logged "  reason logged"                         t_ipoe_hs 'which is not an IPoE account'
+spam 12 "$(maclogin $I3 10.99.0.12)"
+counted=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username = 't_ipoe_hs'")
+result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  not counted (the Hotspot login stays unlocked)" "($counted rows)"
+check "IP of a deleted account (no rows)"        Reject "$(maclogin $I3 10.99.0.13)"
+logged "  reason logged"                         t_ipoe_gone 'User not found'
+acct "User-Name=$I2\nAcct-Status-Type=Start\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.99.0.10\nCalling-Station-Id=$I2\n"
+acct "User-Name=$I2\nAcct-Status-Type=Stop\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.99.0.10\nCalling-Station-Id=$I2\nAcct-Session-Time=60\n"
+rows=$(sql "SELECT GROUP_CONCAT(CONCAT(username, ':', acctstoptime IS NOT NULL)) FROM radacct WHERE acctsessionid = 't-ipoe-1'")
+result $([[ "$rows" == "t_ipoe:1" ]] && echo 1 || echo 0) "Accounting under the account name, Start and Stop in one row" "(rows: $rows)"
 
 section "Request validation"
 check "Unknown user, same answer as wrong pass"  Reject "$(ppp t_nobody pass $M5)" 'Wrong Password'
