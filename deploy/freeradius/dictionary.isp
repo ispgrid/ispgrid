@@ -1,0 +1,75 @@
+#
+#  Attributes of the isp virtual server. Internal (number > 255, no vendor): FreeRADIUS never sends them.
+#  Included from /etc/freeradius/3.0/dictionary.
+#
+
+#  settings table, cached by mods-available/isp_settings
+ATTRIBUTE    Expire-Type               3000    integer
+ATTRIBUTE    Disabled-Users-Pool       3001    string
+ATTRIBUTE    Reject-Packet-Interval    3002    integer
+ATTRIBUTE    Reject-Requests           3003    integer
+ATTRIBUTE    Default-Session-Timeout   3004    integer
+ATTRIBUTE    Reject-Session-Timeout    3005    integer
+
+#  radcheck, written by the app
+ATTRIBUTE    Acct-Service-Type         3007    string
+ATTRIBUTE    Acct-Mac-Type             3008    integer
+ATTRIBUTE    Acct-Status-Id            3010    integer
+
+#  per request
+ATTRIBUTE    Recent-Reject-Count       3018    integer
+ATTRIBUTE    Count-And-Reject          3020    integer
+ATTRIBUTE    Acct-Mac-Count            3031    integer
+ATTRIBUTE    Acct-Packet-Type          3033    string
+ATTRIBUTE    Isp-Mac                   3034    string
+ATTRIBUTE    Isp-User-Mac              3035    string
+ATTRIBUTE    Isp-User-Found            3036    integer
+ATTRIBUTE    Isp-Count-Reject          3037    integer
+ATTRIBUTE    Isp-Mac-Known             3038    integer
+ATTRIBUTE    Isp-Mac-Owners            3039    integer
+ATTRIBUTE    Isp-Learn-Mac             3040    integer
+ATTRIBUTE    Isp-Throttle-Armed        3041    integer
+ATTRIBUTE    Isp-Expired               3042    integer
+ATTRIBUTE    Isp-Password-Failed       3043    integer
+ATTRIBUTE    Isp-Disabled-Pool         3044    integer
+ATTRIBUTE    Isp-Throttled             3045    integer
+ATTRIBUTE    Isp-Online-Sessions       3046    integer
+ATTRIBUTE    Isp-Reject-Reason         3047    string
+ATTRIBUTE    Isp-Plan-Count            3048    integer
+ATTRIBUTE    Isp-Disabled-Reason       3049    string
+
+#  limits and time slots (radgroupreply "=", radreply ":="), Isp-Usage-Since in radcheck
+ATTRIBUTE    Isp-Data-Limit            3050    integer64
+ATTRIBUTE    Isp-Time-Limit            3051    integer
+ATTRIBUTE    Isp-Daily-Data            3052    integer64
+ATTRIBUTE    Isp-Daily-Time            3053    integer
+ATTRIBUTE    Isp-Monthly-Data          3054    integer64
+ATTRIBUTE    Isp-Monthly-Time          3055    integer
+ATTRIBUTE    Isp-Fup-Rate              3056    string
+ATTRIBUTE    Isp-Usage-Since           3057    date
+ATTRIBUTE    Isp-Slot-Days             3058    string
+ATTRIBUTE    Isp-Slot-From             3059    integer
+ATTRIBUTE    Isp-Slot-To               3060    integer
+ATTRIBUTE    Isp-Slot-Mode             3061    string
+ATTRIBUTE    Isp-Slot-Rate             3062    string
+ATTRIBUTE    Isp-Slot-Full-Days        3063    integer
+ATTRIBUTE    Isp-Data-Left             3064    integer64
+ATTRIBUTE    Isp-Time-Left             3065    integer
+ATTRIBUTE    Isp-Edge                  3066    integer
+ATTRIBUTE    Isp-Session-Cap           3067    integer
+ATTRIBUTE    Isp-In-Slot               3068    integer
+ATTRIBUTE    Isp-Fup                   3069    integer
+ATTRIBUTE    Isp-Limit-Reason          3070    string
+ATTRIBUTE    Isp-Query-Result          3071    string
+
+#  MVP app (Plan 3)
+#  radcheck: the only router (its IP, nas.nasname) this account may log in through
+ATTRIBUTE    Isp-Nas                   3072    ipaddr
+#  radgroupreply "+=": one of the plan's address lists (an account's own lists replace them)
+ATTRIBUTE    Isp-Plan-Address-List     3073    string
+#  per request: IPoE MAC login and Blast-RADIUS check
+ATTRIBUTE    Isp-Ipoe-Ip               3074    string
+ATTRIBUTE    Isp-Ipoe-User             3075    string
+ATTRIBUTE    Isp-Ipoe-Login            3076    integer
+ATTRIBUTE    Isp-Mac-Bound             3077    string
+ATTRIBUTE    Isp-Require-Ma            3078    string

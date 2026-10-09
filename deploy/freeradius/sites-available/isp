@@ -1,0 +1,756 @@
+#  -*- text -*-
+#
+#  isp: single virtual server for PPPoE and Hotspot/IPoE (MikroTik). DHCP is not handled yet.
+#
+#  Order of work:
+#    authorize     check the request, load the user and work out the facts. It only rejects what
+#                  no password could fix: a bad request, an unknown user, a PPPoE device that is
+#                  not allowed, an IPoE MAC mismatch or a locked Hotspot login.
+#    authenticate  check the password. A failure is recorded in Isp-Password-Failed and the
+#                  section returns ok, so post-auth can choose between "Wrong Password" and the
+#                  reject throttle. Post-auth checks that flag first.
+#    post-auth     apply the account rules (service, status, expiry, plan, Hotspot online limit), now
+#                  that the password is known. A wrong password never reveals the account state.
+#
+#  Data (stock FreeRADIUS schema, written by the management app):
+#    radcheck         per user: Cleartext-Password, Expiration, Acct-Service-Type (PPP|IPOE|HOTSPOT),
+#                     Acct-Mac-Type (PPP: max bound devices, HOTSPOT: max devices online at once,
+#                     0 = no limit), Acct-Status-Id (1 = active, else inactive), optional Expire-Type
+#    radusergroup     user -> plan group (no row = "No plan assigned", disabled pool)
+#    radgroupreply    per plan: Mikrotik-Rate-Limit, Framed-Pool, Mikrotik-Address-List (op "=")
+#    radreply         per user: Framed-IP-Address, overrides such as Mikrotik-Rate-Limit (op ":=")
+#    account_macs     bound PPPoE device MACs (mac_norm = 12 uppercase hex digits)
+#    reject_counters  recent rejects per user and MAC (PPPoE) or per user (Hotspot, mac = '')
+#    radacct          open sessions, for the Hotspot online limit
+#    settings         one row, cached for 24 hours by mods-enabled/isp_settings.
+#                     Restart FreeRADIUS after changing it.
+#
+#  Per-request attributes (control list, defined in /etc/freeradius/3.0/dictionary):
+#    Isp-Mac              Calling-Station-Id as 12 uppercase hex digits
+#    Isp-User-Mac         IPoE: User-Name normalised the same way
+#    Isp-User-Found       1 = the user exists
+#    Isp-Count-Reject     1 = a reject of this request counts towards the throttle
+#    Isp-Mac-Known        PPPoE: 1 = the MAC is bound to this user
+#    Isp-Mac-Owners       PPPoE: accounts the MAC is bound to
+#    Acct-Mac-Count       PPPoE: MACs bound to this user
+#    Isp-Learn-Mac        PPPoE: 1 = new MAC, bind it if the login is accepted
+#    Recent-Reject-Count  rejects within Reject-Packet-Interval
+#    Isp-Throttle-Armed   PPPoE: 1 = known MAC over the reject limit
+#    Isp-Expired          1 = Expiration has passed
+#    Isp-Password-Failed  1 = the password check failed
+#    Isp-Online-Sessions  Hotspot: open sessions from other devices
+#    Isp-Plan-Count       plan groups of the user (0 = no plan)
+#    Isp-Disabled-Reason  inactive, expired (type 1) or no plan: PPPoE gets the disabled pool
+#    Isp-Disabled-Pool    1 = accepted into the disabled pool for one of those reasons
+#    Isp-Throttled        1 = accepted into the disabled pool by the reject throttle
+#    Isp-Reject-Reason    why the request was rejected; stored in radpostauth.reply_msg
+#
+
+server isp {
+
+listen {
+	type = auth
+	ipaddr = *
+	port = 1812
+	limit {
+		max_connections = 16
+		lifetime = 0
+		idle_timeout = 30
+	}
+}
+
+listen {
+	type = acct
+	ipaddr = *
+	port = 1813
+}
+
+authorize {
+	filter_username
+
+	#
+	#  Defaults. The settings row overrides these, and radcheck can override them per user.
+	#
+	update control {
+		&Expire-Type := 0
+		&Disabled-Users-Pool := "disabled_pool"
+		&Reject-Requests := 10
+		&Reject-Session-Timeout := 60
+		&Default-Session-Timeout := 86400
+		&Count-And-Reject := 1
+		&Reject-Packet-Interval := 10
+		&Isp-User-Found := 0
+		&Isp-Count-Reject := 0
+		&Isp-Mac-Known := 0
+		&Isp-Learn-Mac := 0
+		&Isp-Throttle-Armed := 0
+		&Isp-Expired := 0
+		&Isp-Password-Failed := 0
+		&Isp-Disabled-Pool := 0
+		&Isp-Throttled := 0
+		&Isp-Fup := 0
+	}
+
+	#
+	#  1. Request sanity: required attributes and a valid device MAC.
+	#     Runs before preprocess, which would fill in a missing NAS-IP-Address from the source IP.
+	#
+	if (!&Service-Type || !&Called-Station-Id || !&Calling-Station-Id || !&NAS-IP-Address) {
+		update reply {
+			&Reply-Message := "Error: request is missing Service-Type, Called-Station-Id, Calling-Station-Id or NAS-IP-Address"
+		}
+		reject
+	}
+
+	if (&Calling-Station-Id =~ /^([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})$/i) {
+		update control {
+			&Isp-Mac := "%{toupper:%{1}%{2}%{3}%{4}%{5}%{6}}"
+		}
+	}
+	else {
+		update reply {
+			&Reply-Message := "Error: invalid MAC format '%{Calling-Station-Id}'"
+		}
+		reject
+	}
+
+	preprocess
+
+	#
+	#  2. Classify the request: PPP (PPPoE) or LOGIN (Hotspot / IPoE).
+	#
+	if ((&Service-Type == Framed-User) && (&Framed-Protocol == PPP)) {
+		update control {
+			&Acct-Packet-Type := "PPP"
+		}
+	}
+	elsif (&Service-Type == Login-User) {
+		update control {
+			&Acct-Packet-Type := "LOGIN"
+		}
+	}
+	else {
+		update reply {
+			&Reply-Message := "Error: service type %{Service-Type} is not supported"
+		}
+		reject
+	}
+
+	#
+	#  3. Settings: from the cache, or one query that refills it (the cache keeps them for 24 hours).
+	#
+	update control {
+		&Cache-Read-Only := yes
+	}
+	isp_settings
+	if (notfound) {
+		if ("%{sql:SELECT CONCAT_WS('|', expire_type, disabled_users_pool, reject_requests, COALESCE(reject_session_timeout, 60), COALESCE(default_session_timeout, 86400), COALESCE(count_and_reject, 1), COALESCE(reject_packet_interval, 10)) FROM settings LIMIT 1}" =~ /^([0-9]+)\|([^|]*)\|([0-9]+)\|([0-9]+)\|([0-9]+)\|([0-9]+)\|([0-9]+)$/) {
+			update control {
+				&Expire-Type := "%{1}"
+				&Disabled-Users-Pool := "%{2}"
+				&Reject-Requests := "%{3}"
+				&Reject-Session-Timeout := "%{4}"
+				&Default-Session-Timeout := "%{5}"
+				&Count-And-Reject := "%{6}"
+				&Reject-Packet-Interval := "%{7}"
+				&Cache-Read-Only !* ANY
+			}
+			isp_settings
+		}
+	}
+	update control {
+		&Cache-Read-Only !* ANY
+	}
+
+	#
+	#  4. Load the user: radcheck -> control, radreply + plan group replies -> reply.
+	#     An unknown user gets the same answer as a wrong password.
+	#
+	#     A row the server cannot parse (unknown attribute, bad value) or a database error fails the
+	#     module; say so instead of "Wrong Password".
+	#
+	sql {
+		fail = 1
+	}
+	if (fail) {
+		update reply {
+			&Reply-Message := "Error: account data could not be read"
+		}
+		update control {
+			&Isp-Reject-Reason := "Could not read the user's rows (bad radcheck/radreply/radgroupreply row, or database error)"
+		}
+		reject
+	}
+	if (notfound) {
+		update reply {
+			&Reply-Message := "Wrong Password"
+		}
+		update control {
+			&Isp-Reject-Reason := "User not found"
+		}
+		reject
+	}
+	update control {
+		&Isp-User-Found := 1
+	}
+	if ((&control:Count-And-Reject != 0) && (!&control:Acct-Service-Type || (&control:Acct-Service-Type != "IPOE"))) {
+		update control {
+			&Isp-Count-Reject := 1
+		}
+	}
+
+	if (&control:Expiration) {
+		expiration {
+			userlock = 1
+		}
+		if (userlock) {
+			update control {
+				&Isp-Expired := 1
+			}
+		}
+	}
+
+	#
+	#  5. Devices.
+	#     IPoE: the login must come from the account's own MAC; no password is checked.
+	#     PPPoE: a MAC that is bound elsewhere, or a new MAC when every device slot is taken,
+	#     can never log in, so it is rejected before the password check and not counted.
+	#     Hotspot: no MAC binding (phones rotate MACs); the online limit is applied in post-auth.
+	#
+	if ((&control:Acct-Packet-Type == "LOGIN") && (&control:Acct-Service-Type == "IPOE")) {
+		if (&User-Name =~ /^([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})[:.-]?([0-9a-f]{2})$/i) {
+			update control {
+				&Isp-User-Mac := "%{toupper:%{1}%{2}%{3}%{4}%{5}%{6}}"
+			}
+		}
+		if (&control:Isp-User-Mac && (&control:Isp-User-Mac == &control:Isp-Mac)) {
+			update control {
+				&Auth-Type := Accept
+			}
+		}
+		else {
+			update reply {
+				&Reply-Message := "Error: IPoE login must come from the MAC registered to the account"
+			}
+			reject
+		}
+	}
+	elsif ((&control:Acct-Packet-Type == "PPP") && (&control:Acct-Service-Type == "PPP") && (&control:Acct-Mac-Type > 0)) {
+		update control {
+			&Isp-Mac-Known := "%{sql:SELECT COUNT(*) FROM account_macs WHERE username = '%{User-Name}' AND mac_norm = '%{control:Isp-Mac}'}"
+		}
+		if (&control:Isp-Mac-Known == 0) {
+			update control {
+				&Isp-Mac-Owners := "%{sql:SELECT COUNT(*) FROM account_macs WHERE mac_norm = '%{control:Isp-Mac}'}"
+				&Acct-Mac-Count := "%{sql:SELECT COUNT(*) FROM account_macs WHERE username = '%{User-Name}'}"
+			}
+			if (&control:Isp-Mac-Owners > 0) {
+				update reply {
+					&Reply-Message := "Login not allowed from this device"
+				}
+				update control {
+					&Isp-Reject-Reason := "MAC %{Calling-Station-Id} is bound to another account"
+					&Isp-Count-Reject := 0
+				}
+				reject
+			}
+			if (&control:Acct-Mac-Count >= &control:Acct-Mac-Type) {
+				update reply {
+					&Reply-Message := "Login not allowed from this device"
+				}
+				update control {
+					&Isp-Reject-Reason := "Device limit reached (%{control:Acct-Mac-Type}), MAC %{Calling-Station-Id} is not bound"
+					&Isp-Count-Reject := 0
+				}
+				reject
+			}
+			update control {
+				&Isp-Learn-Mac := 1
+			}
+		}
+	}
+
+	#
+	#  6. Reject throttle.
+	#     PPPoE: a known MAC with too many recent rejects is armed; post-auth accepts it into the
+	#     disabled pool instead of rejecting it, so the router stops retrying. A correct password
+	#     still logs in normally.
+	#     Hotspot: too many recent rejects for the user lock the login until the interval passes.
+	#
+	if (&control:Isp-Count-Reject == 1) {
+		if (&control:Acct-Packet-Type == "PPP") {
+			if (&control:Isp-Mac-Known == 1) {
+				update control {
+					&Recent-Reject-Count := "%{sql:SELECT COALESCE(MAX(counter), 0) FROM reject_counters WHERE username = '%{User-Name}' AND mac = '%{control:Isp-Mac}' AND last_update >= NOW() - INTERVAL %{control:Reject-Packet-Interval} MINUTE}"
+				}
+				if (&control:Recent-Reject-Count > &control:Reject-Requests) {
+					update control {
+						&Isp-Throttle-Armed := 1
+					}
+				}
+			}
+		}
+		else {
+			update control {
+				&Recent-Reject-Count := "%{sql:SELECT COALESCE(MAX(counter), 0) FROM reject_counters WHERE username = '%{User-Name}' AND mac = '' AND last_update >= NOW() - INTERVAL %{control:Reject-Packet-Interval} MINUTE}"
+			}
+			if (&control:Recent-Reject-Count > &control:Reject-Requests) {
+				update reply {
+					&Reply-Message := "Too many failed logins, try again in %{control:Reject-Packet-Interval} minute(s)"
+				}
+				reject
+			}
+		}
+	}
+
+	#
+	#  7. Pick the password check (skipped when Auth-Type is already Accept).
+	#
+	chap
+	mschap
+	pap
+}
+
+#
+#  A failed check sets Isp-Password-Failed and returns ok; post-auth turns it into a reject.
+#  A correct password returns straight away (ok = return).
+#
+authenticate {
+	Auth-Type PAP {
+		pap {
+			ok = return
+			reject = 1
+			fail = 1
+			invalid = 1
+			userlock = 1
+			notfound = 1
+			handled = 1
+			noop = 1
+			updated = 1
+		}
+		update control {
+			&Isp-Password-Failed := 1
+		}
+		ok
+	}
+	Auth-Type CHAP {
+		chap {
+			ok = return
+			reject = 1
+			fail = 1
+			invalid = 1
+			userlock = 1
+			notfound = 1
+			handled = 1
+			noop = 1
+			updated = 1
+		}
+		update control {
+			&Isp-Password-Failed := 1
+		}
+		ok
+	}
+	Auth-Type MS-CHAP {
+		mschap {
+			ok = return
+			reject = 1
+			fail = 1
+			invalid = 1
+			userlock = 1
+			notfound = 1
+			handled = 1
+			noop = 1
+			updated = 1
+		}
+		update control {
+			&Isp-Password-Failed := 1
+		}
+		ok
+	}
+}
+
+preacct {
+	preprocess
+	acct_unique
+}
+
+accounting {
+	detail
+	-sql
+	attr_filter.accounting_response
+}
+
+session {
+}
+
+post-auth {
+	#
+	#  Plan limits and time slots arrive in the reply list (plan rows in radgroupreply with "=",
+	#  user overrides in radreply with ":=", so the user wins). Move them to control so they are
+	#  never sent to the router.
+	#
+	update control {
+		&Isp-Data-Limit := &reply:Isp-Data-Limit
+		&Isp-Time-Limit := &reply:Isp-Time-Limit
+		&Isp-Daily-Data := &reply:Isp-Daily-Data
+		&Isp-Daily-Time := &reply:Isp-Daily-Time
+		&Isp-Monthly-Data := &reply:Isp-Monthly-Data
+		&Isp-Monthly-Time := &reply:Isp-Monthly-Time
+		&Isp-Fup-Rate := &reply:Isp-Fup-Rate
+		&Isp-Slot-Days := &reply:Isp-Slot-Days
+		&Isp-Slot-From := &reply:Isp-Slot-From
+		&Isp-Slot-To := &reply:Isp-Slot-To
+		&Isp-Slot-Mode := &reply:Isp-Slot-Mode
+		&Isp-Slot-Rate := &reply:Isp-Slot-Rate
+		&Isp-Slot-Full-Days := &reply:Isp-Slot-Full-Days
+	}
+	update reply {
+		&Isp-Data-Limit !* ANY
+		&Isp-Time-Limit !* ANY
+		&Isp-Daily-Data !* ANY
+		&Isp-Daily-Time !* ANY
+		&Isp-Monthly-Data !* ANY
+		&Isp-Monthly-Time !* ANY
+		&Isp-Fup-Rate !* ANY
+		&Isp-Slot-Days !* ANY
+		&Isp-Slot-From !* ANY
+		&Isp-Slot-To !* ANY
+		&Isp-Slot-Mode !* ANY
+		&Isp-Slot-Rate !* ANY
+		&Isp-Slot-Full-Days !* ANY
+	}
+
+	#
+	#  8. Account rules. The first one that fails sets the reject reason (Isp-Reject-Reason)
+	#     or, for an account that may only use the disabled pool, Isp-Disabled-Reason.
+	#
+	if (&control:Isp-Password-Failed == 1) {
+		update control {
+			&Isp-Reject-Reason := "Wrong Password"
+		}
+	}
+	elsif ((&control:Acct-Packet-Type == "PPP") && (!&control:Acct-Service-Type || (&control:Acct-Service-Type != "PPP"))) {
+		update control {
+			&Isp-Reject-Reason := "Error: %{User-Name} may only connect via %{%{control:Acct-Service-Type}:-an unknown service}"
+		}
+	}
+	elsif ((&control:Acct-Packet-Type == "LOGIN") && (!&control:Acct-Service-Type || ((&control:Acct-Service-Type != "IPOE") && (&control:Acct-Service-Type != "HOTSPOT")))) {
+		update control {
+			&Isp-Reject-Reason := "Error: %{User-Name} may only connect via %{%{control:Acct-Service-Type}:-an unknown service}"
+		}
+	}
+	elsif (!&control:Acct-Status-Id || (&control:Acct-Status-Id != 1)) {
+		update control {
+			&Isp-Disabled-Reason := "Account is inactive"
+		}
+	}
+	elsif (&control:Isp-Expired == 1) {
+		if (&control:Expire-Type == 1) {
+			update control {
+				&Isp-Disabled-Reason := "Account expired"
+			}
+		}
+		else {
+			update control {
+				&Isp-Reject-Reason := "Account expired"
+			}
+		}
+	}
+	else {
+		update control {
+			&Isp-Plan-Count := "%{sql:SELECT COUNT(*) FROM radusergroup WHERE username = '%{User-Name}'}"
+		}
+		if (&control:Isp-Plan-Count == 0) {
+			update control {
+				&Isp-Disabled-Reason := "No plan assigned"
+			}
+		}
+		else {
+			#
+			#  Usage limits (plan rows in radgroupreply, user overrides in radreply).
+			#  One query adds up radacct for the total (since Isp-Usage-Since), today and this month,
+			#  and returns: data left | time left | seconds to the next daily/monthly reset |
+			#  data left split into gigawords | remainder. -1 = no such limit.
+			#
+			if (&control:Isp-Data-Limit || &control:Isp-Time-Limit || &control:Isp-Daily-Data || &control:Isp-Daily-Time || &control:Isp-Monthly-Data || &control:Isp-Monthly-Time) {
+				update control {
+					&Isp-Query-Result := "%{sql:SELECT CONCAT_WS('|', d, t, e, FLOOR(d / 4294967296), MOD(d, 4294967296)) FROM (SELECT COALESCE(GREATEST(NULLIF(LEAST(COALESCE(%{%{control:Isp-Data-Limit}:-NULL} - td, 9223372036854775807), COALESCE(%{%{control:Isp-Daily-Data}:-NULL} - dd, 9223372036854775807), COALESCE(%{%{control:Isp-Monthly-Data}:-NULL} - md, 9223372036854775807)), 9223372036854775807), 0), -1) AS d, COALESCE(GREATEST(NULLIF(LEAST(COALESCE(%{%{control:Isp-Time-Limit}:-NULL} - tt, 9223372036854775807), COALESCE(%{%{control:Isp-Daily-Time}:-NULL} - dt, 9223372036854775807), COALESCE(%{%{control:Isp-Monthly-Time}:-NULL} - mt, 9223372036854775807)), 9223372036854775807), 0), -1) AS t, IF(COALESCE(%{%{control:Isp-Daily-Data}:-NULL}, %{%{control:Isp-Daily-Time}:-NULL}) IS NOT NULL, TIMESTAMPDIFF(SECOND, NOW(), CURDATE() + INTERVAL 1 DAY), IF(COALESCE(%{%{control:Isp-Monthly-Data}:-NULL}, %{%{control:Isp-Monthly-Time}:-NULL}) IS NOT NULL, TIMESTAMPDIFF(SECOND, NOW(), LAST_DAY(CURDATE()) + INTERVAL 1 DAY), -1)) AS e FROM (SELECT COALESCE(SUM(IF(acctstarttime >= FROM_UNIXTIME(%{%{integer:control:Isp-Usage-Since}:-0}), acctinputoctets + acctoutputoctets, 0)), 0) AS td, COALESCE(SUM(IF(acctstarttime >= FROM_UNIXTIME(%{%{integer:control:Isp-Usage-Since}:-0}), acctsessiontime, 0)), 0) AS tt, COALESCE(SUM(IF(acctstarttime >= CURDATE(), acctinputoctets + acctoutputoctets, 0)), 0) AS dd, COALESCE(SUM(IF(acctstarttime >= CURDATE(), acctsessiontime, 0)), 0) AS dt, COALESCE(SUM(IF(acctstarttime >= LAST_DAY(CURDATE() - INTERVAL 1 MONTH) + INTERVAL 1 DAY, acctinputoctets + acctoutputoctets, 0)), 0) AS md, COALESCE(SUM(IF(acctstarttime >= LAST_DAY(CURDATE() - INTERVAL 1 MONTH) + INTERVAL 1 DAY, acctsessiontime, 0)), 0) AS mt FROM radacct WHERE username = '%{User-Name}') u) r}"
+				}
+				if (&control:Isp-Query-Result =~ /^(-?[0-9]+)\|(-?[0-9]+)\|(-?[0-9]+)\|(-?[0-9]+)\|(-?[0-9]+)$/) {
+					if ("%{1}" != "-1") {
+						update control {
+							&Isp-Data-Left := "%{1}"
+						}
+						#  Hotspot honours Total-Limit; PPP only honours the per-direction limits
+						#  (tested on RouterOS 7.23), so send both. PPP is cut when either direction
+						#  reaches the data left; accounting catches the rest at the next login.
+						update reply {
+							&Mikrotik-Total-Limit := "%{5}"
+							&Mikrotik-Total-Limit-Gigawords := "%{4}"
+							&Mikrotik-Recv-Limit := "%{5}"
+							&Mikrotik-Recv-Limit-Gigawords := "%{4}"
+							&Mikrotik-Xmit-Limit := "%{5}"
+							&Mikrotik-Xmit-Limit-Gigawords := "%{4}"
+						}
+					}
+					if ("%{2}" != "-1") {
+						update control {
+							&Isp-Time-Left := "%{2}"
+						}
+					}
+					if ("%{3}" != "-1") {
+						update control {
+							&Isp-Edge := "%{3}"
+						}
+					}
+				}
+
+				#  (A comparison on a missing attribute fails the whole condition, hence the existence checks.)
+				if ((&control:Isp-Data-Left && (&control:Isp-Data-Left == 0)) || (&control:Isp-Time-Left && (&control:Isp-Time-Left == 0))) {
+					#  Limit reached: fair-usage speed if the plan has one, else the disabled pool.
+					#  Either way the session ends at the next daily/monthly reset.
+					if (&control:Isp-Data-Left && (&control:Isp-Data-Left == 0)) {
+						update control {
+							&Isp-Limit-Reason := "Data limit reached"
+						}
+					}
+					else {
+						update control {
+							&Isp-Limit-Reason := "Time limit reached"
+						}
+					}
+					update reply {
+						&Mikrotik-Total-Limit !* ANY
+						&Mikrotik-Total-Limit-Gigawords !* ANY
+						&Mikrotik-Recv-Limit !* ANY
+						&Mikrotik-Recv-Limit-Gigawords !* ANY
+						&Mikrotik-Xmit-Limit !* ANY
+						&Mikrotik-Xmit-Limit-Gigawords !* ANY
+					}
+					if (&control:Isp-Fup-Rate) {
+						update reply {
+							&Mikrotik-Rate-Limit := "%{control:Isp-Fup-Rate}"
+							&Reply-Message := "%{control:Isp-Limit-Reason}, fair usage speed"
+						}
+						update control {
+							&Isp-Fup := 1
+						}
+					}
+					else {
+						update control {
+							&Isp-Disabled-Reason := "%{control:Isp-Limit-Reason}"
+						}
+					}
+					if (&control:Isp-Edge) {
+						update control {
+							&Isp-Session-Cap := &control:Isp-Edge
+						}
+					}
+				}
+				else {
+					#  Under the limits: end the session when time runs out or at the next reset.
+					#  Data is cut by the router through the Total/Recv/Xmit limits above.
+					if (&control:Isp-Time-Left) {
+						update control {
+							&Isp-Session-Cap := &control:Isp-Time-Left
+						}
+					}
+					if (&control:Isp-Edge && (!&control:Isp-Session-Cap || (&control:Isp-Session-Cap > &control:Isp-Edge))) {
+						update control {
+							&Isp-Session-Cap := &control:Isp-Edge
+						}
+					}
+				}
+			}
+
+			#
+			#  Time slot (plan rows): Isp-Slot-Days (Mo,Tu,...), Isp-Slot-From / Isp-Slot-To (hour 0-23,
+			#  To is exclusive, From > To wraps past midnight, From = To is the whole day),
+			#  Isp-Slot-Full-Days (1 = unlisted days are one 24 h slot), Isp-Slot-Mode:
+			#    access-only  outside the slot: disabled pool (PPPoE) or reject (Hotspot)
+			#    boost        inside the slot: Isp-Slot-Rate instead of the plan speed
+			#  The session ends at the next slot boundary (or midnight), so the next login gets the
+			#  right speed or access.
+			#
+			if (!&control:Isp-Disabled-Reason && &control:Isp-Slot-Mode && &control:Isp-Slot-From && &control:Isp-Slot-To) {
+				update control {
+					&Isp-Query-Result := "%{sql:SELECT CONCAT_WS('|', s, e) FROM (SELECT IF(FIND_IN_SET(SUBSTRING('MoTuWeThFrSaSu', WEEKDAY(NOW()) * 2 + 1, 2), REPLACE('%{control:Isp-Slot-Days}', ' ', '')) > 0, IF(%{control:Isp-Slot-From} = %{control:Isp-Slot-To}, 1, IF(%{control:Isp-Slot-From} < %{control:Isp-Slot-To}, HOUR(NOW()) >= %{control:Isp-Slot-From} AND HOUR(NOW()) < %{control:Isp-Slot-To}, HOUR(NOW()) >= %{control:Isp-Slot-From} OR HOUR(NOW()) < %{control:Isp-Slot-To})), %{%{control:Isp-Slot-Full-Days}:-0}) AS s, LEAST(TIMESTAMPDIFF(SECOND, NOW(), IF(HOUR(NOW()) < %{control:Isp-Slot-From}, CURDATE() + INTERVAL %{control:Isp-Slot-From} HOUR, CURDATE() + INTERVAL 1 DAY + INTERVAL %{control:Isp-Slot-From} HOUR)), TIMESTAMPDIFF(SECOND, NOW(), IF(HOUR(NOW()) < %{control:Isp-Slot-To}, CURDATE() + INTERVAL %{control:Isp-Slot-To} HOUR, CURDATE() + INTERVAL 1 DAY + INTERVAL %{control:Isp-Slot-To} HOUR)), TIMESTAMPDIFF(SECOND, NOW(), CURDATE() + INTERVAL 1 DAY)) AS e) x}"
+				}
+				if (&control:Isp-Query-Result =~ /^([01])\|([0-9]+)$/) {
+					update control {
+						&Isp-In-Slot := "%{1}"
+						&Isp-Edge := "%{2}"
+					}
+					if (!&control:Isp-Session-Cap || (&control:Isp-Session-Cap > &control:Isp-Edge)) {
+						update control {
+							&Isp-Session-Cap := &control:Isp-Edge
+						}
+					}
+					if ((&control:Isp-Slot-Mode == "access-only") && (&control:Isp-In-Slot == 0)) {
+						update control {
+							&Isp-Disabled-Reason := "Access is allowed only during the time slot"
+						}
+					}
+					elsif ((&control:Isp-Slot-Mode == "boost") && (&control:Isp-In-Slot == 1) && &control:Isp-Slot-Rate && (&control:Isp-Fup != 1)) {
+						update reply {
+							&Mikrotik-Rate-Limit := "%{control:Isp-Slot-Rate}"
+						}
+					}
+				}
+			}
+		}
+	}
+
+	#
+	#     Disabled pool: PPPoE connects at 1M/1M in the disabled pool. Hotspot and IPoE have no
+	#     disabled pool, so they are rejected with the same message.
+	#
+	if (&control:Isp-Disabled-Reason) {
+		if (&control:Acct-Packet-Type == "PPP") {
+			update control {
+				&Isp-Disabled-Pool := 1
+			}
+		}
+		else {
+			update control {
+				&Isp-Reject-Reason := "%{control:Isp-Disabled-Reason}"
+			}
+		}
+	}
+	elsif (!&control:Isp-Reject-Reason && (&control:Acct-Service-Type == "HOTSPOT") && (&control:Acct-Mac-Type > 0)) {
+		#  Open sessions from other devices. The same device logging in again does not count.
+		update control {
+			&Isp-Online-Sessions := "%{sql:SELECT COUNT(*) FROM radacct a LEFT JOIN nasreload n USING (nasipaddress) WHERE a.username = '%{User-Name}' AND a.acctstoptime IS NULL AND (n.reloadtime IS NULL OR a.acctstarttime > n.reloadtime) AND a.callingstationid <> '%{Calling-Station-Id}'}"
+		}
+		if (&control:Isp-Online-Sessions >= &control:Acct-Mac-Type) {
+			update control {
+				&Isp-Reject-Reason := "Maximum devices online (%{control:Acct-Mac-Type})"
+			}
+		}
+	}
+
+	#
+	#  9. Reject, or for a throttled PPPoE router accept into the disabled pool at 1k/1k.
+	#
+	if (&control:Isp-Reject-Reason) {
+		if (&control:Isp-Throttle-Armed == 1) {
+			update control {
+				&Isp-Reject-Reason := "Throttled after: %{control:Isp-Reject-Reason}"
+				&Isp-Throttled := 1
+			}
+		}
+		else {
+			update reply {
+				&Reply-Message := "%{control:Isp-Reject-Reason}"
+			}
+			reject
+		}
+	}
+
+	#
+	#     Disabled pool (inactive / expired / no plan at 1M/1M, throttled at 1k/1k): send only the
+	#     pool, rate, timeout and message. Plan, static IP and custom attributes are all dropped.
+	#     The MS-CHAP keys are kept, because MS-CHAPv2 clients need them to finish the login.
+	#
+	if ((&control:Isp-Disabled-Pool == 1) || (&control:Isp-Throttled == 1)) {
+		update control {
+			&MS-CHAP2-Success := &reply:MS-CHAP2-Success
+			&MS-CHAP-MPPE-Keys := &reply:MS-CHAP-MPPE-Keys
+			&MS-MPPE-Send-Key := &reply:MS-MPPE-Send-Key
+			&MS-MPPE-Recv-Key := &reply:MS-MPPE-Recv-Key
+			&MS-MPPE-Encryption-Policy := &reply:MS-MPPE-Encryption-Policy
+			&MS-MPPE-Encryption-Types := &reply:MS-MPPE-Encryption-Types
+		}
+		update {
+			&reply: !* ANY
+		}
+		update reply {
+			&MS-CHAP2-Success := &control:MS-CHAP2-Success
+			&MS-CHAP-MPPE-Keys := &control:MS-CHAP-MPPE-Keys
+			&MS-MPPE-Send-Key := &control:MS-MPPE-Send-Key
+			&MS-MPPE-Recv-Key := &control:MS-MPPE-Recv-Key
+			&MS-MPPE-Encryption-Policy := &control:MS-MPPE-Encryption-Policy
+			&MS-MPPE-Encryption-Types := &control:MS-MPPE-Encryption-Types
+			&Framed-Pool := "%{control:Disabled-Users-Pool}"
+			&Session-Timeout := "%{control:Reject-Session-Timeout}"
+		}
+		#  Come back sooner when a limit resets or a time slot starts.
+		if (&control:Isp-Session-Cap && (&reply:Session-Timeout > &control:Isp-Session-Cap)) {
+			update reply {
+				&Session-Timeout := &control:Isp-Session-Cap
+			}
+		}
+		if (&control:Isp-Throttled == 1) {
+			update reply {
+				&Reply-Message := "Too many rejected requests, account moved to the disabled pool"
+				&Mikrotik-Rate-Limit := "1k/1k"
+			}
+		}
+		else {
+			update reply {
+				&Reply-Message := "%{control:Isp-Disabled-Reason}"
+				&Mikrotik-Rate-Limit := "1M/1M"
+			}
+		}
+	}
+
+	#
+	#  10. Accepted: bind or refresh the PPPoE MAC, clear the reject counter, cap the session.
+	#
+	if ((&control:Isp-Mac-Known == 1) || ((&control:Isp-Learn-Mac == 1) && (&control:Isp-Disabled-Pool == 0))) {
+		"%{sql:INSERT INTO account_macs (username, mac_norm, learned_at, last_seen) VALUES ('%{User-Name}', '%{control:Isp-Mac}', NOW(), NOW()) ON DUPLICATE KEY UPDATE last_seen = NOW()}"
+		if (&control:Isp-Learn-Mac == 1) {
+			update reply {
+				&Reply-Message := "New device %{Calling-Station-Id} registered"
+			}
+		}
+	}
+
+	if (&control:Isp-Throttled == 0) {
+		if (&control:Acct-Packet-Type == "PPP") {
+			"%{sql:DELETE FROM reject_counters WHERE username = '%{User-Name}' AND mac = '%{control:Isp-Mac}'}"
+		}
+		else {
+			"%{sql:DELETE FROM reject_counters WHERE username = '%{User-Name}' AND mac = ''}"
+		}
+	}
+
+	if (&control:Isp-Session-Cap && (!&reply:Session-Timeout || (&reply:Session-Timeout > &control:Isp-Session-Cap))) {
+		update reply {
+			&Session-Timeout := &control:Isp-Session-Cap
+		}
+	}
+	if (&reply:Session-Timeout && (&reply:Session-Timeout > &control:Default-Session-Timeout)) {
+		update reply {
+			&Session-Timeout := &control:Default-Session-Timeout
+		}
+	}
+
+	-sql
+
+	Post-Auth-Type REJECT {
+		#  Count rejects that a retry could change; step 6 reads this counter.
+		if (&control:Isp-Count-Reject == 1) {
+			if (&control:Acct-Packet-Type == "PPP") {
+				"%{sql:INSERT INTO reject_counters (username, mac, counter, last_update) VALUES ('%{User-Name}', '%{control:Isp-Mac}', 1, NOW()) ON DUPLICATE KEY UPDATE counter = IF(last_update >= NOW() - INTERVAL %{control:Reject-Packet-Interval} MINUTE, counter + 1, 1), last_update = NOW()}"
+			}
+			else {
+				"%{sql:INSERT INTO reject_counters (username, mac, counter, last_update) VALUES ('%{User-Name}', '', 1, NOW()) ON DUPLICATE KEY UPDATE counter = IF(last_update >= NOW() - INTERVAL %{control:Reject-Packet-Interval} MINUTE, counter + 1, 1), last_update = NOW()}"
+			}
+		}
+		update reply {
+			&Reply-Message = "Wrong Password"
+			&Framed-IP-Address !* ANY
+			&Framed-IP-Netmask !* ANY
+			&Mikrotik-Address-List !* ANY
+			&Framed-Pool !* ANY
+			&Session-Timeout !* ANY
+			&Mikrotik-Rate-Limit !* ANY
+		}
+		-sql
+	}
+
+	Post-Auth-Type Challenge {
+	}
+}
+}
