@@ -2,6 +2,7 @@
 
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
+use App\Models\Nas;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -76,4 +77,12 @@ it('calls a deleted staff login Disabled', function () {
 
 it('links the System menu to the activity log', function () {
     $this->get(route('dashboard'))->assertSee(route('activity.index'));
+});
+
+it('names routers on the activity screen', function () {
+    Nas::factory()->create(['shortname' => 'core-1']);
+
+    Livewire::test('pages::activity.index')
+        ->assertSee('Router')
+        ->assertSee('core-1');
 });

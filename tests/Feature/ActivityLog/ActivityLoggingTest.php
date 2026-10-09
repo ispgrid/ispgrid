@@ -2,7 +2,11 @@
 
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
+use App\Models\Ip;
+use App\Models\Nas;
+use App\Models\RadiusSetting;
 use App\Models\User;
+use Database\Seeders\RadiusSettingSeeder;
 use Spatie\Activitylog\Models\Activity;
 
 it('records who changed an app setting, with the old and new value', function () {
@@ -69,4 +73,38 @@ it('records a renamed connection type', function () {
 
     expect($changes['old']['name'])->toBe('Home')
         ->and($changes['attributes']['name'])->toBe('Residential');
+});
+
+it('never writes a router secret to the activity log', function () {
+    $router = Nas::factory()->create(['secret' => 'FirstSecret123']);
+    $router->update(['secret' => 'SecondSecret456', 'nasname' => '10.9.9.9']);
+
+    $logged = Activity::query()->get()
+        ->map(fn (Activity $activity) => json_encode([$activity->attribute_changes, $activity->properties]))
+        ->implode(' ');
+
+    expect($logged)->not->toContain('Secret123')
+        ->and($logged)->not->toContain('Secret456')
+        ->and($logged)->toContain('10.9.9.9');
+});
+
+it('records FreeRADIUS settings changes with the old and new value', function () {
+    $this->seed(RadiusSettingSeeder::class);
+
+    RadiusSetting::current()->update(['reject_requests' => 12]);
+
+    $changes = collect(Activity::query()->latest('id')->firstOrFail()->attribute_changes)->toArray();
+
+    expect($changes['old']['reject_requests'])->toBe(30)
+        ->and($changes['attributes']['reject_requests'])->toBe(12);
+});
+
+it('records an IP taken out of the inventory but not every IP a range adds', function () {
+    $ip = Ip::factory()->create();
+
+    $ip->delete();
+    $ip->restore();
+
+    expect(Activity::query()->where('subject_type', $ip->getMorphClass())->pluck('event')->all())
+        ->toBe(['deleted', 'restored']);
 });

@@ -61,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureGates(): void
     {
         Gate::define('manage-app-settings', fn (User $user): bool => true);
+        Gate::define('manage-radius-settings', fn (User $user): bool => true);
         Gate::define('view-activity-log', fn (User $user): bool => true);
     }
 }
