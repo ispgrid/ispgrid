@@ -9,7 +9,7 @@
 
 SERVER="127.0.0.1"
 SECRET="testing123"
-DB="radius"
+DB="${RADIUS_DB:-radius}"
 IPOE_USER="AA:BB:CC:00:00:01"
 PASS=0
 FAIL=0
@@ -26,6 +26,7 @@ seed() {
        DELETE FROM radacct WHERE username LIKE 't\_%' OR acctsessionid LIKE 't-%';
        DELETE FROM radpostauth WHERE username LIKE 't\_%' OR username = '$IPOE_USER' OR username LIKE 'DE:AD:%';
        DELETE FROM ipoes WHERE username LIKE 't\_%';
+       DELETE FROM accounts WHERE username LIKE 't\_%';
 
        INSERT INTO radgroupreply (groupname, attribute, op, value) VALUES
          ('t_plan40', 'Mikrotik-Rate-Limit', '=', '40M/40M'),
@@ -65,9 +66,10 @@ seed() {
   add_user t_ipoe      IPOE    1 1 "01 Jan 2030 00:00"
   add_user t_ipoe2     IPOE    1 1 "01 Jan 2030 00:00"
   add_user t_ipoe_hs   HOTSPOT 1 0 "01 Jan 2030 00:00"
-  sql "INSERT INTO ipoes (account_id, username, ip_address) VALUES
-         (0, 't_ipoe', '10.99.0.10'), (0, 't_ipoe2', '10.99.0.11'), (0, 't_ipoe_hs', '10.99.0.12'),
-         (0, 't_ipoe_gone', '10.99.0.13');"
+  add_ipoe t_ipoe      10.99.0.10 IPOE
+  add_ipoe t_ipoe2     10.99.0.11 IPOE
+  add_ipoe t_ipoe_hs   10.99.0.12 HOTSPOT
+  add_ipoe t_ipoe_gone 10.99.0.13 IPOE deleted
   add_user t_ipoe_off  IPOE    2 1 "01 Jan 2030 00:00"
   add_user t_ipoe_sus  IPOE    3 1 "01 Jan 2030 00:00"
   add_user t_ipoe_term IPOE    4 1 "01 Jan 2030 00:00"
@@ -77,11 +79,14 @@ seed() {
   add_user t_ipoe_q    IPOE    1 1 "01 Jan 2030 00:00"
   sql "DELETE FROM radusergroup WHERE username = 't_ipoe_noplan';
        INSERT INTO radreply (username, attribute, op, value) VALUES
-         ('t_ipoe_off', 'Framed-IP-Address', ':=', '10.99.0.20'), ('t_ipoe_q', 'Isp-Data-Limit', ':=', '1000');
-       INSERT INTO ipoes (account_id, username, ip_address) VALUES
-         (0, 't_ipoe_off', '10.99.0.20'), (0, 't_ipoe_sus', '10.99.0.21'), (0, 't_ipoe_term', '10.99.0.22'),
-         (0, 't_ipoe_exp', '10.99.0.23'), (0, 't_ipoe_hard', '10.99.0.24'), (0, 't_ipoe_noplan', '10.99.0.25'),
-         (0, 't_ipoe_q', '10.99.0.26');"
+         ('t_ipoe_off', 'Framed-IP-Address', ':=', '10.99.0.20'), ('t_ipoe_q', 'Isp-Data-Limit', ':=', '1000');"
+  add_ipoe t_ipoe_off    10.99.0.20 IPOE
+  add_ipoe t_ipoe_sus    10.99.0.21 IPOE
+  add_ipoe t_ipoe_term   10.99.0.22 IPOE
+  add_ipoe t_ipoe_exp    10.99.0.23 IPOE
+  add_ipoe t_ipoe_hard   10.99.0.24 IPOE
+  add_ipoe t_ipoe_noplan 10.99.0.25 IPOE
+  add_ipoe t_ipoe_q      10.99.0.26 IPOE
   add_user t_lists_plan PPP    1 0 "01 Jan 2030 00:00"
   add_user t_lists_own PPP     1 0 "01 Jan 2030 00:00"
   add_user t_lists_off PPP     2 0 "01 Jan 2030 00:00"
@@ -142,6 +147,17 @@ add_user() {
   if [[ -n "$etype" ]]; then
     sql "INSERT INTO radcheck (username, attribute, op, value) VALUES ('$u', 'Expire-Type', ':=', '$etype');"
   fi
+}
+
+#  IPoE fixtures: ipoes.account_id is a foreign key, so each ipoes row gets an accounts row first.
+#  add_ipoe <user> <ip> <service type> [deleted]   ("deleted" = a soft-deleted account)
+add_ipoe() {
+  local u="$1" ip="$2" type="$3" deleted="NULL"
+  [[ "$4" == "deleted" ]] && deleted="NOW()"
+  sql "INSERT INTO accounts (username, fullname, service_type, created_at, updated_at, deleted_at)
+         VALUES ('$u', '$u', '$type', NOW(), NOW(), $deleted);
+       INSERT INTO ipoes (account_id, username, ip_address, created_at, updated_at)
+         SELECT id, username, '$ip', NOW(), NOW() FROM accounts WHERE username = '$u';"
 }
 
 #  Test routers (nas rows, loaded when FreeRADIUS starts): 127.0.0.2 requires Message-Authenticator,
