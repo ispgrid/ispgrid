@@ -578,6 +578,16 @@ post-auth {
 	}
 
 	#
+	#  IPoE: the Hotspot treats Framed-Pool as the pool for its NAT address, and the customer keeps its own
+	#  IP, so a plan's pool (meant for PPPoE) is never sent. The disabled pool sets its own further down.
+	#
+	if (&control:Acct-Service-Type == "IPOE") {
+		update reply {
+			&Framed-Pool !* ANY
+		}
+	}
+
+	#
 	#  Address lists: an account with its own lists (Mikrotik-Address-List, radreply "+=") gets only
 	#  those; otherwise it gets its plan's (Isp-Plan-Address-List, radgroupreply "+="). The plan uses
 	#  its own attribute because FreeRADIUS adds a plan's "+=" rows to the account's, which would send

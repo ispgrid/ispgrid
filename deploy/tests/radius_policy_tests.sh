@@ -211,8 +211,9 @@ result() {
 #  A substring starting with "!" must NOT be in the reply.
 check() {
   local name="$1" want="$2" attrs="$3"; shift 3
-  local out
-  out="$(printf '%b' "$attrs" | radclient -x -r 1 -t 3 "$SERVER:1812" auth "$SECRET" 2>&1)"
+  local out rc started
+  started=$(date +%s%N)
+  out="$(printf '%b' "$attrs" | radclient -x -r 1 -t 3 "$SERVER:1812" auth "$SECRET" 2>&1)"; rc=$?
   local reply="${out#*Received Access-}"
   local ok=1
   grep -q "Received Access-$want" <<<"$out" || ok=0
@@ -239,6 +240,7 @@ check() {
   fi
   if [[ $ok -eq 0 ]]; then
     grep -E "Received|Reply-Message|Rate-Limit|Framed|Session-Timeout|Address-List|radclient|rror|No reply" <<<"$out" | sed 's/^/        /'
+    echo "        (radclient exit $rc after $(( ($(date +%s%N) - started) / 1000000 )) ms; last line: $(tail -1 <<<"$out"))"
   fi
 }
 
@@ -348,7 +350,7 @@ check "Hotspot locked after $((LIMIT + 1)) wrong passwords" Reject "$(login t_hs
 I1="DE:AD:00:00:00:01"; I2="DE:AD:00:00:00:02"; I3="DE:AD:00:00:00:03"
 section "IPoE (Hotspot MAC login, account found by the device IP)"
 check "First device on the account's IP: accept, MAC learned" Accept "$(maclogin $I1 10.99.0.10)" \
-      'Mikrotik-Rate-Limit = "40M/40M"' "New device $I1 registered"
+      'Mikrotik-Rate-Limit = "40M/40M"' "New device $I1 registered" '!Framed-Pool'
 logged "  logged under the account name"         t_ipoe 'New device'
 bound=$(sql "SELECT GROUP_CONCAT(mac_norm) FROM account_macs WHERE username = 't_ipoe'")
 result $([[ "$bound" == "DEAD00000001" ]] && echo 1 || echo 0) "  MAC bound to the account" "(bound: '$bound')"
@@ -381,6 +383,13 @@ acct "User-Name=$I2\nAcct-Status-Type=Start\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Ad
 acct "User-Name=$I2\nAcct-Status-Type=Stop\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.99.0.10\nCalling-Station-Id=$I2\nAcct-Session-Time=60\n"
 rows=$(sql "SELECT GROUP_CONCAT(CONCAT(username, ':', acctstoptime IS NOT NULL)) FROM radacct WHERE acctsessionid = 't-ipoe-1'")
 result $([[ "$rows" == "t_ipoe:1" ]] && echo 1 || echo 0) "Accounting under the account name, Start and Stop in one row" "(rows: $rows)"
+check "NATed Framed-IP, real Mikrotik-Host-IP: found by the host IP" Accept \
+      "User-Name=$I2\nUser-Password=$I2\nService-Type=Login-User\nCalling-Station-Id=$I2\nCalled-Station-Id=hotspot-test\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=100.64.99.5\nMikrotik-Host-IP=10.99.0.10\n" '!New device'
+who=$(sql "SELECT username FROM radpostauth WHERE mac = '$I2' ORDER BY id DESC LIMIT 1")
+result $([[ "$who" == "t_ipoe" ]] && echo 1 || echo 0) "  logged under the account name" "(logged as: $who)"
+acct "User-Name=$I2\nAcct-Status-Type=Start\nAcct-Session-Id=t-ipoe-2\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=100.64.99.5\nMikrotik-Host-IP=10.99.0.10\nCalling-Station-Id=$I2\n"
+rows=$(sql "SELECT GROUP_CONCAT(username) FROM radacct WHERE acctsessionid = 't-ipoe-2'")
+result $([[ "$rows" == "t_ipoe" ]] && echo 1 || echo 0) "  accounting with a NATed Framed-IP under the account name" "(rows: $rows)"
 
 section "IPoE disabled pool (notice page)"
 check "Inactive IPoE -> disabled pool 1M/1M"     Accept "$(maclogin DE:AD:00:00:00:20 10.99.0.20)" \
