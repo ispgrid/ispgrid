@@ -5,6 +5,7 @@
 <x-ui.nav-group :heading="__('Network')">
     <x-ui.nav-item :href="route('routers.index')" icon="server-stack" :current="request()->routeIs('routers.*')">{{ __('Routers') }}</x-ui.nav-item>
     <x-ui.nav-item :href="route('pools.index')" icon="circle-stack" :current="request()->routeIs('pools.*')">{{ __('Pools') }}</x-ui.nav-item>
+    <x-ui.nav-item :href="route('ip-ranges.index')" icon="globe-alt" :current="request()->routeIs('ip-ranges.*')">{{ __('IP ranges') }}</x-ui.nav-item>
     <x-ui.nav-item :href="route('address-lists.index')" icon="list-bullet" :current="request()->routeIs('address-lists.*')">{{ __('Address lists') }}</x-ui.nav-item>
 </x-ui.nav-group>
 
