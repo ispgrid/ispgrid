@@ -238,7 +238,7 @@ check() {
     } >> "$DUMP"
   fi
   if [[ $ok -eq 0 ]]; then
-    grep -E "Received|Reply-Message|Rate-Limit|Framed|Session-Timeout|Address-List" <<<"$out" | sed 's/^/        /'
+    grep -E "Received|Reply-Message|Rate-Limit|Framed|Session-Timeout|Address-List|radclient|rror|No reply" <<<"$out" | sed 's/^/        /'
   fi
 }
 
