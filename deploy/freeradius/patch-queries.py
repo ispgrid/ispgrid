@@ -14,6 +14,18 @@ CLIENT_QUERY = """client_query = "\\
 \tFROM ${client_table} \\
 \tWHERE deleted_at IS NULL\""""
 
+#  Login log: no password (the pass column keeps its default ''), the real reject reason, the MAC.
+POSTAUTH_QUERY = """query =\t"\\
+\t\tINSERT INTO ${..postauth_table} \\
+\t\t\t(username, reply, reply_msg, authdate, nasipaddress, mac) \\
+\t\tVALUES ( \\
+\t\t\t'%{SQL-User-Name}', \\
+\t\t\t'%{reply:Packet-Type}', \\
+\t\t\t'%{%{control:Isp-Reject-Reason}:-%{reply:Reply-Message}}', \\
+\t\t\t'%S.%M', \\
+\t\t\t'%{NAS-IP-Address}', \\
+\t\t\t'%{Calling-Station-Id}')\""""
+
 
 def replace(text, name, pattern, new, group=0):
     """Replace the first match (or one group of it) with new; stop if the stock text is not there."""
@@ -31,6 +43,8 @@ def main():
     with open(PATH) as f:
         text = f.read()
     text = replace(text, "client_query skips deleted routers", r'^client_query = ".*?[^\\]"$', CLIENT_QUERY)
+    text = replace(text, "post-auth query without the password",
+                   r'^post-auth \{.*?^\t(query =\s*".*?[^\\]")$', POSTAUTH_QUERY, group=1)
     #  safe_characters is set in mods-available/sql (with ",!()"); a second copy here would win.
     if re.search(r'^safe_characters = ', text, flags=re.M):
         text = re.sub(r'^safe_characters = ', '#  Set in mods-available/sql instead.\n#safe_characters = ', text,

@@ -403,6 +403,7 @@ logged "  reason logged"                         t_nobody 'User not found'
 check "Missing Calling-Station-Id"               Reject "User-Name=t_ppp\nUser-Password=pass\nService-Type=Framed-User\nFramed-Protocol=PPP\nCalled-Station-Id=x\n" 'missing'
 check "Missing NAS-IP-Address"                   Reject "User-Name=t_ppp\nUser-Password=pass\nService-Type=Framed-User\nFramed-Protocol=PPP\nCalling-Station-Id=$M1\nCalled-Station-Id=x\n" 'missing'
 check "Invalid MAC"                             Reject "$(ppp t_ppp pass zz)" 'invalid MAC format'
+logged "  reason logged without quotes"          t_ppp 'invalid MAC format: zz'
 check "Unsupported service type"                 Reject "User-Name=t_ppp\nUser-Password=pass\nService-Type=Framed-User\nCalling-Station-Id=$M1\nCalled-Station-Id=x\nNAS-IP-Address=127.0.0.1\n" 'not supported'
 
 section "PPPoE reject throttle (settings: reject_requests=$LIMIT, reject_packet_interval)"
@@ -479,6 +480,12 @@ probe "New router: request with Message-Auth answered" 127.0.0.2 ma ANSWERED
 probe "New router: request without Message-Auth dropped" 127.0.0.2 plain DROPPED
 probe "New router: Proxy-State without Message-Auth dropped" 127.0.0.2 proxy-state DROPPED
 probe "Wrong Message-Auth dropped by FreeRADIUS itself" 127.0.0.2 bad-ma DROPPED
+
+section "Login log (radpostauth)"
+stored=$(sql "SELECT COUNT(*) FROM radpostauth WHERE (username LIKE 't\_%' OR username LIKE 'DE:AD:%') AND pass <> ''")
+result $([[ "$stored" -eq 0 ]] && echo 1 || echo 0) "No password stored" "($stored rows with a password)"
+quoted=$(sql "SELECT COUNT(*) FROM radpostauth WHERE (username LIKE 't\_%' OR username LIKE 'DE:AD:%') AND reply_msg LIKE '%=3D27%'")
+result $([[ "$quoted" -eq 0 ]] && echo 1 || echo 0) "No escaped quotes in reasons" "($quoted rows with =3D27)"
 
 section "Accounting"
 acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" 2>&1)"

@@ -138,7 +138,7 @@ authorize {
 	}
 	else {
 		update reply {
-			&Reply-Message := "Error: invalid MAC format '%{Calling-Station-Id}'"
+			&Reply-Message := "Error: invalid MAC format: %{Calling-Station-Id}"
 		}
 		reject
 	}
@@ -239,7 +239,7 @@ authorize {
 			&Reply-Message := "Error: account data could not be read"
 		}
 		update control {
-			&Isp-Reject-Reason := "Could not read the user's rows (bad radcheck/radreply/radgroupreply row, or database error)"
+			&Isp-Reject-Reason := "Could not read the account rows (bad radcheck/radreply/radgroupreply row, or database error)"
 		}
 		reject
 	}
