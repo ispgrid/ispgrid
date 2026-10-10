@@ -170,6 +170,11 @@ new #[Title('Customer')] class extends Component
             $this->{$field} = (string) ($model->{$field} ?? '');
         }
 
+        // The generated IPoE password stays hidden: it must not turn into a PPPoE password nobody chose.
+        if ($model->service_type === ServiceType::Ipoe) {
+            $this->password = '';
+        }
+
         foreach (self::ADDRESS_FIELDS as $field) {
             $this->address[$field] = (string) ($model->address?->{$field} ?? '');
         }
@@ -353,6 +358,12 @@ new #[Title('Customer')] class extends Component
     {
         $this->resetErrorBag('ip_address');
 
+        if ($this->free_ip_range === '') {
+            $this->addError('ip_address', __('Choose a range first.'));
+
+            return;
+        }
+
         $address = Ip::query()->free()
             ->where('ip_range_id', (int) $this->free_ip_range)
             ->orderByRaw('INET_ATON(address)')
@@ -407,9 +418,12 @@ new #[Title('Customer')] class extends Component
                 $previousType = $account?->service_type;
                 $oldAddress = $account?->address;
                 $columns['address_id'] = $this->saveAddress($oldAddress);
+                $columns['password'] ??= $account?->password ?? Str::random(16);
+                $isNew = $account === null;
 
                 if ($account === null) {
-                    $account = Account::query()->create($columns);
+                    // Logged below as one "Created" entry together with the address and lists.
+                    $account = activity()->withoutLogging(fn (): Account => Account::query()->create($columns));
                 } else {
                     $account->update($columns);
                 }
@@ -427,7 +441,11 @@ new #[Title('Customer')] class extends Component
                     $this->resetDevicesAfterTypeChange($account);
                 }
 
-                $this->logRelationChanges($account, $before);
+                if ($isNew) {
+                    $this->logCreated($account);
+                } else {
+                    $this->logRelationChanges($account, $before);
+                }
 
                 return $account->id;
             }, attempts: 3);
@@ -670,7 +688,7 @@ new #[Title('Customer')] class extends Component
             'business_id' => $this->nullIfEmpty($this->business_id),
             'remarks' => $this->nullIfEmpty($this->remarks),
             'service_type' => $this->service_type,
-            'password' => $this->password !== '' ? $this->password : Str::random(16),
+            'password' => $this->password !== '' ? $this->password : null,
             'mac_type' => $isIpoe ? 1 : (int) $this->mac_type,
             'nas_id' => $this->intOrNull($this->nas_id),
             'connection_type_id' => $this->intOrNull($this->connection_type_id),
@@ -776,6 +794,32 @@ new #[Title('Customer')] class extends Component
             ->event('updated')
             ->withChanges(['old' => array_intersect_key($before, $changed), 'attributes' => array_intersect_key($after, $changed)])
             ->log('updated');
+    }
+
+    /**
+     * One "Created" entry with the customer's columns (never the password) and their address and lists, so a
+     * new customer does not show a separate "Updated" entry right after being created.
+     */
+    private function logCreated(Account $account): void
+    {
+        $attributes = [];
+
+        foreach ($account->getActivitylogOptions()->logAttributes as $field) {
+            $value = $account->getAttribute($field);
+            $attributes[$field] = match (true) {
+                $value instanceof BackedEnum => $value->value,
+                $value instanceof DateTimeInterface => $value->format('Y-m-d H:i:s'),
+                default => $value,
+            };
+        }
+
+        $relations = array_filter($this->relationSummary($account), fn (string $value): bool => $value !== '');
+
+        activity()
+            ->performedOn($account)
+            ->event('created')
+            ->withChanges(['attributes' => $attributes + $relations])
+            ->log('created');
     }
 
     /**

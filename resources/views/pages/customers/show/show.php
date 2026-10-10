@@ -13,6 +13,7 @@ use App\Models\AppSetting;
 use App\Models\Pool;
 use App\Support\CustomerDefaults;
 use App\Support\Ipv4Cidr;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -297,6 +298,22 @@ new #[Title('Customer')] class extends Component
             'remark.required' => __('Say why the status changes.'),
         ]);
 
+        try {
+            $this->writeStatus($sync);
+        } catch (ModelNotFoundException) {
+            $this->toastDeletedMeanwhile();
+
+            return;
+        }
+
+        $this->reset('remark');
+        unset($this->account, $this->service);
+        $this->dispatch('modal-close', name: 'change-status');
+        $this->toast(__('Status changed. If the customer is online, it applies at their next login.'));
+    }
+
+    private function writeStatus(SyncAccountToRadius $sync): void
+    {
         DB::transaction(function () use ($sync): void {
             $account = Account::query()->lockForUpdate()->findOrFail($this->accountId);
             $old = $account->status_id;
@@ -314,11 +331,6 @@ new #[Title('Customer')] class extends Component
                 ])
                 ->log('status-changed');
         }, attempts: 3);
-
-        $this->reset('remark');
-        unset($this->account, $this->service);
-        $this->dispatch('modal-close', name: 'change-status');
-        $this->toast(__('Status changed. If the customer is online, it applies at their next login.'));
     }
 
     /**
@@ -330,6 +342,20 @@ new #[Title('Customer')] class extends Component
     {
         $this->authorize('delete', $this->account);
 
+        try {
+            $this->softDelete($sync, $reset, $unlock);
+        } catch (ModelNotFoundException) {
+            $this->toastDeletedMeanwhile();
+
+            return;
+        }
+
+        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service);
+        $this->toast(__('Customer deleted. They can no longer log in; a session open now continues until it ends.'));
+    }
+
+    private function softDelete(SyncAccountToRadius $sync, ResetDevices $reset, UnlockAccount $unlock): void
+    {
         DB::transaction(function () use ($sync, $reset, $unlock): void {
             $account = Account::query()->with(['ip', 'pool'])->lockForUpdate()->findOrFail($this->accountId);
             $previousIpId = $account->ip_id;
@@ -360,9 +386,15 @@ new #[Title('Customer')] class extends Component
                 ->withProperties(['devices' => $devices])
                 ->log('deleted');
         }, attempts: 3);
+    }
 
-        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service);
-        $this->toast(__('Customer deleted. They can no longer log in; a session open now continues until it ends.'));
+    /**
+     * Another staff member deleted the customer while this page was open.
+     */
+    private function toastDeletedMeanwhile(): void
+    {
+        unset($this->account);
+        $this->toast(__('This customer was deleted meanwhile. Reload the page.'), 'danger');
     }
 
     /**

@@ -3,10 +3,12 @@
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
 use App\Models\Account;
+use App\Models\AddressList;
 use App\Models\AppSetting;
 use App\Models\Ip;
 use App\Models\Ipoe;
 use App\Models\IpRange;
+use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\User;
@@ -216,19 +218,39 @@ it('restores an IPoE customer without an IP when the default range has none free
         ->and(Ipoe::query()->count())->toBe(0);
 });
 
-it('refuses to restore a customer whose plan was deleted', function () {
+it('refuses to restore a customer whose plan, router or address list was deleted', function (string $deleted, string $message) {
     $plan = Plan::factory()->create(['name' => 'Old plan']);
-    $account = Account::factory()->trashed()->create(['plan_id' => $plan->id]);
-    $plan->delete();
+    $router = Nas::factory()->create(['shortname' => 'old-router']);
+    $list = AddressList::factory()->create(['name' => 'old-list']);
+    $account = Account::factory()->trashed()->create(['plan_id' => $plan->id, 'nas_id' => $router->id]);
+    $account->addressLists()->attach($list);
 
-    showCustomer($account)->call('restore')->assertDispatched(
-        'toast',
-        message: 'First restore what this customer uses: the plan Old plan.',
-        variant: 'danger',
-    );
+    match ($deleted) {
+        'plan' => $plan->delete(),
+        'router' => $router->delete(),
+        'address list' => $list->delete(),
+    };
+
+    showCustomer($account)->call('restore')->assertDispatched('toast', message: $message, variant: 'danger');
 
     expect($account->fresh()->trashed())->toBeTrue()
         ->and(DB::table('radcheck')->where('username', $account->username)->count())->toBe(0);
+})->with([
+    ['plan', 'First restore what this customer uses: the plan Old plan.'],
+    ['router', 'First restore what this customer uses: the router old-router.'],
+    ['address list', 'First restore what this customer uses: the address list old-list.'],
+]);
+
+it('tells staff the customer was deleted meanwhile instead of failing', function (string $action) {
+    $account = Account::factory()->create();
+    $page = showCustomer($account)->set('status', '3')->set('remark', 'Unpaid');
+    $account->delete();
+
+    $page->call($action)->assertDispatched('toast', message: 'This customer was deleted meanwhile. Reload the page.', variant: 'danger');
+})->with(['changeStatus', 'delete']);
+
+it('explains that an Active customer needs a plan', function () {
+    showCustomer(Account::factory()->create())->assertSee('Active customers without a plan still get the disabled pool');
 });
 
 it('shows nothing for an unknown customer', function () {

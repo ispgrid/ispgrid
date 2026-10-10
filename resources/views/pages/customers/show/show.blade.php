@@ -134,7 +134,7 @@
     <x-ui.modal name="change-status" width="sm">
         <form wire:submit="changeStatus" class="grid gap-5">
             <x-ui.heading size="lg">{{ __('Change status') }}</x-ui.heading>
-            <x-ui.select wire:model="status" :label="__('Status')" :options="$this->statuses" :description="__('Inactive and Suspended customers get the disabled pool (Hotspot logins are refused). Terminated customers are refused everywhere.')" />
+            <x-ui.select wire:model="status" :label="__('Status')" :options="$this->statuses" :description="__('Inactive and Suspended customers get the disabled pool (Hotspot logins are refused). Terminated customers are refused everywhere. Active customers without a plan still get the disabled pool: recharge them to give them one.')" />
             <x-ui.textarea wire:model="remark" :label="__('Remark')" :description="__('Why the status changes. It is kept in the activity log.')" rows="2" maxlength="500" required />
             <div class="flex justify-end gap-2">
                 <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'change-status' })">{{ __('Cancel') }}</x-ui.button>

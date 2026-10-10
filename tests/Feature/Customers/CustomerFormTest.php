@@ -472,3 +472,42 @@ it('keeps the bound devices when the type stays the same', function () {
 
     expect(DB::table('account_macs')->count())->toBe(1);
 });
+
+it('does not carry the hidden IPoE password over when an IPoE customer becomes PPPoE', function () {
+    $account = Account::factory()->ipoe()->create(['password' => 'generated123', 'ip_id' => freeIp('172.16.30.20')->id]);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertSet('password', '')
+        ->set('service_type', 'PPP')
+        ->call('save')
+        ->assertHasErrors(['password']);
+});
+
+it('keeps the password of an IPoE customer saved again', function () {
+    $account = Account::factory()->ipoe()->create(['password' => 'generated123', 'ip_id' => freeIp('172.16.30.20')->id]);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])->set('fullname', 'Erin Das')->call('save')->assertHasNoErrors();
+
+    expect($account->fresh()->password)->toBe('generated123');
+});
+
+it('asks for a range before picking the next free IP', function () {
+    Livewire::test('pages::customers.form')
+        ->call('fillNextFreeIp')
+        ->assertHasErrors(['ip_address'])
+        ->assertSee('Choose a range first.');
+});
+
+it('logs a new customer as one created entry with the address and lists', function () {
+    $list = AddressList::factory()->create(['name' => 'vip']);
+
+    newCustomerForm()->set('address.line1', '12 MG Road')->set('address_list_ids', [(string) $list->id])
+        ->call('save')->assertHasNoErrors();
+
+    $activities = Activity::query()->where('subject_type', (new Account)->getMorphClass())->get();
+    $attributes = collect($activities->sole()->attribute_changes)->toArray()['attributes'];
+
+    expect($activities->sole()->event)->toBe('created')
+        ->and($attributes)->toMatchArray(['username' => 'alice', 'address' => '12 MG Road', 'address_lists' => 'vip'])
+        ->and($attributes)->not->toHaveKey('password');
+});

@@ -12,6 +12,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Rebuilds the FreeRADIUS rows from the app tables: after a manual edit, a bug or a database restore. Safe to
@@ -57,16 +58,29 @@ class ResyncRadius extends Command
         }
 
         $accountCount = 0;
+        $failed = 0;
 
-        Account::withTrashed()->select('id')->chunkById(500, function (Collection $chunk) use ($accounts, &$accountCount): void {
+        // One customer that cannot be rebuilt (a stale row after a database restore, say) must not stop the rest.
+        Account::withTrashed()->select(['id', 'username'])->chunkById(500, function (Collection $chunk) use ($accounts, &$accountCount, &$failed): void {
             foreach ($chunk as $account) {
-                $this->syncAccount($accounts, $account->id);
-                $accountCount++;
+                try {
+                    $this->syncAccount($accounts, $account->id);
+                    $accountCount++;
+                } catch (Throwable $exception) {
+                    $failed++;
+                    $this->error("Could not rebuild {$account->username}: {$exception->getMessage()}");
+                }
             }
         });
 
         $this->info('Rebuilt the rows of '.$planCount.' '.Str::plural('plan', $planCount)
             .' and '.$accountCount.' '.Str::plural('customer', $accountCount).'.');
+
+        if ($failed > 0) {
+            $this->error($failed.' '.Str::plural('customer', $failed).' could not be rebuilt: fix the rows named above and run the command again.');
+
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }

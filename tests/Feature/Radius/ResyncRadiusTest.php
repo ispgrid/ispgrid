@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Account;
+use App\Models\Ip;
 use App\Models\Plan;
 use Illuminate\Support\Facades\DB;
 
@@ -44,4 +45,18 @@ it('says when no customer has the username', function () {
     $this->artisan('radius:resync', ['username' => 'nobody'])
         ->expectsOutput('No customer is called nobody.')
         ->assertFailed();
+});
+
+it('reports a customer it cannot rebuild and carries on with the others', function () {
+    $ipoe = Account::factory()->ipoe()->create(['username' => 'erin', 'password' => 'x1234567', 'ip_id' => Ip::factory()->create(['address' => '172.16.30.20'])->id]);
+    $other = Account::factory()->create(['username' => 'zed']);
+    DB::table('ipoes')->insert(['account_id' => $other->id, 'username' => 'zed', 'ip_address' => '172.16.30.20', 'created_at' => now(), 'updated_at' => now()]);
+    Account::factory()->create(['username' => 'zoe']);
+
+    $this->artisan('radius:resync', ['--all' => true])
+        ->expectsOutputToContain('Could not rebuild erin')
+        ->assertFailed();
+
+    expect(DB::table('radcheck')->where('username', 'zoe')->count())->toBeGreaterThan(0)
+        ->and($ipoe->fresh()->trashed())->toBeFalse();
 });
