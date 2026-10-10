@@ -6,6 +6,7 @@ use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\Nas;
 use App\Models\Radacct;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
@@ -105,15 +106,19 @@ class DisconnectAccount implements ShouldQueue
 
         // The router knows an IPoE session by the device MAC, so User-Name would get a NAK (router check 30).
         $attributes = array_filter([
-            'User-Name' => $isIpoe ? null : $session->username,
             'Acct-Session-Id' => $session->acctsessionid,
             'Framed-IP-Address' => $session->framedipaddress,
         ], fn (?string $value): bool => $value !== null && $value !== '');
-        $request = collect($attributes)->map(fn (string $value, string $name): string => "{$name}={$value}")->implode(',');
+        $withName = $isIpoe ? null : ['User-Name' => $session->username] + $attributes;
 
         try {
-            $result = Process::timeout(30)->input($request)
-                ->run([config('radius.radclient'), '-x', '-r', '1', '-t', '5', "{$router}:3799", 'disconnect', $secret]);
+            $result = $this->send($router, $secret, $withName ?? $attributes);
+
+            // A NAK to a request with User-Name can mean the session is an IPoE one (the customer was just moved
+            // off IPoE): ask once more by session and IP only.
+            if ($withName !== null && str_contains($result->output(), 'Disconnect-NAK')) {
+                $result = $this->send($router, $secret, $attributes);
+            }
         } catch (ProcessTimedOutException) {
             return __(':router did not answer within 30 seconds', ['router' => $router]);
         }
@@ -125,5 +130,16 @@ class DisconnectAccount implements ShouldQueue
         $detail = trim($result->errorOutput()) ?: trim($result->output()) ?: 'exit code '.$result->exitCode();
 
         return $router.': '.Str::limit($detail, 150);
+    }
+
+    /**
+     * @param  array<string, string>  $attributes
+     */
+    private function send(string $router, string $secret, array $attributes): ProcessResult
+    {
+        $request = collect($attributes)->map(fn (string $value, string $name): string => "{$name}={$value}")->implode(',');
+
+        return Process::timeout(30)->input($request)
+            ->run([config('radius.radclient'), '-x', '-r', '1', '-t', '5', "{$router}:3799", 'disconnect', $secret]);
     }
 }

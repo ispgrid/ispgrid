@@ -57,9 +57,10 @@ it('takes a NAK as done: the router has no such session', function () {
     routerAnswers('Received Disconnect-NAK Id 7 Error-Cause = Session-Context-Not-Found');
     Radacct::factory()->create(['username' => 'alice']);
 
+    // Asked by name, then by session and IP only: two NAKs, no exception.
     (new DisconnectAccount('alice'))->handle();
 
-    Process::assertRanTimes(fn (PendingProcess $process): bool => true, 1);
+    Process::assertRanTimes(fn (PendingProcess $process): bool => true, 2);
 });
 
 it('fails so the queue retries when the router does not answer', function () {
@@ -104,4 +105,18 @@ it('queues a disconnect only for a customer who is online', function () {
 
     Queue::assertPushed(DisconnectAccount::class, 1);
     Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->username === 'alice' && $job->sessionId === null);
+});
+
+it('tries again without User-Name when the router does not know the session by name', function () {
+    // A customer just moved from IPoE to PPPoE: the open session is still the IPoE one, known only by its MAC.
+    Process::fake(['*' => Process::sequence()
+        ->push(Process::result(output: 'Received Disconnect-NAK Id 7 Error-Cause = Session-Context-Not-Found'))
+        ->push(Process::result(output: 'Received Disconnect-ACK Id 8'))]);
+    Account::factory()->create(['username' => 'alice']);
+    Radacct::factory()->create(['username' => 'alice', 'acctsessionid' => '81a00003', 'framedipaddress' => '172.16.30.20']);
+
+    (new DisconnectAccount('alice'))->handle();
+
+    Process::assertRanTimes(fn (PendingProcess $process): bool => true, 2);
+    Process::assertRan(fn (PendingProcess $process): bool => $process->input === 'Acct-Session-Id=81a00003,Framed-IP-Address=172.16.30.20');
 });
