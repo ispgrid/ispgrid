@@ -20,7 +20,7 @@ it('lets staff disable other staff but not themselves', function () {
 
 it('gives every staff member the system screens', function (string $ability) {
     expect(User::factory()->create()->can($ability))->toBeTrue();
-})->with(['manage-app-settings', 'view-activity-log', 'manage-radius-settings', 'view-online-sessions', 'disconnect-sessions']);
+})->with(['manage-app-settings', 'view-activity-log', 'manage-radius-settings', 'view-online-sessions', 'disconnect-sessions', 'view-login-log']);
 
 it('lets every staff member manage connection types', function (string $ability) {
     expect(User::factory()->create()->can($ability, ConnectionType::factory()->create()))->toBeTrue();

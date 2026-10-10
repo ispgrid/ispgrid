@@ -65,5 +65,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-activity-log', fn (User $user): bool => true);
         Gate::define('view-online-sessions', fn (User $user): bool => true);
         Gate::define('disconnect-sessions', fn (User $user): bool => true);
+        Gate::define('view-login-log', fn (User $user): bool => true);
     }
 }

@@ -2,6 +2,7 @@
     <x-ui.nav-item :href="route('dashboard')" icon="home" :current="request()->routeIs('dashboard')">{{ __('Dashboard') }}</x-ui.nav-item>
     <x-ui.nav-item :href="route('customers.index')" icon="user-group" :current="request()->routeIs('customers.*')">{{ __('Customers') }}</x-ui.nav-item>
     <x-ui.nav-item :href="route('online.index')" icon="signal" :current="request()->routeIs('online.*')">{{ __('Online') }}</x-ui.nav-item>
+    <x-ui.nav-item :href="route('login-log.index')" icon="queue-list" :current="request()->routeIs('login-log.*')">{{ __('Login log') }}</x-ui.nav-item>
     <x-ui.nav-item :href="route('plans.index')" icon="rectangle-stack" :current="request()->routeIs('plans.*')">{{ __('Plans') }}</x-ui.nav-item>
 </x-ui.nav-group>
 

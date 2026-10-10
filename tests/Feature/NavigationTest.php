@@ -43,3 +43,9 @@ it('shows Online in the day-to-day menu', function () {
         ->get(route('dashboard'))
         ->assertSee(route('online.index'));
 });
+
+it('shows the login log in the day-to-day menu', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('dashboard'))
+        ->assertSee(route('login-log.index'));
+});
