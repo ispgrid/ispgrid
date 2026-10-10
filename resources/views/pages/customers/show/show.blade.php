@@ -22,6 +22,9 @@
                     <x-ui.button wire:click="openRecharge">{{ __('Recharge') }}</x-ui.button>
                     <x-ui.button variant="secondary" :href="route('customers.edit', $this->account->id)" wire:navigate>{{ __('Edit') }}</x-ui.button>
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
+                    @if ($this->sessions !== [])
+                        <x-ui.button variant="secondary" icon="x-circle" wire:click="disconnect" wire:confirm="{{ __('Disconnect every session of :name?', ['name' => $this->account->username]) }}">{{ __('Disconnect') }}</x-ui.button>
+                    @endif
                 @endcan
                 @can('delete', $this->account)
                     <x-ui.button
@@ -44,6 +47,12 @@
         <x-ui.alert variant="warning">
             {{ __('The last login was refused: device :mac is bound to :username.', ['mac' => $this->boundElsewhere['mac'], 'username' => $this->boundElsewhere['username']]) }}
             <x-ui.link href="{{ route('customers.show', $this->boundElsewhere['id']) }}" wire:navigate>{{ __('Reset the devices of :username', ['username' => $this->boundElsewhere['username']]) }}</x-ui.link>
+        </x-ui.alert>
+    @endif
+
+    @if ($this->disconnectFailure)
+        <x-ui.alert variant="danger">
+            {{ __('The last disconnect failed (:when): :reason. The customer may still be online with the old settings.', $this->disconnectFailure) }}
         </x-ui.alert>
     @endif
 
@@ -84,6 +93,61 @@
             </dl>
         </x-ui.card>
     @endif
+
+    <x-ui.card>
+        <x-ui.heading>{{ __('Online') }}</x-ui.heading>
+        @if ($this->sessions === [])
+            <x-ui.text muted class="mt-4">{{ __('Not online.') }}</x-ui.text>
+        @else
+            <x-ui.table class="mt-4">
+                <x-slot:head>
+                    <x-ui.th>{{ __('Router') }}</x-ui.th>
+                    <x-ui.th>{{ __('IP address') }}</x-ui.th>
+                    <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
+                    <x-ui.th>{{ __('Started') }}</x-ui.th>
+                    <x-ui.th>{{ __('Duration') }}</x-ui.th>
+                    <x-ui.th>{{ __('Download') }}</x-ui.th>
+                    <x-ui.th>{{ __('Upload') }}</x-ui.th>
+                    <x-ui.th><span class="sr-only">{{ __('Actions') }}</span></x-ui.th>
+                </x-slot:head>
+                @foreach ($this->sessions as $session)
+                    <tr wire:key="session-{{ $session['id'] }}">
+                        <x-ui.td>{{ $session['router'] }}</x-ui.td>
+                        <x-ui.td class="font-mono">{{ $session['ip'] }}</x-ui.td>
+                        <x-ui.td class="font-mono">{{ $session['mac'] }}</x-ui.td>
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['started'] }}</x-ui.td>
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['duration'] }}</x-ui.td>
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['download'] }}</x-ui.td>
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['upload'] }}</x-ui.td>
+                        <x-ui.td class="text-end">
+                            @can('update', $this->account)
+                                <x-ui.button variant="ghost" icon="x-circle" wire:click="disconnect({{ $session['id'] }})">{{ __('Disconnect') }}</x-ui.button>
+                            @endcan
+                        </x-ui.td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        @endif
+    </x-ui.card>
+
+    <x-ui.card>
+        <x-ui.heading>{{ __('Usage') }}</x-ui.heading>
+        <x-ui.text muted class="mt-1">{{ __('Sessions that started in each period, as FreeRADIUS counts them for the limits.') }}</x-ui.text>
+        <x-ui.table class="mt-4">
+            <x-slot:head>
+                <x-ui.th>{{ __('Period') }}</x-ui.th>
+                <x-ui.th>{{ __('Data') }}</x-ui.th>
+                <x-ui.th>{{ __('Time') }}</x-ui.th>
+            </x-slot:head>
+            @foreach ($this->usage as $period)
+                <tr wire:key="usage-{{ $loop->index }}">
+                    <x-ui.td>{{ $period['period'] }}</x-ui.td>
+                    <x-ui.td class="tabular-nums">{{ $period['data'] }}</x-ui.td>
+                    <x-ui.td class="tabular-nums">{{ $period['time'] }}</x-ui.td>
+                </tr>
+            @endforeach
+        </x-ui.table>
+    </x-ui.card>
 
     @unless ($this->account->trashed())
         <x-ui.card>
@@ -131,6 +195,102 @@
             </x-ui.card>
         @endif
     @endunless
+
+    <x-ui.card>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <x-ui.heading>{{ __('Login attempts') }}</x-ui.heading>
+            <x-ui.link href="{{ route('login-log.index', ['username' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('Open the login log') }}</x-ui.link>
+        </div>
+        @if ($this->logins === [])
+            <x-ui.text muted class="mt-4">{{ __('No login attempt yet.') }}</x-ui.text>
+        @else
+            <x-ui.table class="mt-4">
+                <x-slot:head>
+                    <x-ui.th>{{ __('When') }}</x-ui.th>
+                    <x-ui.th>{{ __('Result') }}</x-ui.th>
+                    <x-ui.th>{{ __('Reason') }}</x-ui.th>
+                    <x-ui.th>{{ __('Router') }}</x-ui.th>
+                    <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
+                </x-slot:head>
+                @foreach ($this->logins as $login)
+                    <tr wire:key="login-{{ $login['id'] }}">
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $login['when'] }}</x-ui.td>
+                        <x-ui.td><x-ui.badge :color="$login['color']">{{ $login['result'] }}</x-ui.badge></x-ui.td>
+                        <x-ui.td class="break-words">{{ $login['reason'] }}</x-ui.td>
+                        <x-ui.td>{{ $login['router'] }}</x-ui.td>
+                        <x-ui.td class="font-mono">{{ $login['mac'] }}</x-ui.td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        @endif
+    </x-ui.card>
+
+    <x-ui.card>
+        <x-ui.heading>{{ __('Recharges') }}</x-ui.heading>
+        @if ($this->recharges === [])
+            <x-ui.text muted class="mt-4">{{ __('No recharge yet.') }}</x-ui.text>
+        @else
+            <x-ui.table class="mt-4">
+                <x-slot:head>
+                    <x-ui.th>{{ __('When') }}</x-ui.th>
+                    <x-ui.th>{{ __('Plan') }}</x-ui.th>
+                    <x-ui.th>{{ __('Expiry') }}</x-ui.th>
+                    <x-ui.th class="text-end">{{ __('Amount') }}</x-ui.th>
+                    <x-ui.th>{{ __('Note') }}</x-ui.th>
+                    <x-ui.th>{{ __('Staff') }}</x-ui.th>
+                </x-slot:head>
+                @foreach ($this->recharges as $recharge)
+                    <tr wire:key="recharge-{{ $recharge['id'] }}">
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['when'] }}</x-ui.td>
+                        <x-ui.td>{{ $recharge['plan'] }}</x-ui.td>
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['expiry'] }}</x-ui.td>
+                        <x-ui.td class="text-end tabular-nums">{{ $recharge['amount'] }}</x-ui.td>
+                        <x-ui.td>{{ $recharge['note'] }}</x-ui.td>
+                        <x-ui.td>{{ $recharge['staff'] }}</x-ui.td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        @endif
+    </x-ui.card>
+
+    <x-ui.card>
+        <x-ui.heading>{{ __('Activity') }}</x-ui.heading>
+        @if ($this->activities === [])
+            <x-ui.text muted class="mt-4">{{ __('No activity yet.') }}</x-ui.text>
+        @else
+            <x-ui.table class="mt-4 [&_td]:align-top">
+                <x-slot:head>
+                    <x-ui.th>{{ __('When') }}</x-ui.th>
+                    <x-ui.th>{{ __('Staff') }}</x-ui.th>
+                    <x-ui.th>{{ __('Action') }}</x-ui.th>
+                    <x-ui.th>{{ __('Changes') }}</x-ui.th>
+                </x-slot:head>
+                @foreach ($this->activities as $activity)
+                    <tr wire:key="activity-{{ $activity['id'] }}">
+                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $activity['when'] }}</x-ui.td>
+                        <x-ui.td>{{ $activity['staff'] }}</x-ui.td>
+                        <x-ui.td>{{ $activity['event'] }}</x-ui.td>
+                        <x-ui.td>
+                            <dl class="grid gap-0.5 text-xs">
+                                @foreach ($activity['changes'] as $change)
+                                    <div class="flex flex-wrap gap-1">
+                                        <dt class="text-zinc-500 dark:text-zinc-400">{{ $change['field'] }}:</dt>
+                                        <dd>
+                                            @if ($change['old'] !== null)
+                                                <span class="line-through decoration-zinc-400">{{ $change['old'] }}</span>
+                                                <span aria-hidden="true">&rarr;</span>
+                                            @endif
+                                            <span>{{ $change['new'] ?? __('(empty)') }}</span>
+                                        </dd>
+                                    </div>
+                                @endforeach
+                            </dl>
+                        </x-ui.td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        @endif
+    </x-ui.card>
 
     <x-ui.modal name="change-status" width="sm">
         <form wire:submit="changeStatus" class="grid gap-5">

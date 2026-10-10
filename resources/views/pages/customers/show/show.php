@@ -12,13 +12,22 @@ use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\AddressList;
 use App\Models\AppSetting;
+use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\Radacct;
+use App\Models\Radpostauth;
+use App\Models\Recharge;
+use App\Models\User;
+use App\Support\ActivityFormatter;
 use App\Support\CustomerDefaults;
 use App\Support\ExpiryCalculator;
 use App\Support\Ipv4Cidr;
 use App\Support\Money;
+use App\Support\Units;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -26,6 +35,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Spatie\Activitylog\Models\Activity;
 
 new #[Title('Customer')] class extends Component
 {
@@ -253,6 +263,180 @@ new #[Title('Customer')] class extends Component
         return ['count' => (int) $row->total, 'last' => Carbon::parse($row->last)->format($this->dateFormat())];
     }
 
+    /**
+     * The customer's open sessions.
+     *
+     * @return list<array{id: int, username: string, router: string, ip: string, mac: string, started: string, duration: string, download: string, upload: string}>
+     */
+    #[Computed]
+    public function sessions(): array
+    {
+        $format = $this->dateFormat();
+        $routers = Nas::names();
+
+        return Radacct::query()->open()->where('username', $this->account->username)->orderBy('acctstarttime')->get()
+            ->map(fn (Radacct $session): array => $session->forTable($routers, $format))
+            ->all();
+    }
+
+    /**
+     * Usage since the last recharge, today and this month (sessions that started in the period, as isp counts
+     * them), each against the plan's limit for that period when it has one.
+     *
+     * @return list<array{period: string, data: string, time: string}>
+     */
+    #[Computed]
+    public function usage(): array
+    {
+        $account = $this->account;
+        $plan = $account->plan;
+        $periods = [
+            [$account->usage_since === null ? __('All time') : __('Since the last recharge'), $account->usage_since, $plan?->limit_after, $plan?->time_limit_hours],
+            [__('Today'), now()->startOfDay(), $plan?->daily_data_gb, $plan?->daily_time_hours],
+            [__('This month'), now()->startOfMonth(), $plan?->monthly_data_gb, $plan?->monthly_time_hours],
+        ];
+
+        return array_map(function (array $period) use ($account): array {
+            [$label, $since, $dataLimitGb, $timeLimitHours] = $period;
+            $used = Radacct::usage($account->username, $since);
+
+            return [
+                'period' => $label,
+                'data' => Units::bytes($used['bytes']).($dataLimitGb === null ? '' : ' / '.Units::bytes((int) $dataLimitGb * 1_073_741_824)),
+                'time' => Units::duration($used['seconds']).($timeLimitHours === null ? '' : ' / '.Units::duration((int) $timeLimitHours * 3600)),
+            ];
+        }, $periods);
+    }
+
+    /**
+     * The last 20 login attempts.
+     *
+     * @return list<array{id: int, username: string, when: string, result: string, color: string, reason: string, router: string, mac: string}>
+     */
+    #[Computed]
+    public function logins(): array
+    {
+        $format = $this->dateFormat();
+        $routers = Nas::names();
+
+        return Radpostauth::query()->where('username', $this->account->username)->orderByDesc('id')->limit(20)->get()
+            ->map(fn (Radpostauth $login): array => $login->forTable($routers, $format))
+            ->all();
+    }
+
+    /**
+     * The last 20 recharges.
+     *
+     * @return list<array{id: int, when: string, plan: string, expiry: string, amount: string, note: string, staff: string}>
+     */
+    #[Computed]
+    public function recharges(): array
+    {
+        $format = $this->dateFormat();
+        $money = Money::fromSettings();
+
+        return Recharge::query()->where('account_id', $this->accountId)
+            ->with(['plan' => fn ($query) => $query->withTrashed(), 'user' => fn ($query) => $query->withTrashed()])
+            ->latest('id')->limit(20)->get()
+            ->map(fn (Recharge $recharge): array => [
+                'id' => $recharge->id,
+                'when' => $recharge->created_at->format($format),
+                'plan' => $recharge->plan?->name ?? __('None'),
+                'expiry' => $recharge->new_expiry->format($format),
+                'amount' => $money->format((string) $recharge->amount),
+                'note' => (string) $recharge->note,
+                'staff' => $recharge->user?->name ?? __('System'),
+            ])
+            ->all();
+    }
+
+    /**
+     * The last 20 activity entries about this customer.
+     *
+     * @return list<array{id: int, when: string, staff: string, event: string, changes: list<array{field: string, old: ?string, new: ?string}>}>
+     */
+    #[Computed]
+    public function activities(): array
+    {
+        $format = $this->dateFormat();
+
+        return $this->activityQuery()
+            ->with(['causer' => fn (MorphTo $morphTo) => $morphTo->constrain([User::class => fn ($query) => $query->withTrashed()])])
+            ->latest('id')->limit(20)->get()
+            ->map(fn (Activity $activity): array => [
+                'id' => $activity->id,
+                'when' => $activity->created_at->format($format),
+                'staff' => ActivityFormatter::causerName($activity),
+                'event' => ActivityFormatter::eventLabel($activity),
+                'changes' => ActivityFormatter::changes($activity),
+            ])
+            ->all();
+    }
+
+    /**
+     * The last failed disconnect, while a session it should have closed is still open.
+     *
+     * @return ?array{when: string, reason: string}
+     */
+    #[Computed]
+    public function disconnectFailure(): ?array
+    {
+        $failure = $this->activityQuery()->where('event', 'disconnect-failed')->latest('id')->first();
+
+        if ($failure === null || ! Radacct::query()->open()->where('username', $this->account->username)
+            ->where('acctstarttime', '<=', $failure->created_at)->exists()) {
+            return null;
+        }
+
+        return [
+            'when' => $failure->created_at->format($this->dateFormat()),
+            'reason' => (string) (collect(ActivityFormatter::changes($failure))->firstWhere('field', 'reason')['new'] ?? ''),
+        ];
+    }
+
+    /**
+     * Sends a Disconnect-Request for one open session, or for all of them, and logs who asked for it.
+     */
+    public function disconnect(?int $sessionId = null): void
+    {
+        $account = $this->account;
+        $this->authorize('update', $account);
+
+        $sessions = Radacct::query()->open()->where('username', $account->username)
+            ->when($sessionId !== null, fn ($query) => $query->whereKey($sessionId))
+            ->get(['radacctid', 'nasipaddress', 'framedipaddress']);
+        unset($this->sessions);
+
+        if ($sessions->isEmpty()) {
+            $this->toast(__('The customer is not online.'));
+
+            return;
+        }
+
+        DisconnectAccount::dispatch($account->username, $sessionId);
+
+        activity()
+            ->performedOn($account)
+            ->event('disconnected')
+            ->withChanges(['old' => [], 'attributes' => [
+                'sessions' => $sessions->map(fn (Radacct $session): string => trim($session->nasipaddress.' '.$session->framedipaddress))->implode(', '),
+            ]])
+            ->log('disconnected');
+        unset($this->activities);
+
+        $this->toast(__('Disconnect sent to the router. The session closes when the router confirms.'));
+    }
+
+    /**
+     * @return Builder<Activity>
+     */
+    private function activityQuery(): Builder
+    {
+        return Activity::query()
+            ->where('subject_type', (new Account)->getMorphClass())
+            ->where('subject_id', $this->accountId);
+    }
+
     public function resetDevices(ResetDevices $reset): void
     {
         $account = $this->account;
@@ -323,7 +507,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->reset('remark');
-        unset($this->account, $this->service);
+        unset($this->account, $this->service, $this->activities);
         $this->dispatch('modal-close', name: 'change-status');
         $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username)
             ? __('Status changed. The customer is disconnected so it applies now.')
@@ -439,7 +623,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username);
-        unset($this->account, $this->service);
+        unset($this->account, $this->service, $this->activities, $this->recharges);
         $this->status = (string) $this->account->status_id->value;
         $this->dispatch('modal-close', name: 'recharge');
 
@@ -491,7 +675,7 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service);
+        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service, $this->activities);
         // radacct is kept on delete, so the job still finds the open sessions after the commit.
         $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username)
             ? __('Customer deleted. Their open session is disconnected.')
@@ -580,7 +764,7 @@ new #[Title('Customer')] class extends Component
             return $ip?->address;
         }, attempts: 3);
 
-        unset($this->account, $this->service, $this->technician);
+        unset($this->account, $this->service, $this->technician, $this->activities);
         $this->status = (string) AccountStatus::Inactive->value;
 
         $this->toast($this->account->service_type === ServiceType::Ipoe && $address === null
