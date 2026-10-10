@@ -2,6 +2,7 @@
 
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
+use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\Address;
 use App\Models\AddressList;
@@ -12,10 +13,12 @@ use App\Models\IpRange;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\Radacct;
 use App\Models\User;
 use Database\Seeders\RadiusAttributeSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -69,7 +72,7 @@ it('adds a PPPoE customer as Inactive, without plan or expiry, and writes them t
             'Acct-Mac-Type' => '1',
         ])
         ->and(DB::table('radusergroup')->where('username', 'alice')->count())->toBe(0)
-        ->and(session('toast'))->toBe('Customer saved. If they are online, the change applies at their next login.');
+        ->and(session('toast'))->toBe('Customer saved.');
 });
 
 it('binds no field to a name the browser side of Livewire uses for file uploads', function () {
@@ -529,4 +532,33 @@ it('records no password change when the password stays the same', function () {
     Livewire::test('pages::customers.form', ['account' => $account->id])->set('fullname', 'Alice Rao')->call('save')->assertHasNoErrors();
 
     expect(Activity::query()->where('event', 'password-changed')->count())->toBe(0);
+});
+
+it('disconnects an online customer when what FreeRADIUS reads changes', function () {
+    Queue::fake();
+    $account = Account::factory()->create(['username' => 'alice', 'password' => 'oldpass12']);
+    Radacct::factory()->create(['username' => 'alice']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('password', 'newpass12')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->username === 'alice');
+    expect(session('toast'))->toBe('Customer saved. They are disconnected so the change applies now.');
+});
+
+it('does not disconnect an online customer for a profile change', function () {
+    Queue::fake();
+    $account = Account::factory()->create(['username' => 'alice']);
+    (new SyncAccountToRadius)->handle($account);
+    Radacct::factory()->create(['username' => 'alice']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('mobile', '9876500000')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    Queue::assertNothingPushed();
+    expect(session('toast'))->toBe('Customer saved.');
 });

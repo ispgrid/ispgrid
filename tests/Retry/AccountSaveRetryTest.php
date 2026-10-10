@@ -1,7 +1,11 @@
 <?php
 
+use App\Actions\Customers\RechargeAccount;
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Enums\AccountStatus;
 use App\Models\Account;
+use App\Models\Plan;
+use App\Models\Recharge;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +20,7 @@ function accountSyncThatDeadlocksOnce(): void
     {
         private bool $failed = false;
 
-        public function handle(Account $account, ?int $previousIpId = null): void
+        public function handle(Account $account, ?int $previousIpId = null): bool
         {
             if (! $this->failed) {
                 $this->failed = true;
@@ -24,7 +28,7 @@ function accountSyncThatDeadlocksOnce(): void
                 throw new QueryException('mysql', 'delete from radcheck', [], new PDOException('Deadlock found when trying to get lock; try restarting transaction'));
             }
 
-            parent::handle($account, $previousIpId);
+            return parent::handle($account, $previousIpId);
         }
     });
 }
@@ -58,4 +62,17 @@ it('changes the status when the change is retried after a deadlock', function ()
 
     expect($account->fresh()->status_id->value)->toBe(2)
         ->and(DB::table('radcheck')->where(['username' => 'alice', 'attribute' => 'Acct-Status-Id'])->value('value'))->toBe('2');
+});
+
+it('recharges when the recharge is retried after a deadlock', function () {
+    $account = Account::factory()->create(['username' => 'alice', 'status_id' => AccountStatus::Inactive]);
+    $plan = Plan::factory()->create(['slug' => 'home']);
+    accountSyncThatDeadlocksOnce();
+
+    app(RechargeAccount::class)->handle($account->id, $plan->id, now()->addDays(30), '599', null);
+
+    expect($account->fresh())->plan_id->toBe($plan->id)->status_id->toBe(AccountStatus::Active)
+        ->and(Recharge::query()->count())->toBe(1)
+        ->and(DB::table('radusergroup')->where('username', 'alice')->value('groupname'))->toBe('home')
+        ->and(DB::table('radcheck')->where(['username' => 'alice', 'attribute' => 'Acct-Status-Id'])->value('value'))->toBe('1');
 });

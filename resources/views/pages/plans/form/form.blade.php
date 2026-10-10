@@ -2,7 +2,7 @@
     <div>
         <x-ui.link href="{{ route('plans.index') }}" wire:navigate class="text-sm">{{ __('Plans') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">{{ $planId ? __('Edit plan') : __('Add plan') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ __('Saving writes the plan to FreeRADIUS at once. Customers who are online get the change at their next login.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ __('Saving writes the plan to FreeRADIUS at once. Online customers on it are disconnected so they get the change now.') }}</x-ui.text>
     </div>
 
     @if ($errors->any())

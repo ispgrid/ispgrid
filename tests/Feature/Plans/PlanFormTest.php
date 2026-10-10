@@ -2,13 +2,16 @@
 
 use App\Actions\Radius\SyncPlanToRadius;
 use App\Enums\ServiceType;
+use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\Radacct;
 use App\Models\User;
 use Database\Seeders\RadiusAttributeSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -45,7 +48,7 @@ it('adds a plan and writes it to FreeRADIUS', function () {
 
     expect(Plan::query()->sole())->slug->toBe('home_25')->name->toBe('Home 25')
         ->and(planRows('home_25'))->toBe(['Mikrotik-Rate-Limit' => '25M/25M'])
-        ->and(session('toast'))->toBe('Plan saved. Customers who are online get the change at their next login.');
+        ->and(session('toast'))->toBe('Plan saved.');
 });
 
 it('binds no field to a name the browser side of Livewire uses for file uploads', function () {
@@ -308,3 +311,40 @@ it('removes the row of a feature switched off on the form', function (string $fi
     'a limit' => ['daily_time_hours', '', 'Isp-Daily-Time'],
     'the pool' => ['pool_id', '', 'Framed-Pool'],
 ]);
+
+it('disconnects the online customers of a plan whose rows change', function () {
+    Queue::fake();
+    $plan = Plan::factory()->create(['slug' => 'home', 'upload' => '10M', 'download' => '10M']);
+    (new SyncPlanToRadius)->handle($plan);
+    Account::factory()->create(['username' => 'alice', 'plan_id' => $plan->id]);
+    Account::factory()->create(['username' => 'bob', 'plan_id' => $plan->id]);
+    Account::factory()->create(['username' => 'carol']);
+    Radacct::factory()->create(['username' => 'alice']);
+    Radacct::factory()->create(['username' => 'alice']);
+    Radacct::factory()->create(['username' => 'carol']);
+
+    Livewire::test('pages::plans.form', ['plan' => $plan->id])
+        ->set('download_speed', '20M')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    Queue::assertPushed(DisconnectAccount::class, 1);
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->username === 'alice');
+    expect(session('toast'))->toBe('Plan saved. 1 online customer is disconnected so they get the change now.');
+});
+
+it('disconnects nobody when a plan change does not reach FreeRADIUS', function () {
+    Queue::fake();
+    $plan = Plan::factory()->create(['slug' => 'home', 'name' => 'Home']);
+    (new SyncPlanToRadius)->handle($plan);
+    Account::factory()->create(['username' => 'alice', 'plan_id' => $plan->id]);
+    Radacct::factory()->create(['username' => 'alice']);
+
+    Livewire::test('pages::plans.form', ['plan' => $plan->id])
+        ->set('name', 'Home plus')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    Queue::assertNothingPushed();
+    expect(session('toast'))->toBe('Plan saved.');
+});

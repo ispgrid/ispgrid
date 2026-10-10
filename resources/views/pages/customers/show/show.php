@@ -1,19 +1,34 @@
 <?php
 
+use App\Actions\Customers\RechargeAccount;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
+use App\Exceptions\ExpiryChangedMeanwhile;
+use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\AddressList;
 use App\Models\AppSetting;
+use App\Models\Nas;
+use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\Radacct;
+use App\Models\Radpostauth;
+use App\Models\Recharge;
+use App\Models\User;
+use App\Support\ActivityFormatter;
 use App\Support\CustomerDefaults;
+use App\Support\ExpiryCalculator;
 use App\Support\Ipv4Cidr;
+use App\Support\Money;
+use App\Support\Units;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -21,6 +36,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Spatie\Activitylog\Models\Activity;
 
 new #[Title('Customer')] class extends Component
 {
@@ -38,6 +54,24 @@ new #[Title('Customer')] class extends Component
      * Why the status changes (required, recorded in the activity log).
      */
     public string $remark = '';
+
+    /**
+     * The Recharge dialog: plan, expiry (datetime-local, Y-m-d\TH:i), amount and note.
+     */
+    public string $recharge_plan_id = '';
+
+    public string $recharge_expiry = '';
+
+    public string $recharge_amount = '';
+
+    public string $recharge_note = '';
+
+    /**
+     * The expiry the dialog's suggestion was computed from (RechargeAccount::expiryKey()), so a recharge saved
+     * meanwhile by someone else is not overwritten.
+     */
+    #[Locked]
+    public string $recharge_base_expiry = '';
 
     public function mount(int $account): void
     {
@@ -237,6 +271,180 @@ new #[Title('Customer')] class extends Component
         return ['count' => (int) $row->total, 'last' => Carbon::parse($row->last)->format($this->dateFormat())];
     }
 
+    /**
+     * The customer's open sessions.
+     *
+     * @return list<array{id: int, username: string, router: string, ip: string, mac: string, started: string, duration: string, download: string, upload: string}>
+     */
+    #[Computed]
+    public function sessions(): array
+    {
+        $format = $this->dateFormat();
+        $routers = Nas::names();
+
+        return Radacct::query()->open()->where('username', $this->account->username)->orderBy('acctstarttime')->get()
+            ->map(fn (Radacct $session): array => $session->forTable($routers, $format))
+            ->all();
+    }
+
+    /**
+     * Usage since the last recharge, today and this month (sessions that started in the period, as isp counts
+     * them), each against the plan's limit for that period when it has one.
+     *
+     * @return list<array{period: string, data: string, time: string}>
+     */
+    #[Computed]
+    public function usage(): array
+    {
+        $account = $this->account;
+        $plan = $account->plan;
+        $periods = [
+            [$account->usage_since === null ? __('All time') : __('Since the last recharge'), $account->usage_since, $plan?->limit_after, $plan?->time_limit_hours],
+            [__('Today'), now()->startOfDay(), $plan?->daily_data_gb, $plan?->daily_time_hours],
+            [__('This month'), now()->startOfMonth(), $plan?->monthly_data_gb, $plan?->monthly_time_hours],
+        ];
+
+        return array_map(function (array $period) use ($account): array {
+            [$label, $since, $dataLimitGb, $timeLimitHours] = $period;
+            $used = Radacct::usage($account->username, $since);
+
+            return [
+                'period' => $label,
+                'data' => Units::bytes($used['bytes']).($dataLimitGb === null ? '' : ' / '.Units::bytes((int) $dataLimitGb * 1_073_741_824)),
+                'time' => Units::duration($used['seconds']).($timeLimitHours === null ? '' : ' / '.Units::duration((int) $timeLimitHours * 3600)),
+            ];
+        }, $periods);
+    }
+
+    /**
+     * The last 20 login attempts.
+     *
+     * @return list<array{id: int, username: string, when: string, result: string, color: string, reason: string, router: string, mac: string}>
+     */
+    #[Computed]
+    public function logins(): array
+    {
+        $format = $this->dateFormat();
+        $routers = Nas::names();
+
+        return Radpostauth::query()->where('username', $this->account->username)->orderByDesc('id')->limit(20)->get()
+            ->map(fn (Radpostauth $login): array => $login->forTable($routers, $format))
+            ->all();
+    }
+
+    /**
+     * The last 20 recharges.
+     *
+     * @return list<array{id: int, when: string, plan: string, expiry: string, amount: string, note: string, staff: string}>
+     */
+    #[Computed]
+    public function recharges(): array
+    {
+        $format = $this->dateFormat();
+        $money = Money::fromSettings();
+
+        return Recharge::query()->where('account_id', $this->accountId)
+            ->with(['plan' => fn ($query) => $query->withTrashed(), 'user' => fn ($query) => $query->withTrashed()])
+            ->latest('id')->limit(20)->get()
+            ->map(fn (Recharge $recharge): array => [
+                'id' => $recharge->id,
+                'when' => $recharge->created_at->format($format),
+                'plan' => $recharge->plan?->name ?? __('None'),
+                'expiry' => $recharge->new_expiry->format($format),
+                'amount' => $money->format((string) $recharge->amount),
+                'note' => (string) $recharge->note,
+                'staff' => $recharge->user?->name ?? __('System'),
+            ])
+            ->all();
+    }
+
+    /**
+     * The last 20 activity entries about this customer.
+     *
+     * @return list<array{id: int, when: string, staff: string, event: string, changes: list<array{field: string, old: ?string, new: ?string}>}>
+     */
+    #[Computed]
+    public function activities(): array
+    {
+        $format = $this->dateFormat();
+
+        return $this->activityQuery()
+            ->with(['causer' => fn (MorphTo $morphTo) => $morphTo->constrain([User::class => fn ($query) => $query->withTrashed()])])
+            ->latest('id')->limit(20)->get()
+            ->map(fn (Activity $activity): array => [
+                'id' => $activity->id,
+                'when' => $activity->created_at->format($format),
+                'staff' => ActivityFormatter::causerName($activity),
+                'event' => ActivityFormatter::eventLabel($activity),
+                'changes' => ActivityFormatter::changes($activity),
+            ])
+            ->all();
+    }
+
+    /**
+     * The last failed disconnect, while a session it should have closed is still open.
+     *
+     * @return ?array{when: string, reason: string}
+     */
+    #[Computed]
+    public function disconnectFailure(): ?array
+    {
+        $failure = $this->activityQuery()->where('event', 'disconnect-failed')->latest('id')->first();
+
+        if ($failure === null || ! Radacct::query()->open()->where('username', $this->account->username)
+            ->where('acctstarttime', '<=', $failure->created_at)->exists()) {
+            return null;
+        }
+
+        return [
+            'when' => $failure->created_at->format($this->dateFormat()),
+            'reason' => (string) (collect(ActivityFormatter::changes($failure))->firstWhere('field', 'reason')['new'] ?? ''),
+        ];
+    }
+
+    /**
+     * Sends a Disconnect-Request for one open session, or for all of them, and logs who asked for it.
+     */
+    public function disconnect(?int $sessionId = null): void
+    {
+        $account = $this->account;
+        $this->authorize('update', $account);
+
+        $sessions = Radacct::query()->open()->where('username', $account->username)
+            ->when($sessionId !== null, fn ($query) => $query->whereKey($sessionId))
+            ->get(['radacctid', 'nasipaddress', 'framedipaddress']);
+        unset($this->sessions);
+
+        if ($sessions->isEmpty()) {
+            $this->toast(__('The customer is not online.'));
+
+            return;
+        }
+
+        DisconnectAccount::dispatch($account->username, $sessionId);
+
+        activity()
+            ->performedOn($account)
+            ->event('disconnected')
+            ->withChanges(['old' => [], 'attributes' => [
+                'sessions' => $sessions->map(fn (Radacct $session): string => trim($session->nasipaddress.' '.$session->framedipaddress))->implode(', '),
+            ]])
+            ->log('disconnected');
+        unset($this->activities);
+
+        $this->toast(__('Disconnect sent to the router. The session closes when the router confirms.'));
+    }
+
+    /**
+     * @return Builder<Activity>
+     */
+    private function activityQuery(): Builder
+    {
+        return Activity::query()
+            ->where('subject_type', (new Account)->getMorphClass())
+            ->where('subject_id', $this->accountId);
+    }
+
     public function resetDevices(ResetDevices $reset): void
     {
         $account = $this->account;
@@ -299,7 +507,7 @@ new #[Title('Customer')] class extends Component
         ]);
 
         try {
-            $this->writeStatus($sync);
+            $changed = $this->writeStatus($sync);
         } catch (ModelNotFoundException) {
             $this->toastDeletedMeanwhile();
 
@@ -307,20 +515,22 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->reset('remark');
-        unset($this->account, $this->service);
+        unset($this->account, $this->service, $this->activities);
         $this->dispatch('modal-close', name: 'change-status');
-        $this->toast(__('Status changed. If the customer is online, it applies at their next login.'));
+        $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username)
+            ? __('Status changed. The customer is disconnected so it applies now.')
+            : __('Status changed.'));
     }
 
-    private function writeStatus(SyncAccountToRadius $sync): void
+    private function writeStatus(SyncAccountToRadius $sync): bool
     {
-        DB::transaction(function () use ($sync): void {
+        return DB::transaction(function () use ($sync): bool {
             $account = Account::query()->lockForUpdate()->findOrFail($this->accountId);
             $old = $account->status_id;
 
             $account->disableLogging();
             $account->update(['status_id' => (int) $this->status]);
-            $sync->handle($account);
+            $changed = $sync->handle($account);
 
             activity()
                 ->performedOn($account)
@@ -330,7 +540,149 @@ new #[Title('Customer')] class extends Component
                     'attributes' => ['status' => $account->status_id->label(), 'remark' => $this->remark],
                 ])
                 ->log('status-changed');
+
+            return $changed;
         }, attempts: 3);
+    }
+
+    /**
+     * Plans a customer can be recharged with, with their validity and price.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function rechargePlans(): array
+    {
+        $money = Money::fromSettings();
+
+        return Plan::query()->orderBy('name')->get(['id', 'name', 'validity', 'price'])
+            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => __(':name (:days days, :price)', [
+                'name' => $plan->name,
+                'days' => $plan->validity,
+                'price' => $money->format((string) $plan->price),
+            ])])
+            ->all();
+    }
+
+    /**
+     * The status a recharge leaves alone (Suspended or Terminated), for the dialog's warning; null otherwise.
+     */
+    #[Computed]
+    public function rechargeKeepsStatus(): ?string
+    {
+        $status = $this->account->status_id;
+
+        return in_array($status, [AccountStatus::Suspended, AccountStatus::Terminated], true) ? $status->label() : null;
+    }
+
+    /**
+     * Opens the Recharge dialog with the customer's plan, the expiry it gives and its price.
+     */
+    public function openRecharge(): void
+    {
+        $this->authorize('update', $this->account);
+        $this->resetValidation();
+
+        $plan = $this->account->plan;
+        $this->recharge_plan_id = $plan === null || $plan->trashed() ? '' : (string) $plan->id;
+        $this->recharge_note = '';
+        $this->fillRechargeDefaults();
+
+        $this->dispatch('modal-open', name: 'recharge');
+    }
+
+    public function updatedRechargePlanId(): void
+    {
+        $this->fillRechargeDefaults();
+    }
+
+    /**
+     * Saves the recharge, then disconnects an online customer so the new plan and expiry apply now.
+     */
+    public function recharge(RechargeAccount $recharge): void
+    {
+        $this->authorize('update', $this->account);
+        $this->recharge_note = trim($this->recharge_note);
+
+        $this->validate([
+            'recharge_plan_id' => ['required', Rule::exists('plans', 'id')->withoutTrashed()],
+            'recharge_expiry' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
+            'recharge_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            'recharge_note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'recharge_expiry.after' => __('The expiry must be in the future.'),
+        ], [
+            'recharge_plan_id' => __('plan'),
+            'recharge_expiry' => __('expiry'),
+            'recharge_amount' => __('amount'),
+            'recharge_note' => __('note'),
+        ]);
+
+        $wasInactive = $this->account->status_id === AccountStatus::Inactive;
+
+        try {
+            $done = $recharge->handle(
+                $this->accountId,
+                (int) $this->recharge_plan_id,
+                Carbon::createFromFormat('!Y-m-d\TH:i', $this->recharge_expiry),
+                $this->recharge_amount,
+                $this->recharge_note === '' ? null : $this->recharge_note,
+                $this->recharge_base_expiry,
+            );
+        } catch (ExpiryChangedMeanwhile) {
+            unset($this->account);
+            $this->fillRechargeDefaults();
+            $this->addError('recharge_expiry', __('The expiry changed meanwhile (another recharge or an edit). The new expiry is filled in from it: check it and save again.'));
+
+            return;
+        } catch (ModelNotFoundException $exception) {
+            if ($exception->getModel() === Plan::class) {
+                unset($this->rechargePlans);
+                $this->toast(__('This plan was deleted meanwhile. Choose another.'), 'danger');
+
+                return;
+            }
+
+            $this->toastDeletedMeanwhile();
+
+            return;
+        }
+
+        $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username);
+        unset($this->account, $this->service, $this->activities, $this->recharges);
+        $this->status = (string) $this->account->status_id->value;
+        $this->dispatch('modal-close', name: 'recharge');
+
+        $message = __('Recharged until :date.', ['date' => $done->new_expiry->format($this->dateFormat())]);
+
+        if ($disconnected) {
+            $message .= ' '.__('They are disconnected so the change applies now.');
+        } elseif ($wasInactive) {
+            $message .= ' '.__('The customer is Active now.');
+        }
+
+        $this->toast($message);
+    }
+
+    /**
+     * The expiry and amount the chosen plan gives. Staff can change both before saving.
+     */
+    private function fillRechargeDefaults(): void
+    {
+        $this->recharge_base_expiry = RechargeAccount::expiryKey($this->account);
+        $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
+
+        if ($plan === null) {
+            $this->recharge_expiry = '';
+            $this->recharge_amount = '';
+
+            return;
+        }
+
+        $this->recharge_expiry = ExpiryCalculator::fromSettings()
+            ->next($this->account->expiry, $plan->validity, now())
+            ->format('Y-m-d\TH:i');
+        $this->recharge_amount = (string) $plan->price;
     }
 
     /**
@@ -350,8 +702,11 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service);
-        $this->toast(__('Customer deleted. They can no longer log in; a session open now continues until it ends.'));
+        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service, $this->activities);
+        // radacct is kept on delete, so the job still finds the open sessions after the commit.
+        $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username)
+            ? __('Customer deleted. Their open session is disconnected.')
+            : __('Customer deleted. They can no longer log in.'));
     }
 
     private function softDelete(SyncAccountToRadius $sync, ResetDevices $reset, UnlockAccount $unlock): void
@@ -436,7 +791,7 @@ new #[Title('Customer')] class extends Component
             return $ip?->address;
         }, attempts: 3);
 
-        unset($this->account, $this->service, $this->technician);
+        unset($this->account, $this->service, $this->technician, $this->activities);
         $this->status = (string) AccountStatus::Inactive->value;
 
         $this->toast($this->account->service_type === ServiceType::Ipoe && $address === null

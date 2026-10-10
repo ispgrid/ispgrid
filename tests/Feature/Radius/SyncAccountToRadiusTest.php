@@ -184,3 +184,15 @@ it('replaces the rows of its own customer only', function () {
         ->and(count(userRows('radcheck', 'ivan')))->toBe(5)
         ->and(count(userRows('radcheck', 'judy')))->toBe(5);
 });
+
+it('says whether FreeRADIUS reads different rows after the sync', function () {
+    $account = Account::factory()->create(['username' => 'alice']);
+    $sync = new SyncAccountToRadius;
+
+    expect($sync->handle($account))->toBeTrue()
+        ->and($sync->handle($account))->toBeFalse();
+
+    $account->update(['status_id' => AccountStatus::Suspended]);
+
+    expect($sync->handle($account))->toBeTrue();
+});

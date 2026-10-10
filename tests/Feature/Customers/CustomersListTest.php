@@ -9,6 +9,7 @@ use App\Models\Ip;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -102,4 +103,15 @@ it('links each customer to their page', function () {
     $account = Account::factory()->create();
 
     Livewire::test('pages::customers.index')->assertSee(route('customers.show', $account->id));
+});
+
+it('lists only expired customers when asked', function () {
+    $this->travelTo(Carbon::parse('2026-10-10 12:00:00'));
+    Account::factory()->create(['username' => 'lapsed', 'expiry' => '2026-10-01 00:00:00']);
+    Account::factory()->create(['username' => 'paidup', 'expiry' => '2026-11-01 00:00:00']);
+
+    Livewire::test('pages::customers.index')
+        ->set('expired', true)
+        ->assertSee('lapsed')
+        ->assertDontSee('paidup');
 });

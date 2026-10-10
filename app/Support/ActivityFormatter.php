@@ -76,6 +76,9 @@ final class ActivityFormatter
             'devices-reset' => __('Devices reset'),
             'unlocked' => __('Unlocked'),
             'password-changed' => __('Password changed'),
+            'recharged' => __('Recharged'),
+            'disconnected' => __('Disconnected'),
+            'disconnect-failed' => __('Disconnect failed'),
             default => (string) $activity->event,
         };
     }

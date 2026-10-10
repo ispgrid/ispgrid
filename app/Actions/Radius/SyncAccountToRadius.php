@@ -25,11 +25,13 @@ class SyncAccountToRadius
 
     /**
      * @param  ?int  $previousIpId  the IP the account had before this save; freed when it changed
+     * @return bool whether FreeRADIUS now reads different rows (an online customer then needs a disconnect)
      */
-    public function handle(Account $account, ?int $previousIpId = null): void
+    public function handle(Account $account, ?int $previousIpId = null): bool
     {
         $account->load(['plan', 'nas', 'pool', 'ip', 'addressLists', 'radiusAttributes']);
         $username = $account->username;
+        $before = $this->snapshot($account);
 
         foreach (['radcheck', 'radreply', 'radusergroup'] as $table) {
             DB::table($table)->where('username', $username)->delete();
@@ -45,9 +47,16 @@ class SyncAccountToRadius
             Ip::query()->whereKey($account->ip_id)->update(['is_used' => true]);
         }
 
-        if ($account->trashed() || ! $account->service_type->usesRadius()) {
-            return;
+        if (! $account->trashed() && $account->service_type->usesRadius()) {
+            $this->writeRows($account);
         }
+
+        return $this->snapshot($account) !== $before;
+    }
+
+    private function writeRows(Account $account): void
+    {
+        $username = $account->username;
 
         DB::table('radcheck')->insert($this->owned($username, $this->checkRows($account)));
         DB::table('radreply')->insert($this->owned($username, $this->replyRows($account)));
@@ -59,6 +68,26 @@ class SyncAccountToRadius
         if ($account->service_type === ServiceType::Ipoe && $account->ip !== null) {
             Ipoe::query()->create(['account_id' => $account->id, 'username' => $username, 'ip_address' => $account->ip->address]);
         }
+    }
+
+    /**
+     * What FreeRADIUS reads for the account, in a form two snapshots can be compared in.
+     *
+     * @return array<string, list<string>>
+     */
+    private function snapshot(Account $account): array
+    {
+        $rows = fn (string $table): array => DB::table($table)->where('username', $account->username)->orderBy('id')
+            ->get(['attribute', 'op', 'value'])
+            ->map(fn (object $row): string => "{$row->attribute} {$row->op} {$row->value}")
+            ->all();
+
+        return [
+            'radcheck' => $rows('radcheck'),
+            'radreply' => $rows('radreply'),
+            'radusergroup' => DB::table('radusergroup')->where('username', $account->username)->orderBy('groupname')->pluck('groupname')->all(),
+            'ipoes' => Ipoe::query()->where('account_id', $account->id)->pluck('ip_address')->all(),
+        ];
     }
 
     public static function rateLimit(Account $account): RateLimit

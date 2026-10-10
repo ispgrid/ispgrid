@@ -164,3 +164,15 @@ it('replaces the rows of its own plan and leaves other plans alone', function ()
     expect(groupRows('home'))->toBe([['Mikrotik-Rate-Limit', '=', '10M/10M']])
         ->and(groupRows('other'))->toBe([['Mikrotik-Rate-Limit', '=', '1M/1M']]);
 });
+
+it('says whether FreeRADIUS reads different plan rows after the sync', function () {
+    $plan = Plan::factory()->create(['slug' => 'home', 'upload' => '10M', 'download' => '10M']);
+    $sync = new SyncPlanToRadius;
+
+    expect($sync->handle($plan))->toBeTrue()
+        ->and($sync->handle($plan))->toBeFalse();
+
+    $plan->update(['download' => '20M']);
+
+    expect($sync->handle($plan))->toBeTrue();
+});

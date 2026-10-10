@@ -4,6 +4,7 @@ use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
+use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\Address;
@@ -407,7 +408,7 @@ new #[Title('Customer')] class extends Component
         try {
             // The account is fetched inside the transaction: on a deadlock retry, a model updated by the
             // rolled-back attempt looks unchanged and would skip its UPDATE while the sync writes the new values.
-            $accountId = DB::transaction(function () use ($columns, $customRows, $listIds, $sync): int {
+            $saved = DB::transaction(function () use ($columns, $customRows, $listIds, $sync): array {
                 $account = $this->accountId === null
                     ? null
                     : Account::query()->with('address')->lockForUpdate()->findOrFail($this->accountId);
@@ -435,7 +436,7 @@ new #[Title('Customer')] class extends Component
                 $account->addressLists()->sync($listIds);
                 $account->radiusAttributes()->delete();
                 $account->radiusAttributes()->createMany($customRows);
-                $sync->handle($account, $previousIpId);
+                $radiusChanged = $sync->handle($account, $previousIpId);
 
                 if ($previousType !== null && $previousType !== $account->service_type) {
                     $this->resetDevicesAfterTypeChange($account);
@@ -452,14 +453,18 @@ new #[Title('Customer')] class extends Component
                     activity()->performedOn($account)->event('password-changed')->log('password-changed');
                 }
 
-                return $account->id;
+                return ['id' => $account->id, 'username' => $account->username, 'radius_changed' => $radiusChanged];
             }, attempts: 3);
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages($this->takenErrors());
         }
 
-        session()->flash('toast', __('Customer saved. If they are online, the change applies at their next login.'));
-        $this->redirectRoute('customers.show', ['account' => $accountId], navigate: true);
+        $disconnected = $saved['radius_changed'] && DisconnectAccount::dispatchIfOnline($saved['username']);
+
+        session()->flash('toast', $disconnected
+            ? __('Customer saved. They are disconnected so the change applies now.')
+            : __('Customer saved.'));
+        $this->redirectRoute('customers.show', ['account' => $saved['id']], navigate: true);
     }
 
     private function trimInput(): void

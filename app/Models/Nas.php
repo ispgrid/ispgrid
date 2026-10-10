@@ -61,4 +61,16 @@ class Nas extends Model
     {
         return RouterOsVersion::warningFor($this->routeros_version);
     }
+
+    /**
+     * Every router's name by its IP, deleted routers included: sessions and login attempts still name them.
+     *
+     * @return array<string, string>
+     */
+    public static function names(): array
+    {
+        return static::withTrashed()->orderBy('shortname')->get(['nasname', 'shortname'])
+            ->mapWithKeys(fn (Nas $router): array => [$router->nasname => $router->shortname ?? $router->nasname])
+            ->all();
+    }
 }

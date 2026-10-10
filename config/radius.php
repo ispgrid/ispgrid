@@ -15,4 +15,16 @@ return [
 
     'restart_command' => env('RADIUS_RESTART_COMMAND', 'sudo systemctl restart freeradius'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Disconnect-Request (RFC 5176)
+    |--------------------------------------------------------------------------
+    |
+    | After a change FreeRADIUS reads, the app sends a Disconnect-Request to the router (UDP 3799) with radclient
+    | (package freeradius-utils), so an online customer gets the change now instead of at the next login.
+    |
+    */
+
+    'radclient' => env('RADIUS_RADCLIENT', 'radclient'),
+
 ];

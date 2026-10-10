@@ -19,7 +19,7 @@ new #[Title('Customers')] class extends Component
 {
     use WithPagination;
 
-    private const FILTERS = ['search', 'status', 'plan', 'type', 'router', 'connection', 'expiring'];
+    private const FILTERS = ['search', 'status', 'plan', 'type', 'router', 'connection', 'expiring', 'expired'];
 
     #[Url]
     public string $search = '';
@@ -44,6 +44,9 @@ new #[Title('Customers')] class extends Component
 
     #[Url]
     public bool $expiring = false;
+
+    #[Url]
+    public bool $expired = false;
 
     public function mount(): void
     {
@@ -125,6 +128,7 @@ new #[Title('Customers')] class extends Component
             ->when($this->router !== '', fn (Builder $query) => $query->where('nas_id', (int) $this->router))
             ->when($this->connection !== '', fn (Builder $query) => $query->where('connection_type_id', (int) $this->connection))
             ->when($this->expiring, fn (Builder $query) => $query->whereBetween('expiry', [now(), now()->addDays(7)]))
+            ->when($this->expired, fn (Builder $query) => $query->where('expiry', '<', now()))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('username', 'like', "%{$search}%")
                 ->orWhere('fullname', 'like', "%{$search}%")

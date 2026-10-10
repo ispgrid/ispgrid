@@ -32,9 +32,13 @@ class SyncPlanToRadius
         'monthly_time_hours' => ['Isp-Monthly-Time', self::HOUR],
     ];
 
-    public function handle(Plan $plan): void
+    /**
+     * @return bool whether FreeRADIUS now reads different rows (online customers on the plan then need a disconnect)
+     */
+    public function handle(Plan $plan): bool
     {
         $plan->load(['pool', 'addressLists', 'radiusAttributes']);
+        $before = $this->snapshot($plan->slug);
 
         DB::table('radgroupreply')->where('groupname', $plan->slug)->delete();
         DB::table('radgroupreply')->insert(array_map(fn (array $row): array => [
@@ -43,6 +47,18 @@ class SyncPlanToRadius
             'op' => $row[1],
             'value' => (string) $row[2],
         ], $this->rows($plan)));
+
+        return $this->snapshot($plan->slug) !== $before;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function snapshot(string $slug): array
+    {
+        return DB::table('radgroupreply')->where('groupname', $slug)->orderBy('id')->get(['attribute', 'op', 'value'])
+            ->map(fn (object $row): string => "{$row->attribute} {$row->op} {$row->value}")
+            ->all();
     }
 
     public static function rateLimit(Plan $plan): RateLimit
