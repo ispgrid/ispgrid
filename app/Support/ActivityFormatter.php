@@ -75,6 +75,7 @@ final class ActivityFormatter
             'status-changed' => __('Status changed'),
             'devices-reset' => __('Devices reset'),
             'unlocked' => __('Unlocked'),
+            'password-changed' => __('Password changed'),
             default => (string) $activity->event,
         };
     }

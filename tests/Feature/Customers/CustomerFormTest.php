@@ -511,3 +511,22 @@ it('logs a new customer as one created entry with the address and lists', functi
         ->and($attributes)->toMatchArray(['username' => 'alice', 'address' => '12 MG Road', 'address_lists' => 'vip'])
         ->and($attributes)->not->toHaveKey('password');
 });
+
+it('records that the password changed, without the password', function () {
+    $account = Account::factory()->create(['username' => 'alice', 'password' => 'oldpass12']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])->set('password', 'newpass34')->call('save')->assertHasNoErrors();
+
+    $activity = Activity::query()->where('event', 'password-changed')->sole();
+
+    expect($activity->subject_id)->toBe($account->id)
+        ->and(json_encode([$activity->attribute_changes, $activity->properties]))->not->toContain('pass12')->not->toContain('pass34');
+});
+
+it('records no password change when the password stays the same', function () {
+    $account = Account::factory()->create(['password' => 'oldpass12']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])->set('fullname', 'Alice Rao')->call('save')->assertHasNoErrors();
+
+    expect(Activity::query()->where('event', 'password-changed')->count())->toBe(0);
+});
