@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\AppSetting;
+use App\Models\IpRange;
+use App\Models\Pool;
 use App\Models\User;
 use Database\Seeders\AppSettingSeeder;
 use Livewire\Livewire;
@@ -71,4 +73,29 @@ it('accepts an empty customer ID label, which hides that field', function () {
 
 it('links the System menu to app settings', function () {
     $this->get(route('dashboard'))->assertSee(route('app-settings.edit'));
+});
+
+it('saves the default pool of each customer type and the default IPoE range', function () {
+    $pppoe = Pool::factory()->create();
+    $hotspot = Pool::factory()->create();
+    $range = IpRange::factory()->create();
+
+    Livewire::test('pages::system.app-settings')
+        ->set('default_pool_ppp', (string) $pppoe->id)
+        ->set('default_pool_hotspot', (string) $hotspot->id)
+        ->set('default_ip_range_ipoe', (string) $range->id)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(AppSetting::valueOf('default_pool_ppp'))->toBe((string) $pppoe->id)
+        ->and(AppSetting::valueOf('default_pool_hotspot'))->toBe((string) $hotspot->id)
+        ->and(AppSetting::valueOf('default_ip_range_ipoe'))->toBe((string) $range->id);
+});
+
+it('refuses a deleted pool or range as a default', function () {
+    Livewire::test('pages::system.app-settings')
+        ->set('default_pool_ppp', (string) Pool::factory()->trashed()->create()->id)
+        ->set('default_ip_range_ipoe', (string) IpRange::factory()->trashed()->create()->id)
+        ->call('save')
+        ->assertHasErrors(['default_pool_ppp', 'default_ip_range_ipoe']);
 });

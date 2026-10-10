@@ -31,6 +31,18 @@
         </x-ui.card>
 
         <x-ui.card class="grid gap-5">
+            <div>
+                <x-ui.heading>{{ __('Customer defaults') }}</x-ui.heading>
+                <x-ui.text muted class="mt-1">{{ __('New customers start with these, and a restored customer gets them back.') }}</x-ui.text>
+            </div>
+            <div class="grid gap-5 sm:grid-cols-2">
+                <x-ui.select wire:model="default_pool_ppp" :label="__('Pool for PPPoE customers')" :options="$this->pools" :placeholder="__('None (the plan pool applies)')" />
+                <x-ui.select wire:model="default_pool_hotspot" :label="__('Pool for Hotspot customers')" :options="$this->pools" :placeholder="__('None (the plan pool applies)')" />
+            </div>
+            <x-ui.select wire:model="default_ip_range_ipoe" :label="__('IP range for IPoE customers')" :options="$this->ipRanges" :placeholder="__('None')" :description="__('New and restored IPoE customers get the next free address of this range.')" />
+        </x-ui.card>
+
+        <x-ui.card class="grid gap-5">
             <x-ui.heading>{{ __('Expiry') }}</x-ui.heading>
             <x-ui.select wire:model="expiry_mode" :label="__('A recharge expires')" :options="$this->expiryModes" />
             <x-ui.text muted>{{ __('Server timezone: :timezone (set by the installer; FreeRADIUS and the database use the same one).', ['timezone' => $this->timezone]) }}</x-ui.text>

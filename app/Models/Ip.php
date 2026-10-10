@@ -71,4 +71,15 @@ class Ip extends Model
     {
         $query->where(fn (Builder $query) => $query->where('is_used', true)->orWhereHas('account'));
     }
+
+    /**
+     * Addresses a customer can get: not given out, and in a range that is not deleted.
+     *
+     * @param  Builder<Ip>  $query
+     */
+    #[Scope]
+    protected function free(Builder $query): void
+    {
+        $query->where('is_used', false)->whereDoesntHave('account')->whereHas('range');
+    }
 }
