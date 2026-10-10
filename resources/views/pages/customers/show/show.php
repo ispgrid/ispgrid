@@ -5,6 +5,7 @@ use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
+use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
 use App\Models\AccountAttribute;
@@ -299,7 +300,7 @@ new #[Title('Customer')] class extends Component
         ]);
 
         try {
-            $this->writeStatus($sync);
+            $changed = $this->writeStatus($sync);
         } catch (ModelNotFoundException) {
             $this->toastDeletedMeanwhile();
 
@@ -309,18 +310,20 @@ new #[Title('Customer')] class extends Component
         $this->reset('remark');
         unset($this->account, $this->service);
         $this->dispatch('modal-close', name: 'change-status');
-        $this->toast(__('Status changed. If the customer is online, it applies at their next login.'));
+        $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username)
+            ? __('Status changed. The customer is disconnected so it applies now.')
+            : __('Status changed.'));
     }
 
-    private function writeStatus(SyncAccountToRadius $sync): void
+    private function writeStatus(SyncAccountToRadius $sync): bool
     {
-        DB::transaction(function () use ($sync): void {
+        return DB::transaction(function () use ($sync): bool {
             $account = Account::query()->lockForUpdate()->findOrFail($this->accountId);
             $old = $account->status_id;
 
             $account->disableLogging();
             $account->update(['status_id' => (int) $this->status]);
-            $sync->handle($account);
+            $changed = $sync->handle($account);
 
             activity()
                 ->performedOn($account)
@@ -330,6 +333,8 @@ new #[Title('Customer')] class extends Component
                     'attributes' => ['status' => $account->status_id->label(), 'remark' => $this->remark],
                 ])
                 ->log('status-changed');
+
+            return $changed;
         }, attempts: 3);
     }
 
@@ -351,7 +356,10 @@ new #[Title('Customer')] class extends Component
         }
 
         unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service);
-        $this->toast(__('Customer deleted. They can no longer log in; a session open now continues until it ends.'));
+        // radacct is kept on delete, so the job still finds the open sessions after the commit.
+        $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username)
+            ? __('Customer deleted. Their open session is disconnected.')
+            : __('Customer deleted. They can no longer log in.'));
     }
 
     private function softDelete(SyncAccountToRadius $sync, ResetDevices $reset, UnlockAccount $unlock): void

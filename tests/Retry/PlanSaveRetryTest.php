@@ -16,7 +16,7 @@ function syncThatDeadlocksOnce(): void
     {
         private bool $failed = false;
 
-        public function handle(Plan $plan): void
+        public function handle(Plan $plan): bool
         {
             if (! $this->failed) {
                 $this->failed = true;
@@ -24,7 +24,7 @@ function syncThatDeadlocksOnce(): void
                 throw new QueryException('mysql', 'delete from radgroupreply', [], new PDOException('Deadlock found when trying to get lock; try restarting transaction'));
             }
 
-            parent::handle($plan);
+            return parent::handle($plan);
         }
     });
 }

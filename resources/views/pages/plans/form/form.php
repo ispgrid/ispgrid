@@ -3,12 +3,14 @@
 use App\Actions\Radius\SyncPlanToRadius;
 use App\Enums\ServiceType;
 use App\Enums\SlotMode;
+use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\Plan;
 use App\Models\PlanAttribute;
 use App\Models\Pool;
+use App\Models\Radacct;
 use App\Models\RadiusAttribute;
 use App\Rules\NotUsedByTrashed;
 use App\Support\RadiusAttributeValue;
@@ -327,7 +329,7 @@ new #[Title('Plan')] class extends Component
 
         // Fetch the plan again inside the transaction: on a deadlock retry, a model updated by the rolled-back
         // attempt looks unchanged and would skip its UPDATE while the sync still writes the new values.
-        DB::transaction(function () use ($columns, $customRows, $sync): void {
+        $saved = DB::transaction(function () use ($columns, $customRows, $sync): array {
             $plan = $this->planId === null ? null : Plan::query()->lockForUpdate()->findOrFail($this->planId);
             $before = $plan === null ? ['address_lists' => '', 'custom_attributes' => ''] : $this->relationSummary($plan);
 
@@ -340,13 +342,37 @@ new #[Title('Plan')] class extends Component
             $plan->addressLists()->sync(array_map('intval', $this->address_list_ids));
             $plan->radiusAttributes()->delete();
             $plan->radiusAttributes()->createMany($customRows);
-            $sync->handle($plan);
+            $radiusChanged = $sync->handle($plan);
 
             $this->logRelationChanges($plan, $before);
+
+            return ['id' => $plan->id, 'radius_changed' => $radiusChanged];
         }, attempts: 3);
 
-        session()->flash('toast', __('Plan saved. Customers who are online get the change at their next login.'));
+        $disconnected = $saved['radius_changed'] ? $this->disconnectOnlineCustomers($saved['id']) : 0;
+
+        session()->flash('toast', $disconnected === 0
+            ? __('Plan saved.')
+            : trans_choice('Plan saved. :count online customer is disconnected so they get the change now.|Plan saved. :count online customers are disconnected so they get the change now.', $disconnected));
         $this->redirectRoute('plans.index', navigate: true);
+    }
+
+    /**
+     * Queues a disconnect for every online customer on the plan, so they get its new rows now
+     * (app-integration.md section 1b).
+     */
+    private function disconnectOnlineCustomers(int $planId): int
+    {
+        $usernames = Radacct::query()->open()
+            ->whereIn('username', Account::query()->where('plan_id', $planId)->select('username'))
+            ->distinct()
+            ->pluck('username');
+
+        foreach ($usernames as $username) {
+            DisconnectAccount::dispatch($username);
+        }
+
+        return $usernames->count();
     }
 
     private function trimInput(): void

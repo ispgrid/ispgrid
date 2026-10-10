@@ -2,6 +2,7 @@
 
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
+use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;
@@ -11,8 +12,10 @@ use App\Models\IpRange;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\Radacct;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -255,4 +258,30 @@ it('explains that an Active customer needs a plan', function () {
 
 it('shows nothing for an unknown customer', function () {
     $this->get(route('customers.show', 999999))->assertNotFound();
+});
+
+it('disconnects an online customer whose status changes', function () {
+    Queue::fake();
+    $account = Account::factory()->create(['username' => 'alice']);
+    Radacct::factory()->create(['username' => 'alice']);
+
+    showCustomer($account)
+        ->set('status', '3')
+        ->set('remark', 'Unpaid')
+        ->call('changeStatus')
+        ->assertDispatched('toast', message: 'Status changed. The customer is disconnected so it applies now.', variant: 'success');
+
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->username === 'alice');
+});
+
+it('disconnects a customer who is online when deleted', function () {
+    Queue::fake();
+    $account = Account::factory()->create(['username' => 'alice']);
+    Radacct::factory()->create(['username' => 'alice']);
+
+    showCustomer($account)
+        ->call('delete')
+        ->assertDispatched('toast', message: 'Customer deleted. Their open session is disconnected.', variant: 'success');
+
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->username === 'alice');
 });

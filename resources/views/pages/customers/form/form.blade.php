@@ -2,7 +2,7 @@
     <div>
         <x-ui.link href="{{ $accountId ? route('customers.show', $accountId) : route('customers.index') }}" wire:navigate class="text-sm">{{ $accountId ? $username : __('Customers') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">{{ $accountId ? __('Edit customer') : __('Add customer') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ $accountId ? __('Saving writes the customer to FreeRADIUS at once. If they are online, the change applies at their next login.') : __('A new customer starts Inactive. Recharge them to give them a plan and an expiry.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ $accountId ? __('Saving writes the customer to FreeRADIUS at once. If they are online, they are disconnected so the change applies now.') : __('A new customer starts Inactive. Recharge them to give them a plan and an expiry.') }}</x-ui.text>
     </div>
 
     @if ($errors->any())

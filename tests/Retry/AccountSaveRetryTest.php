@@ -16,7 +16,7 @@ function accountSyncThatDeadlocksOnce(): void
     {
         private bool $failed = false;
 
-        public function handle(Account $account, ?int $previousIpId = null): void
+        public function handle(Account $account, ?int $previousIpId = null): bool
         {
             if (! $this->failed) {
                 $this->failed = true;
@@ -24,7 +24,7 @@ function accountSyncThatDeadlocksOnce(): void
                 throw new QueryException('mysql', 'delete from radcheck', [], new PDOException('Deadlock found when trying to get lock; try restarting transaction'));
             }
 
-            parent::handle($account, $previousIpId);
+            return parent::handle($account, $previousIpId);
         }
     });
 }
