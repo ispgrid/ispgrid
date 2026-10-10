@@ -16,8 +16,8 @@ use App\Models\IpRange;
 use App\Models\Nas;
 use App\Models\Pool;
 use App\Models\RadiusAttribute;
-use App\Rules\NotUsedByTrashed;
 use App\Support\CustomerDefaults;
+use App\Support\CustomerRules;
 use App\Support\IpAddress;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
@@ -490,39 +490,20 @@ new #[Title('Customer')] class extends Component
     {
         $isIpoe = $this->isIpoe;
         $speed = ['nullable', 'string', 'max:20'];
-        $phone = ['nullable', 'regex:/^[0-9]{'.$this->phoneDigits.'}$/'];
+        $phone = CustomerRules::phone($this->phoneDigits);
 
         return [
+            ...CustomerRules::rules($this->accountId === null, $isIpoe, $this->hasAddress(), $this->phoneDigits),
             'title' => ['nullable', 'string', 'max:20'],
-            'fullname' => ['required', 'string', 'max:100'],
             'company' => ['nullable', 'string', 'max:255'],
-            'mobile' => $phone,
             'whatsapp' => $phone,
             'alt_number' => $phone,
-            'email' => ['nullable', 'email', 'max:100'],
             'tax_id' => ['nullable', 'string', 'max:50'],
             'business_id' => ['nullable', 'string', 'max:30'],
             'remarks' => ['nullable', 'string', 'max:2000'],
-            'address.line1' => [Rule::requiredIf($this->hasAddress()), 'nullable', 'string', 'max:255'],
-            'address.line2' => ['nullable', 'string', 'max:255'],
-            'address.area' => ['nullable', 'string', 'max:100'],
-            'address.city' => ['nullable', 'string', 'max:100'],
-            'address.state' => ['nullable', 'string', 'max:100'],
-            'address.postal_code' => ['nullable', 'string', 'max:20'],
-            'address.country' => ['nullable', 'string', 'max:60'],
             'address.latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'address.longitude' => ['nullable', 'numeric', 'between:-180,180'],
-            'service_type' => ['required', Rule::in([ServiceType::Ppp->value, ServiceType::Hotspot->value, ServiceType::Ipoe->value])],
-            'username' => $this->accountId !== null ? [] : ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9._@-]+$/',
-                Rule::unique(Account::class, 'username')->withoutTrashed(),
-                new NotUsedByTrashed(Account::class, 'username', __('A deleted customer uses this username. Restore it instead.')),
-            ],
-            'password' => [$isIpoe ? 'nullable' : 'required', 'string', 'max:64', 'regex:/^[\x21-\x7E]+$/', 'not_regex:/["\'`\\\\]/'],
-            'mac_type' => $isIpoe ? [] : ['required', 'integer', 'between:0,100'],
             'nas_id' => ['nullable', 'integer', Rule::exists(Nas::class, 'id')->withoutTrashed()],
-            'connection_type_id' => ['nullable', 'integer', Rule::exists(ConnectionType::class, 'id')->withoutTrashed()],
-            'ip_address' => [Rule::requiredIf($isIpoe), 'nullable', 'ipv4'],
-            'pool_id' => $isIpoe ? [] : ['nullable', 'integer', Rule::exists(Pool::class, 'id')->withoutTrashed()],
             'address_list_ids' => ['array'],
             'address_list_ids.*' => ['integer', Rule::exists(AddressList::class, 'id')->withoutTrashed()],
             'override_plan' => ['boolean'],
@@ -550,19 +531,11 @@ new #[Title('Customer')] class extends Component
         $digits = __('Enter :digits digits.', ['digits' => $this->phoneDigits]);
 
         return [
-            'mobile.regex' => $digits,
+            ...CustomerRules::messages($this->phoneDigits),
             'whatsapp.regex' => $digits,
             'alt_number.regex' => $digits,
-            'address.line1.required' => __('Enter the first address line, or leave the whole address empty.'),
-            'username.regex' => __('Use letters, digits, ., -, _ and @ only.'),
-            'password.regex' => __('Use letters, digits and symbols, without spaces.'),
-            'password.not_regex' => __('Leave out quotes, backticks and backslashes: FreeRADIUS reads them as part of its own syntax.'),
             'nas_id.exists' => __('This router was deleted. Choose another one.'),
-            'connection_type_id.exists' => __('This connection type was deleted. Choose another one.'),
-            'pool_id.exists' => __('This pool was deleted. Choose another one.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
-            'ip_address.required' => __('IPoE customers are found by their IP address. Enter one.'),
-            'ip_address.ipv4' => __('Enter an IPv4 address, e.g. 172.16.30.20.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),
             'custom_attributes.*.value.required' => __('Enter a value.'),
@@ -603,27 +576,9 @@ new #[Title('Customer')] class extends Component
      */
     private function ipErrors(): array
     {
-        if ($this->ip_address === '' || filter_var($this->ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
-            return [];
-        }
+        $error = CustomerRules::ipError($this->ip_address, $this->accountId);
 
-        $ip = Ip::query()->with(['range', 'account'])->where('address', IpAddress::normalize($this->ip_address))->first();
-
-        if ($ip === null || $ip->range === null) {
-            return ['ip_address' => __('This address is not in the IP inventory, or it was taken out. Add its range under Network, IP ranges.')];
-        }
-
-        $holder = $ip->account;
-
-        if ($holder !== null && $holder->id !== $this->accountId) {
-            return ['ip_address' => __(':username already has this address.', ['username' => $holder->username])];
-        }
-
-        if ($holder === null && $ip->is_used) {
-            return ['ip_address' => __('This address is given out. Pick another.')];
-        }
-
-        return [];
+        return $error === null ? [] : ['ip_address' => $error];
     }
 
     /**
