@@ -37,3 +37,9 @@ it('shows Customers in the day-to-day menu', function () {
         ->assertSee(route('customers.index'))
         ->assertSee(route('customers.create'));
 });
+
+it('shows Online in the day-to-day menu', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('dashboard'))
+        ->assertSee(route('online.index'));
+});
