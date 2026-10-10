@@ -31,6 +31,25 @@ new #[Title('Dashboard')] class extends Component
     }
 
     /**
+     * The figures as linked cards: each opens the list it counts.
+     *
+     * @return list<array{label: string, value: int, href: string}>
+     */
+    #[Computed]
+    public function figureCards(): array
+    {
+        $figures = $this->figures;
+        $active = AccountStatus::Active->value;
+
+        return [
+            ['label' => __('Online now'), 'value' => $figures['online'], 'href' => route('online.index')],
+            ['label' => __('Active'), 'value' => $figures['active'], 'href' => route('customers.index', ['status' => $active])],
+            ['label' => __('Expiring within 7 days'), 'value' => $figures['expiring'], 'href' => route('customers.index', ['status' => $active, 'expiring' => 1])],
+            ['label' => __('Expired'), 'value' => $figures['expired'], 'href' => route('customers.index', ['status' => $active, 'expired' => 1])],
+        ];
+    }
+
+    /**
      * The last 10 refused or dropped login attempts.
      *
      * @return list<array{id: int, username: string, when: string, result: string, color: string, reason: string, router: string, mac: string}>

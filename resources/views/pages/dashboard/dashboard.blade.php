@@ -13,12 +13,7 @@
     @endforeach
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach ([
-            ['label' => __('Online now'), 'value' => $this->figures['online'], 'href' => route('online.index')],
-            ['label' => __('Active'), 'value' => $this->figures['active'], 'href' => route('customers.index', ['status' => 1])],
-            ['label' => __('Expiring within 7 days'), 'value' => $this->figures['expiring'], 'href' => route('customers.index', ['status' => 1, 'expiring' => 1])],
-            ['label' => __('Expired'), 'value' => $this->figures['expired'], 'href' => route('customers.index', ['status' => 1, 'expired' => 1])],
-        ] as $figure)
+        @foreach ($this->figureCards as $figure)
             <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
                 <span class="block text-sm text-zinc-500 dark:text-zinc-400">{{ $figure['label'] }}</span>
                 <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>

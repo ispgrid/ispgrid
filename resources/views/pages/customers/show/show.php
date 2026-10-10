@@ -565,6 +565,17 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * The status a recharge leaves alone (Suspended or Terminated), for the dialog's warning; null otherwise.
+     */
+    #[Computed]
+    public function rechargeKeepsStatus(): ?string
+    {
+        $status = $this->account->status_id;
+
+        return in_array($status, [AccountStatus::Suspended, AccountStatus::Terminated], true) ? $status->label() : null;
+    }
+
+    /**
      * Opens the Recharge dialog with the customer's plan, the expiry it gives and its price.
      */
     public function openRecharge(): void

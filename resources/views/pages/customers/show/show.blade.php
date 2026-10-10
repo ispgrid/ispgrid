@@ -308,8 +308,8 @@
         <form wire:submit="recharge" class="grid gap-5" novalidate>
             <x-ui.heading size="lg">{{ __('Recharge') }}</x-ui.heading>
 
-            @if (in_array($this->account->status_id, [\App\Enums\AccountStatus::Suspended, \App\Enums\AccountStatus::Terminated], true))
-                <x-ui.alert variant="warning">{{ __('A recharge keeps the status :status. Change the status separately.', ['status' => $this->account->status_id->label()]) }}</x-ui.alert>
+            @if ($this->rechargeKeepsStatus)
+                <x-ui.alert variant="warning">{{ __('A recharge keeps the status :status. Change the status separately.', ['status' => $this->rechargeKeepsStatus]) }}</x-ui.alert>
             @endif
 
             <x-ui.select wire:model.live="recharge_plan_id" :label="__('Plan')" :options="$this->rechargePlans" :placeholder="__('Choose a plan')" />
