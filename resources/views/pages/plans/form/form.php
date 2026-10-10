@@ -12,7 +12,7 @@ use App\Models\PlanAttribute;
 use App\Models\Pool;
 use App\Models\Radacct;
 use App\Models\RadiusAttribute;
-use App\Rules\NotUsedByTrashed;
+use App\Support\PlanRules;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
 use Illuminate\Database\Eloquent\Collection;
@@ -397,16 +397,7 @@ new #[Title('Plan')] class extends Component
         $isBoost = $this->slot_mode === SlotMode::Boost->value;
 
         return [
-            'slug' => $this->planId !== null ? [] : ['required', 'string', 'max:64', 'regex:/^[a-z0-9_-]+$/',
-                Rule::unique(Plan::class, 'slug')->withoutTrashed(),
-                new NotUsedByTrashed(Plan::class, 'slug', __('A deleted plan uses this slug. Restore it instead.')),
-            ],
-            'name' => ['required', 'string', 'max:255'],
-            'validity' => ['required', 'integer', 'between:1,3650'],
-            'price' => ['required', 'numeric', 'decimal:0,2', 'between:0,9999999999.99'],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'upload_speed' => ['required', 'string', 'max:20'],
-            'download_speed' => ['required', 'string', 'max:20'],
+            ...PlanRules::rules($this->planId === null),
             'burst_upload' => $speed,
             'burst_download' => $speed,
             'threshold_upload' => $speed,
@@ -432,7 +423,6 @@ new #[Title('Plan')] class extends Component
             'slot_full_days' => ['boolean'],
             'slot_upload' => [Rule::requiredIf($isBoost), ...$speed],
             'slot_download' => [Rule::requiredIf($isBoost), ...$speed],
-            'pool_id' => ['nullable', 'integer', Rule::exists(Pool::class, 'id')->withoutTrashed()],
             'address_list_ids' => ['array'],
             'address_list_ids.*' => ['integer', Rule::exists(AddressList::class, 'id')->withoutTrashed()],
             'custom_attributes' => ['array', 'max:50'],
@@ -447,9 +437,8 @@ new #[Title('Plan')] class extends Component
     protected function messages(): array
     {
         return [
-            'slug.regex' => __('Use lower-case letters, digits, - and _ only.'),
+            ...PlanRules::messages(),
             'slot_days.required' => __('Choose at least one day.'),
-            'pool_id.exists' => __('This pool was deleted. Choose another one.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),

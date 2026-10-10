@@ -161,4 +161,5 @@ it('names the status change, device reset and unlock events', function (string $
     ['devices-reset', 'Devices reset'],
     ['unlocked', 'Unlocked'],
     ['password-changed', 'Password changed'],
+    ['imported', 'Imported'],
 ]);

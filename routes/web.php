@@ -25,6 +25,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('system/freeradius', 'pages::system.radius-settings')->name('radius-settings.edit');
     Route::livewire('system/connection-types', 'pages::system.connection-types')->name('connection-types.index');
     Route::livewire('activity', 'pages::activity.index')->name('activity.index');
+    Route::livewire('system/import', 'pages::system.import')->name('import.index');
 });
 
 require __DIR__.'/settings.php';

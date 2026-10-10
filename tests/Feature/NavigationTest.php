@@ -49,3 +49,10 @@ it('shows the login log in the day-to-day menu', function () {
         ->get(route('dashboard'))
         ->assertSee(route('login-log.index'));
 });
+
+it('shows Import in the System menu and opens it there', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('import.index'))
+        ->assertSee(route('import.index'))
+        ->assertSee("navGroup('system', true)", false);
+});

@@ -79,6 +79,7 @@ final class ActivityFormatter
             'recharged' => __('Recharged'),
             'disconnected' => __('Disconnected'),
             'disconnect-failed' => __('Disconnect failed'),
+            'imported' => __('Imported'),
             default => (string) $activity->event,
         };
     }
