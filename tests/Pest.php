@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Import\RowError;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -60,4 +61,17 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+/**
+ * Import problems as "row column: message" lines ("-" for a whole file or a whole row), for readable expectations.
+ *
+ * @param  list<RowError>  $errors
+ * @return list<string>
+ */
+function errorLines(array $errors): array
+{
+    return array_map(
+        fn (RowError $error): string => ($error->row ?? '-').' '.($error->column ?? '-').': '.$error->message,
+        $errors,
+    );
 }
