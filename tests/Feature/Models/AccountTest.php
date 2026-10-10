@@ -7,6 +7,7 @@ use App\Models\AddressList;
 use App\Models\Ip;
 use App\Models\Ipoe;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Spatie\Activitylog\Models\Activity;
 
 it('reads its status and service type as enums', function () {
     $account = Account::factory()->ipoe()->suspended()->create();
@@ -39,3 +40,11 @@ it('refuses a username that is already taken, even by a deleted account', functi
 
     Account::factory()->create(['username' => 'alice']);
 })->throws(UniqueConstraintViolationException::class);
+
+it('logs nothing for a new customer saved again without changes', function () {
+    $account = Account::factory()->create();
+
+    $account->update(['mac_type' => 1, 'status_id' => 1, 'override_plan' => false]);
+
+    expect(Activity::query()->where('subject_id', $account->id)->pluck('event')->all())->toBe(['created']);
+});

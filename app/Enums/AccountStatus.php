@@ -18,4 +18,17 @@ enum AccountStatus: int
             self::Terminated => __('Terminated'),
         };
     }
+
+    /**
+     * The x-ui.badge colour for this status.
+     */
+    public function color(): string
+    {
+        return match ($this) {
+            self::Active => 'green',
+            self::Inactive => 'zinc',
+            self::Suspended => 'amber',
+            self::Terminated => 'red',
+        };
+    }
 }

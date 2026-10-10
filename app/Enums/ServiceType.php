@@ -16,4 +16,14 @@ enum ServiceType: string
     {
         return $this !== self::Static;
     }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Ppp => __('PPPoE'),
+            self::Hotspot => __('Hotspot'),
+            self::Ipoe => __('IPoE'),
+            self::Static => __('Leased line'),
+        };
+    }
 }

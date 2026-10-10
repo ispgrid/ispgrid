@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\AccountStatus;
+use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Ip;
@@ -124,3 +126,38 @@ it('records a plan speed change with the old and new value', function () {
         ->and(ActivityFormatter::subjectType($activity->subject_type))->toBe('Plan')
         ->and(ActivityFormatter::subjectName($activity))->toBe('Home 25');
 });
+
+it('records a customer status change under the customer name', function () {
+    $account = Account::factory()->create(['username' => 'alice']);
+
+    $account->update(['status_id' => AccountStatus::Suspended]);
+
+    $activity = Activity::query()->latest('id')->firstOrFail();
+
+    expect(ActivityFormatter::changes($activity))->toBe([['field' => 'status_id', 'old' => '1', 'new' => '3']])
+        ->and(ActivityFormatter::subjectType($activity->subject_type))->toBe('Customer')
+        ->and(ActivityFormatter::subjectName($activity))->toBe('alice');
+});
+
+it('never writes a customer password to the activity log', function () {
+    $account = Account::factory()->create(['password' => 'FirstPass123']);
+    $account->update(['password' => 'SecondPass456', 'fullname' => 'Alice Rao']);
+
+    $logged = Activity::query()->get()
+        ->map(fn (Activity $activity) => json_encode([$activity->attribute_changes, $activity->properties]))
+        ->implode(' ');
+
+    expect($logged)->not->toContain('Pass123')
+        ->and($logged)->not->toContain('Pass456')
+        ->and($logged)->toContain('Alice Rao');
+});
+
+it('names the status change, device reset and unlock events', function (string $event, string $label) {
+    $activity = activity()->performedOn(Account::factory()->create())->event($event)->log($event);
+
+    expect(ActivityFormatter::eventLabel($activity))->toBe($label);
+})->with([
+    ['status-changed', 'Status changed'],
+    ['devices-reset', 'Devices reset'],
+    ['unlocked', 'Unlocked'],
+]);

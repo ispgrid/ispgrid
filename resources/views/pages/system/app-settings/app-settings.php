@@ -2,6 +2,8 @@
 
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
+use App\Models\IpRange;
+use App\Models\Pool;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -35,6 +37,12 @@ new #[Title('App settings')] class extends Component
 
     public string $expiry_mode = '';
 
+    public string $default_pool_ppp = '';
+
+    public string $default_pool_hotspot = '';
+
+    public string $default_ip_range_ipoe = '';
+
     public string $notice_isp_name = '';
 
     public string $notice_phone = '';
@@ -66,10 +74,45 @@ new #[Title('App settings')] class extends Component
             'tax_id_label' => ['nullable', 'string', 'max:30'],
             'business_id_label' => ['nullable', 'string', 'max:30'],
             'expiry_mode' => ['required', Rule::in(array_keys($this->expiryModes()))],
+            'default_pool_ppp' => ['nullable', 'integer', Rule::exists(Pool::class, 'id')->withoutTrashed()],
+            'default_pool_hotspot' => ['nullable', 'integer', Rule::exists(Pool::class, 'id')->withoutTrashed()],
+            'default_ip_range_ipoe' => ['nullable', 'integer', Rule::exists(IpRange::class, 'id')->withoutTrashed()],
             'notice_isp_name' => ['nullable', 'string', 'max:100'],
             'notice_phone' => ['nullable', 'string', 'max:30'],
             'notice_message' => ['required', 'string', 'max:500'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function messages(): array
+    {
+        return [
+            'default_pool_ppp.exists' => __('This pool was deleted. Choose another one.'),
+            'default_pool_hotspot.exists' => __('This pool was deleted. Choose another one.'),
+            'default_ip_range_ipoe.exists' => __('This range was deleted. Choose another one.'),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function pools(): array
+    {
+        return Pool::query()->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function ipRanges(): array
+    {
+        return IpRange::query()->orderBy('name')->get()
+            ->mapWithKeys(fn (IpRange $range): array => [$range->id => "{$range->name} ({$range->network})"])
+            ->all();
     }
 
     /**
