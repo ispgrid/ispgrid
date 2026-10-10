@@ -28,7 +28,7 @@
 #    settings         one row, cached for 24 hours by mods-enabled/isp_settings.
 #                     Restart FreeRADIUS after changing it.
 #
-#  Per-request attributes (control list, defined in /etc/freeradius/3.0/dictionary):
+#  Per-request attributes (control list, defined in dictionary.isp):
 #    Isp-Mac              Calling-Station-Id as 12 uppercase hex digits
 #    Isp-Ipoe-Login       1 = a Hotspot MAC login (IPoE); Isp-Ipoe-Ip its IP, Isp-Ipoe-User the account
 #    Isp-Mac-Bound        IPoE: the MAC already bound to the account ('' = none)
@@ -535,9 +535,13 @@ session {
 post-auth {
 	#
 	#  Dropped in authorize step 0 (Blast-RADIUS): log the reason, send nothing, do nothing else.
+	#  FreeRADIUS 3.2.10 clears Response-Packet-Type after authorize but still runs post-auth, and
+	#  would then send whatever post-auth decides; the "Dropped:" reason survives, so it marks the drop
+	#  and do_not_respond is set again here.
 	#
-	if (&control:Response-Packet-Type == Do-Not-Respond) {
+	if ((&control:Response-Packet-Type == Do-Not-Respond) || (&control:Isp-Reject-Reason =~ /^Dropped: /)) {
 		-sql
+		do_not_respond
 		return
 	}
 

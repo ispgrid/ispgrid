@@ -1,6 +1,6 @@
 #
 #  Attributes of the isp virtual server. Internal (number > 255, no vendor): FreeRADIUS never sends them.
-#  Included from /etc/freeradius/3.0/dictionary.
+#  Included from /etc/freeradius/dictionary ($INCLUDE dictionary.isp, FreeRADIUS 3.2.10 from InkBridge).
 #
 
 #  settings table, cached by mods-available/isp_settings

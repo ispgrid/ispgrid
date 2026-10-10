@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Apply the isp server's changes to FreeRADIUS's stock MySQL queries.conf. Safe to run again.
 
-Usage: patch-queries.py [path]   (default /etc/freeradius/3.0/mods-config/sql/main/mysql/queries.conf)
+Usage: patch-queries.py [path]   (default /etc/freeradius/mods-config/sql/main/mysql/queries.conf)
 """
 import re
 import sys
 
-PATH = sys.argv[1] if len(sys.argv) > 1 else "/etc/freeradius/3.0/mods-config/sql/main/mysql/queries.conf"
+PATH = sys.argv[1] if len(sys.argv) > 1 else "/etc/freeradius/mods-config/sql/main/mysql/queries.conf"
 
 #  Routers come from the nas table; soft-deleted ones are not loaded.
 CLIENT_QUERY = """client_query = "\\
