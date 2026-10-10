@@ -20,6 +20,9 @@
         <div class="flex items-end pb-2">
             <x-ui.checkbox wire:model.live="expiring" :label="__('Expiring within 7 days')" />
         </div>
+        <div class="flex items-end pb-2">
+            <x-ui.checkbox wire:model.live="expired" :label="__('Expired')" />
+        </div>
     </div>
 
     <x-ui.table>
