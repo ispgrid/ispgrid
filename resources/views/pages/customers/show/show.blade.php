@@ -19,6 +19,7 @@
                 @endcan
             @else
                 @can('update', $this->account)
+                    <x-ui.button wire:click="openRecharge">{{ __('Recharge') }}</x-ui.button>
                     <x-ui.button variant="secondary" :href="route('customers.edit', $this->account->id)" wire:navigate>{{ __('Edit') }}</x-ui.button>
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
                 @endcan
@@ -139,6 +140,26 @@
             <div class="flex justify-end gap-2">
                 <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'change-status' })">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button type="submit">{{ __('Change status') }}</x-ui.button>
+            </div>
+        </form>
+    </x-ui.modal>
+
+    <x-ui.modal name="recharge">
+        <form wire:submit="recharge" class="grid gap-5" novalidate>
+            <x-ui.heading size="lg">{{ __('Recharge') }}</x-ui.heading>
+
+            @if (in_array($this->account->status_id, [\App\Enums\AccountStatus::Suspended, \App\Enums\AccountStatus::Terminated], true))
+                <x-ui.alert variant="warning">{{ __('A recharge keeps the status :status. Change the status separately.', ['status' => $this->account->status_id->label()]) }}</x-ui.alert>
+            @endif
+
+            <x-ui.select wire:model.live="recharge_plan_id" :label="__('Plan')" :options="$this->rechargePlans" :placeholder="__('Choose a plan')" />
+            <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
+            <x-ui.input wire:model="recharge_amount" inputmode="decimal" :label="__('Amount')" :description="__('The plan price. Change it for a discount or a part payment.')" />
+            <x-ui.input wire:model="recharge_note" :label="__('Note')" maxlength="255" />
+
+            <div class="flex justify-end gap-2">
+                <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'recharge' })">{{ __('Cancel') }}</x-ui.button>
+                <x-ui.button type="submit">{{ __('Recharge') }}</x-ui.button>
             </div>
         </form>
     </x-ui.modal>

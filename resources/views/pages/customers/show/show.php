@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Customers\RechargeAccount;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
@@ -11,9 +12,12 @@ use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\AddressList;
 use App\Models\AppSetting;
+use App\Models\Plan;
 use App\Models\Pool;
 use App\Support\CustomerDefaults;
+use App\Support\ExpiryCalculator;
 use App\Support\Ipv4Cidr;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +43,17 @@ new #[Title('Customer')] class extends Component
      * Why the status changes (required, recorded in the activity log).
      */
     public string $remark = '';
+
+    /**
+     * The Recharge dialog: plan, expiry (datetime-local, Y-m-d\TH:i), amount and note.
+     */
+    public string $recharge_plan_id = '';
+
+    public string $recharge_expiry = '';
+
+    public string $recharge_amount = '';
+
+    public string $recharge_note = '';
 
     public function mount(int $account): void
     {
@@ -336,6 +351,127 @@ new #[Title('Customer')] class extends Component
 
             return $changed;
         }, attempts: 3);
+    }
+
+    /**
+     * Plans a customer can be recharged with, with their validity and price.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function rechargePlans(): array
+    {
+        $money = Money::fromSettings();
+
+        return Plan::query()->orderBy('name')->get(['id', 'name', 'validity', 'price'])
+            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => __(':name (:days days, :price)', [
+                'name' => $plan->name,
+                'days' => $plan->validity,
+                'price' => $money->format((string) $plan->price),
+            ])])
+            ->all();
+    }
+
+    /**
+     * Opens the Recharge dialog with the customer's plan, the expiry it gives and its price.
+     */
+    public function openRecharge(): void
+    {
+        $this->authorize('update', $this->account);
+        $this->resetValidation();
+
+        $plan = $this->account->plan;
+        $this->recharge_plan_id = $plan === null || $plan->trashed() ? '' : (string) $plan->id;
+        $this->recharge_note = '';
+        $this->fillRechargeDefaults();
+
+        $this->dispatch('modal-open', name: 'recharge');
+    }
+
+    public function updatedRechargePlanId(): void
+    {
+        $this->fillRechargeDefaults();
+    }
+
+    /**
+     * Saves the recharge, then disconnects an online customer so the new plan and expiry apply now.
+     */
+    public function recharge(RechargeAccount $recharge): void
+    {
+        $this->authorize('update', $this->account);
+        $this->recharge_note = trim($this->recharge_note);
+
+        $this->validate([
+            'recharge_plan_id' => ['required', Rule::exists('plans', 'id')->withoutTrashed()],
+            'recharge_expiry' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
+            'recharge_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            'recharge_note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'recharge_expiry.after' => __('The expiry must be in the future.'),
+        ], [
+            'recharge_plan_id' => __('plan'),
+            'recharge_expiry' => __('expiry'),
+            'recharge_amount' => __('amount'),
+            'recharge_note' => __('note'),
+        ]);
+
+        $wasInactive = $this->account->status_id === AccountStatus::Inactive;
+
+        try {
+            $done = $recharge->handle(
+                $this->accountId,
+                (int) $this->recharge_plan_id,
+                Carbon::createFromFormat('!Y-m-d\TH:i', $this->recharge_expiry),
+                $this->recharge_amount,
+                $this->recharge_note === '' ? null : $this->recharge_note,
+            );
+        } catch (ModelNotFoundException $exception) {
+            if ($exception->getModel() === Plan::class) {
+                unset($this->rechargePlans);
+                $this->toast(__('This plan was deleted meanwhile. Choose another.'), 'danger');
+
+                return;
+            }
+
+            $this->toastDeletedMeanwhile();
+
+            return;
+        }
+
+        $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username);
+        unset($this->account, $this->service);
+        $this->status = (string) $this->account->status_id->value;
+        $this->dispatch('modal-close', name: 'recharge');
+
+        $message = __('Recharged until :date.', ['date' => $done->new_expiry->format($this->dateFormat())]);
+
+        if ($disconnected) {
+            $message .= ' '.__('They are disconnected so the change applies now.');
+        } elseif ($wasInactive) {
+            $message .= ' '.__('The customer is Active now.');
+        }
+
+        $this->toast($message);
+    }
+
+    /**
+     * The expiry and amount the chosen plan gives. Staff can change both before saving.
+     */
+    private function fillRechargeDefaults(): void
+    {
+        $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
+
+        if ($plan === null) {
+            $this->recharge_expiry = '';
+            $this->recharge_amount = '';
+
+            return;
+        }
+
+        $this->recharge_expiry = ExpiryCalculator::fromSettings()
+            ->next($this->account->expiry, $plan->validity, now())
+            ->format('Y-m-d\TH:i');
+        $this->recharge_amount = (string) $plan->price;
     }
 
     /**
