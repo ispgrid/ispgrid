@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
@@ -103,6 +104,13 @@ new #[Title('Customer')] class extends Component
     public string $connection_type_id = '';
 
     public string $ip_address = '';
+
+    /**
+     * The address the default IPoE range filled in for a new customer, so it can be taken back when staff pick
+     * another type. Not saved.
+     */
+    #[Locked]
+    public string $autoFilledIp = '';
 
     /**
      * The range "Next free IP" picks from. Not saved.
@@ -318,6 +326,10 @@ new #[Title('Customer')] class extends Component
 
         if ($type === ServiceType::Ipoe && $this->ip_address === '') {
             $this->ip_address = CustomerDefaults::nextIpoeIp()?->address ?? '';
+            $this->autoFilledIp = $this->ip_address;
+        } elseif ($type !== ServiceType::Ipoe && $this->ip_address !== '' && $this->ip_address === $this->autoFilledIp) {
+            $this->ip_address = '';
+            $this->autoFilledIp = '';
         }
     }
 
@@ -392,6 +404,7 @@ new #[Title('Customer')] class extends Component
                     ? ['address' => '', 'address_lists' => '', 'custom_attributes' => '']
                     : $this->relationSummary($account);
                 $previousIpId = $account?->ip_id;
+                $previousType = $account?->service_type;
                 $oldAddress = $account?->address;
                 $columns['address_id'] = $this->saveAddress($oldAddress);
 
@@ -409,6 +422,10 @@ new #[Title('Customer')] class extends Component
                 $account->radiusAttributes()->delete();
                 $account->radiusAttributes()->createMany($customRows);
                 $sync->handle($account, $previousIpId);
+
+                if ($previousType !== null && $previousType !== $account->service_type) {
+                    $this->resetDevicesAfterTypeChange($account);
+                }
 
                 $this->logRelationChanges($account, $before);
 
@@ -472,7 +489,7 @@ new #[Title('Customer')] class extends Component
                 Rule::unique(Account::class, 'username')->withoutTrashed(),
                 new NotUsedByTrashed(Account::class, 'username', __('A deleted customer uses this username. Restore it instead.')),
             ],
-            'password' => $isIpoe ? [] : ['required', 'string', 'max:64', 'regex:/^[\x21-\x7E]+$/'],
+            'password' => [$isIpoe ? 'nullable' : 'required', 'string', 'max:64', 'regex:/^[\x21-\x7E]+$/', 'not_regex:/["\'`\\\\]/'],
             'mac_type' => $isIpoe ? [] : ['required', 'integer', 'between:0,100'],
             'nas_id' => ['nullable', 'integer', Rule::exists(Nas::class, 'id')->withoutTrashed()],
             'connection_type_id' => ['nullable', 'integer', Rule::exists(ConnectionType::class, 'id')->withoutTrashed()],
@@ -511,6 +528,7 @@ new #[Title('Customer')] class extends Component
             'address.line1.required' => __('Enter the first address line, or leave the whole address empty.'),
             'username.regex' => __('Use letters, digits, ., -, _ and @ only.'),
             'password.regex' => __('Use letters, digits and symbols, without spaces.'),
+            'password.not_regex' => __('Leave out quotes, backticks and backslashes: FreeRADIUS reads them as part of its own syntax.'),
             'nas_id.exists' => __('This router was deleted. Choose another one.'),
             'connection_type_id.exists' => __('This connection type was deleted. Choose another one.'),
             'pool_id.exists' => __('This pool was deleted. Choose another one.'),
@@ -758,6 +776,25 @@ new #[Title('Customer')] class extends Component
             ->event('updated')
             ->withChanges(['old' => array_intersect_key($before, $changed), 'attributes' => array_intersect_key($after, $changed)])
             ->log('updated');
+    }
+
+    /**
+     * Devices bound under the old type do not fit the new one (an IPoE customer has one device, and a PPPoE
+     * router left bound would block another account), so a type change forgets them, as Reset devices does.
+     */
+    private function resetDevicesAfterTypeChange(Account $account): void
+    {
+        $macs = app(ResetDevices::class)->handle($account->username);
+
+        if ($macs === []) {
+            return;
+        }
+
+        activity()
+            ->performedOn($account)
+            ->event('devices-reset')
+            ->withProperties(['macs' => array_map(fn (string $mac): string => implode(':', str_split($mac, 2)), $macs)])
+            ->log('devices-reset');
     }
 
     /**

@@ -20,7 +20,7 @@ class AccountFactory extends Factory
     {
         return [
             'username' => 'user'.fake()->unique()->numberBetween(1000, 999999),
-            'password' => fake()->password(8, 12),
+            'password' => fake()->regexify('[A-Za-z0-9]{10}'),
             'fullname' => fake()->name(),
             'mobile' => fake()->numerify('9#########'),
             'service_type' => ServiceType::Ppp,

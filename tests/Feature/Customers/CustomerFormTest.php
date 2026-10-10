@@ -412,3 +412,63 @@ it('records the address and address lists in the activity log, never the passwor
 
     expect($logged)->toContain('12 MG Road')->toContain('vip')->not->toContain('secret12');
 });
+
+it('refuses a password FreeRADIUS would unquote or expand', function (string $password) {
+    newCustomerForm()->set('password', $password)->call('save')->assertHasErrors(['password']);
+})->with(['"secret12"', "'secret12'", '`date`', 'pass"word', 'back\slash']);
+
+it('refuses a tampered password on an IPoE customer', function () {
+    freeIp('172.16.30.20');
+
+    newCustomerForm()->set('service_type', 'IPOE')->set('ip_address', '172.16.30.20')->set('password', "o'brien")
+        ->call('save')
+        ->assertHasErrors(['password']);
+});
+
+it('clears the auto-filled IPoE address when a new customer switches to another type', function () {
+    $range = IpRange::factory()->create();
+    Ip::factory()->create(['ip_range_id' => $range->id, 'address' => '172.16.30.20']);
+    AppSetting::put('default_ip_range_ipoe', (string) $range->id);
+
+    Livewire::test('pages::customers.form')
+        ->set('service_type', 'IPOE')
+        ->assertSet('ip_address', '172.16.30.20')
+        ->set('service_type', 'PPP')
+        ->assertSet('ip_address', '');
+});
+
+it('keeps an address staff typed when a new customer switches type', function () {
+    Livewire::test('pages::customers.form')
+        ->set('service_type', 'IPOE')
+        ->set('ip_address', '10.9.9.9')
+        ->set('service_type', 'PPP')
+        ->assertSet('ip_address', '10.9.9.9');
+});
+
+it('forgets the bound devices when a customer changes type', function () {
+    $account = Account::factory()->create(['username' => 'alice', 'password' => 'secret12']);
+    DB::table('account_macs')->insert([
+        ['username' => 'alice', 'mac_norm' => 'AA0000000001'],
+        ['username' => 'alice', 'mac_norm' => 'AA0000000002'],
+    ]);
+    freeIp('172.16.30.20');
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('service_type', 'IPOE')
+        ->set('ip_address', '172.16.30.20')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(DB::table('account_macs')->count())->toBe(0)
+        ->and(Activity::query()->where('event', 'devices-reset')->sole()->properties['macs'])
+        ->toBe(['AA:00:00:00:00:01', 'AA:00:00:00:00:02']);
+});
+
+it('keeps the bound devices when the type stays the same', function () {
+    $account = Account::factory()->create(['username' => 'alice', 'password' => 'secret12']);
+    DB::table('account_macs')->insert(['username' => 'alice', 'mac_norm' => 'AA0000000001']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])->set('fullname', 'Alice Rao')->call('save')->assertHasNoErrors();
+
+    expect(DB::table('account_macs')->count())->toBe(1);
+});
