@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Forgets the devices FreeRADIUS bound to an account (account_macs), so the next device to log in is bound.
- * The only write the app makes to account_macs (app-integration.md section 6).
+ * Besides the CSV import's bound devices, the only write the app makes to account_macs (app-integration.md section 6).
  */
 final class ResetDevices
 {
