@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Import\ImportCustomers;
+use App\Actions\Import\ImportTime;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Plan;
@@ -123,6 +124,22 @@ it('refuses a file that is not CSV or larger than 2 MB', function (UploadedFile 
     'pdf' => fn () => UploadedFile::fake()->create('plans.pdf', 10),
     'too large' => fn () => UploadedFile::fake()->create('plans.csv', 3000),
 ]);
+
+it('tells how to stop Excel changing usernames, passwords and dates', function () {
+    $this->get(route('import.index'))->assertSee('In Excel, format the username, password, mobile and expiry columns as Text before typing.');
+});
+
+it('gives a large file the time it needs to check and import', function (string $action) {
+    ini_set('max_execution_time', '30');
+
+    $page = Livewire::test('pages::system.import')->set('plansFile', planCsv('home_25,Home 25,30,599,25M,25M'));
+    $action === 'import' ? $page->call('check', 'plans')->tap(fn () => ini_set('max_execution_time', '30'))->call('import', 'plans') : $page->call('check', 'plans');
+
+    $limit = ini_get('max_execution_time');
+    ini_set('max_execution_time', '0');
+
+    expect($limit)->toBe((string) ImportTime::SECONDS);
+})->with(['check', 'import']);
 
 it('asks for a file before checking', function () {
     Livewire::test('pages::system.import')->call('check', 'plans')->assertHasErrors(['plansFile' => 'required']);

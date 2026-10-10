@@ -155,6 +155,13 @@ final class ImportCustomers implements Importer
         $address = array_map(fn (string $value): ?string => $value === '' ? null : $value, Arr::only($values, self::ADDRESS));
         $hasAddress = array_filter($address, fn (?string $value): bool => $value !== null) !== [];
 
+        foreach ($isIpoe ? ['username', 'mobile'] : ['username', 'password', 'mobile'] as $column) {
+            // Excel shows a long number such as 123456789012 as 1.23457E+11 and saves it that way.
+            if (preg_match('/^\d+(\.\d+)?E\+\d+$/i', $values[$column]) === 1) {
+                $errors[$column] = __('Excel turned this into a number. Format the column as Text in Excel and type it again.');
+            }
+        }
+
         $pool = $values['pool'] === '' ? null : $pools->get(strtolower($values['pool']));
 
         if ($values['pool'] !== '' && $isIpoe) {

@@ -221,6 +221,11 @@ it('refuses a username the app already has, whatever its case', function (bool $
     'deleted' => [true, '2 username: A deleted customer uses this username. Restore it instead.'],
 ]);
 
+it('refuses a value Excel turned into a number, which would become a wrong login', function (string $column) {
+    expect(customerCheck([$column => '1.23457E+11']))
+        ->toBe(["2 {$column}: Excel turned this into a number. Format the column as Text in Excel and type it again."]);
+})->with(['username', 'password', 'mobile']);
+
 it('checks the profile and service fields as the form does', function (array $values, string $line) {
     expect(customerCheck($values))->toBe([$line]);
 })->with([

@@ -3,6 +3,7 @@
 use App\Actions\Import\ImportCustomers;
 use App\Actions\Import\Importer;
 use App\Actions\Import\ImportPlans;
+use App\Actions\Import\ImportTime;
 use App\Actions\Import\RowError;
 use App\Exceptions\ImportFailed;
 use App\Livewire\Concerns\ShowsToasts;
@@ -65,6 +66,7 @@ new #[Title('Import')] class extends Component
         $this->authorize('import-data');
         $importer = $this->importer($kind);
         $this->forget($kind);
+        ImportTime::extend();
 
         $field = $kind.'File';
         $this->validate([$field => ['required', 'file', 'extensions:csv,txt', 'max:2048']], [
@@ -87,6 +89,7 @@ new #[Title('Import')] class extends Component
     {
         $this->authorize('import-data');
         $importer = $this->importer($kind);
+        ImportTime::extend();
 
         if ($this->ready[$kind] === null || $this->{$kind.'File'} === null) {
             $this->toast(__('Check the file first.'), 'danger');
@@ -142,7 +145,7 @@ new #[Title('Import')] class extends Component
     {
         $cards = [
             'plans' => [__('Plans'), __('One plan per row. Speeds use k or M, e.g. 25M. The pool is a pool name and may be empty.')],
-            'customers' => [__('Customers'), __('Import plans first: customers refer to plans by slug. Expiry is YYYY-MM-DD HH:MM; customers without a plan start Inactive.')],
+            'customers' => [__('Customers'), __('Import plans first: customers refer to plans by slug. Expiry is YYYY-MM-DD HH:MM; customers without a plan start Inactive. In Excel, format the username, password, mobile and expiry columns as Text before typing.')],
         ];
 
         return array_map(function (string $kind, array $text): array {
