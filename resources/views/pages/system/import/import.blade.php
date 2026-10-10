@@ -7,7 +7,7 @@
     @foreach ($this->cards as $card)
         <x-ui.card wire:key="import-{{ $card['kind'] }}" class="grid gap-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div class="min-w-0 sm:flex-1">
                     <x-ui.heading>{{ $card['title'] }}</x-ui.heading>
                     <x-ui.text muted class="mt-1">{{ $card['description'] }}</x-ui.text>
                 </div>
