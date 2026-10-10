@@ -29,3 +29,11 @@ it('opens the menu group of the current page', function () {
         ->assertSee("navGroup('network', true)", false)
         ->assertSee("navGroup('system', false)", false);
 });
+
+it('shows Customers in the day-to-day menu', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('customers.index'))
+        ->assertOk()
+        ->assertSee(route('customers.index'))
+        ->assertSee(route('customers.create'));
+});

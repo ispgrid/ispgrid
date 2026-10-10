@@ -6,6 +6,10 @@ Route::redirect('/', '/dashboard')->name('home');
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
+    Route::livewire('customers', 'pages::customers.index')->name('customers.index');
+    Route::livewire('customers/create', 'pages::customers.form')->name('customers.create');
+    Route::livewire('customers/{account}', 'pages::customers.show')->name('customers.show');
+    Route::livewire('customers/{account}/edit', 'pages::customers.form')->name('customers.edit');
     Route::livewire('plans', 'pages::plans.index')->name('plans.index');
     Route::livewire('plans/create', 'pages::plans.form')->name('plans.create');
     Route::livewire('plans/{plan}/edit', 'pages::plans.form')->name('plans.edit');

@@ -14,3 +14,7 @@ it('refuses an icon name it does not know', function () {
 it('has the Plans menu icon', function () {
     expect(Heroicons::paths('rectangle-stack'))->not->toBeEmpty();
 });
+
+it('has the Customers menu icon', function () {
+    expect(Heroicons::paths('user-group'))->not->toBeEmpty();
+});
