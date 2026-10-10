@@ -447,6 +447,11 @@ new #[Title('Customer')] class extends Component
                     $this->logRelationChanges($account, $before);
                 }
 
+                // The password itself is never logged, only that it changed.
+                if (! $isNew && $account->wasChanged('password')) {
+                    activity()->performedOn($account)->event('password-changed')->log('password-changed');
+                }
+
                 return $account->id;
             }, attempts: 3);
         } catch (UniqueConstraintViolationException) {
