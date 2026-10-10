@@ -105,3 +105,19 @@ it('warns that a recharge keeps a Suspended status', function () {
     Livewire::test('pages::customers.show', ['account' => Account::factory()->suspended()->create()->id])
         ->assertSee('A recharge keeps the status Suspended.');
 });
+
+it('asks again when the customer was recharged while the dialog was open', function () {
+    $account = Account::factory()->create(['plan_id' => $this->plan->id, 'expiry' => '2026-11-01 10:00:00']);
+    $page = Livewire::test('pages::customers.show', ['account' => $account->id])->call('openRecharge');
+    $account->update(['expiry' => '2026-12-01 10:00:00']);
+
+    $page->call('recharge')
+        ->assertHasErrors(['recharge_expiry'])
+        ->assertSet('recharge_expiry', '2026-12-31T10:00');
+
+    expect(Recharge::query()->count())->toBe(0);
+
+    $page->call('recharge')->assertHasNoErrors();
+
+    expect(Recharge::query()->sole()->new_expiry->format('Y-m-d H:i'))->toBe('2026-12-31 10:00');
+});

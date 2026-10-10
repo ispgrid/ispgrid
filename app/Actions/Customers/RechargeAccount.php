@@ -4,6 +4,7 @@ namespace App\Actions\Customers;
 
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
+use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Models\Account;
 use App\Models\Plan;
 use App\Models\Recharge;
@@ -26,14 +27,23 @@ final class RechargeAccount
     public function __construct(private SyncAccountToRadius $sync) {}
 
     /**
+     * @param  ?string  $expectedExpiry  the expiry ('Y-m-d H:i:s', '' for none) the new one was computed from;
+     *                                   null skips the check
+     *
      * @throws ModelNotFoundException when the customer or the plan was deleted meanwhile
+     * @throws ExpiryChangedMeanwhile when the customer's expiry is no longer $expectedExpiry
      */
-    public function handle(int $accountId, int $planId, CarbonInterface $expiry, string $amount, ?string $note): Recharge
+    public function handle(int $accountId, int $planId, CarbonInterface $expiry, string $amount, ?string $note, ?string $expectedExpiry = null): Recharge
     {
         // Loaded inside the transaction: on a deadlock retry, a model updated by the rolled-back attempt would
         // look unchanged and skip its UPDATE while the sync still writes the new values.
-        return DB::transaction(function () use ($accountId, $planId, $expiry, $amount, $note): Recharge {
+        return DB::transaction(function () use ($accountId, $planId, $expiry, $amount, $note, $expectedExpiry): Recharge {
             $account = Account::query()->with('plan')->lockForUpdate()->findOrFail($accountId);
+
+            if ($expectedExpiry !== null && self::expiryKey($account) !== $expectedExpiry) {
+                throw new ExpiryChangedMeanwhile;
+            }
+
             $plan = Plan::query()->findOrFail($planId);
             $oldPlan = $account->plan?->name;
             $oldExpiry = $account->expiry;
@@ -81,5 +91,13 @@ final class RechargeAccount
 
             return $recharge;
         }, attempts: 3);
+    }
+
+    /**
+     * The account's expiry as the recharge dialog remembers it: 'Y-m-d H:i:s', or '' for none.
+     */
+    public static function expiryKey(Account $account): string
+    {
+        return $account->expiry?->format('Y-m-d H:i:s') ?? '';
     }
 }

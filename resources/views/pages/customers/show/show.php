@@ -6,6 +6,7 @@ use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
+use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
@@ -64,6 +65,13 @@ new #[Title('Customer')] class extends Component
     public string $recharge_amount = '';
 
     public string $recharge_note = '';
+
+    /**
+     * The expiry the dialog's suggestion was computed from (RechargeAccount::expiryKey()), so a recharge saved
+     * meanwhile by someone else is not overwritten.
+     */
+    #[Locked]
+    public string $recharge_base_expiry = '';
 
     public function mount(int $account): void
     {
@@ -608,7 +616,14 @@ new #[Title('Customer')] class extends Component
                 Carbon::createFromFormat('!Y-m-d\TH:i', $this->recharge_expiry),
                 $this->recharge_amount,
                 $this->recharge_note === '' ? null : $this->recharge_note,
+                $this->recharge_base_expiry,
             );
+        } catch (ExpiryChangedMeanwhile) {
+            unset($this->account);
+            $this->fillRechargeDefaults();
+            $this->addError('recharge_expiry', __('The expiry changed meanwhile (another recharge or an edit). The new expiry is filled in from it: check it and save again.'));
+
+            return;
         } catch (ModelNotFoundException $exception) {
             if ($exception->getModel() === Plan::class) {
                 unset($this->rechargePlans);
@@ -643,6 +658,7 @@ new #[Title('Customer')] class extends Component
      */
     private function fillRechargeDefaults(): void
     {
+        $this->recharge_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
 
         if ($plan === null) {

@@ -2,6 +2,7 @@
 
 use App\Actions\Customers\RechargeAccount;
 use App\Enums\AccountStatus;
+use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Models\Account;
 use App\Models\Plan;
 use App\Models\Recharge;
@@ -84,3 +85,13 @@ it('refuses a customer or a plan deleted meanwhile', function (string $deleted) 
 
     expect(Recharge::query()->count())->toBe(0);
 })->with(['customer', 'plan']);
+
+it('refuses a recharge made from an expiry that changed meanwhile', function () {
+    $account = Account::factory()->create(['expiry' => '2026-11-01 10:00:00']);
+    $plan = Plan::factory()->create();
+
+    expect(fn () => app(RechargeAccount::class)->handle($account->id, $plan->id, Carbon::parse('2026-11-09 14:30'), '599', null, '2026-10-20 10:00:00'))
+        ->toThrow(ExpiryChangedMeanwhile::class);
+
+    expect(Recharge::query()->count())->toBe(0);
+});
