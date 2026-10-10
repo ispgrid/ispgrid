@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\ConnectionType;
 use App\Models\Ip;
@@ -36,3 +37,7 @@ it('lets every staff member take an IP out of the inventory and put it back', fu
 it('lets every staff member manage plans', function (string $ability) {
     expect(User::factory()->create()->can($ability, Plan::factory()->create()))->toBeTrue();
 })->with(['update', 'delete', 'restore']);
+
+it('lets every staff member manage customers', function (string $ability) {
+    expect(User::factory()->create()->can($ability, Account::factory()->create()))->toBeTrue();
+})->with(['view', 'update', 'delete', 'restore']);

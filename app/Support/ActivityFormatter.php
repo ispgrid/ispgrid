@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
@@ -24,6 +25,7 @@ final class ActivityFormatter
      * @var array<class-string<Model>, string>
      */
     public const SUBJECT_TYPES = [
+        Account::class => 'Customer',
         User::class => 'Staff',
         AppSetting::class => 'App setting',
         ConnectionType::class => 'Connection type',
@@ -53,6 +55,7 @@ final class ActivityFormatter
             $subject instanceof Ip => $subject->address,
             $subject instanceof RadiusSetting => __('FreeRADIUS settings'),
             $subject instanceof AppSetting => $subject->key,
+            $subject instanceof Account => $subject->username,
             default => '#'.$activity->subject_id,
         };
     }
@@ -69,6 +72,9 @@ final class ActivityFormatter
             'updated' => __('Updated'),
             'deleted' => $activity->subject_type === (new User)->getMorphClass() ? __('Disabled') : __('Deleted'),
             'restored' => __('Restored'),
+            'status-changed' => __('Status changed'),
+            'devices-reset' => __('Devices reset'),
+            'unlocked' => __('Unlocked'),
             default => (string) $activity->event,
         };
     }
