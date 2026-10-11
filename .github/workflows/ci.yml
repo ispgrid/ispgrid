@@ -61,3 +61,23 @@ jobs:
 
       - name: Tests (MariaDB)
         run: php artisan test
+
+  deploy:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Shellcheck
+        run: |
+          shellcheck -x -S warning deploy/install.sh deploy/install/*.sh deploy/tests/installer/*.sh \
+            $(ls deploy/wireguard/*.sh deploy/backup/ispgrid-backup deploy/tests/radius_policy_tests.sh 2>/dev/null)
+
+      - name: Installer helper tests
+        run: bash deploy/tests/installer/test_install_sh.sh
+
+      - name: sql module script tests
+        run: |
+          if [ -f deploy/tests/installer/test_configure_sql.py ]; then python3 deploy/tests/installer/test_configure_sql.py; fi
