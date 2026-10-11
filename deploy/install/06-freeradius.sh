@@ -57,4 +57,9 @@ if [[ -n "$RADIUS_CHANGED" ]] || ! systemctl is-active -q freeradius; then
   systemctl restart freeradius
 fi
 systemctl is-active -q freeradius || die "FreeRADIUS did not start: journalctl -u freeradius"
-say "FreeRADIUS $(dpkg-query -W -f='${Version}' freeradius): site isp, ${RADIUS_CHANGED:+config updated and restarted}${RADIUS_CHANGED:-config unchanged}"
+if [[ -n "$RADIUS_CHANGED" ]]; then
+  radius_state="config updated and restarted"
+else
+  radius_state="config unchanged"
+fi
+say "FreeRADIUS $(dpkg-query -W -f='${Version}' freeradius): site isp, $radius_state"
