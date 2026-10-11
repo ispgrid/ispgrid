@@ -478,6 +478,7 @@ main() {
   run_steps
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+#  `return` works only in a sourced file (the tests); run, piped (curl ... | bash) or not, unless sourced.
+if ! (return 0 2>/dev/null); then
   main "$@"
 fi

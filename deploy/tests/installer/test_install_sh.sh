@@ -143,5 +143,9 @@ check "proxmox is no cloud" "$(cloud_vendor 'QEMU')" ""
 errors=$(ISPGRID_HOME="$tmp" bash -c 'source "$1"; set -Eeuo pipefail; trap on_error ERR; value=$(false); echo "$value"' _ "$here/../../install.sh" 2>&1 | grep -c '^ERROR')
 check "error reported once" "$errors" 1
 
+#  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
+piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)
+check "piped into bash runs" "$piped" "Usage: sudo bash install.sh [options]"
+
 echo "$((count - failed))/$count passed"
 [[ $failed -eq 0 ]]
