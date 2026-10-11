@@ -8,7 +8,7 @@
 #
 
 SERVER="127.0.0.1"
-SECRET="testing123"
+SECRET="${RADIUS_SECRET:-testing123}"   # the installer passes the localhost client's secret
 DB="${RADIUS_DB:-radius}"
 IPOE_USER="AA:BB:CC:00:00:01"
 PASS=0
@@ -16,7 +16,8 @@ FAIL=0
 
 sql() { mysql -N "$DB" -e "$1"; }
 
-seed() {
+#  The test rows (users t_*, the IPoE MAC, test plan groups). Used before seeding and by CLEANUP=1.
+delete_fixtures() {
   sql "DELETE FROM radcheck WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
        DELETE FROM radreply WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
        DELETE FROM radusergroup WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
@@ -26,9 +27,12 @@ seed() {
        DELETE FROM radacct WHERE username LIKE 't\_%' OR acctsessionid LIKE 't-%';
        DELETE FROM radpostauth WHERE username LIKE 't\_%' OR username = '$IPOE_USER' OR username LIKE 'DE:AD:%';
        DELETE FROM ipoes WHERE username LIKE 't\_%';
-       DELETE FROM accounts WHERE username LIKE 't\_%';
+       DELETE FROM accounts WHERE username LIKE 't\_%';"
+}
 
-       INSERT INTO radgroupreply (groupname, attribute, op, value) VALUES
+seed() {
+  delete_fixtures
+  sql "INSERT INTO radgroupreply (groupname, attribute, op, value) VALUES
          ('t_plan40', 'Mikrotik-Rate-Limit', '=', '40M/40M'),
          ('t_plan40', 'Framed-Pool', '=', 'pppoe'),
          ('t_plan_fup', 'Mikrotik-Rate-Limit', '=', '40M/40M'),
@@ -180,7 +184,7 @@ seed_routers() {
 probe() {
   local got
   got=$(python3 /usr/local/bin/radius_blast_probe.py "$2" "$PROBE_SECRET" "$3")
-  result $([[ "$got" == "$4" ]] && echo 1 || echo 0) "$1" "(got $got, want $4)" "router $2, mode $3: $got (want $4)"
+  result "$([[ "$got" == "$4" ]] && echo 1 || echo 0)" "$1" "(got $got, want $4)" "router $2, mode $3: $got (want $4)"
 }
 
 #  A finished session in radacct: used <user> <bytes> <seconds> <SQL start time>
@@ -348,7 +352,7 @@ check "Unknown status (9) counts as inactive"    Accept "$(ppp t_status9 pass $M
 section "Hotspot (no MAC binding, Acct-Mac-Type = devices online at once)"
 check "Hotspot login, any MAC"                   Accept "$(login t_hs pass $M1)" 'Mikrotik-Rate-Limit = "40M/40M"'
 bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_hs'")
-result $([[ "$bound" -eq 0 ]] && echo 1 || echo 0) "  no MAC bound for hotspot" "($bound rows)"
+result "$([[ "$bound" -eq 0 ]] && echo 1 || echo 0)" "  no MAC bound for hotspot" "($bound rows)"
 online t_hs t-hs-1 "$M3"
 online t_hs t-hs-2 "$M4"
 check "Third device while 2 online"              Reject "$(login t_hs pass $M5)" 'Maximum devices online (2)'
@@ -369,20 +373,20 @@ check "First device on the account's IP: accept, MAC learned" Accept "$(maclogin
       'Mikrotik-Rate-Limit = "40M/40M"' "New device $I1 registered" '!Framed-Pool'
 logged "  logged under the account name"         t_ipoe 'New device'
 bound=$(sql "SELECT GROUP_CONCAT(mac_norm) FROM account_macs WHERE username = 't_ipoe'")
-result $([[ "$bound" == "DEAD00000001" ]] && echo 1 || echo 0) "  MAC bound to the account" "(bound: '$bound')"
+result "$([[ "$bound" == "DEAD00000001" ]] && echo 1 || echo 0)" "  MAC bound to the account" "(bound: '$bound')"
 check "Same device again"                        Accept "$(maclogin $I1 10.99.0.10)" '!New device'
 check "Another device on the same IP -> reject"  Reject "$(maclogin $I2 10.99.0.10)" 'Login not allowed from this device'
 logged "  reason names the bound device"         t_ipoe "IP 10.99.0.10 is bound to another device ($I1), reset in the app"
 spam 12 "$(maclogin $I2 10.99.0.10)"
 counted=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username IN ('t_ipoe', '$I2')")
-result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  IPoE rejects are never counted" "($counted rows)"
+result "$([[ "$counted" -eq 0 ]] && echo 1 || echo 0)" "  IPoE rejects are never counted" "($counted rows)"
 sql "DELETE FROM account_macs WHERE username = 't_ipoe'"
 note "Setup: Reset device (the account_macs row of t_ipoe deleted)"
 check "After Reset device, the new device binds" Accept "$(maclogin $I2 10.99.0.10)" "New device $I2 registered"
 check "Device bound to another account -> reject" Reject "$(maclogin $I2 10.99.0.11)" 'Login not allowed from this device'
 logged "  reason logged"                         t_ipoe2 'bound to another account'
 bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_ipoe2'")
-result $([[ "$bound" -eq 0 ]] && echo 1 || echo 0) "  not bound (a MAC belongs to one account)" "($bound rows)"
+result "$([[ "$bound" -eq 0 ]] && echo 1 || echo 0)" "  not bound (a MAC belongs to one account)" "($bound rows)"
 check "IP not assigned (a page-login device)"   Reject "$(maclogin $I3 10.99.0.99)"
 logged "  logged as not an IPoE device"          "$I3" 'Not an IPoE device (IP 10.99.0.99 not assigned, login page shown)'
 check "MAC login without the device IP"          Reject "$(maclogin $I3)" 'without the device IP'
@@ -392,26 +396,26 @@ check "IP of a non-IPoE account (bad data)"     Reject "$(maclogin $I3 10.99.0.1
 logged "  reason logged"                         t_ipoe_hs 'which is not an IPoE account'
 spam 12 "$(maclogin $I3 10.99.0.12)"
 counted=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username = 't_ipoe_hs'")
-result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  not counted (the Hotspot login stays unlocked)" "($counted rows)"
+result "$([[ "$counted" -eq 0 ]] && echo 1 || echo 0)" "  not counted (the Hotspot login stays unlocked)" "($counted rows)"
 check "IP of a deleted account (no rows)"        Reject "$(maclogin $I3 10.99.0.13)"
 logged "  reason logged"                         t_ipoe_gone 'User not found'
 acct "User-Name=$I2\nAcct-Status-Type=Start\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.99.0.10\nCalling-Station-Id=$I2\n"
 acct "User-Name=$I2\nAcct-Status-Type=Stop\nAcct-Session-Id=t-ipoe-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.99.0.10\nCalling-Station-Id=$I2\nAcct-Session-Time=60\n"
 rows=$(sql "SELECT GROUP_CONCAT(CONCAT(username, ':', acctstoptime IS NOT NULL)) FROM radacct WHERE acctsessionid = 't-ipoe-1'")
-result $([[ "$rows" == "t_ipoe:1" ]] && echo 1 || echo 0) "Accounting under the account name, Start and Stop in one row" "(rows: $rows)"
+result "$([[ "$rows" == "t_ipoe:1" ]] && echo 1 || echo 0)" "Accounting under the account name, Start and Stop in one row" "(rows: $rows)"
 check "NATed Framed-IP, real Mikrotik-Host-IP: found by the host IP" Accept \
       "User-Name=$I2\nUser-Password=$I2\nService-Type=Login-User\nCalling-Station-Id=$I2\nCalled-Station-Id=hotspot-test\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=100.64.99.5\nMikrotik-Host-IP=10.99.0.10\n" '!New device'
 who=$(sql "SELECT username FROM radpostauth WHERE mac = '$I2' ORDER BY id DESC LIMIT 1")
-result $([[ "$who" == "t_ipoe" ]] && echo 1 || echo 0) "  logged under the account name" "(logged as: $who)"
+result "$([[ "$who" == "t_ipoe" ]] && echo 1 || echo 0)" "  logged under the account name" "(logged as: $who)"
 acct "User-Name=$I2\nAcct-Status-Type=Start\nAcct-Session-Id=t-ipoe-2\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=100.64.99.5\nMikrotik-Host-IP=10.99.0.10\nCalling-Station-Id=$I2\n"
 rows=$(sql "SELECT GROUP_CONCAT(username) FROM radacct WHERE acctsessionid = 't-ipoe-2'")
-result $([[ "$rows" == "t_ipoe" ]] && echo 1 || echo 0) "  accounting with a NATed Framed-IP under the account name" "(rows: $rows)"
+result "$([[ "$rows" == "t_ipoe" ]] && echo 1 || echo 0)" "  accounting with a NATed Framed-IP under the account name" "(rows: $rows)"
 
 section "IPoE disabled pool (notice page)"
 check "Inactive IPoE -> disabled pool 1M/1M"     Accept "$(maclogin DE:AD:00:00:00:20 10.99.0.20)" \
       'Framed-Pool = "disabled_pool"' 'Mikrotik-Rate-Limit = "1M/1M"' 'Account is inactive' '!Framed-IP-Address' '!40M'
 bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_ipoe_off'")
-result $([[ "$bound" -eq 0 ]] && echo 1 || echo 0) "  no device bound while disabled" "($bound rows)"
+result "$([[ "$bound" -eq 0 ]] && echo 1 || echo 0)" "  no device bound while disabled" "($bound rows)"
 check "Suspended IPoE -> disabled pool"          Accept "$(maclogin DE:AD:00:00:00:21 10.99.0.21)" \
       'Framed-Pool = "disabled_pool"' 'Account is suspended'
 check "Terminated IPoE -> reject"                Reject "$(maclogin DE:AD:00:00:00:22 10.99.0.22)" 'Account is terminated'
@@ -444,7 +448,7 @@ check "Known router over the limit -> disabled pool" Accept "$(ppp t_throttle wr
 logged "  reason logged"                         t_throttle 'Throttled after: Wrong Password'
 check "  correct password logs in normally"      Accept "$(ppp t_throttle pass $M5)" 'Mikrotik-Rate-Limit = "40M/40M"'
 left=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username = 't_throttle' AND mac = 'D445E8000005'")
-result $([[ "$left" -eq 0 ]] && echo 1 || echo 0) "  counter cleared by the good login" "($left rows)"
+result "$([[ "$left" -eq 0 ]] && echo 1 || echo 0)" "  counter cleared by the good login" "($left rows)"
 
 section "Usage limits"
 check "Plan data limit: router gets the data left" Accept "$(ppp t_q_fup pass $M2)" \
@@ -495,7 +499,7 @@ check "Bound to this router"                     Accept "$(ppp t_bound pass $M2)
 check "Bound to another router -> reject"        Reject "$(ppp t_bound_other pass $M2)" 'Login not allowed on this router'
 logged "  reason logged"                         t_bound_other 'bound to 10.9.9.9'
 counted=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username = 't_bound_other'")
-result $([[ "$counted" -eq 0 ]] && echo 1 || echo 0) "  not counted by the throttle" "($counted rows)"
+result "$([[ "$counted" -eq 0 ]] && echo 1 || echo 0)" "  not counted by the throttle" "($counted rows)"
 
 section "Routers (nas table)"
 probe "Router loaded from the nas table is answered" 127.0.0.3 ma ANSWERED
@@ -508,21 +512,29 @@ probe "New router: request with Message-Auth answered" 127.0.0.2 ma ANSWERED
 probe "New router: request without Message-Auth dropped" 127.0.0.2 plain DROPPED
 logged "  logged with the reason"               t_probe 'Dropped: no Message-Authenticator'
 accepted=$(sql "SELECT COUNT(*) FROM radpostauth WHERE username = 't_probe' AND reply = 'Access-Accept'")
-result $([[ "$accepted" -eq 0 ]] && echo 1 || echo 0) "  never logged as an accept" "($accepted rows)"
+result "$([[ "$accepted" -eq 0 ]] && echo 1 || echo 0)" "  never logged as an accept" "($accepted rows)"
 probe "New router: Proxy-State without Message-Auth dropped" 127.0.0.2 proxy-state DROPPED
 probe "Wrong Message-Auth dropped by FreeRADIUS itself" 127.0.0.2 bad-ma DROPPED
 
 section "Login log (radpostauth)"
 stored=$(sql "SELECT COUNT(*) FROM radpostauth WHERE (username LIKE 't\_%' OR username LIKE 'DE:AD:%') AND pass <> ''")
-result $([[ "$stored" -eq 0 ]] && echo 1 || echo 0) "No password stored" "($stored rows with a password)"
+result "$([[ "$stored" -eq 0 ]] && echo 1 || echo 0)" "No password stored" "($stored rows with a password)"
 quoted=$(sql "SELECT COUNT(*) FROM radpostauth WHERE (username LIKE 't\_%' OR username LIKE 'DE:AD:%') AND reply_msg LIKE '%=3D27%'")
-result $([[ "$quoted" -eq 0 ]] && echo 1 || echo 0) "No escaped quotes in reasons" "($quoted rows with =3D27)"
+result "$([[ "$quoted" -eq 0 ]] && echo 1 || echo 0)" "No escaped quotes in reasons" "($quoted rows with =3D27)"
 
 section "Accounting"
 acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" 2>&1)"
 rows=$(sql "SELECT COUNT(*) FROM radacct WHERE username = 't_ppp' AND acctsessionid = 't-sess-1'")
-result $(grep -q "Accounting-Response" <<<"$acct_out" && [[ "$rows" -ge 1 ]] && echo 1 || echo 0) "Accounting Start stored in radacct" "" "$(grep -m1 "Received" <<<"$acct_out" | sed "s/ from.*//"); radacct rows for t-sess-1: $rows"
+result "$(grep -q "Accounting-Response" <<<"$acct_out" && [[ "$rows" -ge 1 ]] && echo 1 || echo 0)" "Accounting Start stored in radacct" "" "$(grep -m1 "Received" <<<"$acct_out" | sed "s/ from.*//"); radacct rows for t-sess-1: $rows"
 sql "DELETE FROM radacct WHERE username LIKE 't\_%'"
+
+#  CLEANUP=1 (the installer): leave no test rows or test routers behind in a production database.
+if [[ "${CLEANUP:-}" == 1 ]]; then
+  delete_fixtures
+  sql "DELETE FROM nas WHERE shortname LIKE 't\_router\_%'"
+  systemctl restart freeradius && sleep 2
+  echo "(test rows and test routers removed, FreeRADIUS restarted)"
+fi
 
 echo
 echo "PASS: $PASS  FAIL: $FAIL"
