@@ -2,7 +2,7 @@
 #  Step 5: the panel. The code is root's and read-only for the app; only storage/ and bootstrap/cache are the app
 #  user's. .env is written once and then only the installer's keys are updated.
 step "App"
-cd "$ISPGRID_HOME"
+cd "$ISPGRID_HOME" || die "Missing $ISPGRID_HOME"
 id ispgrid >/dev/null 2>&1 || useradd --system --user-group --home-dir "$ISPGRID_HOME" --no-create-home --shell /usr/sbin/nologin ispgrid
 chown -R root:root "$ISPGRID_HOME"
 
