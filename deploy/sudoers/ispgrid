@@ -1,0 +1,2 @@
+# The panel restarts FreeRADIUS after router or FreeRADIUS settings changes (config/radius.php). Nothing else.
+ispgrid ALL=(root) NOPASSWD: /usr/bin/systemctl restart freeradius

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+#  ISPGrid backup: the radius database, and the config that belongs to it (FreeRADIUS, the panel's .env with its
+#  APP_KEY, the WireGuard keys), in /var/backups/ispgrid, kept 14 days. Prints the dump's path last.
+#  Copy /var/backups/ispgrid to another machine: a backup on the same disk does not survive the disk.
+#
+#  Restore, on a server installed with the same ISPGrid version:
+#    1. systemctl stop freeradius ispgrid-queue
+#       runuser -u ispgrid -- php /opt/ispgrid/artisan down
+#    2. gunzip < /var/backups/ispgrid/radius-YYYYMMDD-HHMM.sql.gz | mysql radius
+#    3. tar -xzf /var/backups/ispgrid/config-YYYYMMDD-HHMM.tgz -C /
+#    4. systemctl restart freeradius ispgrid-queue   (and wg-quick@wg0 when WireGuard is used)
+#       runuser -u ispgrid -- php /opt/ispgrid/artisan optimize
+#       runuser -u ispgrid -- php /opt/ispgrid/artisan up
+#
+set -euo pipefail
+dir=/var/backups/ispgrid
+keep_days=14
+stamp=$(date +%Y%m%d-%H%M)
+umask 077
+install -d -m 700 "$dir"
+
+mysqldump --single-transaction --routines --triggers radius | gzip > "$dir/radius-$stamp.sql.gz.part"
+mv "$dir/radius-$stamp.sql.gz.part" "$dir/radius-$stamp.sql.gz"
+
+paths=(etc/freeradius)
+[[ -f /opt/ispgrid/.env ]] && paths+=(opt/ispgrid/.env)
+[[ -d /etc/wireguard ]] && paths+=(etc/wireguard)
+tar -czf "$dir/config-$stamp.tgz" -C / "${paths[@]}"
+
+find "$dir" -maxdepth 1 -type f \( -name 'radius-*.sql.gz' -o -name 'config-*.tgz' \) -mtime +"$((keep_days - 1))" -delete
+echo "$dir/radius-$stamp.sql.gz"
