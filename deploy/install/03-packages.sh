@@ -55,4 +55,4 @@ if [[ ! -x /usr/local/bin/composer ]]; then
   php "$composer_tmp/composer-setup.php" --quiet --install-dir=/usr/local/bin --filename=composer
   rm -rf "$composer_tmp"
 fi
-say "PHP $(php -r 'echo PHP_VERSION;'), Node $(node --version), $(mariadb --version | awk '{ print $3, $4, $5 }'), FreeRADIUS $(dpkg-query -W -f='${Version}' freeradius)"
+say "PHP $(php -r 'echo PHP_VERSION;'), Node $(node --version), MariaDB $(mariadb --version | grep -o '[0-9.]*-MariaDB' | head -n 1 | sed 's/-MariaDB//'), FreeRADIUS $(dpkg-query -W -f='${Version}' freeradius)"
