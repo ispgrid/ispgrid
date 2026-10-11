@@ -172,6 +172,18 @@ firewall_mode() {
   fi
 }
 
+#  foreign_nft_rules <"nft list ruleset" output>: rules that some other firewall made. ufw's own chains and jumps
+#  do not count: a disabled ufw leaves them behind.
+foreign_nft_rules() {
+  awk '
+    /^[[:space:]]*chain ufw/ { skip = 1; next }
+    skip && /^[[:space:]]*}/ { skip = 0; next }
+    skip || /ufw/ { next }
+    /^[[:space:]]+(ip6?|tcp|udp|iifname|oifname|iif|oif|ct|meta|counter|jump)[[:space:]]/ { found = 1 }
+    END { exit !found }
+  ' <<<"$1"
+}
+
 #  firewall_rules <lan|wireguard> <ssh port> <router network> <wg port>: ufw rules, one per line
 firewall_rules() {
   local routers=$1 ssh_port=$2 network=$3 wg_port=$4

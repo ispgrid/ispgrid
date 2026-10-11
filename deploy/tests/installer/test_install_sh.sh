@@ -128,6 +128,13 @@ check "lan rules" "$(firewall_rules lan 2222 10.2.2.0/24 '' | tr '\n' ';')" \
   "allow 2222/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow from 10.2.2.0/24 to any port 1812,1813 proto udp comment ISPGrid;allow from 10.2.2.0/24 to any port 8088 proto tcp comment ISPGrid;"
 check "wireguard rules" "$(firewall_rules wireguard 22 '' 51820 | tr '\n' ';')" \
   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow 51820/udp comment ISPGrid;allow in on wg0 to any port 1812,1813 proto udp comment ISPGrid;allow in on wg0 to any port 8088 proto tcp comment ISPGrid;"
+ufw_left_over=$'table ip filter {\n\tchain INPUT {\n\t\ttype filter hook input priority filter; policy accept;\n\t\tcounter packets 409 bytes 1793259 jump ufw-before-logging-input\n\t}\n\tchain ufw-before-input {\n\t\tct state related,established counter accept\n\t}\n}'
+probe=$'table inet probe {\n\tchain input {\n\t\ttype filter hook input priority filter; policy accept;\n\t\ttcp dport 9999 accept\n\t}\n}'
+docker=$'table ip filter {\n\tchain FORWARD {\n\t\tcounter packets 0 bytes 0 jump DOCKER-USER\n\t\tiifname "docker0" oifname != "docker0" counter accept\n\t}\n}'
+check "ufw's own chains are no other firewall" "$(yes_no foreign_nft_rules "$ufw_left_over")" no
+check "a hand-made nft rule" "$(yes_no foreign_nft_rules "$probe")" yes
+check "docker rules" "$(yes_no foreign_nft_rules "$docker")" yes
+check "empty rule set" "$(yes_no foreign_nft_rules '')" no
 check "aws" "$(cloud_vendor 'Amazon EC2')" "Amazon Web Services"
 check "oracle" "$(cloud_vendor 'QEMU OracleCloud.com')" "Oracle Cloud"
 check "proxmox is no cloud" "$(cloud_vendor 'QEMU')" ""

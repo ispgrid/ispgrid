@@ -8,7 +8,7 @@ other_rules_present() {
   local ruleset
   #  Whole outputs are read before matching: grep -q closing a pipe early fails the pipe under pipefail.
   ruleset=$(nft list ruleset 2>/dev/null || true)
-  grep -qE '^\s+(ip6?|tcp|udp|iifname|oifname|iif|oif|ct|meta|counter|jump)\b' <<<"$ruleset"
+  foreign_nft_rules "$ruleset"
 }
 
 ufw_active=no
