@@ -5,7 +5,7 @@ step "Packages"
 export DEBIAN_FRONTEND=noninteractive
 codename=$(os_codename "$OS_VERSION")
 apt-get update -q
-apt_install ca-certificates curl gnupg git unzip rsync python3 openssl software-properties-common cron sudo
+apt_install ca-certificates curl gnupg git unzip rsync python3 openssl cron sudo
 install -d -m 755 /etc/apt/keyrings
 
 #  FreeRADIUS 3.2.x from InkBridge Networks (the FreeRADIUS authors), preferred over Ubuntu's own packages.
@@ -25,9 +25,15 @@ printf 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.
 printf 'Package: nodejs\nPin: origin deb.nodesource.com\nPin-Priority: 900\n' > /etc/apt/preferences.d/nodesource
 apt-get update -q
 
-#  PHP 8.5: Ubuntu's own when it has it (26.04), else the ondrej PPA (24.04).
+#  PHP 8.5: Ubuntu's own when it has it (26.04), else the ondrej PPA (24.04). The source is written directly
+#  (add-apt-repository needs the Launchpad API, which is not always reachable); apt checks the key's signature.
 if ! apt-cache show php8.5-fpm >/dev/null 2>&1; then
-  add-apt-repository -y ppa:ondrej/php
+  if [[ ! -s /etc/apt/keyrings/ondrej-php.gpg ]]; then
+    curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x14AA40EC0831756756D7F66C4F4EA0AAE5267A6C' \
+      | gpg --dearmor -o /etc/apt/keyrings/ondrej-php.gpg
+  fi
+  printf 'deb [signed-by=/etc/apt/keyrings/ondrej-php.gpg] https://ppa.launchpadcontent.net/ondrej/php/ubuntu %s main\n' \
+    "$codename" > /etc/apt/sources.list.d/ondrej-php.list
   apt-get update -q
 fi
 
