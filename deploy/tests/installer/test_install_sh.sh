@@ -132,5 +132,9 @@ check "aws" "$(cloud_vendor 'Amazon EC2')" "Amazon Web Services"
 check "oracle" "$(cloud_vendor 'QEMU OracleCloud.com')" "Oracle Cloud"
 check "proxmox is no cloud" "$(cloud_vendor 'QEMU')" ""
 
+#  Errors: a failure inside $( ) is reported once, by the installer itself, not again by the subshell
+errors=$(ISPGRID_HOME="$tmp" bash -c 'source "$1"; set -Eeuo pipefail; trap on_error ERR; value=$(false); echo "$value"' _ "$here/../../install.sh" 2>&1 | grep -c '^ERROR')
+check "error reported once" "$errors" 1
+
 echo "$((count - failed))/$count passed"
 [[ $failed -eq 0 ]]

@@ -5,19 +5,22 @@ step "Firewall"
 
 other_rules_present() {
   systemctl is-enabled -q netfilter-persistent 2>/dev/null && return 0
-  command -v nft >/dev/null 2>&1 && nft list ruleset 2>/dev/null | grep -qE '^\s+(ip6?|tcp|udp|iifname|oifname|iif|oif|ct|meta|counter|jump)\b' && return 0
-  return 1
+  local ruleset
+  #  Whole outputs are read before matching: grep -q closing a pipe early fails the pipe under pipefail.
+  ruleset=$(nft list ruleset 2>/dev/null || true)
+  grep -qE '^\s+(ip6?|tcp|udp|iifname|oifname|iif|oif|ct|meta|counter|jump)\b' <<<"$ruleset"
 }
 
 ufw_active=no
-command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && ufw_active=yes
+ufw_status=$(ufw status 2>/dev/null || true)
+if grep -q '^Status: active' <<<"$ufw_status"; then ufw_active=yes; fi
 firewalld_active=no
 systemctl is-active -q firewalld 2>/dev/null && firewalld_active=yes
 other=no
 [[ "$ufw_active" == no ]] && other_rules_present && other=yes
 mode=$(firewall_mode "$ufw_active" "$firewalld_active" "$other")
 
-ssh_port=$(sshd -T 2>/dev/null | awk '$1 == "port" { print $2; exit }')
+ssh_port=$(sshd -T 2>/dev/null | awk '$1 == "port" && !found { print $2; found = 1 }' || true)
 mapfile -t rules < <(firewall_rules "$ROUTERS" "${ssh_port:-22}" "$ROUTER_NETWORK" "$WG_PORT")
 
 if [[ "$mode" == other ]]; then

@@ -377,6 +377,10 @@ run_steps() {
 on_error() {
   local code=$?
   trap - ERR
+  #  set -E hands the trap to $( ) subshells too: let the installer itself report the failure, once.
+  if [[ $BASHPID != "$$" ]]; then
+    exit "$code"
+  fi
   printf '\nERROR: step "%s" failed (exit %s). Full log: %s\n' "${CURRENT_STEP:-start}" "$code" "$ISPGRID_LOG" >&2
   if [[ -f "$ISPGRID_HOME/storage/framework/down" ]]; then
     printf 'The panel is still in maintenance mode (customers stay online: FreeRADIUS keeps working).\n' >&2

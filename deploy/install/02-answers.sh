@@ -11,7 +11,7 @@ ROUTER_NETWORK=""
 WG_SUBNET=""
 WG_PORT=""
 if [[ "$ROUTERS" == lan ]]; then
-  default_network=$(cidr_network "$(ip -4 -o addr show scope global | awk '{ print $4; exit }')")
+  default_network=$(cidr_network "$(ip -4 -o addr show scope global | awk '!found { print $4; found = 1 }')")
   ROUTER_NETWORK=$(answer "${OPT_ROUTER_NETWORK:-}" router_network "Network the routers are in" "$default_network")
   valid_cidr "$ROUTER_NETWORK" || die "Router network: give a network like 10.0.0.0/24."
 else
