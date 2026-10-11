@@ -24,7 +24,7 @@ ssh_port=$(sshd -T 2>/dev/null | awk '$1 == "port" && !found { print $2; found =
 mapfile -t rules < <(firewall_rules "$ROUTERS" "${ssh_port:-22}" "$ROUTER_NETWORK" "$WG_PORT")
 
 if [[ "$mode" == other ]]; then
-  FIREWALL_NOTE="A firewall is already managed on this server ($([[ "$firewalld_active" == yes ]] && echo firewalld || echo nftables/iptables rules)); nothing was changed. Allow, in its own syntax:"
+  FIREWALL_NOTE="A firewall is already managed on this server ($([[ "$firewalld_active" == yes ]] && echo firewalld || echo nftables/iptables rules)); nothing was changed. Allow these ports in it (shown as ufw rules):"
   say "$FIREWALL_NOTE"
   printf '  ufw %s\n' "${rules[@]}"
 else
@@ -34,7 +34,7 @@ else
     ufw "${args[@]}" >/dev/null
   done
   [[ "$mode" == none ]] && ufw --force enable >/dev/null
-  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), 80, 443$([[ "$ROUTERS" == wireguard ]] && echo ", UDP $WG_PORT; RADIUS and 8088 on wg0 only" || echo "; RADIUS and 8088 from $ROUTER_NETWORK")"
+  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), 80, 443$([[ "$ROUTERS" == wireguard ]] && echo ", UDP $WG_PORT; RADIUS and 8088 on wg0 only" || echo "; RADIUS and 8088 from $ROUTER_NETWORK")."
   say "$FIREWALL_NOTE"
 fi
 
