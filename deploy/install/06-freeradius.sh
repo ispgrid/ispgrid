@@ -40,7 +40,7 @@ fi
 #  Check the copy: point it at itself while freeradius -C reads it.
 sed -i "s|^raddbdir = .*|raddbdir = $stage|" "$stage/radiusd.conf"
 if ! freeradius -C -d "$stage" > /tmp/ispgrid-radius-check.log 2>&1; then
-  grep -iE 'error|fail' /tmp/ispgrid-radius-check.log | grep -viE 'password|secret' | tail -n 15 >&2 || true
+  console "$(grep -iE 'error|fail' /tmp/ispgrid-radius-check.log | grep -viE 'password|secret' | tail -n 15 || true)"
   rm -rf "$stage"
   die "The new FreeRADIUS config does not pass freeradius -C (log: /tmp/ispgrid-radius-check.log). The live config was not changed."
 fi

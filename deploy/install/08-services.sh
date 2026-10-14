@@ -26,7 +26,9 @@ if [[ -n "$DOMAIN" ]]; then
     env_set "$ISPGRID_HOME/.env" APP_URL "https://$DOMAIN"
     artisan config:cache
   else
-    warn "HTTPS was not set up for $DOMAIN (does its DNS point at this server?). The panel works on http://$DOMAIN; run the installer again once DNS is right."
+    env_set "$ISPGRID_HOME/.env" APP_URL "http://$(primary_ip)"
+    artisan config:cache
+    warn "HTTPS was not set up for $DOMAIN (does its DNS point at this server?). For now the panel works on http://$(primary_ip); run the installer again once DNS is right."
   fi
 fi
 

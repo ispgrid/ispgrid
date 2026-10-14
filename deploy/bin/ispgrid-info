@@ -1,0 +1,3 @@
+#!/bin/sh
+#  Shows the summary of the last ISPGrid install or upgrade again (without the admin password). Run as root.
+exec cat /etc/ispgrid/info.txt

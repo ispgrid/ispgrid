@@ -21,21 +21,29 @@ Usage: sudo bash install.sh [options]
 Installs ISPGrid on a fresh Ubuntu 24.04 or 26.04 server, or upgrades an existing install.
 Anything not given is asked; with --yes nothing is asked and the defaults are used.
 
-  --routers=lan|wireguard   lan: the routers reach this server on a private network (default)
-                            wireguard: the routers connect over the internet through a WireGuard tunnel
-  --router-network=CIDR     lan only: the network the routers are in (default: this server's subnet)
-  --domain=NAME             a domain pointing here, for HTTPS from Let's Encrypt (default: none, plain HTTP)
+  --routers=lan|wireguard   lan: the routers/NAS reach this server on a private network (default)
+                            wireguard: the routers/NAS connect over the internet through a WireGuard tunnel
+  --router-network=CIDR     lan only: the network the routers/NAS are in (default: this server's subnet)
+  --access=local|public|domain
+                            how the panel is opened: on this network only (http://<LAN IP>, default), on a
+                            public IP without HTTPS (http://<public IP>, for trying it out), or with a domain
+                            (https://<domain>, Let's Encrypt)
+  --public-ip=ADDRESS       public: this server's public IP (default: as seen by ipapi.co)
+  --domain=NAME             domain: a name pointing here, for HTTPS from Let's Encrypt
   --admin-name=NAME         first install: the admin's name (default: Admin)
   --admin-email=EMAIL       first install: the admin's login email (required)
   --admin-password=PASS     first install: at least 12 characters with upper and lower case, a digit and a
                             symbol (default: generated and shown once)
-  --timezone=AREA/CITY      the server's timezone, used by FreeRADIUS, MariaDB and the panel (default: current)
+  --timezone=AREA/CITY      the server's timezone, used by FreeRADIUS, MariaDB and the panel (default: the
+                            server's own; when that is UTC, the one ipapi.co gives for this server's public IP)
   --wg-subnet=CIDR          wireguard only: the tunnel network (default: 10.250.0.0/24)
   --wg-port=PORT            wireguard only: the UDP port (default: 51820)
+  --wg-endpoint=ADDRESS     wireguard only: the public address the routers/NAS connect to (default: public IP)
   --version=vX.Y.Z          the version to install or upgrade to (default: the newest release)
   --token                   asks (hidden) for a GitHub token with read access, while the repository is private.
                             --token=TOKEN also works, but sudo's log and the shell history keep the command line
   --yes                     ask nothing
+  --verbose                 show every command's output (it always goes to /var/log/ispgrid-install.log)
   --help                    this text
 
 Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --steps=NN,NN (run only these steps),
@@ -43,18 +51,161 @@ and a branch name in --version.
 EOF
 }
 
-#  Output
+#  ---- Output ----
+#  The console (fd 3) shows one line per step, the questions, warnings, errors and the summary box. The commands'
+#  own output goes to the log only (stdout and stderr point there), unless --verbose. say() writes to stdout, so its
+#  details land in the log.
+{ true >&3; } 2>/dev/null || exec 3>&2
+
 say() { printf '%s\n' "$*"; }
-step() { CURRENT_STEP="$*"; printf '\n==> %s\n' "$*"; }
-warn() { printf 'WARNING: %s\n' "$*" >&2; }
+
+#  log_only <text>: straight into the log file (safe inside $( ), never the console)
+log_only() {
+  if [[ -n "${UI_LOG_READY:-}" ]]; then
+    printf '%s\n' "$*" >> "$ISPGRID_LOG"
+  fi
+}
+
+#  console <text>: to the console and the log
+console() {
+  printf '%s\n' "$*" >&3
+  log_only "$*"
+}
+
+#  ui_init: what the console can show (fd 3): a spinner on a terminal, colours unless NO_COLOR, UTF-8 symbols
+ui_init() {
+  UI_SPIN="" UI_COLOR="" UI_UNICODE=""
+  if [[ -t 3 && -z "${OPT_VERBOSE:-}" ]]; then UI_SPIN=1; fi
+  if [[ -t 3 && -z "${NO_COLOR:-}" && "${TERM:-dumb}" != dumb ]]; then UI_COLOR=1; fi
+  if [[ "$(locale charmap 2>/dev/null)" == UTF-8 ]]; then UI_UNICODE=1; fi
+}
+
+#  paint <colour code> <text>: the text in colour on a colour console
+paint() {
+  if [[ -n "${UI_COLOR:-}" ]]; then
+    printf '\e[%sm%s\e[0m' "$1" "$2"
+  else
+    printf '%s' "$2"
+  fi
+}
+
+#  clear_line: removes the spinner's line before something else is printed
+clear_line() {
+  if [[ -n "${UI_SPIN:-}" ]]; then printf '\r\e[K' >&3; fi
+}
+
+warn() {
+  clear_line
+  printf '%s %s\n' "$(paint 33 WARNING:)" "$*" >&3
+  log_only "WARNING: $*"
+}
+
 #  die <message>: stop. Once the run has started (REPORT_FAILURES), also the notes a failed step gets; a die inside
 #  $( ) leaves them to the installer's own ERR trap.
 die() {
-  printf 'ERROR: %s\n' "$*" >&2
+  if [[ $BASHPID == "$$" ]]; then step_close failed; else clear_line; fi
+  printf '%s %s\n' "$(paint 31 ERROR:)" "$*" >&3
+  log_only "ERROR: $*"
   if [[ -n "${REPORT_FAILURES:-}" && $BASHPID == "$$" ]]; then
     failure_notes
   fi
   exit 1
+}
+
+STEP_LABEL=""
+STEP_START=0
+SPIN_PID=""
+
+#  step <name>: closes the previous step (its mark and time) and starts this one, with a spinner on a terminal
+step() {
+  step_close ok
+  CURRENT_STEP="$*"
+  STEP_LABEL="$*"
+  STEP_START=$SECONDS
+  log_only ""
+  log_only "==> $*"
+  if [[ -n "${UI_SPIN:-}" ]]; then
+    spinner_start
+  else
+    printf '==> %s\n' "$*" >&3
+  fi
+}
+
+#  step_close <ok|failed>: the open step's result line
+step_close() {
+  [[ -n "$STEP_LABEL" ]] || return 0
+  local took mark
+  spinner_stop
+  took=$(format_duration $((SECONDS - STEP_START)))
+  if [[ -n "${UI_SPIN:-}" ]]; then
+    if [[ "$1" == ok ]]; then
+      mark=$(paint 32 "$([[ -n "${UI_UNICODE:-}" ]] && echo '✓' || echo 'ok')")
+    else
+      mark=$(paint 31 "$([[ -n "${UI_UNICODE:-}" ]] && echo '✗' || echo 'x')")
+    fi
+    printf '  %s %-14s %s\n' "$mark" "$STEP_LABEL" "$(paint 2 "$took")" >&3
+  else
+    printf '    %s (%s)\n' "${1/ok/done}" "$took" >&3
+  fi
+  log_only "    ${1/ok/done} ($took)"
+  STEP_LABEL=""
+}
+
+#  spinner_start [file total]: a spinner with the step's clock; with a file, also how many checks it has passed
+spinner_start() {
+  local label=$STEP_LABEL start=$STEP_START file=${1:-} total=${2:-}
+  (
+    trap - ERR EXIT
+    set +e
+    i=0
+    if [[ -n "${UI_UNICODE:-}" ]]; then frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏); else frames=('|' '/' '-' '\'); fi
+    while :; do
+      extra=""
+      if [[ -n "$file" ]]; then
+        n=$(grep -cE '^(PASS|FAIL)  ' "$file" 2>/dev/null)
+        extra="  ${n:-0}/$total checks"
+      fi
+      printf '\r\e[K  %s %-14s %s%s' "$(paint 36 "${frames[i % ${#frames[@]}]}")" "$label" \
+        "$(format_clock $((SECONDS - start)))" "$extra" >&3
+      i=$((i + 1))
+      sleep 0.2
+    done
+  ) &
+  SPIN_PID=$!
+}
+
+spinner_stop() {
+  if [[ -n "${SPIN_PID:-}" ]]; then
+    kill "$SPIN_PID" 2>/dev/null || true
+    wait "$SPIN_PID" 2>/dev/null || true
+    SPIN_PID=""
+    clear_line
+  fi
+}
+
+#  progress_watch <file> <total> <message>: the step's spinner also counts the checks written to the file
+progress_watch() {
+  log_only "$3"
+  if [[ -n "${UI_SPIN:-}" ]]; then
+    spinner_stop
+    printf '  %s\n' "$(paint 2 "$3")" >&3
+    spinner_start "$1" "$2"
+  else
+    printf '    %s\n' "$3" >&3
+  fi
+}
+
+#  show_box <rows function>: the box on the console (coloured, with the password) and in the log (without)
+show_box() {
+  local unicode=no colour=no
+  [[ -n "${UI_UNICODE:-}" ]] && unicode=yes
+  [[ -n "${UI_COLOR:-}" ]] && colour=yes
+  clear_line
+  printf '\n' >&3
+  "$1" yes | box_render "$unicode" "$colour" >&3
+  if [[ -n "${UI_LOG_READY:-}" ]]; then
+    "$1" no | box_render yes no >> "$ISPGRID_LOG"
+  fi
 }
 
 #  ---- Pure helpers (tested by deploy/tests/installer/test_install_sh.sh) ----
@@ -222,6 +373,127 @@ cloud_vendor() {
   esac
 }
 
+#  format_duration <seconds>: "7s", "2m 10s"
+format_duration() {
+  if (( $1 < 60 )); then
+    echo "$1s"
+  else
+    echo "$(( $1 / 60 ))m $(( $1 % 60 ))s"
+  fi
+}
+
+#  format_clock <seconds>: "0:47", "2:10"
+format_clock() { printf '%d:%02d\n' $(( $1 / 60 )) $(( $1 % 60 )); }
+
+#  json_value <json> <key>: a string field of a flat JSON object (as ipapi.co sends), or nothing
+json_value() {
+  tr -d '\n' <<<"$1" | sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+}
+
+#  pick_timezone <server's zone> <zone of the public IP>: the server's own unless it is UTC (cloud images ship with
+#  UTC), then the public IP's, then UTC
+pick_timezone() {
+  case "$1" in
+    "" | UTC | Etc/UTC | Etc/Universal | Universal | Zulu | Etc/Zulu | GMT | Etc/GMT) ;;
+    *) echo "$1"; return ;;
+  esac
+  if [[ -n "$2" ]]; then
+    echo "$2"
+  else
+    echo "${1:-UTC}"
+  fi
+}
+
+#  access_from <--access> <--domain> <--public-ip> <saved access> <saved domain>: how the panel is opened (local,
+#  public or domain), or nothing when it has to be asked. Installs from before the question saved only a domain.
+access_from() {
+  if [[ -n "$1" ]]; then
+    echo "$1"
+  elif [[ -n "$2" ]]; then
+    echo domain
+  elif [[ -n "$3" ]]; then
+    echo public
+  elif [[ -n "$4" ]]; then
+    echo "$4"
+  elif [[ -n "$5" ]]; then
+    echo domain
+  fi
+}
+
+valid_ipv4() {
+  [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || return 1
+  local i
+  for i in 1 2 3 4; do
+    (( BASH_REMATCH[i] <= 255 )) || return 1
+  done
+}
+
+#  repeat_text <text> <count>
+repeat_text() {
+  local out=""
+  printf -v out '%*s' "$2" ''
+  printf '%s' "${out// /$1}"
+}
+
+#  box_render <unicode yes|no> <colour yes|no>: the summary box, from rows on stdin: "title|TEXT", "section|TEXT",
+#  "row|KEY|VALUE", "secret|KEY|VALUE" (the value stands out) and "text|TEXT". Long values wrap inside the box.
+box_render() {
+  local unicode=$1 colour=$2 kind key value part first indent wrap=86 width=60 i line pad
+  local tl tr bl br h v ml mr c_frame="" c_title="" c_section="" c_secret="" c_off=""
+  local -a texts=() kinds=() secrets=()
+  if [[ "$unicode" == yes ]]; then
+    tl='╔' tr='╗' bl='╚' br='╝' h='═' v='║' ml='╠' mr='╣'
+  else
+    tl='+' tr='+' bl='+' br='+' h='-' v='|' ml='+' mr='+'
+  fi
+  if [[ "$colour" == yes ]]; then
+    c_frame=$'\e[36m' c_title=$'\e[1;32m' c_section=$'\e[1;36m' c_secret=$'\e[1;33m' c_off=$'\e[0m'
+  fi
+  while IFS='|' read -r kind key value; do
+    case "$kind" in
+      title | section)
+        texts+=("$key")
+        kinds+=("$kind")
+        secrets+=("")
+        ;;
+      row | secret | text)
+        if [[ "$kind" == text ]]; then
+          value=$key
+          indent="  "
+          first="  "
+        else
+          printf -v first '  %-12s ' "$key"
+          indent="               "
+        fi
+        while IFS= read -r part; do
+          texts+=("$first${part% }")
+          kinds+=("$kind")
+          secrets+=("${part% }")
+          first=$indent
+        done < <(fold -s -w "$wrap" <<<"$value")
+        ;;
+    esac
+  done
+  for line in "${texts[@]}"; do
+    (( ${#line} > width )) && width=${#line}
+  done
+  printf '%s%s%s%s%s\n' "$c_frame" "$tl" "$(repeat_text "$h" $((width + 2)))" "$tr" "$c_off"
+  for i in "${!texts[@]}"; do
+    line=${texts[i]}
+    printf -v pad '%*s' $((width - ${#line})) ''
+    case "${kinds[i]}" in
+      title) line="$c_title$line$c_off" ;;
+      section)
+        printf '%s%s%s%s%s\n' "$c_frame" "$ml" "$(repeat_text "$h" $((width + 2)))" "$mr" "$c_off"
+        line="$c_section$line$c_off"
+        ;;
+      secret) line="${line%"${secrets[i]}"}$c_secret${secrets[i]}$c_off" ;;
+    esac
+    printf '%s%s%s %s%s %s%s%s\n' "$c_frame" "$v" "$c_off" "$line" "$pad" "$c_frame" "$v" "$c_off"
+  done
+  printf '%s%s%s%s%s\n' "$c_frame" "$bl" "$(repeat_text "$h" $((width + 2)))" "$br" "$c_off"
+}
+
 #  ---- Files ----
 
 #  conf_get <key> [file]: the saved value; status 1 when the key was never saved
@@ -275,6 +547,9 @@ parse_args() {
       --routers=*) OPT_ROUTERS=${arg#*=} ;;
       --router-network=*) OPT_ROUTER_NETWORK=${arg#*=} ;;
       --domain=*) OPT_DOMAIN=${arg#*=} ;;
+      --access=*) OPT_ACCESS=${arg#*=} ;;
+      --public-ip=*) OPT_PUBLIC_IP=${arg#*=} ;;
+      --wg-endpoint=*) OPT_WG_ENDPOINT=${arg#*=} ;;
       --admin-name=*) OPT_ADMIN_NAME=${arg#*=} ;;
       --admin-email=*) OPT_ADMIN_EMAIL=${arg#*=} ;;
       --admin-password=*) OPT_ADMIN_PASSWORD=${arg#*=} ;;
@@ -287,32 +562,71 @@ parse_args() {
       --repo=*) OPT_REPO=${arg#*=} ;;
       --steps=*) OPT_STEPS=${arg#*=} ;;
       --yes) OPT_YES=1 ;;
+      --verbose) OPT_VERBOSE=1 ;;
       -h|--help) OPT_HELP=1 ;;
       *) echo "Unknown option: $arg (see --help)" >&2; return 1 ;;
     esac
   done
 }
 
-#  ask <question> <default>: reads the terminal (also when the script itself comes from a pipe); with --yes or no
-#  terminal, the default
+#  can_ask: there is a terminal to ask on (also when the script itself comes from a pipe) and no --yes
+can_ask() { [[ -z "${OPT_YES:-}" ]] && { : </dev/tty; } 2>/dev/null; }
+
+#  ask_pause: stops the spinner so the question stays readable (also from inside $( ))
+ask_pause() {
+  if [[ -n "${SPIN_PID:-}" ]]; then
+    kill "$SPIN_PID" 2>/dev/null || true
+    clear_line
+  fi
+}
+
+#  ask <question> <default>: reads the terminal; with --yes or no terminal, the default
 ask() {
   local reply
-  if [[ -n "${OPT_YES:-}" ]] || ! { : </dev/tty; } 2>/dev/null; then
+  if ! can_ask; then
     printf '%s\n' "$2"
     return
   fi
-  read -r -p "$1${2:+ [$2]}: " reply </dev/tty
+  ask_pause
+  read -r -p "$1${2:+ [$2]}: " reply </dev/tty 2>&3
   printf '%s\n' "${reply:-$2}"
 }
 
 #  ask_secret <question>: like ask, hidden, no default
 ask_secret() {
   local reply=""
-  if [[ -z "${OPT_YES:-}" ]] && { : </dev/tty; } 2>/dev/null; then
-    read -r -s -p "$1: " reply </dev/tty
-    echo >&2
+  if can_ask; then
+    ask_pause
+    read -r -s -p "$1: " reply </dev/tty 2>&3
+    printf '\n' >&3
   fi
   printf '%s\n' "$reply"
+}
+
+#  choose <question> <default number> <option...>: the chosen number; with --yes or no terminal, the default
+choose() {
+  local question=$1 default=$2 reply i
+  shift 2
+  if ! can_ask; then
+    echo "$default"
+    return
+  fi
+  ask_pause
+  {
+    printf '\n%s\n' "$question"
+    for (( i = 1; i <= $#; i++ )); do
+      printf '  %s) %s\n' "$i" "${!i}"
+    done
+  } >&3
+  while :; do
+    read -r -p "Choose 1-$# [$default]: " reply </dev/tty 2>&3
+    reply=${reply:-$default}
+    if [[ "$reply" =~ ^[0-9]+$ ]] && (( reply >= 1 && reply <= $# )); then
+      break
+    fi
+    printf 'Type a number from 1 to %s.\n' "$#" >&3
+  done
+  echo "$reply"
 }
 
 #  answer <flag value> <conf key> <question> <default>: the flag, else the saved answer, else asked
@@ -344,6 +658,9 @@ random_secret() {
   secret=$(openssl rand -base64 96 | tr -dc 'A-Za-z0-9')
   printf '%s\n' "${secret:0:$1}"
 }
+
+#  ip_info: what ipapi.co knows about this server's public IP (JSON with ip and timezone), or nothing
+ip_info() { curl -fsS --max-time 5 https://ipapi.co/json/ 2>/dev/null || true; }
 
 #  primary_ip: the address this server uses to reach the internet
 primary_ip() { ip -4 route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }'; }
@@ -427,21 +744,65 @@ on_error() {
   if [[ $BASHPID != "$$" ]]; then
     exit "$code"
   fi
-  printf '\nERROR: step "%s" failed (exit %s).\n' "${CURRENT_STEP:-start}" "$code" >&2
+  step_close failed
+  printf '\n%s step "%s" failed (exit %s).\n' "$(paint 31 ERROR:)" "${CURRENT_STEP:-start}" "$code" >&3
+  log_only "ERROR: step \"${CURRENT_STEP:-start}\" failed (exit $code)."
+  if [[ -n "${UI_QUIET:-}" && -n "${UI_LOG_READY:-}" ]]; then
+    printf '%s\n' "$(paint 2 'Last lines of the log:')" >&3
+    tail -n 20 "$ISPGRID_LOG" | sed 's/^/  | /' >&3
+  fi
   failure_notes
   exit "$code"
 }
 
 #  failure_notes: what a person needs after a failed run: the log, the panel's state, the backup, what to do next
 failure_notes() {
-  printf 'Full log: %s\n' "$ISPGRID_LOG" >&2
+  console "Full log: $ISPGRID_LOG"
   if [[ -f "$ISPGRID_HOME/storage/framework/down" ]]; then
-    printf 'The panel is still in maintenance mode (customers stay online: FreeRADIUS keeps working).\n' >&2
+    console "The panel is still in maintenance mode (customers stay online: FreeRADIUS keeps working)."
   fi
   if [[ -n "${ISPGRID_RUN_BACKUP:-}" ]]; then
-    printf 'Backup taken at the start of this run: %s\n' "$ISPGRID_RUN_BACKUP" >&2
+    console "Backup taken at the start of this run: $ISPGRID_RUN_BACKUP"
   fi
-  printf 'Fix the problem and run the installer again: it continues safely.\n' >&2
+  console "Fix the problem and run the installer again: it continues safely."
+  #  The admin exists now, so the rerun will not show this login again.
+  if [[ -n "${ADMIN_CREATED:-}" ]]; then
+    show_box failure_rows
+  fi
+}
+
+#  failure_rows <yes|no>: the box after a failure, once the admin login exists
+failure_rows() {
+  echo "title|The admin login was created before the failure"
+  panel_rows "$1"
+}
+
+#  panel_rows <yes|no>: the PANEL part of the box; the generated password only with yes (never in a file)
+panel_rows() {
+  local url
+  url=$(env_get "$ISPGRID_HOME/.env" APP_URL)
+  echo "section|PANEL"
+  echo "row|URL|${url:-http://${PANEL_HOST:-$(primary_ip)}}"
+  if [[ -n "${ADMIN_CREATED:-}" ]]; then
+    echo "row|Login|$ADMIN_EMAIL"
+    if [[ -z "${ADMIN_PASSWORD_GENERATED:-}" ]]; then
+      echo "row|Password|the one you typed"
+    elif [[ "$1" == yes ]]; then
+      echo "secret|Password|$ADMIN_PASSWORD"
+      echo "text|Shown only here and only once: note it now, and change it after logging in."
+    else
+      echo "row|Password|shown on the screen once, not saved"
+    fi
+  else
+    echo "row|Login|your existing staff login"
+    echo "text|Lost the password? sudo runuser -u ispgrid -- php $ISPGRID_HOME/artisan staff:create --reset --email=EMAIL"
+  fi
+  if [[ "${ACCESS:-}" == public ]]; then
+    echo "text|Plain HTTP over the internet: logins travel unencrypted. Use a domain for real customers."
+  fi
+  if [[ -n "${DOMAIN:-}" && -z "${HTTPS_OK:-}" ]]; then
+    echo "text|HTTPS is not set up yet: point $DOMAIN at this server, then run the installer again."
+  fi
 }
 
 #  ---- Bootstrap: get the code at the target version, then run that copy's installer ----
@@ -452,10 +813,19 @@ bootstrap() {
   flock -n 9 || die "Another ISPGrid install or upgrade is running."
   touch "$ISPGRID_LOG"
   chmod 600 "$ISPGRID_LOG"
-  exec > >(tee -a "$ISPGRID_LOG") 2>&1
-  say "ISPGrid installer, $(date -Is)"
+  if [[ -n "${OPT_VERBOSE:-}" ]]; then
+    exec > >(tee -a "$ISPGRID_LOG") 2>&1
+  else
+    exec >> "$ISPGRID_LOG" 2>&1
+    export UI_QUIET=1
+  fi
+  export UI_LOG_READY=1
+  log_only ""
+  log_only "ISPGrid installer, $(date -Is)"
+  printf '\n%s\n' "$(paint 1 'ISPGrid Radius installer')" >&3
+  printf '%s\n\n' "$(paint 2 "Every command's output: $ISPGRID_LOG")" >&3
 
-  CURRENT_STEP="Checks"
+  step "Preparing"
   preflight
   command -v git >/dev/null || { apt-get update -q && apt_install git ca-certificates; }
 
@@ -474,6 +844,8 @@ bootstrap() {
     die "ISPGrid $installed is installed; $target is older. Downgrades are not supported."
   fi
   say "Installing ISPGrid $target${installed:+ (installed: $installed)}"
+  clear_line
+  printf '  %s\n' "$(paint 2 "Installing ISPGrid $target${installed:+ (installed: $installed)}")" >&3
 
   if [[ -n "$installed" && -x /usr/local/sbin/ispgrid-backup ]]; then
     CURRENT_STEP="Backup before upgrade"
@@ -502,12 +874,15 @@ bootstrap() {
   conf_set repo "$repo"
   local args=()
   mapfile -t args < <(without_token_args "$@")
+  step_close ok
   exec bash "$ISPGRID_HOME/deploy/install.sh" "${args[@]}"
 }
 
 main() {
   set -Eeuo pipefail
   parse_args "$@" || exit 2
+  ui_init
+  trap spinner_stop EXIT
   if [[ -n "${OPT_HELP:-}" ]]; then
     usage
     exit 0

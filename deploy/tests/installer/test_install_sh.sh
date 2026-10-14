@@ -140,7 +140,7 @@ check "oracle" "$(cloud_vendor 'QEMU OracleCloud.com')" "Oracle Cloud"
 check "proxmox is no cloud" "$(cloud_vendor 'QEMU')" ""
 
 #  Errors: a failure inside $( ) is reported once, by the installer itself, not again by the subshell
-errors=$(ISPGRID_HOME="$tmp" bash -c 'source "$1"; set -Eeuo pipefail; trap on_error ERR; value=$(false); echo "$value"' _ "$here/../../install.sh" 2>&1 | grep -c '^ERROR')
+errors=$(ISPGRID_HOME="$tmp" bash -c 'source "$1"; set -Eeuo pipefail; trap on_error ERR; value=$(false); echo "$value"' _ "$here/../../install.sh" 2>&1 3>&1 | grep -c '^ERROR')
 check "error reported once" "$errors" 1
 
 #  Self-test: rows that look like its fixtures are real customers unless an interrupted self-test left them
@@ -150,11 +150,11 @@ check "rows left by an interrupted run: run" "$(selftest_decision 3 1)" run
 
 #  die: after the start, the same notes as a failed step (maintenance, backup, run again); once, not in subshells
 mkdir -p "$tmp/storage/framework" && touch "$tmp/storage/framework/down"
-notes=$(ISPGRID_RUN_BACKUP=/b.sql.gz REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; die "boom"' _ "$here/../../install.sh" "$tmp" 2>&1)
+notes=$(ISPGRID_RUN_BACKUP=/b.sql.gz REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; die "boom"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
 check "die: maintenance note" "$(grep -c 'still in maintenance mode' <<<"$notes")" 1
 check "die: backup note" "$(grep -c 'Backup taken at the start of this run: /b.sql.gz' <<<"$notes")" 1
 check "die: run again" "$(grep -c 'run the installer again' <<<"$notes")" 1
-notes=$(REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; value=$(die "boom"); echo "$value"' _ "$here/../../install.sh" "$tmp" 2>&1)
+notes=$(REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; value=$(die "boom"); echo "$value"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
 check "die in a subshell: no notes" "$(grep -c 'run the installer again' <<<"$notes")" 0
 rm -f "$tmp/storage/framework/down"
 
@@ -166,6 +166,46 @@ check "bare --token asks" "${OPT_TOKEN_ASK:-}" 1
 check "re-exec args without the token" "$(without_token_args --version=v1 --token --token=abc --yes | tr '
 ' ' ')" "--version=v1 --yes "
 OPT_YES=""
+
+#  Output: durations, the step clock
+check "seconds" "$(format_duration 7)" "7s"
+check "minutes" "$(format_duration 130)" "2m 10s"
+check "clock" "$(format_clock 47)" "0:47"
+check "clock minutes" "$(format_clock 130)" "2:10"
+
+#  ipapi.co answers: pretty or compact JSON; an error answer has no fields
+pretty=$'{\n    "ip": "203.0.113.7",\n    "city": "Pune",\n    "timezone": "Asia/Kolkata",\n    "utc_offset": "+0530"\n}'
+check "json pretty" "$(json_value "$pretty" timezone)" "Asia/Kolkata"
+check "json compact" "$(json_value '{"ip":"203.0.113.7","timezone":"Europe/Berlin"}' ip)" "203.0.113.7"
+check "json error answer" "$(json_value '{"error": true, "reason": "RateLimited"}' ip)" ""
+
+#  Timezone default: the server's own unless it is UTC, then the one for the public IP, then UTC
+check "server zone wins" "$(pick_timezone Europe/Berlin Asia/Kolkata)" "Europe/Berlin"
+check "utc server: zone by ip" "$(pick_timezone Etc/UTC Asia/Kolkata)" "Asia/Kolkata"
+check "utc server, no ip zone" "$(pick_timezone UTC '')" "UTC"
+check "nothing known" "$(pick_timezone '' '')" "UTC"
+
+#  How the panel is opened: flags, then the saved answer (older installs saved only a domain), else asked ("")
+check "access flag" "$(access_from public '' '' local '')" "public"
+check "domain flag means domain" "$(access_from '' panel.example.com '' local '')" "domain"
+check "public ip flag means public" "$(access_from '' '' 203.0.113.7 '' '')" "public"
+check "saved access" "$(access_from '' '' '' local '')" "local"
+check "old install with a domain" "$(access_from '' '' '' '' panel.example.com)" "domain"
+check "nothing known: ask" "$(access_from '' '' '' '' '')" ""
+check "valid ipv4" "$(yes_no valid_ipv4 203.0.113.7)" yes
+check "invalid ipv4" "$(yes_no valid_ipv4 203.0.113.700)" no
+
+#  Summary box: every line as wide as the others; long values wrap inside the box
+box=$(printf '%s\n' 'title|ISPGrid v1.0.0 is ready' 'section|PANEL' 'row|URL|http://203.0.113.7' \
+  'secret|Password|Ab1-Cd2-Ef3-Gh4' 'section|NEXT' \
+  "text|1. Open http://203.0.113.7 and log in with admin@example.net, then change the password. $(printf 'word %.0s' {1..30})" \
+  | box_render no no)
+widths=$(awk '{ print length($0) }' <<<"$box" | sort -u | wc -l)
+check "box lines are equally wide" "$widths" 1
+check "box at most 104 wide" "$(( $(head -n 1 <<<"$box" | awk '{ print length($0) }') <= 104 ))" 1
+check "box shows the secret" "$(grep -c 'Password     Ab1-Cd2-Ef3-Gh4' <<<"$box")" 1
+check "box wraps long text" "$(grep -c 'word word' <<<"$box")" 2
+check "box plain corners" "$(head -c 1 <<<"$box")" "+"
 
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)

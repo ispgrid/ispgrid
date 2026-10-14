@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-#  Add a MikroTik router (RouterOS 7) as a WireGuard peer of this ISPGrid server and print the commands to paste
-#  on the router. Run as root:
+#  Add a MikroTik router/NAS (RouterOS 7) as a WireGuard peer of this ISPGrid server and print the commands to paste
+#  on it. Run as root:
 #
 #    /opt/ispgrid/deploy/wireguard/wg-add-peer.sh <name> [--endpoint=PUBLIC_ADDRESS]
 #
-#  The router's private key is shown once and not kept here. RouterOS 6 has no WireGuard: see the router guide.
+#  The router/NAS's private key is shown once and not kept here. RouterOS 6 has no WireGuard: see the router guide.
 #
 set -Eeuo pipefail
 # shellcheck source=../install.sh
@@ -23,7 +23,7 @@ add_peer() {
   done
   [[ $EUID -eq 0 ]] || die "Run as root (sudo)."
   [[ -f "$conf" ]] || die "No WireGuard server here: install ISPGrid with --routers=wireguard."
-  valid_peer_name "$name" || die "Give the router a name: letters, digits, - and _ (up to 32)."
+  valid_peer_name "$name" || die "Give the router/NAS a name: letters, digits, - and _ (up to 32)."
   grep -qx "# Peer: $name" "$conf" && die "A peer named $name already exists."
 
   address=$(awk -F' = ' '$1 == "Address" { print $2; exit }' "$conf")
@@ -36,7 +36,7 @@ add_peer() {
   peer_ip=$(next_free_host "$subnet" "$tunnel_ip" "${used[@]}") || die "The tunnel network $subnet is full."
 
   [[ -n "$endpoint" ]] || endpoint=$(conf_get wg_endpoint || true)
-  [[ -n "$endpoint" ]] || endpoint=$(ask "Public address of this server (the routers connect to it)" "$(primary_ip)")
+  [[ -n "$endpoint" ]] || endpoint=$(ask "Public address of this server (the routers/NAS connect to it)" "$(primary_ip)")
   conf_set wg_endpoint "$endpoint"
 
   private=$(wg genkey)
@@ -46,16 +46,16 @@ add_peer() {
 
   cat <<EOF
 
-Router "$name" gets tunnel address $peer_ip. Paste on the router (RouterOS 7):
+Router/NAS "$name" gets tunnel address $peer_ip. Paste on it (RouterOS 7):
 
 /interface wireguard add name=wg-ispgrid private-key="$private" comment="ISPGrid"
 /interface wireguard peers add interface=wg-ispgrid public-key="$server_pub" endpoint-address=$endpoint endpoint-port=$port allowed-address=$tunnel_ip/32 persistent-keepalive=25s comment="ISPGrid server"
 /ip address add address=$peer_ip/$prefix interface=wg-ispgrid comment="ISPGrid tunnel"
-/radius add address=$tunnel_ip src-address=$peer_ip service=ppp,hotspot secret="THE-SECRET-OF-THIS-ROUTER-IN-ISPGRID" timeout=3s comment="ISPGrid"
+/radius add address=$tunnel_ip src-address=$peer_ip service=ppp,hotspot secret="THE-SECRET-OF-THIS-NAS-IN-ISPGRID" timeout=3s comment="ISPGrid"
 /radius incoming set accept=yes
 /ip firewall nat add chain=srcnat out-interface=wg-ispgrid action=masquerade comment="ISPGrid: notice page replies"
 
-Then add the router in the panel (Network, Routers) with IP $peer_ip and the same secret.
+Then add it in the panel (Network, Routers) with IP $peer_ip and the same secret.
 The private key above is not kept on this server.
 EOF
 }
