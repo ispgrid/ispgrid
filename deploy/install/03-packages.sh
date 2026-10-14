@@ -41,6 +41,7 @@ packages=(nginx mariadb-server mariadb-client freeradius freeradius-mysql freera
   certbot python3-certbot-nginx
   php8.5-fpm php8.5-cli php8.5-mysql php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-intl php8.5-bcmath php8.5-gd)
 [[ "$ROUTERS" == wireguard ]] && packages+=(wireguard-tools)
+[[ "$ROUTERS" == l2tp ]] && packages+=(charon-systemd libstrongswan-standard-plugins xl2tpd)
 apt_install "${packages[@]}"
 
 node_ok "$(node --version)" || die "Node $(node --version) is too old: 22.18 or newer is needed."

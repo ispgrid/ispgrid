@@ -22,13 +22,16 @@ note_space=" "
 mode=$(firewall_mode "$ufw_active" "$firewalld_active" "$other")
 
 ssh_port=$(sshd -T 2>/dev/null | awk '$1 == "port" && !found { print $2; found = 1 }' || true)
-mapfile -t rules < <(firewall_rules "$ROUTERS" "${ssh_port:-22}" "$ROUTER_NETWORK" "$WG_PORT")
+mapfile -t rules < <(firewall_rules "$ROUTERS" "${ssh_port:-22}" "${L2TP_SUBNET:-$ROUTER_NETWORK}" "$WG_PORT")
 
 if [[ "$mode" == other ]]; then
   FIREWALL_NOTE="A firewall is already managed on this server ($([[ "$firewalld_active" == yes ]] && echo firewalld || echo nftables/iptables rules)); nothing was changed. Allow these ports in it (shown as ufw rules):"
   for rule in "${rules[@]}"; do
     FIREWALL_NOTE+=$'\n'"  ufw $rule"
   done
+  if [[ "$ROUTERS" == l2tp ]]; then
+    FIREWALL_NOTE+=$'\n'"  and L2TP only inside IPsec: iptables -A INPUT -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT"
+  fi
   FIREWALL_NOTE+=$'\n'
   note_space=""
   say "$FIREWALL_NOTE"
@@ -38,8 +41,22 @@ else
     read -r -a args <<<"$rule"
     ufw "${args[@]}" >/dev/null
   done
+  if [[ "$ROUTERS" == l2tp ]]; then
+    before_rules=$(cat /etc/ufw/before.rules)
+    with_l2tp=$(ufw_before_rules_l2tp "$before_rules")
+    if [[ "$with_l2tp" != "$before_rules" ]]; then
+      printf '%s\n' "$with_l2tp" > /etc/ufw/before.rules
+      if [[ "$mode" == ufw ]]; then ufw reload >/dev/null; fi
+    fi
+  fi
   [[ "$mode" == none ]] && ufw --force enable >/dev/null
-  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), 80, 443$([[ "$ROUTERS" == wireguard ]] && echo ", UDP $WG_PORT; RADIUS and 8088 on wg0 only" || echo "; RADIUS and 8088 from $ROUTER_NETWORK")."
+  case "$ROUTERS" in
+    wireguard) routers_note=", UDP $WG_PORT; RADIUS and 8088 on wg0 only" ;;
+    l2tp) routers_note=", IPsec (UDP 500, 4500, ESP), L2TP only inside IPsec; RADIUS and 8088 from the tunnel network $L2TP_SUBNET" ;;
+    public) routers_note="; RADIUS and 8088 from anywhere (FreeRADIUS answers only the routers/NAS added in the panel)" ;;
+    *) routers_note="; RADIUS and 8088 from $ROUTER_NETWORK" ;;
+  esac
+  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), 80, 443$routers_note."
   say "$FIREWALL_NOTE"
 fi
 

@@ -1,0 +1,14 @@
+# ISPGrid: pppd for the L2TP tunnels of routers/NAS. This server is __LOCAL_IP__; each router/NAS gets the address of
+# its line in /etc/ppp/chap-secrets.
+__LOCAL_IP__:
+name ispgrid
+require-mschap-v2
+refuse-pap
+refuse-chap
+refuse-mschap
+noccp
+nodefaultroute
+mtu 1400
+mru 1400
+lcp-echo-interval 30
+lcp-echo-failure 4

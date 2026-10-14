@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 #  ISPGrid backup: the radius database, and the config that belongs to it (FreeRADIUS, the panel's .env with its
-#  APP_KEY, the WireGuard keys), in /var/backups/ispgrid, kept 14 days. Prints the dump's path last.
+#  APP_KEY, the WireGuard keys, the L2TP/IPsec key and logins), in /var/backups/ispgrid, kept 14 days. Prints the dump's path last.
 #  Copy /var/backups/ispgrid to another machine: a backup on the same disk does not survive the disk.
 #
 #  Restore, on a server installed with the same ISPGrid version:
@@ -11,7 +11,7 @@
 #    3. tar -xzf /var/backups/ispgrid/config-YYYYMMDD-HHMM.tgz -C /
 #    4. sudo /opt/ispgrid/deploy/install.sh --yes
 #       The dump holds no MariaDB users: the installer sets their passwords to the restored ones (.env and the
-#       FreeRADIUS sql module), restarts the services (and WireGuard) and brings the panel back up.
+#       FreeRADIUS sql module), restarts the services (and the tunnels) and brings the panel back up.
 #
 set -euo pipefail
 dir=/var/backups/ispgrid
@@ -26,6 +26,7 @@ mv "$dir/radius-$stamp.sql.gz.part" "$dir/radius-$stamp.sql.gz"
 paths=(etc/freeradius)
 [[ -f /opt/ispgrid/.env ]] && paths+=(opt/ispgrid/.env)
 [[ -d /etc/wireguard ]] && paths+=(etc/wireguard)
+[[ -f /etc/swanctl/conf.d/ispgrid-l2tp-secret.conf ]] && paths+=(etc/swanctl/conf.d/ispgrid-l2tp-secret.conf etc/ppp/chap-secrets)
 tar -czf "$dir/config-$stamp.tgz" -C / "${paths[@]}"
 
 find "$dir" -maxdepth 1 -type f \( -name 'radius-*.sql.gz' -o -name 'config-*.tgz' \) -mtime +"$((keep_days - 1))" -delete

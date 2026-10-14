@@ -55,6 +55,13 @@ check "network of an address" "$(cidr_network 192.168.10.20/24)" 192.168.10.0/24
 check "network of a /20" "$(cidr_network 172.16.37.9/20)" 172.16.32.0/20
 check "first host" "$(cidr_host 10.250.0.0/24 1)" 10.250.0.1
 check "size of /24" "$(cidr_size 10.250.0.0/24)" 256
+chap=$'# Secrets for authentication using CHAP\n"office" * "pw" *\n"lab-ros6" ispgrid "Abc123" 10.251.0.2 # ISPGrid\n"site-2" ispgrid "Xyz789" 10.251.0.3 # ISPGrid'
+check "l2tp addresses in use" "$(l2tp_used_ips "$chap" | tr '\n' ' ')" "10.251.0.2 10.251.0.3 "
+check "l2tp peer known" "$(yes_no l2tp_peer_exists "$chap" lab-ros6)" yes
+check "other ppp users are no l2tp peers" "$(yes_no l2tp_peer_exists "$chap" office)" no
+psk_conf=$'secrets {\n  ike-ispgrid-l2tp {\n    secret = "Abc123xyz"\n  }\n}'
+check "l2tp ipsec key" "$(l2tp_psk "$psk_conf")" Abc123xyz
+check "l2tp peer line" "$(l2tp_peer_line site-3 Pw1 10.251.0.4)" '"site-3" ispgrid "Pw1" 10.251.0.4 # ISPGrid'
 check "next free skips used" "$(next_free_host 10.250.0.0/24 10.250.0.1 10.250.0.2 10.250.0.4)" 10.250.0.3
 check "full subnet" "$(yes_no next_free_host 10.250.0.0/30 10.250.0.1 10.250.0.2)" no
 
@@ -128,6 +135,16 @@ check "lan rules" "$(firewall_rules lan 2222 192.168.10.0/24 '' | tr '\n' ';')" 
   "allow 2222/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow from 192.168.10.0/24 to any port 1812,1813 proto udp comment ISPGrid;allow from 192.168.10.0/24 to any port 8088 proto tcp comment ISPGrid;"
 check "wireguard rules" "$(firewall_rules wireguard 22 '' 51820 | tr '\n' ';')" \
   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow 51820/udp comment ISPGrid;allow in on wg0 to any port 1812,1813 proto udp comment ISPGrid;allow in on wg0 to any port 8088 proto tcp comment ISPGrid;"
+check "public rules" "$(firewall_rules public 22 '' '' | tr '\n' ';')" \
+  "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow from any to any port 1812,1813 proto udp comment ISPGrid;allow from any to any port 8088 proto tcp comment ISPGrid;"
+check "l2tp rules" "$(firewall_rules l2tp 22 10.251.0.0/24 '' | tr '\n' ';')" \
+  "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow to any port 500,4500 proto udp comment ISPGrid;allow proto esp from any to any comment ISPGrid;allow from 10.251.0.0/24 to any port 1812,1813 proto udp comment ISPGrid;allow from 10.251.0.0/24 to any port 8088 proto tcp comment ISPGrid;"
+before_rules=$'*filter\n:ufw-before-input - [0:0]\n-A ufw-before-input -i lo -j ACCEPT\n# don\'t delete the \'COMMIT\' line or these rules won\'t be processed\nCOMMIT'
+with_l2tp=$(ufw_before_rules_l2tp "$before_rules")
+check "l2tp inside ipsec only, before COMMIT" "$(tail -n 3 <<<"$with_l2tp")" \
+  $'# ISPGrid: L2TP from routers/NAS only inside IPsec\n-A ufw-before-input -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT\nCOMMIT'
+check "l2tp rule added once" "$(ufw_before_rules_l2tp "$with_l2tp" | grep -c 'dport 1701')" 1
+check "before.rules otherwise unchanged" "$(ufw_before_rules_l2tp "$before_rules" | grep -vc 'ISPGrid\|1701')" 5
 ufw_left_over=$'table ip filter {\n\tchain INPUT {\n\t\ttype filter hook input priority filter; policy accept;\n\t\tcounter packets 409 bytes 1793259 jump ufw-before-logging-input\n\t}\n\tchain ufw-before-input {\n\t\tct state related,established counter accept\n\t}\n}'
 probe=$'table inet probe {\n\tchain input {\n\t\ttype filter hook input priority filter; policy accept;\n\t\ttcp dport 9999 accept\n\t}\n}'
 docker=$'table ip filter {\n\tchain FORWARD {\n\t\tcounter packets 0 bytes 0 jump DOCKER-USER\n\t\tiifname "docker0" oifname != "docker0" counter accept\n\t}\n}'
@@ -140,7 +157,7 @@ check "oracle" "$(cloud_vendor 'QEMU OracleCloud.com')" "Oracle Cloud"
 check "proxmox is no cloud" "$(cloud_vendor 'QEMU')" ""
 
 #  Errors: a failure inside $( ) is reported once, by the installer itself, not again by the subshell
-errors=$(ISPGRID_HOME="$tmp" bash -c 'source "$1"; set -Eeuo pipefail; trap on_error ERR; value=$(false); echo "$value"' _ "$here/../../install.sh" 2>&1 | grep -c '^ERROR')
+errors=$(ISPGRID_HOME="$tmp" bash -c 'source "$1"; set -Eeuo pipefail; trap on_error ERR; value=$(false); echo "$value"' _ "$here/../../install.sh" 2>&1 3>&1 | grep -c '^ERROR')
 check "error reported once" "$errors" 1
 
 #  Self-test: rows that look like its fixtures are real customers unless an interrupted self-test left them
@@ -150,11 +167,11 @@ check "rows left by an interrupted run: run" "$(selftest_decision 3 1)" run
 
 #  die: after the start, the same notes as a failed step (maintenance, backup, run again); once, not in subshells
 mkdir -p "$tmp/storage/framework" && touch "$tmp/storage/framework/down"
-notes=$(ISPGRID_RUN_BACKUP=/b.sql.gz REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; die "boom"' _ "$here/../../install.sh" "$tmp" 2>&1)
+notes=$(ISPGRID_RUN_BACKUP=/b.sql.gz REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; die "boom"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
 check "die: maintenance note" "$(grep -c 'still in maintenance mode' <<<"$notes")" 1
 check "die: backup note" "$(grep -c 'Backup taken at the start of this run: /b.sql.gz' <<<"$notes")" 1
 check "die: run again" "$(grep -c 'run the installer again' <<<"$notes")" 1
-notes=$(REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; value=$(die "boom"); echo "$value"' _ "$here/../../install.sh" "$tmp" 2>&1)
+notes=$(REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; value=$(die "boom"); echo "$value"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
 check "die in a subshell: no notes" "$(grep -c 'run the installer again' <<<"$notes")" 0
 rm -f "$tmp/storage/framework/down"
 
@@ -166,6 +183,60 @@ check "bare --token asks" "${OPT_TOKEN_ASK:-}" 1
 check "re-exec args without the token" "$(without_token_args --version=v1 --token --token=abc --yes | tr '
 ' ' ')" "--version=v1 --yes "
 OPT_YES=""
+
+#  Output: durations, the step clock
+check "seconds" "$(format_duration 7)" "7s"
+check "minutes" "$(format_duration 130)" "2m 10s"
+check "clock" "$(format_clock 47)" "0:47"
+check "clock minutes" "$(format_clock 130)" "2:10"
+
+#  ipapi.co answers: pretty or compact JSON; an error answer has no fields
+pretty=$'{\n    "ip": "203.0.113.7",\n    "city": "Pune",\n    "timezone": "Asia/Kolkata",\n    "utc_offset": "+0530"\n}'
+check "json pretty" "$(json_value "$pretty" timezone)" "Asia/Kolkata"
+check "json compact" "$(json_value '{"ip":"203.0.113.7","timezone":"Europe/Berlin"}' ip)" "203.0.113.7"
+check "json error answer" "$(json_value '{"error": true, "reason": "RateLimited"}' ip)" ""
+
+#  Timezone default: the server's own unless it is UTC, then the one for the public IP, then UTC
+check "server zone wins" "$(pick_timezone Europe/Berlin Asia/Kolkata)" "Europe/Berlin"
+check "utc server: zone by ip" "$(pick_timezone Etc/UTC Asia/Kolkata)" "Asia/Kolkata"
+check "utc server, no ip zone" "$(pick_timezone UTC '')" "UTC"
+check "nothing known" "$(pick_timezone '' '')" "UTC"
+
+#  How the panel is opened: flags, then the saved answer (older installs saved only a domain), else asked ("")
+check "access flag" "$(access_from public '' '' local '')" "public"
+check "domain flag means domain" "$(access_from '' panel.example.com '' local '')" "domain"
+check "public ip flag means public" "$(access_from '' '' 203.0.113.7 '' '')" "public"
+check "public ip with public routers chooses no access" "$(access_from '' '' 203.0.113.7 '' '' public)" ""
+check "public ip with l2tp routers chooses no access" "$(access_from '' '' 203.0.113.7 '' '' l2tp)" ""
+check "saved access" "$(access_from '' '' '' local '')" "local"
+check "old install with a domain" "$(access_from '' '' '' '' panel.example.com)" "domain"
+check "nothing known: ask" "$(access_from '' '' '' '' '')" ""
+check "valid ipv4" "$(yes_no valid_ipv4 203.0.113.7)" yes
+check "invalid ipv4" "$(yes_no valid_ipv4 203.0.113.700)" no
+
+#  Summary box: every line as wide as the others; long values wrap inside the box
+box=$(printf '%s\n' 'title|ISPGrid v1.0.0 is ready' 'section|PANEL' 'row|URL|http://203.0.113.7' \
+  'secret|Password|Ab1-Cd2-Ef3-Gh4' 'section|NEXT' \
+  "text|1. Open http://203.0.113.7 and log in with admin@example.net, then change the password. $(printf 'word %.0s' {1..30})" \
+  | box_render no no)
+widths=$(awk '{ print length($0) }' <<<"$box" | sort -u | wc -l)
+check "box lines are equally wide" "$widths" 1
+check "box at most 104 wide" "$(( $(head -n 1 <<<"$box" | awk '{ print length($0) }') <= 104 ))" 1
+check "box shows the secret" "$(grep -c 'Password     Ab1-Cd2-Ef3-Gh4' <<<"$box")" 1
+check "box wraps long text" "$(grep -c 'word word' <<<"$box")" 2
+check "box plain corners" "$(head -c 1 <<<"$box")" "+"
+
+narrow=$(printf '%s
+' 'title|ISPGrid is ready' 'section|NEXT'   "text|2. For each router/NAS: add it in the panel (Network, Routers), and on the router point RADIUS at 192.168.10.20."   "row|Database|radius (users ispgrid and freeradius; their passwords: /opt/ispgrid/.env, /etc/freeradius/mods-available/sql)"   | box_render no no 80)
+check "box fits 80 columns" "$(( $(awk '{ print length($0) }' <<<"$narrow" | sort -n | tail -n 1) <= 80 ))" 1
+check "numbered text: hanging indent" "$(grep -c '^|      [a-z]' <<<"$narrow")" 1
+check "utc zone" "$(yes_no is_utc_zone Etc/UTC)" yes
+check "local zone" "$(yes_no is_utc_zone Asia/Kolkata)" no
+
+#  --skip-selftest
+OPT_SKIP_SELFTEST=""
+parse_args --skip-selftest
+check "skip the self-test" "${OPT_SKIP_SELFTEST:-}" 1
 
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)

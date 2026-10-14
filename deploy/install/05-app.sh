@@ -22,7 +22,7 @@ if [[ ! -f .env ]]; then
 fi
 chown root:ispgrid .env
 chmod 640 .env
-app_host=${DOMAIN:-$(primary_ip)}
+app_host=${PANEL_HOST:-$(primary_ip)}
 if [[ "$(env_get .env APP_URL)" != "https://$app_host" ]]; then
   env_set .env APP_URL "http://$app_host"
 fi
@@ -45,12 +45,9 @@ artisan optimize
 
 ADMIN_CREATED=""
 if need_admin; then
-  artisan staff:create --name="$ADMIN_NAME" --email="$ADMIN_EMAIL" --password="$ADMIN_PASSWORD"
+  artisan staff:create --name="$ADMIN_NAME" --email="$ADMIN_EMAIL" --password="$ADMIN_PASSWORD" >/dev/null
+  #  From here a failure shows the login in its box: the rerun finds the admin and has no password to show.
   ADMIN_CREATED=1
-  #  Shown now as well: if a later step fails, the rerun finds the admin and has no password to show.
-  say "Admin login: $ADMIN_EMAIL"
-  if [[ -n "${ADMIN_PASSWORD_GENERATED:-}" ]]; then
-    say "Admin password (generated; note it now): $ADMIN_PASSWORD"
-  fi
+  say "Admin user $ADMIN_EMAIL created"
 fi
 say "Panel code at $ISPGRID_HOME ($(git -C "$ISPGRID_HOME" describe --tags --always 2>/dev/null))"
