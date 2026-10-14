@@ -33,7 +33,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --wg-subnet=CIDR          wireguard only: the tunnel network (default: 10.250.0.0/24)
   --wg-port=PORT            wireguard only: the UDP port (default: 51820)
   --version=vX.Y.Z          the version to install or upgrade to (default: the newest release)
-  --token=TOKEN             a GitHub token with read access, while the repository is private
+  --token                   asks (hidden) for a GitHub token with read access, while the repository is private.
+                            --token=TOKEN also works, but sudo's log and the shell history keep the command line
   --yes                     ask nothing
   --help                    this text
 
@@ -46,7 +47,15 @@ EOF
 say() { printf '%s\n' "$*"; }
 step() { CURRENT_STEP="$*"; printf '\n==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
-die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+#  die <message>: stop. Once the run has started (REPORT_FAILURES), also the notes a failed step gets; a die inside
+#  $( ) leaves them to the installer's own ERR trap.
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  if [[ -n "${REPORT_FAILURES:-}" && $BASHPID == "$$" ]]; then
+    failure_notes
+  fi
+  exit 1
+}
 
 #  ---- Pure helpers (tested by deploy/tests/installer/test_install_sh.sh) ----
 
@@ -109,7 +118,7 @@ ip_to_int() {
 
 int_to_ip() { echo "$(( ($1 >> 24) & 255 )).$(( ($1 >> 16) & 255 )).$(( ($1 >> 8) & 255 )).$(( $1 & 255 ))"; }
 
-#  cidr_network <address/prefix>: the network, e.g. 10.2.2.200/24 -> 10.2.2.0/24
+#  cidr_network <address/prefix>: the network, e.g. 192.168.10.20/24 -> 192.168.10.0/24
 cidr_network() {
   local bits=${1#*/} mask
   mask=$(( (0xFFFFFFFF << (32 - bits)) & 0xFFFFFFFF ))
@@ -274,6 +283,7 @@ parse_args() {
       --wg-port=*) OPT_WG_PORT=${arg#*=} ;;
       --version=*) OPT_VERSION=${arg#*=} ;;
       --token=*) OPT_TOKEN=${arg#*=} ;;
+      --token) OPT_TOKEN_ASK=1 ;;
       --repo=*) OPT_REPO=${arg#*=} ;;
       --steps=*) OPT_STEPS=${arg#*=} ;;
       --yes) OPT_YES=1 ;;
@@ -317,6 +327,16 @@ answer() {
   fi
 }
 
+#  selftest_decision <rows like the fixtures> <marker set>: "run", or "skip" when such rows exist and no
+#  interrupted self-test left them (then they are real customers, and the self-test would delete them)
+selftest_decision() {
+  if [[ "$1" -gt 0 && -z "$2" ]]; then
+    echo skip
+  else
+    echo run
+  fi
+}
+
 #  ---- System helpers ----
 
 random_secret() {
@@ -328,13 +348,27 @@ random_secret() {
 #  primary_ip: the address this server uses to reach the internet
 primary_ip() { ip -4 route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }'; }
 
-#  git_auth <git args...>: git with the token as an HTTP header for this command only (never stored)
+#  git_auth <git args...>: git with the token as an HTTP header for this command only, passed in the environment
+#  (not stored, not in ps); git never prompts
 git_auth() {
   if [[ -n "${OPT_TOKEN:-}" ]]; then
-    git -c "http.extraHeader=Authorization: Basic $(printf 'x-access-token:%s' "$OPT_TOKEN" | base64 -w0)" "$@"
+    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader \
+      GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'x-access-token:%s' "$OPT_TOKEN" | base64 -w0)" \
+      GIT_TERMINAL_PROMPT=0 git "$@"
   else
-    git "$@"
+    GIT_TERMINAL_PROMPT=0 git "$@"
   fi
+}
+
+#  without_token_args <args...>: the arguments, one per line, minus --token: the re-exec no longer needs it
+without_token_args() {
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --token | --token=*) ;;
+      *) printf '%s\n' "$arg" ;;
+    esac
+  done
 }
 
 apt_install() {
@@ -393,7 +427,14 @@ on_error() {
   if [[ $BASHPID != "$$" ]]; then
     exit "$code"
   fi
-  printf '\nERROR: step "%s" failed (exit %s). Full log: %s\n' "${CURRENT_STEP:-start}" "$code" "$ISPGRID_LOG" >&2
+  printf '\nERROR: step "%s" failed (exit %s).\n' "${CURRENT_STEP:-start}" "$code" >&2
+  failure_notes
+  exit "$code"
+}
+
+#  failure_notes: what a person needs after a failed run: the log, the panel's state, the backup, what to do next
+failure_notes() {
+  printf 'Full log: %s\n' "$ISPGRID_LOG" >&2
   if [[ -f "$ISPGRID_HOME/storage/framework/down" ]]; then
     printf 'The panel is still in maintenance mode (customers stay online: FreeRADIUS keeps working).\n' >&2
   fi
@@ -401,7 +442,6 @@ on_error() {
     printf 'Backup taken at the start of this run: %s\n' "$ISPGRID_RUN_BACKUP" >&2
   fi
   printf 'Fix the problem and run the installer again: it continues safely.\n' >&2
-  exit "$code"
 }
 
 #  ---- Bootstrap: get the code at the target version, then run that copy's installer ----
@@ -460,7 +500,9 @@ bootstrap() {
   export ISPGRID_STAGE=run ISPGRID_TARGET=$target ISPGRID_INSTALLED=$installed ISPGRID_RUN_BACKUP=${ISPGRID_RUN_BACKUP:-}
   install -d -m 755 "$(dirname "$ISPGRID_CONF")"
   conf_set repo "$repo"
-  exec bash "$ISPGRID_HOME/deploy/install.sh" "$@"
+  local args=()
+  mapfile -t args < <(without_token_args "$@")
+  exec bash "$ISPGRID_HOME/deploy/install.sh" "${args[@]}"
 }
 
 main() {
@@ -471,7 +513,12 @@ main() {
     exit 0
   fi
   [[ $EUID -eq 0 ]] || die "Run as root: sudo bash install.sh"
+  if [[ -n "${OPT_TOKEN_ASK:-}" && -z "${OPT_TOKEN:-}" ]]; then
+    OPT_TOKEN=$(ask_secret "GitHub token")
+    [[ -n "$OPT_TOKEN" ]] || die "--token asks for the token on the terminal; there is none (use --token=TOKEN)."
+  fi
   trap on_error ERR
+  REPORT_FAILURES=1
   if [[ "${ISPGRID_STAGE:-}" != run ]]; then
     bootstrap "$@"
   fi
