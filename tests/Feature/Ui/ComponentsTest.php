@@ -74,3 +74,11 @@ it('folds a menu group away unless one of its pages is open', function () {
         ->assertSee('aria-expanded="true"', false)
         ->assertDontSee('x-cloak', false);
 });
+
+it('marks the label of a required field with an asterisk', function (string $component) {
+    $this->blade("<x-ui.{$component} name=\"fullname\" label=\"Full name\" required />")
+        ->assertSee('Full name<span class="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>', false);
+
+    $this->blade("<x-ui.{$component} name=\"company\" label=\"Company\" :required=\"false\" />")
+        ->assertDontSee('aria-hidden="true"> *</span>', false);
+})->with(['input', 'select', 'textarea']);

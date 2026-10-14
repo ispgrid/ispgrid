@@ -3,6 +3,7 @@
         <x-ui.link href="{{ $accountId ? route('customers.show', $accountId) : route('customers.index') }}" wire:navigate class="text-sm">{{ $accountId ? $username : __('Customers') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">{{ $accountId ? __('Edit customer') : __('Add customer') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ $accountId ? __('Saving writes the customer to FreeRADIUS at once. If they are online, they are disconnected so the change applies now.') : __('A new customer starts Inactive. Recharge them to give them a plan and an expiry.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ __('Fields marked * are required.') }}</x-ui.text>
     </div>
 
     @if ($errors->any())
@@ -58,7 +59,7 @@
 
                 <x-ui.tab-panel name="service" class="grid gap-5">
                     <div class="grid gap-5 sm:grid-cols-2">
-                        <x-ui.select wire:model.live="service_type" :label="__('Type')" :options="$this->serviceTypes" />
+                        <x-ui.select wire:model.live="service_type" :label="__('Type')" :options="$this->serviceTypes" required />
                         <x-ui.input wire:model="username" :label="__('Username')" :description="__('The login name: letters, digits, ., -, _ and @. It cannot change after saving.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
                         @unless ($this->isIpoe)
                             <x-ui.input wire:model="password" :label="__('Password')" viewable maxlength="64" required autocomplete="off" />
@@ -68,7 +69,7 @@
                     @if ($this->isIpoe)
                         <x-ui.text muted>{{ __('IPoE customers log in by their IP address and the device bound to it, so they need no password. Set the IP on the Network tab.') }}</x-ui.text>
                     @else
-                        <x-ui.input wire:model="mac_type" type="number" min="0" max="100" :label="__('Device limit')" :description="__('PPPoE: how many routers may log in with this account. Hotspot: devices online at once. 0 means no limit.')" />
+                        <x-ui.input wire:model="mac_type" type="number" min="0" max="100" :label="__('Device limit')" :description="__('PPPoE: how many routers may log in with this account. Hotspot: devices online at once. 0 means no limit.')" required />
                     @endif
 
                     <div class="grid gap-5 sm:grid-cols-2">
@@ -129,8 +130,8 @@
 
                     @foreach ($custom_attributes as $index => $row)
                         <div wire:key="custom-attribute-{{ $index }}" class="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                            <x-ui.select wire:model="custom_attributes.{{ $index }}.attribute" :label="__('Attribute')" :options="$this->allowlist" :placeholder="__('Choose an attribute')" />
-                            <x-ui.input wire:model="custom_attributes.{{ $index }}.value" :label="__('Value')" maxlength="253" autocomplete="off" />
+                            <x-ui.select wire:model="custom_attributes.{{ $index }}.attribute" :label="__('Attribute')" :options="$this->allowlist" :placeholder="__('Choose an attribute')" required />
+                            <x-ui.input wire:model="custom_attributes.{{ $index }}.value" :label="__('Value')" maxlength="253" required autocomplete="off" />
                             <x-ui.button variant="ghost" icon="trash" class="sm:mt-6" wire:click="removeAttribute({{ $index }})">{{ __('Remove') }}</x-ui.button>
                         </div>
                     @endforeach

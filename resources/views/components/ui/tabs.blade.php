@@ -9,7 +9,7 @@
                 x-on:click="active = @js($key)"
                 x-bind:aria-selected="active === @js($key)"
                 x-bind:class="active === @js($key)
-                    ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white'
+                    ? 'border-deep-green text-zinc-900 dark:border-signal dark:text-white'
                     : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'"
                 class="-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap"
             >

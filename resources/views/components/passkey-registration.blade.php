@@ -5,6 +5,7 @@
 <div
     x-data="{
         supported: false,
+        secure: window.isSecureContext,
         showForm: false,
         name: '',
         loading: false,
@@ -65,7 +66,12 @@
         },
     }"
 >
-    <template x-if="!supported">
+    {{-- Browsers offer passkeys only on a secure page (HTTPS, or localhost), so over plain HTTP every browser looks unsupported. --}}
+    <template x-if="!secure">
+        <x-ui.text muted>{{ __('Passkeys need HTTPS. Open the panel over https:// with a domain name to add one.') }}</x-ui.text>
+    </template>
+
+    <template x-if="secure && !supported">
         <x-ui.text muted>{{ __('Passkeys are not supported in this browser.') }}</x-ui.text>
     </template>
 

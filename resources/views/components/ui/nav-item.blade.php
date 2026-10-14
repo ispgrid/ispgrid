@@ -11,7 +11,7 @@
     ]) }}
 >
     @if ($icon)
-        <x-ui.icon :name="$icon" class="size-5" />
+        <x-ui.icon :name="$icon" @class(['size-5', 'text-deep-green dark:text-signal' => $current]) />
     @endif
     {{ $slot }}
 </a>

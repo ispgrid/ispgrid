@@ -10,11 +10,12 @@
     $name ??= $attributes->wire('model')->value();
     $id = $attributes->get('id') ?? \App\Support\FormField::id($name);
     $error = $name && isset($errors) ? $errors->first($name) : null;
+    $required = (bool) $attributes->get('required', false);
 @endphp
 
 <div class="grid content-start gap-1.5">
     @if ($label)
-        <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}</label>
+        <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}@if ($required)<span class="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>@endif</label>
     @endif
 
     <div class="relative" @if ($viewable) x-data="{ visible: false }" @endif>
@@ -25,7 +26,7 @@
             @if ($viewable) x-bind:type="visible ? 'text' : 'password'" @endif
             @if ($error) aria-invalid="true" aria-describedby="{{ $id }}-error" @endif
             {{ $attributes->except('id')->class([
-                'block w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-2 focus:outline-offset-1 focus:outline-zinc-500 disabled:opacity-60 dark:bg-zinc-800 dark:text-white',
+                'block w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-2 focus:outline-offset-1 focus:outline-deep-green dark:focus:outline-signal disabled:opacity-60 dark:bg-zinc-800 dark:text-white',
                 'border-red-500 dark:border-red-500' => $error,
                 'border-zinc-300 dark:border-zinc-600' => ! $error,
                 'pe-10' => $viewable,
