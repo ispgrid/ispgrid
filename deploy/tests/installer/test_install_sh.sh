@@ -214,6 +214,11 @@ check "numbered text: hanging indent" "$(grep -c '^|      [a-z]' <<<"$narrow")" 
 check "utc zone" "$(yes_no is_utc_zone Etc/UTC)" yes
 check "local zone" "$(yes_no is_utc_zone Asia/Kolkata)" no
 
+#  --skip-selftest
+OPT_SKIP_SELFTEST=""
+parse_args --skip-selftest
+check "skip the self-test" "${OPT_SKIP_SELFTEST:-}" 1
+
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)
 check "piped into bash runs" "$piped" "Usage: sudo bash install.sh [options]"

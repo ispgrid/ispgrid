@@ -9,6 +9,11 @@ install -m 755 "$ISPGRID_HOME/deploy/tests/radius_blast_probe.py" /usr/local/bin
 local_secret=$(awk '/^client localhost \{/ { f = 1 } f && $1 == "secret" { print $3; exit }' /etc/freeradius/clients.conf)
 selftest_log=/var/log/ispgrid-selftest.log
 SELFTEST_CASES=127
+if [[ -n "${OPT_SKIP_SELFTEST:-}" ]]; then
+  say "Self-test skipped (--skip-selftest)"
+  SELFTEST_RESULT="skipped (--skip-selftest)"
+  return 0
+fi
 selftest_marker="$(dirname "$ISPGRID_CONF")/selftest-running"
 fixture_rows=$(mysql -N radius -e "SELECT
   (SELECT COUNT(*) FROM accounts WHERE username LIKE 't\_%')

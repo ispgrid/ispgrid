@@ -44,6 +44,7 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
                             --token=TOKEN also works, but sudo's log and the shell history keep the command line
   --yes                     ask nothing
   --verbose                 show every command's output (it always goes to /var/log/ispgrid-install.log)
+  --skip-selftest           skip the FreeRADIUS self-test at the end (127 checks, about 3 minutes)
   --help                    this text
 
 Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --steps=NN,NN (run only these steps),
@@ -589,6 +590,7 @@ parse_args() {
       --steps=*) OPT_STEPS=${arg#*=} ;;
       --yes) OPT_YES=1 ;;
       --verbose) OPT_VERBOSE=1 ;;
+      --skip-selftest) OPT_SKIP_SELFTEST=1 ;;
       -h|--help) OPT_HELP=1 ;;
       *) echo "Unknown option: $arg (see --help)" >&2; return 1 ;;
     esac
