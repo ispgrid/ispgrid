@@ -9,9 +9,9 @@
 #       runuser -u ispgrid -- php /opt/ispgrid/artisan down
 #    2. gunzip < /var/backups/ispgrid/radius-YYYYMMDD-HHMM.sql.gz | mysql radius
 #    3. tar -xzf /var/backups/ispgrid/config-YYYYMMDD-HHMM.tgz -C /
-#    4. systemctl restart freeradius ispgrid-queue   (and wg-quick@wg0 when WireGuard is used)
-#       runuser -u ispgrid -- php /opt/ispgrid/artisan optimize
-#       runuser -u ispgrid -- php /opt/ispgrid/artisan up
+#    4. sudo /opt/ispgrid/deploy/install.sh --yes
+#       The dump holds no MariaDB users: the installer sets their passwords to the restored ones (.env and the
+#       FreeRADIUS sql module), restarts the services (and WireGuard) and brings the panel back up.
 #
 set -euo pipefail
 dir=/var/backups/ispgrid
