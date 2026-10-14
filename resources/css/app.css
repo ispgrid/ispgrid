@@ -15,6 +15,16 @@
     font-display: swap;
 }
 
+/* Hindi and other Devanagari text (Geist has none). The browser downloads it only for a page that shows Devanagari. */
+@font-face {
+    font-family: 'Noto Sans Devanagari';
+    src: url('../fonts/NotoSansDevanagari.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+A830-A839, U+A8E0-A8FF;
+}
+
 @font-face {
     font-family: 'JetBrains Mono';
     src: url('../fonts/JetBrainsMono.ttf') format('truetype');
@@ -24,7 +34,7 @@
 }
 
 @theme {
-    --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Geist', 'Noto Sans Devanagari', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
     /* Brand palette. Signal Green is too light for text on white (2.3:1): use Deep Green there. */
