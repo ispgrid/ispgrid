@@ -34,7 +34,8 @@ a customer who is online is changed, their session is disconnected so the change
 ## Requirements
 
 - A fresh **Ubuntu 24.04 or 26.04** server, **amd64**, with at least **3 GB** of free disk. No FreeRADIUS, MariaDB or
-  MySQL on it yet.
+  MySQL on it yet. These are the only two systems ISPGrid has been tested on, so the installer stops on anything
+  else (Debian and other distributions included).
 - Root access (`sudo`).
 - MikroTik routers: RouterOS 7 (any connection type) or RouterOS 6 (LAN or L2TP/IPsec).
 
