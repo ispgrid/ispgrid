@@ -659,8 +659,18 @@ random_secret() {
   printf '%s\n' "${secret:0:$1}"
 }
 
-#  ip_info: what ipapi.co knows about this server's public IP (JSON with ip and timezone), or nothing
-ip_info() { curl -fsS --max-time 5 https://ipapi.co/json/ 2>/dev/null || true; }
+#  ip_info: this server's public IP and its timezone as JSON (fields ip and timezone), from ipapi.co, else
+#  ipinfo.io, else nothing. ipapi.co refuses curl's own user agent (429), so the installer names itself.
+ip_info() {
+  local json url
+  for url in https://ipapi.co/json/ https://ipinfo.io/json; do
+    json=$(curl -fsS --max-time 5 -A "ISPGrid-installer" "$url" 2>/dev/null || true)
+    if [[ -n "$(json_value "$json" ip)" ]]; then
+      printf '%s\n' "$json"
+      return 0
+    fi
+  done
+}
 
 #  primary_ip: the address this server uses to reach the internet
 primary_ip() { ip -4 route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }'; }
