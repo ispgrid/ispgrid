@@ -1,4 +1,4 @@
-<section class="grid max-w-4xl gap-6">
+<section class="grid gap-6">
     <div>
         <x-ui.link href="{{ $accountId ? route('customers.show', $accountId) : route('customers.index') }}" wire:navigate class="text-sm">{{ $accountId ? $username : __('Customers') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">{{ $accountId ? __('Edit customer') : __('Add customer') }}</x-ui.heading>
@@ -13,29 +13,31 @@
     <form wire:submit="save" novalidate class="grid gap-6">
         <x-ui.card>
             <x-ui.tabs :tabs="$this->tabs" :invalid="$this->invalidTabs()">
-                <x-ui.tab-panel name="profile" class="grid gap-5">
-                    <div class="grid gap-5 sm:grid-cols-[8rem_1fr]">
-                        <x-ui.input wire:model="title" :label="__('Title')" maxlength="20" autocomplete="off" />
-                        <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required />
-                    </div>
-                    <x-ui.input wire:model="company" :label="__('Company')" maxlength="255" />
-                    <div class="grid gap-5 sm:grid-cols-3">
-                        <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" />
-                        <x-ui.input wire:model="whatsapp" type="tel" inputmode="numeric" :label="__('WhatsApp')" />
-                        <x-ui.input wire:model="alt_number" type="tel" inputmode="numeric" :label="__('Other number')" />
-                    </div>
-                    <x-ui.input wire:model="email" type="email" :label="__('Email')" maxlength="100" />
-
-                    @if ($this->taxIdLabel !== '' || $this->businessIdLabel !== '')
-                        <div class="grid gap-5 sm:grid-cols-2">
-                            @if ($this->taxIdLabel !== '')
-                                <x-ui.input wire:model="tax_id" :label="$this->taxIdLabel" maxlength="50" />
-                            @endif
-                            @if ($this->businessIdLabel !== '')
-                                <x-ui.input wire:model="business_id" :label="$this->businessIdLabel" maxlength="30" />
-                            @endif
+                <x-ui.tab-panel name="profile" class="grid items-start gap-5 xl:grid-cols-2 xl:gap-x-8">
+                    <div class="grid gap-5">
+                        <div class="grid gap-5 sm:grid-cols-[8rem_1fr]">
+                            <x-ui.input wire:model="title" :label="__('Title')" maxlength="20" autocomplete="off" />
+                            <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required />
                         </div>
-                    @endif
+                        <x-ui.input wire:model="company" :label="__('Company')" maxlength="255" />
+                        <div class="grid gap-5 sm:grid-cols-3">
+                            <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" />
+                            <x-ui.input wire:model="whatsapp" type="tel" inputmode="numeric" :label="__('WhatsApp')" />
+                            <x-ui.input wire:model="alt_number" type="tel" inputmode="numeric" :label="__('Other number')" />
+                        </div>
+                        <x-ui.input wire:model="email" type="email" :label="__('Email')" maxlength="100" />
+
+                        @if ($this->taxIdLabel !== '' || $this->businessIdLabel !== '')
+                            <div class="grid gap-5 sm:grid-cols-2">
+                                @if ($this->taxIdLabel !== '')
+                                    <x-ui.input wire:model="tax_id" :label="$this->taxIdLabel" maxlength="50" />
+                                @endif
+                                @if ($this->businessIdLabel !== '')
+                                    <x-ui.input wire:model="business_id" :label="$this->businessIdLabel" maxlength="30" />
+                                @endif
+                            </div>
+                        @endif
+                    </div>
 
                     <fieldset class="grid gap-5">
                         <legend class="text-sm font-medium">{{ __('Installation address') }}</legend>
@@ -54,7 +56,9 @@
                         </div>
                     </fieldset>
 
-                    <x-ui.textarea wire:model="remarks" :label="__('Remarks')" rows="2" maxlength="2000" />
+                    <div class="xl:col-span-2">
+                        <x-ui.textarea wire:model="remarks" :label="__('Remarks')" rows="2" maxlength="2000" />
+                    </div>
                 </x-ui.tab-panel>
 
                 <x-ui.tab-panel name="service" class="grid gap-5">
@@ -110,7 +114,7 @@
 
                     @if ($override_plan)
                         <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
-                        <div class="grid gap-5 sm:grid-cols-2">
+                        <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <x-ui.input wire:model="override_upload" :label="__('Upload')" required autocomplete="off" />
                             <x-ui.input wire:model="override_download" :label="__('Download')" required autocomplete="off" />
                             <x-ui.input wire:model="override_burst_upload" :label="__('Burst upload')" autocomplete="off" />
@@ -143,9 +147,9 @@
             </x-ui.tabs>
         </x-ui.card>
 
-        <div class="flex gap-2">
+        <x-ui.form-actions>
             <x-ui.button type="submit">{{ __('Save customer') }}</x-ui.button>
             <x-ui.button variant="secondary" :href="$accountId ? route('customers.show', $accountId) : route('customers.index')" wire:navigate>{{ __('Cancel') }}</x-ui.button>
-        </div>
+        </x-ui.form-actions>
     </form>
 </section>

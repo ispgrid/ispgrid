@@ -1,4 +1,4 @@
-<section class="grid max-w-4xl gap-6">
+<section class="grid gap-6">
     <div>
         <x-ui.link href="{{ route('plans.index') }}" wire:navigate class="text-sm">{{ __('Plans') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">{{ $planId ? __('Edit plan') : __('Add plan') }}</x-ui.heading>
@@ -33,7 +33,7 @@
                         <x-ui.heading>{{ __('Burst') }}</x-ui.heading>
                         <x-ui.text muted class="mt-1">{{ __('Optional. Fill in all five fields or none. The customer gets the burst speed until their average speed over the burst time reaches the threshold.') }}</x-ui.text>
                     </div>
-                    <div class="grid gap-5 sm:grid-cols-2">
+                    <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="burst_upload" :label="__('Burst upload')" autocomplete="off" />
                         <x-ui.input wire:model="burst_download" :label="__('Burst download')" autocomplete="off" />
                         <x-ui.input wire:model="threshold_upload" :label="__('Threshold upload')" autocomplete="off" />
@@ -149,9 +149,9 @@
             </x-ui.tabs>
         </x-ui.card>
 
-        <div class="flex gap-2">
+        <x-ui.form-actions>
             <x-ui.button type="submit">{{ __('Save plan') }}</x-ui.button>
             <x-ui.button variant="secondary" :href="route('plans.index')" wire:navigate>{{ __('Cancel') }}</x-ui.button>
-        </div>
+        </x-ui.form-actions>
     </form>
 </section>

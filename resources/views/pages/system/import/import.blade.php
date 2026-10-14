@@ -1,4 +1,4 @@
-<section class="grid max-w-4xl gap-6">
+<section class="grid gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Import') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Add plans and customers from CSV files made from the templates. Check a file first: nothing is saved until every row is right, and then all rows are saved together.') }}</x-ui.text>
