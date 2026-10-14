@@ -97,7 +97,7 @@ new #[Title('Address lists')] class extends Component
         $this->dispatch('modal-close', name: 'address-list-form');
         $this->resetForm();
         $this->toast($renamed
-            ? __('Address list renamed. Rename it in the router firewall rules too; online customers get the new name at their next login.')
+            ? __('Address list renamed. Rename it in the NAS firewall rules too; online customers get the new name at their next login.')
             : __('Address list saved.'));
     }
 

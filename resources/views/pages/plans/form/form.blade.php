@@ -44,7 +44,7 @@
 
                     <div>
                         <x-ui.heading>{{ __('Priority and minimum speed') }}</x-ui.heading>
-                        <x-ui.text muted class="mt-1">{{ __('Optional. Priority 1 is served first, 8 last (the router default). The minimum speed is kept for the customer when the link is busy.') }}</x-ui.text>
+                        <x-ui.text muted class="mt-1">{{ __('Optional. Priority 1 is served first, 8 last (the NAS default). The minimum speed is kept for the customer when the link is busy.') }}</x-ui.text>
                     </div>
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="priority" type="number" min="1" max="8" :label="__('Priority')" />
@@ -118,7 +118,7 @@
                 <x-ui.tab-panel name="network" class="grid gap-5">
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="sm:col-span-2">
-                            <x-ui.select wire:model.live="pool_id" :label="__('Pool')" :options="$this->pools" :placeholder="__('No pool')" :description="__('Sent as Framed-Pool. Leave it empty to use the pool set on the router.')" />
+                            <x-ui.select wire:model.live="pool_id" :label="__('Pool')" :options="$this->pools" :placeholder="__('No pool')" :description="__('Sent as Framed-Pool. Leave it empty to use the pool set on the NAS.')" />
                         </div>
                     </div>
 
@@ -128,7 +128,7 @@
 
                     <fieldset class="grid gap-2">
                         <legend class="text-sm font-medium">{{ __('Address lists') }}</legend>
-                        <x-ui.text muted>{{ __('Optional. The router adds the customer to each list. A customer with lists of their own gets only those.') }}</x-ui.text>
+                        <x-ui.text muted>{{ __('Optional. The NAS adds the customer to each list. A customer with lists of their own gets only those.') }}</x-ui.text>
                         @forelse ($this->addressLists as $id => $listName)
                             <x-ui.checkbox wire:model="address_list_ids" value="{{ $id }}" id="address-list-{{ $id }}" :label="$listName" />
                         @empty
@@ -141,7 +141,7 @@
                 </x-ui.tab-panel>
 
                 <x-ui.tab-panel name="attributes" class="grid gap-5">
-                    <x-ui.text muted>{{ __('For what the other tabs do not cover. FreeRADIUS sends each row to the router as it is, so only listed attributes are allowed.') }}</x-ui.text>
+                    <x-ui.text muted>{{ __('For what the other tabs do not cover. FreeRADIUS sends each row to the NAS as it is, so only listed attributes are allowed.') }}</x-ui.text>
 
                     @foreach ($custom_attributes as $index => $row)
                         <div wire:key="custom-attribute-{{ $index }}" class="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">

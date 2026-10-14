@@ -73,7 +73,7 @@
                     @endif
 
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                        <x-ui.select wire:model="nas_id" :label="__('Router')" :options="$this->routers" :placeholder="__('Any router')" :description="__('Set a router to refuse logins through any other.')" />
+                        <x-ui.select wire:model="nas_id" :label="__('NAS')" :options="$this->routers" :placeholder="__('Any NAS')" :description="__('Set a NAS to refuse logins through any other.')" />
                         <x-ui.select wire:model="connection_type_id" :label="__('Connection type')" :options="$this->connectionTypes" :placeholder="__('None')" />
                     </div>
                 </x-ui.tab-panel>
@@ -129,7 +129,7 @@
                 </x-ui.tab-panel>
 
                 <x-ui.tab-panel name="attributes" class="grid gap-5">
-                    <x-ui.text muted>{{ __('For what the other tabs do not cover. FreeRADIUS sends each row to the router as it is, so only listed attributes are allowed.') }}</x-ui.text>
+                    <x-ui.text muted>{{ __('For what the other tabs do not cover. FreeRADIUS sends each row to the NAS as it is, so only listed attributes are allowed.') }}</x-ui.text>
 
                     @foreach ($custom_attributes as $index => $row)
                         <div wire:key="custom-attribute-{{ $index }}" class="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">

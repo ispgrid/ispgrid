@@ -81,8 +81,8 @@ it('tells staff to restore a deleted router instead of reusing its IP or name', 
 
     addRouter(['nasname' => '10.0.0.1', 'shortname' => 'old-core'])
         ->assertHasErrors(['nasname', 'shortname'])
-        ->assertSee('A deleted router uses this IP address. Restore it instead.')
-        ->assertSee('A deleted router uses this name. Restore it instead.');
+        ->assertSee('A deleted NAS uses this IP address. Restore it instead.')
+        ->assertSee('A deleted NAS uses this name. Restore it instead.');
 });
 
 it('rewrites Isp-Nas for the customers bound to a router whose IP changes', function () {
@@ -122,7 +122,7 @@ it('does not restart FreeRADIUS when only the name, description or version chang
 it('keeps the router saved and says so when the restart fails', function () {
     Process::fake(['*' => Process::result(errorOutput: 'sudo: a password is required', exitCode: 1)]);
 
-    addRouter()->assertDispatched('toast', variant: 'danger', message: 'Router saved. FreeRADIUS did not restart: sudo: a password is required');
+    addRouter()->assertDispatched('toast', variant: 'danger', message: 'NAS saved. FreeRADIUS did not restart: sudo: a password is required');
 
     expect(Nas::query()->count())->toBe(1);
 });

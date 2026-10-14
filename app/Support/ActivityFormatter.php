@@ -29,7 +29,7 @@ final class ActivityFormatter
         User::class => 'Staff',
         AppSetting::class => 'App setting',
         ConnectionType::class => 'Connection type',
-        Nas::class => 'Router',
+        Nas::class => 'NAS',
         Pool::class => 'Pool',
         IpRange::class => 'IP range',
         Ip::class => 'IP address',

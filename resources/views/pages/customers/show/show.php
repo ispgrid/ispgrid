@@ -130,7 +130,7 @@ new #[Title('Customer')] class extends Component
                 $account->mac_type === 0 => __('No limit'),
                 default => (string) $account->mac_type,
             },
-            __('Router') => $account->nas === null ? __('Any router') : ($account->nas->shortname ?? $account->nas->nasname),
+            __('NAS') => $account->nas === null ? __('Any NAS') : ($account->nas->shortname ?? $account->nas->nasname),
             __('Connection type') => $account->connectionType?->name ?? __('None'),
             __('Speed') => $account->override_plan ? SyncAccountToRadius::rateLimit($account)->toString() : __('From the plan'),
             __('Address lists') => $account->addressLists->isEmpty()
@@ -432,7 +432,7 @@ new #[Title('Customer')] class extends Component
             ->log('disconnected');
         unset($this->activities);
 
-        $this->toast(__('Disconnect sent to the router. The session closes when the router confirms.'));
+        $this->toast(__('Disconnect sent to the NAS. The session closes when the NAS confirms.'));
     }
 
     /**
@@ -815,7 +815,7 @@ new #[Title('Customer')] class extends Component
         }
 
         if ($account->nas?->trashed()) {
-            $blockers[] = __('the router :name', ['name' => $account->nas->shortname ?? $account->nas->nasname]);
+            $blockers[] = __('the NAS :name', ['name' => $account->nas->shortname ?? $account->nas->nasname]);
         }
 
         foreach ($account->addressLists->filter(fn (AddressList $list): bool => $list->trashed()) as $list) {

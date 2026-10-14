@@ -79,7 +79,7 @@ new #[Title('Pools')] class extends Component
         $this->authorize($pool === null ? 'create' : 'update', $pool ?? Pool::class);
 
         $validated = $this->validate($this->rules($pool?->id), [
-            'name.regex' => __('Use letters, digits and . _ - only, as on the router.'),
+            'name.regex' => __('Use letters, digits and . _ - only, as on the NAS.'),
         ]);
 
         if ($pool !== null && $pool->name !== $validated['name'] && $pool->name === $this->disabledPool) {
@@ -113,7 +113,7 @@ new #[Title('Pools')] class extends Component
         $this->dispatch('modal-close', name: 'pool-form');
         $this->resetForm();
         $this->toast($renamed
-            ? __('Pool renamed. Rename it on the routers too; online customers get the new name at their next login.')
+            ? __('Pool renamed. Rename it on the NAS too; online customers get the new name at their next login.')
             : __('Pool saved.'));
     }
 

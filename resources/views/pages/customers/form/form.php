@@ -565,7 +565,7 @@ new #[Title('Customer')] class extends Component
             ...CustomerRules::messages($this->phoneDigits),
             'whatsapp.regex' => $digits,
             'alt_number.regex' => $digits,
-            'nas_id.exists' => __('This router was deleted. Choose another one.'),
+            'nas_id.exists' => __('This NAS was deleted. Choose another one.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),

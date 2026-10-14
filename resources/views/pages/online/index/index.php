@@ -108,6 +108,6 @@ new #[Title('Online')] class extends Component
 
         $log->log('disconnected');
 
-        $this->toast(__('Disconnect sent to the router. The session closes when the router confirms.'));
+        $this->toast(__('Disconnect sent to the NAS. The session closes when the NAS confirms.'));
     }
 };

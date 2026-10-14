@@ -67,7 +67,7 @@ new #[Title('FreeRADIUS settings')] class extends Component
         $this->authorize('manage-radius-settings');
 
         $validated = $this->validate(messages: [
-            'disabled_users_pool.regex' => __('Use letters, digits and . _ - only, as on the router.'),
+            'disabled_users_pool.regex' => __('Use letters, digits and . _ - only, as on the NAS.'),
         ]);
 
         $settings = RadiusSetting::current();

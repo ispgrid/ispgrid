@@ -101,7 +101,7 @@
         @else
             <x-ui.table class="mt-4">
                 <x-slot:head>
-                    <x-ui.th>{{ __('Router') }}</x-ui.th>
+                    <x-ui.th>{{ __('NAS') }}</x-ui.th>
                     <x-ui.th>{{ __('IP address') }}</x-ui.th>
                     <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
                     <x-ui.th>{{ __('Started') }}</x-ui.th>
@@ -209,7 +209,7 @@
                     <x-ui.th>{{ __('When') }}</x-ui.th>
                     <x-ui.th>{{ __('Result') }}</x-ui.th>
                     <x-ui.th>{{ __('Reason') }}</x-ui.th>
-                    <x-ui.th>{{ __('Router') }}</x-ui.th>
+                    <x-ui.th>{{ __('NAS') }}</x-ui.th>
                     <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
                 </x-slot:head>
                 @foreach ($this->logins as $login)

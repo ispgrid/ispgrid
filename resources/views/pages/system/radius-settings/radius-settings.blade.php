@@ -1,7 +1,7 @@
 <section class="grid gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('FreeRADIUS settings') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ __('How FreeRADIUS treats expired customers, long sessions and failed logins. Saving restarts FreeRADIUS: logins in those 1 to 2 seconds fail and the routers retry.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ __('How FreeRADIUS treats expired customers, long sessions and failed logins. Saving restarts FreeRADIUS: logins in those 1 to 2 seconds fail and each NAS retries.') }}</x-ui.text>
     </div>
 
     @if ($errors->any())
@@ -17,11 +17,11 @@
                 <x-ui.input
                     wire:model.live.blur="disabled_users_pool" english
                     :label="__('Disabled pool')"
-                    :description="__('The IP pool for inactive, suspended and expired customers. Every router needs a pool with this name.')"
+                    :description="__('The IP pool for inactive, suspended and expired customers. Every NAS needs a pool with this name.')"
                     maxlength="64"
                 />
                 @if ($this->poolIsMissing)
-                    <x-ui.alert variant="warning">{{ __('No pool is named :name in Network > Pools. Add it there and on every router.', ['name' => $disabled_users_pool]) }}</x-ui.alert>
+                    <x-ui.alert variant="warning">{{ __('No pool is named :name in Network > Pools. Add it there and on every NAS.', ['name' => $disabled_users_pool]) }}</x-ui.alert>
                 @endif
                 <x-ui.input wire:model="reject_session_timeout" type="number" min="60" max="65535" :label="__('Session length in the disabled pool (seconds)')" :description="__('After this the customer reconnects, so a recharge takes effect without a disconnect.')" />
             </x-ui.card>

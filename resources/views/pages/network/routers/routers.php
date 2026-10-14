@@ -16,7 +16,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Routers')] class extends Component
+new #[Title('NAS')] class extends Component
 {
     use RestartsFreeRadius, ShowsToasts;
 
@@ -174,12 +174,12 @@ new #[Title('Routers')] class extends Component
         $this->resetForm();
 
         if ($router->wasRecentlyCreated || $router->wasChanged(['nasname', 'secret'])) {
-            $this->restartFreeRadiusAfter(__('Router saved.'));
+            $this->restartFreeRadiusAfter(__('NAS saved.'));
 
             return;
         }
 
-        $this->toast(__('Router saved.'));
+        $this->toast(__('NAS saved.'));
     }
 
     /**
@@ -194,7 +194,7 @@ new #[Title('Routers')] class extends Component
 
         if ($online > 0) {
             $this->toast(trans_choice(
-                ':count session is online through this router. Delete it when no one is online.|:count sessions are online through this router. Delete it when no one is online.',
+                ':count session is online through this NAS. Delete it when no one is online.|:count sessions are online through this NAS. Delete it when no one is online.',
                 $online,
             ), 'danger');
 
@@ -203,7 +203,7 @@ new #[Title('Routers')] class extends Component
 
         if ($router->accounts_count > 0) {
             $this->toast(trans_choice(
-                ':count customer is bound to this router. Change their router first.|:count customers are bound to this router. Change their router first.',
+                ':count customer is bound to this NAS. Change their NAS first.|:count customers are bound to this NAS. Change their NAS first.',
                 $router->accounts_count,
             ), 'danger');
 
@@ -212,7 +212,7 @@ new #[Title('Routers')] class extends Component
 
         $router->delete();
 
-        $this->restartFreeRadiusAfter(__('Router deleted.'));
+        $this->restartFreeRadiusAfter(__('NAS deleted.'));
     }
 
     public function restore(int $routerId): void
@@ -222,7 +222,7 @@ new #[Title('Routers')] class extends Component
 
         $router->restore();
 
-        $this->restartFreeRadiusAfter(__('Router restored.'));
+        $this->restartFreeRadiusAfter(__('NAS restored.'));
     }
 
     private function resetForm(): void
@@ -239,16 +239,16 @@ new #[Title('Routers')] class extends Component
         return [
             'shortname' => ['required', 'string', 'max:32', 'regex:/^[\x20-\x7E]+$/D',
                 Rule::unique(Nas::class, 'shortname')->withoutTrashed()->ignore($ignoreId),
-                new NotUsedByTrashed(Nas::class, 'shortname', __('A deleted router uses this name. Restore it instead.'), $ignoreId),
+                new NotUsedByTrashed(Nas::class, 'shortname', __('A deleted NAS uses this name. Restore it instead.'), $ignoreId),
             ],
             'nasname' => ['required', 'ipv4',
                 Rule::unique(Nas::class, 'nasname')->withoutTrashed()->ignore($ignoreId),
-                new NotUsedByTrashed(Nas::class, 'nasname', __('A deleted router uses this IP address. Restore it instead.'), $ignoreId),
+                new NotUsedByTrashed(Nas::class, 'nasname', __('A deleted NAS uses this IP address. Restore it instead.'), $ignoreId),
             ],
             'secret' => ['required', 'string', 'min:8', 'max:60', 'regex:/^[A-Za-z0-9._~!@#%^*+=-]+$/D'],
             'routeros_version' => ['required', 'string', function (string $attribute, string $value, Closure $fail): void {
                 if (RouterOsVersion::parse($value) === null) {
-                    $fail(__('Enter the version as the router shows it, e.g. 7.23.7.'));
+                    $fail(__('Enter the version as the NAS shows it, e.g. 7.23.7.'));
                 }
             }],
             'description' => ['nullable', 'string', 'max:200'],
@@ -261,7 +261,7 @@ new #[Title('Routers')] class extends Component
     protected function messages(): array
     {
         return [
-            'nasname.ipv4' => __('Enter the IPv4 address the router sends RADIUS from, e.g. 10.0.0.1.'),
+            'nasname.ipv4' => __('Enter the IPv4 address the NAS sends RADIUS from, e.g. 10.0.0.1.'),
             'shortname.regex' => __('Use English letters, digits and symbols only: FreeRADIUS loads this name.'),
             'secret.regex' => __('Use letters, digits and . _ ~ ! @ # % ^ * + = - only.'),
         ];

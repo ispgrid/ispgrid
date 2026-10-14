@@ -101,7 +101,7 @@ class DisconnectAccount implements ShouldQueue
         $secret = Nas::withTrashed()->where('nasname', $router)->value('secret');
 
         if ($secret === null) {
-            return __(':router is not in the router list', ['router' => $router]);
+            return __(':router is not in the NAS list', ['router' => $router]);
         }
 
         // The router knows an IPoE session by the device MAC, so User-Name would get a NAK (router check 30).

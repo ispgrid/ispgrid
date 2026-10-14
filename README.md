@@ -81,7 +81,7 @@ For each router:
    sudo /opt/ispgrid/deploy/l2tp/l2tp-add-peer.sh office-router      # l2tp
    ```
 
-2. **In the panel:** Network, Routers, add the router with its address (its tunnel address in a tunnel mode) and a
+2. **In the panel:** Network, NAS, add the router with its address (its tunnel address in a tunnel mode) and a
    RADIUS secret.
 3. **On the router:** point `/radius` at the server with the same secret, for `ppp` and/or `hotspot`, and allow
    Disconnect-Requests from the panel:

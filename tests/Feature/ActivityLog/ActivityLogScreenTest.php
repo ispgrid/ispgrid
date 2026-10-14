@@ -83,6 +83,6 @@ it('names routers on the activity screen', function () {
     Nas::factory()->create(['shortname' => 'core-1']);
 
     Livewire::test('pages::activity.index')
-        ->assertSee('Router')
+        ->assertSee('NAS')
         ->assertSee('core-1');
 });
