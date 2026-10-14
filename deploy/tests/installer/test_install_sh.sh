@@ -128,6 +128,8 @@ check "lan rules" "$(firewall_rules lan 2222 192.168.10.0/24 '' | tr '\n' ';')" 
   "allow 2222/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow from 192.168.10.0/24 to any port 1812,1813 proto udp comment ISPGrid;allow from 192.168.10.0/24 to any port 8088 proto tcp comment ISPGrid;"
 check "wireguard rules" "$(firewall_rules wireguard 22 '' 51820 | tr '\n' ';')" \
   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow 51820/udp comment ISPGrid;allow in on wg0 to any port 1812,1813 proto udp comment ISPGrid;allow in on wg0 to any port 8088 proto tcp comment ISPGrid;"
+check "public rules" "$(firewall_rules public 22 '' '' | tr '\n' ';')" \
+  "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow from any to any port 1812,1813 proto udp comment ISPGrid;allow from any to any port 8088 proto tcp comment ISPGrid;"
 ufw_left_over=$'table ip filter {\n\tchain INPUT {\n\t\ttype filter hook input priority filter; policy accept;\n\t\tcounter packets 409 bytes 1793259 jump ufw-before-logging-input\n\t}\n\tchain ufw-before-input {\n\t\tct state related,established counter accept\n\t}\n}'
 probe=$'table inet probe {\n\tchain input {\n\t\ttype filter hook input priority filter; policy accept;\n\t\ttcp dport 9999 accept\n\t}\n}'
 docker=$'table ip filter {\n\tchain FORWARD {\n\t\tcounter packets 0 bytes 0 jump DOCKER-USER\n\t\tiifname "docker0" oifname != "docker0" counter accept\n\t}\n}'
@@ -189,6 +191,7 @@ check "nothing known" "$(pick_timezone '' '')" "UTC"
 check "access flag" "$(access_from public '' '' local '')" "public"
 check "domain flag means domain" "$(access_from '' panel.example.com '' local '')" "domain"
 check "public ip flag means public" "$(access_from '' '' 203.0.113.7 '' '')" "public"
+check "public ip with public routers chooses no access" "$(access_from '' '' 203.0.113.7 '' '' public)" ""
 check "saved access" "$(access_from '' '' '' local '')" "local"
 check "old install with a domain" "$(access_from '' '' '' '' panel.example.com)" "domain"
 check "nothing known: ask" "$(access_from '' '' '' '' '')" ""

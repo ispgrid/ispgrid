@@ -39,7 +39,12 @@ else
     ufw "${args[@]}" >/dev/null
   done
   [[ "$mode" == none ]] && ufw --force enable >/dev/null
-  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), 80, 443$([[ "$ROUTERS" == wireguard ]] && echo ", UDP $WG_PORT; RADIUS and 8088 on wg0 only" || echo "; RADIUS and 8088 from $ROUTER_NETWORK")."
+  case "$ROUTERS" in
+    wireguard) routers_note=", UDP $WG_PORT; RADIUS and 8088 on wg0 only" ;;
+    public) routers_note="; RADIUS and 8088 from anywhere (FreeRADIUS answers only the routers/NAS added in the panel)" ;;
+    *) routers_note="; RADIUS and 8088 from $ROUTER_NETWORK" ;;
+  esac
+  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), 80, 443$routers_note."
   say "$FIREWALL_NOTE"
 fi
 

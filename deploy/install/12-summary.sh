@@ -22,7 +22,11 @@ summary_rows() {
     radius_ip=$tunnel_ip
     echo "row|Connection|WireGuard tunnel, this server is $tunnel_ip (network $(cidr_network "$wg_net"))"
     echo "row|Endpoint|$WG_ENDPOINT, UDP $wg_port"
-    echo "row|Add one|$ISPGRID_HOME/deploy/wireguard/wg-add-peer.sh NAME"
+    echo "row|Add one|sudo $ISPGRID_HOME/deploy/wireguard/wg-add-peer.sh NAME"
+  elif [[ "$ROUTERS" == public ]]; then
+    radius_ip=$PUBLIC_IP
+    echo "row|Connection|over the internet without a tunnel: RADIUS is not encrypted, so give each router/NAS a long secret"
+    echo "text|Behind NAT? Forward UDP 1812 and 1813 and TCP 8088 from $PUBLIC_IP to $(primary_ip)."
   else
     radius_ip=$(primary_ip)
     echo "row|Connection|same network: $ROUTER_NETWORK"
@@ -62,7 +66,9 @@ summary_rows() {
     echo "text|1. Open $url and log in."
   fi
   if [[ "$ROUTERS" == wireguard ]]; then
-    echo "text|2. For each router/NAS: run wg-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, Routers) with its tunnel IP."
+    echo "text|2. For each router/NAS: run sudo $ISPGRID_HOME/deploy/wireguard/wg-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, Routers) with its tunnel IP."
+  elif [[ "$ROUTERS" == public ]]; then
+    echo "text|2. For each router/NAS: add it in the panel (Network, Routers) with the public IP it sends RADIUS from, and on the router point RADIUS at $radius_ip."
   else
     echo "text|2. For each router/NAS: add it in the panel (Network, Routers), and on the router point RADIUS at $radius_ip."
   fi

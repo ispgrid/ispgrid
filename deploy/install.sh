@@ -21,14 +21,17 @@ Usage: sudo bash install.sh [options]
 Installs ISPGrid on a fresh Ubuntu 24.04 or 26.04 server, or upgrades an existing install.
 Anything not given is asked; with --yes nothing is asked and the defaults are used.
 
-  --routers=lan|wireguard   lan: the routers/NAS reach this server on a private network (default)
+  --routers=lan|wireguard|public
+                            lan: the routers/NAS reach this server on a private network (default)
                             wireguard: the routers/NAS connect over the internet through a WireGuard tunnel
+                            public: the routers/NAS send RADIUS over the internet without a tunnel (for
+                            routers without WireGuard, like RouterOS 6; RADIUS is not encrypted)
   --router-network=CIDR     lan only: the network the routers/NAS are in (default: this server's subnet)
   --access=local|public|domain
                             how the panel is opened: on this network only (http://<LAN IP>, default), on a
                             public IP without HTTPS (http://<public IP>, for trying it out), or with a domain
                             (https://<domain>, Let's Encrypt)
-  --public-ip=ADDRESS       public: this server's public IP (default: as seen by ipapi.co)
+  --public-ip=ADDRESS       public access or routers: this server's public IP (default: as seen by ipapi.co)
   --domain=NAME             domain: a name pointing here, for HTTPS from Let's Encrypt
   --admin-name=NAME         first install: the admin's name (default: Admin)
   --admin-email=EMAIL       first install: the admin's login email (required)
@@ -351,12 +354,14 @@ foreign_nft_rules() {
   ' <<<"$1"
 }
 
-#  firewall_rules <lan|wireguard> <ssh port> <router network> <wg port>: ufw rules, one per line
+#  firewall_rules <lan|wireguard|public> <ssh port> <router network> <wg port>: ufw rules, one per line
+#  (public: RADIUS from anywhere; FreeRADIUS answers only the routers/NAS added in the panel)
 firewall_rules() {
   local routers=$1 ssh_port=$2 network=$3 wg_port=$4
   echo "allow $ssh_port/tcp comment ISPGrid"
   echo "allow 80/tcp comment ISPGrid"
   echo "allow 443/tcp comment ISPGrid"
+  [[ "$routers" == public ]] && network=any
   if [[ "$routers" == wireguard ]]; then
     echo "allow $wg_port/udp comment ISPGrid"
     echo "allow in on wg0 to any port 1812,1813 proto udp comment ISPGrid"
@@ -419,14 +424,15 @@ is_utc_zone() {
   esac
 }
 
-#  access_from <--access> <--domain> <--public-ip> <saved access> <saved domain>: how the panel is opened (local,
-#  public or domain), or nothing when it has to be asked. Installs from before the question saved only a domain.
+#  access_from <--access> <--domain> <--public-ip> <saved access> <saved domain> [routers]: how the panel is opened
+#  (local, public or domain), or nothing when it has to be asked. Installs from before the question saved only a
+#  domain. With public routers, --public-ip is where RADIUS goes and says nothing about the panel.
 access_from() {
   if [[ -n "$1" ]]; then
     echo "$1"
   elif [[ -n "$2" ]]; then
     echo domain
-  elif [[ -n "$3" ]]; then
+  elif [[ -n "$3" && "${6:-}" != public ]]; then
     echo public
   elif [[ -n "$4" ]]; then
     echo "$4"
