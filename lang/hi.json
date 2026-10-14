@@ -740,5 +740,22 @@
     ":count of :total": ":total में से :count",
     ":count staff member|:count staff members": ":count स्टाफ सदस्य|:count स्टाफ सदस्य",
     ":count staff member has this role. Give them another role first.|:count staff members have this role. Give them another role first.": ":count स्टाफ सदस्य के पास यह रोल है। पहले उन्हें दूसरा रोल दें।|:count स्टाफ सदस्यों के पास यह रोल है। पहले उन्हें दूसरा रोल दें।",
-    "Role deleted.": "रोल हटा दिया गया।"
+    "Role deleted.": "रोल हटा दिया गया।",
+    "Customers on this plan": "इस प्लान के ग्राहक",
+    "Filter them in Customers": "इन्हें ग्राहक सूची में देखें",
+    "No customer is on this plan.": "इस प्लान पर कोई ग्राहक नहीं है।",
+    ":count GB": ":count GB",
+    ":count hour|:count hours": ":count घंटा|:count घंटे",
+    "Burst (up/down)": "बर्स्ट (अप/डाउन)",
+    "Threshold (up/down)": "थ्रेशोल्ड (अप/डाउन)",
+    "Minimum (up/down)": "न्यूनतम (अप/डाउन)",
+    "Total time": "कुल समय",
+    "Data per day": "हर दिन का डेटा",
+    "Time per day": "हर दिन का समय",
+    "Data per month": "हर महीने का डेटा",
+    "Time per month": "हर महीने का समय",
+    "Fair usage speed (up/down)": "फ़ेयर यूसेज स्पीड (अप/डाउन)",
+    "Hours": "घंटे",
+    "Speed during the slot (up/down)": "स्लॉट के दौरान स्पीड (अप/डाउन)",
+    "RADIUS attributes": "RADIUS एट्रिब्यूट"
 }
