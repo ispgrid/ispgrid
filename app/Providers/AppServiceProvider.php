@@ -6,6 +6,7 @@ use App\Enums\Permission;
 use App\Models\Passkey;
 use App\Models\User;
 use App\Notifications\NotificationRegistry;
+use App\Notifications\Providers\Msg91Sms;
 use App\Notifications\Providers\WacrmWhatsApp;
 use App\Notifications\Triggers\AfterExpiry;
 use App\Notifications\Triggers\BeforeExpiry;
@@ -33,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
                 $registry->registerTrigger($trigger);
             }
 
+            $registry->registerProvider(Msg91Sms::class);
             $registry->registerProvider(WacrmWhatsApp::class);
 
             return $registry;

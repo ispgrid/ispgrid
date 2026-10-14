@@ -6,6 +6,7 @@ use App\Models\NotificationLog;
 use App\Models\NotificationProvider;
 use App\Notifications\Contracts\Provider;
 use App\Notifications\OutgoingMessage;
+use App\Notifications\Providers\Msg91Sms;
 use App\Notifications\Providers\WacrmWhatsApp;
 use Illuminate\Support\Facades\Http;
 
@@ -24,6 +25,16 @@ dataset('providers', [
         'messageId' => 'wamid.1',
         'refused' => Http::response(['error' => ['code' => 'unauthorized', 'message' => 'Bad key wacrm_live_contract_secret']], 401),
         'rateLimited' => Http::response(['error' => ['code' => 'rate_limited', 'message' => 'Slow down']], 429, ['Retry-After' => '30']),
+    ]],
+    'msg91' => [fn (): array => [
+        'class' => Msg91Sms::class,
+        'settings' => ['auth_key' => 'msg91-contract-secret'],
+        'template' => ['template_id' => '64f0c0ffee', 'variables' => ''],
+        'url' => 'control.msg91.com/api/v5/flow',
+        'sent' => Http::response(['type' => 'success', 'message' => '3763646c3058373530393831']),
+        'messageId' => '3763646c3058373530393831',
+        'refused' => Http::response(['type' => 'error', 'message' => 'Authentication failure msg91-contract-secret'], 401),
+        'rateLimited' => Http::response(['type' => 'error', 'message' => 'Too many requests'], 429, ['Retry-After' => '30']),
     ]],
 ]);
 
