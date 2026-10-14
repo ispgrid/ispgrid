@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Laravel\Fortify\Features;
 
@@ -19,6 +20,7 @@ abstract class TestCase extends BaseTestCase
     /**
      * No test may run a real command (a FreeRADIUS restart on the developer's machine). Faking with no
      * handlers turns on recording, so an unfaked command throws; a test fakes what it expects.
+     * No test may reach a real API either: an unfaked HTTP call throws.
      */
     protected function setUp(): void
     {
@@ -26,6 +28,7 @@ abstract class TestCase extends BaseTestCase
 
         Process::preventStrayProcesses();
         Process::fake([]);
+        Http::preventStrayRequests();
     }
 
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void
