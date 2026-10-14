@@ -23,7 +23,7 @@
             x-transition.opacity
             x-bind:class="toast.variant === 'danger'
                 ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200'
-                : 'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200'"
+                : 'border-green-200 bg-mint text-deep-green dark:border-green-900 dark:bg-green-950 dark:text-green-200'"
             class="pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg"
         >
             <span class="flex-1" x-text="toast.message"></span>

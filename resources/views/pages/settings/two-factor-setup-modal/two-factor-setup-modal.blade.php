@@ -69,7 +69,7 @@
                         <input type="text" readonly value="{{ $manualSetupKey }}" class="w-full bg-transparent p-3 font-mono text-sm outline-none" aria-label="{{ __('Setup key') }}" />
                         <button type="button" x-on:click="copy()" class="border-s border-zinc-300 px-3 dark:border-zinc-600" aria-label="{{ __('Copy setup key') }}">
                             <x-ui.icon name="document-duplicate" class="size-5" x-show="! copied" />
-                            <x-ui.icon name="check" class="size-5 text-green-600" x-show="copied" x-cloak />
+                            <x-ui.icon name="check" class="size-5 text-deep-green dark:text-signal" x-show="copied" x-cloak />
                         </button>
                     @endempty
                 </div>

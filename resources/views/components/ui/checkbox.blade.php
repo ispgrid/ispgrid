@@ -10,7 +10,7 @@
         type="checkbox"
         id="{{ $id }}"
         @if ($name) name="{{ $name }}" @endif
-        {{ $attributes->except('id')->class('mt-0.5 size-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800') }}
+        {{ $attributes->except('id')->class('mt-0.5 size-4 rounded border-zinc-300 text-ink accent-ink focus:ring-deep-green dark:accent-signal dark:border-zinc-600 dark:bg-zinc-800') }}
     />
     <div class="grid gap-0.5">
         <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}</label>

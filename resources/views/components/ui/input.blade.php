@@ -25,7 +25,7 @@
             @if ($viewable) x-bind:type="visible ? 'text' : 'password'" @endif
             @if ($error) aria-invalid="true" aria-describedby="{{ $id }}-error" @endif
             {{ $attributes->except('id')->class([
-                'block w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-2 focus:outline-offset-1 focus:outline-zinc-500 disabled:opacity-60 dark:bg-zinc-800 dark:text-white',
+                'block w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-2 focus:outline-offset-1 focus:outline-deep-green dark:focus:outline-signal disabled:opacity-60 dark:bg-zinc-800 dark:text-white',
                 'border-red-500 dark:border-red-500' => $error,
                 'border-zinc-300 dark:border-zinc-600' => ! $error,
                 'pe-10' => $viewable,
