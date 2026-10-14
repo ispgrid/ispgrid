@@ -24,7 +24,7 @@ if [[ "$(selftest_decision "$fixture_rows" "$marker_left")" == skip ]]; then
   return 0
 fi
 touch "$selftest_marker"
-progress_watch "$selftest_log" "$SELFTEST_CASES" "Running $SELFTEST_CASES RADIUS checks against this server (about 2 minutes)"
+progress_watch "$selftest_log" "$SELFTEST_CASES" "Running $SELFTEST_CASES RADIUS checks against this server (about 3 minutes)"
 selftest_passed=""
 for attempt in 1 2; do
   if RADIUS_SECRET="$local_secret" CLEANUP=1 /usr/local/bin/radius_policy_tests.sh > "$selftest_log" 2>&1; then

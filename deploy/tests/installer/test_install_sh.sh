@@ -207,6 +207,13 @@ check "box shows the secret" "$(grep -c 'Password     Ab1-Cd2-Ef3-Gh4' <<<"$box"
 check "box wraps long text" "$(grep -c 'word word' <<<"$box")" 2
 check "box plain corners" "$(head -c 1 <<<"$box")" "+"
 
+narrow=$(printf '%s
+' 'title|ISPGrid is ready' 'section|NEXT'   "text|2. For each router/NAS: add it in the panel (Network, Routers), and on the router point RADIUS at 192.168.10.20."   "row|Database|radius (users ispgrid and freeradius; their passwords: /opt/ispgrid/.env, /etc/freeradius/mods-available/sql)"   | box_render no no 80)
+check "box fits 80 columns" "$(( $(awk '{ print length($0) }' <<<"$narrow" | sort -n | tail -n 1) <= 80 ))" 1
+check "numbered text: hanging indent" "$(grep -c '^|      [a-z]' <<<"$narrow")" 1
+check "utc zone" "$(yes_no is_utc_zone Etc/UTC)" yes
+check "local zone" "$(yes_no is_utc_zone Asia/Kolkata)" no
+
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)
 check "piped into bash runs" "$piped" "Usage: sudo bash install.sh [options]"

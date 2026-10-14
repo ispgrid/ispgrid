@@ -197,12 +197,18 @@ progress_watch() {
 
 #  show_box <rows function>: the box on the console (coloured, with the password) and in the log (without)
 show_box() {
-  local unicode=no colour=no
+  local unicode=no colour=no columns=104 size
   [[ -n "${UI_UNICODE:-}" ]] && unicode=yes
   [[ -n "${UI_COLOR:-}" ]] && colour=yes
+  #  As wide as the terminal allows (an SSH window is often 80 columns), at most 104.
+  size=$(stty size </dev/tty 2>/dev/null || true)
+  size=${size#* }
+  if [[ "$size" =~ ^[0-9]+$ ]] && (( size >= 40 )); then
+    columns=$(( size < 104 ? size : 104 ))
+  fi
   clear_line
   printf '\n' >&3
-  "$1" yes | box_render "$unicode" "$colour" >&3
+  "$1" yes | box_render "$unicode" "$colour" "$columns" >&3
   if [[ -n "${UI_LOG_READY:-}" ]]; then
     "$1" no | box_render yes no >> "$ISPGRID_LOG"
   fi
@@ -393,15 +399,23 @@ json_value() {
 #  pick_timezone <server's zone> <zone of the public IP>: the server's own unless it is UTC (cloud images ship with
 #  UTC), then the public IP's, then UTC
 pick_timezone() {
-  case "$1" in
-    "" | UTC | Etc/UTC | Etc/Universal | Universal | Zulu | Etc/Zulu | GMT | Etc/GMT) ;;
-    *) echo "$1"; return ;;
-  esac
+  if [[ -n "$1" ]] && ! is_utc_zone "$1"; then
+    echo "$1"
+    return
+  fi
   if [[ -n "$2" ]]; then
     echo "$2"
   else
     echo "${1:-UTC}"
   fi
+}
+
+#  is_utc_zone <zone>: one of the names for UTC (cloud images ship with it, so it says nothing about the place)
+is_utc_zone() {
+  case "$1" in
+    UTC | Etc/UTC | Etc/Universal | Universal | Zulu | Etc/Zulu | GMT | Etc/GMT) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 #  access_from <--access> <--domain> <--public-ip> <saved access> <saved domain>: how the panel is opened (local,
@@ -435,10 +449,12 @@ repeat_text() {
   printf '%s' "${out// /$1}"
 }
 
-#  box_render <unicode yes|no> <colour yes|no>: the summary box, from rows on stdin: "title|TEXT", "section|TEXT",
-#  "row|KEY|VALUE", "secret|KEY|VALUE" (the value stands out) and "text|TEXT". Long values wrap inside the box.
+#  box_render <unicode yes|no> <colour yes|no> [columns]: the summary box, from rows on stdin: "title|TEXT",
+#  "section|TEXT", "row|KEY|VALUE", "secret|KEY|VALUE" (the value stands out) and "text|TEXT". Long values wrap so
+#  the box is at most [columns] wide (default 104); numbered text ("2. ...") wraps with a hanging indent.
 box_render() {
-  local unicode=$1 colour=$2 kind key value part first indent wrap=86 width=60 i line pad
+  local unicode=$1 colour=$2 columns=${3:-104} kind key value part first indent wrap width i line pad
+  width=$(( columns - 4 < 60 ? columns - 4 : 60 ))
   local tl tr bl br h v ml mr c_frame="" c_title="" c_section="" c_secret="" c_off=""
   local -a texts=() kinds=() secrets=()
   if [[ "$unicode" == yes ]]; then
@@ -459,11 +475,14 @@ box_render() {
       row | secret | text)
         if [[ "$kind" == text ]]; then
           value=$key
-          indent="  "
           first="  "
+          indent="  "
+          [[ "$value" =~ ^[0-9]+\.\  ]] && indent="     "
+          wrap=$(( columns - 9 ))
         else
           printf -v first '  %-12s ' "$key"
           indent="               "
+          wrap=$(( columns - 19 ))
         fi
         while IFS= read -r part; do
           texts+=("$first${part% }")

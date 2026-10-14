@@ -43,7 +43,7 @@ summary_rows() {
   done <<<"${FIREWALL_NOTE:-unchanged}"
   echo "row|Database|radius (users ispgrid and freeradius; their passwords: $ISPGRID_HOME/.env, /etc/freeradius/mods-available/sql)"
   echo "row|Timezone|$TIMEZONE"
-  if [[ "$(pick_timezone "$TIMEZONE" "")" == UTC ]]; then
+  if is_utc_zone "$TIMEZONE"; then
     echo "text|UTC: for local times in the panel and the logs, run the installer again with --timezone=Area/City"
   fi
   echo "row|Backups|nightly at 02:30 to $ISPGRID_BACKUPS, kept 14 days: copy them to another machine too"
