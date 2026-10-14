@@ -1,0 +1,113 @@
+<?php
+
+use App\Enums\Permission;
+use App\Models\Role;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+
+new #[Title('Role')] class extends Component
+{
+    #[Locked]
+    public ?int $roleId = null;
+
+    public string $name = '';
+
+    /**
+     * @var list<string>
+     */
+    public array $permissions = [];
+
+    /**
+     * Admin is not editable: it always has every permission.
+     */
+    public function mount(?int $role = null): void
+    {
+        $this->authorize('manage-staff');
+
+        if ($role === null) {
+            return;
+        }
+
+        $model = Role::query()->findOrFail($role);
+        abort_if($model->isAdmin(), 403);
+
+        $this->roleId = $model->id;
+        $this->name = $model->name;
+        $this->permissions = $model->permissions->pluck('name')->all();
+    }
+
+    /**
+     * Ticking an action ticks its view box too, so the role can reach the page where it acts.
+     */
+    public function updatedPermissions(): void
+    {
+        $this->permissions = array_values(array_unique([...$this->permissions, ...Permission::withImplied($this->permissions)]));
+    }
+
+    /**
+     * @return array<string, list<array{value: string, label: string}>>
+     */
+    #[Computed]
+    public function areas(): array
+    {
+        return collect(Permission::byArea())
+            ->map(fn (array $permissions): array => array_map(
+                fn (Permission $permission): array => ['value' => $permission->value, 'label' => $permission->label()],
+                $permissions,
+            ))
+            ->all();
+    }
+
+    public function save(): void
+    {
+        $this->authorize('manage-staff');
+        $this->name = trim($this->name);
+
+        $this->validate([
+            'name' => ['required', 'string', 'max:50', Rule::unique(Role::class, 'name')->ignore($this->roleId)],
+            'permissions' => ['array', Rule::in(array_map(fn (Permission $permission): string => $permission->value, Permission::cases()))],
+        ], [
+            'name.unique' => __('Another role has this name.'),
+            'permissions.in' => __('Tick only the boxes on this page.'),
+        ], [
+            'name' => __('Name'),
+            'permissions' => __('Permissions'),
+        ]);
+
+        $permissions = Permission::withImplied($this->permissions);
+
+        DB::transaction(function () use ($permissions): void {
+            $role = $this->roleId === null ? new Role(['guard_name' => 'web']) : Role::query()->lockForUpdate()->findOrFail($this->roleId);
+            abort_if($role->isAdmin(), 403);
+
+            $old = $role->exists
+                ? ['name' => $role->name, 'permissions' => Role::permissionLabels($role->permissions->pluck('name')->all())]
+                : [];
+
+            $role->name = $this->name;
+            $role->save();
+            $role->syncPermissions($permissions);
+
+            $new = ['name' => $role->name, 'permissions' => Role::permissionLabels($permissions)];
+            $changed = array_keys(array_diff_assoc($new, $old));
+
+            if ($changed !== []) {
+                activity()
+                    ->performedOn($role)
+                    ->event($old === [] ? 'created' : 'updated')
+                    ->withChanges(array_filter([
+                        'attributes' => array_intersect_key($new, array_flip($changed)),
+                        'old' => array_intersect_key($old, array_flip($changed)),
+                    ]))
+                    ->log($old === [] ? 'created' : 'updated');
+            }
+        });
+
+        session()->flash('toast', __('Role saved.'));
+        $this->redirectRoute('roles.index', navigate: true);
+    }
+};

@@ -3,6 +3,7 @@
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Nas;
+use App\Models\Role;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -85,4 +86,16 @@ it('names routers on the activity screen', function () {
     Livewire::test('pages::activity.index')
         ->assertSee('NAS')
         ->assertSee('core-1');
+});
+
+it('shows a role change on a staff member and a deleted role by its name', function () {
+    $ravi = User::factory()->create(['name' => 'Ravi']);
+    $role = Role::create(['name' => 'Billing desk']);
+
+    Livewire::test('pages::staff.index')->call('editRole', $ravi->id)->set('role', (string) $role->id)->call('saveRole');
+    Livewire::test('pages::staff.index')->call('editRole', $ravi->id)->set('role', (string) Role::findByName(Role::ADMIN)->id)->call('saveRole');
+    Livewire::test('pages::staff.roles')->call('delete', $role->id);
+
+    Livewire::test('pages::activity.index')
+        ->assertSeeInOrder(['Deleted', 'Role', 'Billing desk', 'Role changed', 'Staff', 'Ravi', 'Billing desk', 'Admin']);
 });

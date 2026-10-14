@@ -2,36 +2,37 @@
 
 namespace App\Policies;
 
+use App\Enums\Permission;
 use App\Models\Pool;
 use App\Models\User;
 
 /**
- * Router address pools. All staff are equal in the MVP; roles plug in here later.
+ * Router address pools. Viewing is the shared network box; changes need this page's own box.
  */
 class PoolPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasAccess(Permission::ViewNetwork);
     }
 
     public function create(User $user): bool
     {
-        return true;
+        return $user->hasAccess(Permission::ManagePools);
     }
 
     public function update(User $user, Pool $pool): bool
     {
-        return true;
+        return $user->hasAccess(Permission::ManagePools);
     }
 
     public function delete(User $user, Pool $pool): bool
     {
-        return true;
+        return $user->hasAccess(Permission::ManagePools);
     }
 
     public function restore(User $user, Pool $pool): bool
     {
-        return true;
+        return $user->hasAccess(Permission::ManagePools);
     }
 }

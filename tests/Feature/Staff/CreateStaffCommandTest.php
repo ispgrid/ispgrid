@@ -63,3 +63,13 @@ it('logs out remembered devices when it resets a password', function () {
 
     expect($staff->fresh()->remember_token)->not->toBe('remember-token-123');
 });
+
+it('makes the staff member it creates an Admin', function () {
+    $this->artisan('staff:create', [
+        '--name' => 'First Admin',
+        '--email' => 'admin@isp.example',
+        '--password' => 'secret-pass-123',
+    ])->assertSuccessful();
+
+    expect(User::query()->where('email', 'admin@isp.example')->sole()->isAdmin())->toBeTrue();
+});

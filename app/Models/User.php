@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Permission;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -17,6 +18,7 @@ use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property int $id
@@ -37,7 +39,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, LogsActivity, Notifiable, PasskeyAuthenticatable, SoftDeletes, TwoFactorAuthenticatable;
+    use HasFactory, HasRoles, LogsActivity, Notifiable, PasskeyAuthenticatable, SoftDeletes, TwoFactorAuthenticatable;
 
     /**
      * Disabling a staff member logs them out everywhere, so a restore never revives an old cookie or session.
@@ -49,6 +51,30 @@ class User extends Authenticatable implements PasskeyUser
                 $user->endSessions();
             }
         });
+    }
+
+    /**
+     * Admin is built in: it can do everything, including what a later release adds to the list.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(Role::ADMIN);
+    }
+
+    /**
+     * Whether this staff member's role allows the action. Every policy and gate asks this.
+     */
+    public function hasAccess(Permission $permission): bool
+    {
+        return $this->isAdmin() || $this->checkPermissionTo($permission->value);
+    }
+
+    /**
+     * The one role this staff member has, if any. (Not role(): that name is HasRoles' query scope.)
+     */
+    public function staffRole(): ?Role
+    {
+        return $this->roles->first();
     }
 
     /**

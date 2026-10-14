@@ -1,8 +1,12 @@
 <?php
 
 use App\Actions\Import\RowError;
+use App\Enums\Permission;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /*
@@ -74,4 +78,23 @@ function errorLines(array $errors): array
         fn (RowError $error): string => ($error->row ?? '-').' '.($error->column ?? '-').': '.$error->message,
         $errors,
     );
+}
+
+/**
+ * A staff member whose role holds exactly these boxes.
+ */
+function staffHolding(Permission ...$permissions): User
+{
+    $role = Role::create(['name' => 'Role '.Str::random(8)]);
+    $role->syncPermissions(array_map(fn (Permission $permission): string => $permission->value, $permissions));
+
+    return User::factory()->role($role->name)->create();
+}
+
+/**
+ * A staff member whose role holds every box except this one.
+ */
+function staffLacking(Permission $missing): User
+{
+    return staffHolding(...array_filter(Permission::cases(), fn (Permission $permission): bool => $permission !== $missing));
 }

@@ -408,7 +408,7 @@ new #[Title('Customer')] class extends Component
     public function disconnect(?int $sessionId = null): void
     {
         $account = $this->account;
-        $this->authorize('update', $account);
+        $this->authorize('disconnect-sessions');
 
         $sessions = Radacct::query()->open()->where('username', $account->username)
             ->when($sessionId !== null, fn ($query) => $query->whereKey($sessionId))
@@ -448,7 +448,7 @@ new #[Title('Customer')] class extends Component
     public function resetDevices(ResetDevices $reset): void
     {
         $account = $this->account;
-        $this->authorize('update', $account);
+        $this->authorize('resetDevices', $account);
 
         $macs = $reset->handle($account->username);
         unset($this->devices, $this->boundElsewhere);
@@ -471,7 +471,7 @@ new #[Title('Customer')] class extends Component
     public function unlock(UnlockAccount $unlock): void
     {
         $account = $this->account;
-        $this->authorize('update', $account);
+        $this->authorize('resetDevices', $account);
 
         $cleared = $unlock->handle($account->username);
         unset($this->failedLogins);
@@ -493,7 +493,7 @@ new #[Title('Customer')] class extends Component
      */
     public function changeStatus(SyncAccountToRadius $sync): void
     {
-        $this->authorize('update', $this->account);
+        $this->authorize('changeStatus', $this->account);
         $this->remark = trim($this->remark);
         $current = (string) $this->account->status_id->value;
 
@@ -580,7 +580,7 @@ new #[Title('Customer')] class extends Component
      */
     public function openRecharge(): void
     {
-        $this->authorize('update', $this->account);
+        $this->authorize('recharge', $this->account);
         $this->resetValidation();
 
         $plan = $this->account->plan;
@@ -601,7 +601,7 @@ new #[Title('Customer')] class extends Component
      */
     public function recharge(RechargeAccount $recharge): void
     {
-        $this->authorize('update', $this->account);
+        $this->authorize('recharge', $this->account);
         $this->recharge_note = trim($this->recharge_note);
 
         $this->validate([

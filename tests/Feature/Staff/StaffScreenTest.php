@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Role;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -25,6 +26,7 @@ it('adds a staff member who can then log in', function () {
         ->set('email', 'meera@example.com')
         ->set('password', 'secret-pass-123')
         ->set('password_confirmation', 'secret-pass-123')
+        ->set('role', (string) Role::findByName(Role::TECHNICIAN)->id)
         ->call('add')
         ->assertHasNoErrors()
         ->assertDispatched('modal-close', name: 'add-staff')
@@ -44,6 +46,7 @@ it('tells staff to restore a disabled member instead of adding them again', func
         ->set('email', 'gone@example.com')
         ->set('password', 'secret-pass-123')
         ->set('password_confirmation', 'secret-pass-123')
+        ->set('role', (string) Role::findByName(Role::TECHNICIAN)->id)
         ->call('add')
         ->assertHasErrors(['email'])
         ->assertSee('A disabled staff member uses this email. Restore them instead.');

@@ -21,6 +21,9 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('network/ip-ranges/{ipRange}', 'pages::network.ip-range')->name('ip-ranges.show');
     Route::livewire('network/address-lists', 'pages::network.address-lists')->name('address-lists.index');
     Route::livewire('staff', 'pages::staff.index')->name('staff.index');
+    Route::livewire('staff/roles', 'pages::staff.roles')->name('roles.index');
+    Route::livewire('staff/roles/create', 'pages::staff.role-form')->name('roles.create');
+    Route::livewire('staff/roles/{role}/edit', 'pages::staff.role-form')->name('roles.edit');
     Route::livewire('system/app-settings', 'pages::system.app-settings')->name('app-settings.edit');
     Route::livewire('system/freeradius', 'pages::system.radius-settings')->name('radius-settings.edit');
     Route::livewire('system/connection-types', 'pages::system.connection-types')->name('connection-types.index');

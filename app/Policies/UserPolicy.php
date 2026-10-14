@@ -5,30 +5,36 @@ namespace App\Policies;
 use App\Models\User;
 
 /**
- * Staff management. All staff are equal in the MVP; roles plug in here later.
+ * Staff management stays with Admin and is not a box on the Roles screen, so no role can grant itself more.
  */
 class UserPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->isAdmin();
     }
 
     public function create(User $user): bool
     {
-        return true;
+        return $user->isAdmin();
     }
 
     /**
-     * Disabling yourself is refused, so at least one active staff member always remains.
+     * Disabling yourself is refused. With changeRole() below, the Admin acting is always an active Admin, so the
+     * last one can never be disabled or demoted.
      */
     public function delete(User $user, User $staff): bool
     {
-        return $user->isNot($staff);
+        return $user->isAdmin() && $user->isNot($staff);
     }
 
     public function restore(User $user, User $staff): bool
     {
-        return true;
+        return $user->isAdmin();
+    }
+
+    public function changeRole(User $user, User $staff): bool
+    {
+        return $user->isAdmin() && $user->isNot($staff);
     }
 }

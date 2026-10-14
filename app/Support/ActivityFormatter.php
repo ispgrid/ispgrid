@@ -12,6 +12,7 @@ use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
@@ -36,6 +37,7 @@ final class ActivityFormatter
         AddressList::class => 'Address list',
         Plan::class => 'Plan',
         RadiusSetting::class => 'FreeRADIUS settings',
+        Role::class => 'Role',
     ];
 
     public static function subjectType(?string $class): string
@@ -56,7 +58,9 @@ final class ActivityFormatter
             $subject instanceof RadiusSetting => __('FreeRADIUS settings'),
             $subject instanceof AppSetting => $subject->key,
             $subject instanceof Account => $subject->username,
-            default => '#'.$activity->subject_id,
+            $subject instanceof Role => $subject->label(),
+            // A deleted role is gone for good: its delete entry keeps the name.
+            default => $activity->attribute_changes['old']['name'] ?? '#'.$activity->subject_id,
         };
     }
 
@@ -80,6 +84,7 @@ final class ActivityFormatter
             'disconnected' => __('Disconnected'),
             'disconnect-failed' => __('Disconnect failed'),
             'imported' => __('Imported'),
+            'role-changed' => __('Role changed'),
             default => (string) $activity->event,
         };
     }

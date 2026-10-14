@@ -18,14 +18,20 @@
                     <x-ui.button variant="secondary" icon="arrow-uturn-left" wire:click="restore">{{ __('Restore') }}</x-ui.button>
                 @endcan
             @else
-                @can('update', $this->account)
+                @can('recharge', $this->account)
                     <x-ui.button wire:click="openRecharge">{{ __('Recharge') }}</x-ui.button>
-                    <x-ui.button variant="secondary" :href="route('customers.edit', $this->account->id)" wire:navigate>{{ __('Edit') }}</x-ui.button>
-                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
-                    @if ($this->sessions !== [])
-                        <x-ui.button variant="secondary" icon="x-circle" wire:click="disconnect" wire:confirm="{{ __('Disconnect every session of :name?', ['name' => $this->account->username]) }}">{{ __('Disconnect') }}</x-ui.button>
-                    @endif
                 @endcan
+                @can('update', $this->account)
+                    <x-ui.button variant="secondary" :href="route('customers.edit', $this->account->id)" wire:navigate>{{ __('Edit') }}</x-ui.button>
+                @endcan
+                @can('changeStatus', $this->account)
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
+                @endcan
+                @if ($this->sessions !== [])
+                    @can('disconnect-sessions')
+                        <x-ui.button variant="secondary" icon="x-circle" wire:click="disconnect" wire:confirm="{{ __('Disconnect every session of :name?', ['name' => $this->account->username]) }}">{{ __('Disconnect') }}</x-ui.button>
+                    @endcan
+                @endif
                 @can('delete', $this->account)
                     <x-ui.button
                         variant="ghost"
@@ -120,7 +126,7 @@
                         <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['download'] }}</x-ui.td>
                         <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['upload'] }}</x-ui.td>
                         <x-ui.td class="text-end">
-                            @can('update', $this->account)
+                            @can('disconnect-sessions')
                                 <x-ui.button variant="ghost" icon="x-circle" wire:click="disconnect({{ $session['id'] }})">{{ __('Disconnect') }}</x-ui.button>
                             @endcan
                         </x-ui.td>
@@ -156,7 +162,7 @@
                     <x-ui.heading>{{ __('Bound devices') }}</x-ui.heading>
                     <x-ui.text muted class="mt-1">{{ __('FreeRADIUS binds the devices a customer logs in from. Reset them when the customer changes router or device.') }}</x-ui.text>
                 </div>
-                @can('update', $this->account)
+                @can('resetDevices', $this->account)
                     <x-ui.button variant="secondary" icon="arrow-path" wire:click="resetDevices" wire:confirm="{{ __('Forget every device bound to this customer?') }}">{{ __('Reset devices') }}</x-ui.button>
                 @endcan
             </div>
@@ -188,7 +194,7 @@
                         <x-ui.heading>{{ __('Failed logins') }}</x-ui.heading>
                         <x-ui.text muted class="mt-1">{{ trans_choice(':count failed login counted, the last at :time. Too many lock the customer out for a while.|:count failed logins counted, the last at :time. Too many lock the customer out for a while.', $this->failedLogins['count'], ['time' => $this->failedLogins['last']]) }}</x-ui.text>
                     </div>
-                    @can('update', $this->account)
+                    @can('resetDevices', $this->account)
                         <x-ui.button variant="secondary" icon="lock-closed" wire:click="unlock">{{ __('Unlock') }}</x-ui.button>
                     @endcan
                 </div>
@@ -199,7 +205,9 @@
     <x-ui.card>
         <div class="flex flex-wrap items-start justify-between gap-4">
             <x-ui.heading>{{ __('Login attempts') }}</x-ui.heading>
-            <x-ui.link href="{{ route('login-log.index', ['username' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('Open the login log') }}</x-ui.link>
+            @can('view-login-log')
+                <x-ui.link href="{{ route('login-log.index', ['username' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('Open the login log') }}</x-ui.link>
+            @endcan
         </div>
         @if ($this->logins === [])
             <x-ui.text muted class="mt-4">{{ __('No login attempt yet.') }}</x-ui.text>
@@ -292,35 +300,39 @@
         @endif
     </x-ui.card>
 
-    <x-ui.modal name="change-status" width="sm">
-        <form wire:submit="changeStatus" class="grid gap-5">
-            <x-ui.heading size="lg">{{ __('Change status') }}</x-ui.heading>
-            <x-ui.select wire:model="status" :label="__('Status')" :options="$this->statuses" :description="__('Inactive and Suspended customers get the disabled pool (Hotspot logins are refused). Terminated customers are refused everywhere. Active customers without a plan still get the disabled pool: recharge them to give them one.')" />
-            <x-ui.textarea wire:model="remark" :label="__('Remark')" :description="__('Why the status changes. It is kept in the activity log.')" rows="2" maxlength="500" required />
-            <div class="flex justify-end gap-2">
-                <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'change-status' })">{{ __('Cancel') }}</x-ui.button>
-                <x-ui.button type="submit">{{ __('Change status') }}</x-ui.button>
-            </div>
-        </form>
-    </x-ui.modal>
+    @can('changeStatus', $this->account)
+        <x-ui.modal name="change-status" width="sm">
+            <form wire:submit="changeStatus" class="grid gap-5">
+                <x-ui.heading size="lg">{{ __('Change status') }}</x-ui.heading>
+                <x-ui.select wire:model="status" :label="__('Status')" :options="$this->statuses" :description="__('Inactive and Suspended customers get the disabled pool (Hotspot logins are refused). Terminated customers are refused everywhere. Active customers without a plan still get the disabled pool: recharge them to give them one.')" />
+                <x-ui.textarea wire:model="remark" :label="__('Remark')" :description="__('Why the status changes. It is kept in the activity log.')" rows="2" maxlength="500" required />
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'change-status' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Change status') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.modal>
+    @endcan
 
-    <x-ui.modal name="recharge">
-        <form wire:submit="recharge" class="grid gap-5" novalidate>
-            <x-ui.heading size="lg">{{ __('Recharge') }}</x-ui.heading>
+    @can('recharge', $this->account)
+        <x-ui.modal name="recharge">
+            <form wire:submit="recharge" class="grid gap-5" novalidate>
+                <x-ui.heading size="lg">{{ __('Recharge') }}</x-ui.heading>
 
-            @if ($this->rechargeKeepsStatus)
-                <x-ui.alert variant="warning">{{ __('A recharge keeps the status :status. Change the status separately.', ['status' => $this->rechargeKeepsStatus]) }}</x-ui.alert>
-            @endif
+                @if ($this->rechargeKeepsStatus)
+                    <x-ui.alert variant="warning">{{ __('A recharge keeps the status :status. Change the status separately.', ['status' => $this->rechargeKeepsStatus]) }}</x-ui.alert>
+                @endif
 
-            <x-ui.select wire:model.live="recharge_plan_id" :label="__('Plan')" :options="$this->rechargePlans" :placeholder="__('Choose a plan')" />
-            <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
-            <x-ui.input wire:model="recharge_amount" inputmode="decimal" :label="__('Amount')" :description="__('The plan price. Change it for a discount or a part payment.')" />
-            <x-ui.input wire:model="recharge_note" :label="__('Note')" maxlength="255" />
+                <x-ui.select wire:model.live="recharge_plan_id" :label="__('Plan')" :options="$this->rechargePlans" :placeholder="__('Choose a plan')" />
+                <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
+                <x-ui.input wire:model="recharge_amount" inputmode="decimal" :label="__('Amount')" :description="__('The plan price. Change it for a discount or a part payment.')" />
+                <x-ui.input wire:model="recharge_note" :label="__('Note')" maxlength="255" />
 
-            <div class="flex justify-end gap-2">
-                <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'recharge' })">{{ __('Cancel') }}</x-ui.button>
-                <x-ui.button type="submit">{{ __('Recharge') }}</x-ui.button>
-            </div>
-        </form>
-    </x-ui.modal>
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'recharge' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Recharge') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.modal>
+    @endcan
 </section>

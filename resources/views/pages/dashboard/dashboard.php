@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\Nas;
 use App\Models\Radacct;
 use App\Models\Radpostauth;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -31,21 +32,23 @@ new #[Title('Dashboard')] class extends Component
     }
 
     /**
-     * The figures as linked cards: each opens the list it counts.
+     * The figures as cards: each opens the list it counts, when the role can open that list.
      *
-     * @return list<array{label: string, value: int, href: string}>
+     * @return list<array{label: string, value: int, href: ?string}>
      */
     #[Computed]
     public function figureCards(): array
     {
         $figures = $this->figures;
         $active = AccountStatus::Active->value;
+        $online = Gate::allows('view-online-sessions');
+        $customers = Gate::allows('viewAny', Account::class);
 
         return [
-            ['label' => __('Online now'), 'value' => $figures['online'], 'href' => route('online.index')],
-            ['label' => __('Active'), 'value' => $figures['active'], 'href' => route('customers.index', ['status' => $active])],
-            ['label' => __('Expiring within 7 days'), 'value' => $figures['expiring'], 'href' => route('customers.index', ['status' => $active, 'expiring' => 1])],
-            ['label' => __('Expired'), 'value' => $figures['expired'], 'href' => route('customers.index', ['status' => $active, 'expired' => 1])],
+            ['label' => __('Online now'), 'value' => $figures['online'], 'href' => $online ? route('online.index') : null],
+            ['label' => __('Active'), 'value' => $figures['active'], 'href' => $customers ? route('customers.index', ['status' => $active]) : null],
+            ['label' => __('Expiring within 7 days'), 'value' => $figures['expiring'], 'href' => $customers ? route('customers.index', ['status' => $active, 'expiring' => 1]) : null],
+            ['label' => __('Expired'), 'value' => $figures['expired'], 'href' => $customers ? route('customers.index', ['status' => $active, 'expired' => 1]) : null],
         ];
     }
 
