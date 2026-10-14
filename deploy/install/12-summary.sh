@@ -23,6 +23,13 @@ summary_rows() {
     echo "row|Connection|WireGuard tunnel, this server is $tunnel_ip (network $(cidr_network "$wg_net"))"
     echo "row|Endpoint|$WG_ENDPOINT, UDP $wg_port"
     echo "row|Add one|sudo $ISPGRID_HOME/deploy/wireguard/wg-add-peer.sh NAME"
+  elif [[ "$ROUTERS" == l2tp ]]; then
+    tunnel_ip=$(cidr_host "$L2TP_SUBNET" 1)
+    radius_ip=$tunnel_ip
+    echo "row|Connection|L2TP/IPsec tunnel, this server is $tunnel_ip (network $L2TP_SUBNET)"
+    echo "row|Endpoint|$PUBLIC_IP, UDP 500 and 4500 (IPsec)"
+    echo "text|Behind NAT? Forward UDP 500 and 4500 from $PUBLIC_IP to $(primary_ip)."
+    echo "row|Add one|sudo $ISPGRID_HOME/deploy/l2tp/l2tp-add-peer.sh NAME"
   elif [[ "$ROUTERS" == public ]]; then
     radius_ip=$PUBLIC_IP
     echo "row|Connection|over the internet without a tunnel: RADIUS is not encrypted, so give each router/NAS a long secret"
@@ -67,6 +74,8 @@ summary_rows() {
   fi
   if [[ "$ROUTERS" == wireguard ]]; then
     echo "text|2. For each router/NAS: run sudo $ISPGRID_HOME/deploy/wireguard/wg-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, Routers) with its tunnel IP."
+  elif [[ "$ROUTERS" == l2tp ]]; then
+    echo "text|2. For each router/NAS: run sudo $ISPGRID_HOME/deploy/l2tp/l2tp-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, Routers) with its tunnel IP."
   elif [[ "$ROUTERS" == public ]]; then
     echo "text|2. For each router/NAS: add it in the panel (Network, Routers) with the public IP it sends RADIUS from, and on the router point RADIUS at $radius_ip."
   else

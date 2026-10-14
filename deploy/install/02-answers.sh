@@ -10,14 +10,18 @@ if [[ -z "$ROUTERS" ]]; then
   case "$(choose "Where are your routers/NAS?" 1 \
     "On the same private network as this server (lan)" \
     "Over the internet, through a WireGuard tunnel (wireguard, RouterOS 7)" \
-    "Over the internet, without a tunnel (public, for routers without WireGuard like RouterOS 6)")" in
+    "Over the internet, through an L2TP/IPsec tunnel (l2tp, RouterOS 6)" \
+    "Over the internet, without a tunnel (public, UNSECURED, not recommended)")" in
     2) ROUTERS=wireguard ;;
-    3) ROUTERS=public ;;
+    3) ROUTERS=l2tp ;;
+    4) ROUTERS=public ;;
     *) ROUTERS=lan ;;
   esac
 fi
-[[ "$ROUTERS" == lan || "$ROUTERS" == wireguard || "$ROUTERS" == public ]] ||
-  die "--routers must be lan, wireguard or public."
+[[ "$ROUTERS" == lan || "$ROUTERS" == wireguard || "$ROUTERS" == l2tp || "$ROUTERS" == public ]] ||
+  die "--routers must be lan, wireguard, l2tp or public."
+#  The public IP is asked when the routers/NAS connect to it (l2tp, public) or the panel is opened on it.
+needs_public_ip() { [[ "$ROUTERS" == l2tp || "$ROUTERS" == public || "$ACCESS" == public ]]; }
 
 ACCESS=$(access_from "${OPT_ACCESS:-}" "${OPT_DOMAIN:-}" "${OPT_PUBLIC_IP:-}" "$(conf_get access || true)" \
   "$(conf_get domain || true)" "$ROUTERS")
@@ -28,9 +32,8 @@ PUBLIC_IP_KNOWN=${OPT_PUBLIC_IP:-$(conf_get public_ip || true)}
 #  This server's public IP and its timezone, from ipapi.co, only when a question needs them; nothing when offline.
 DETECTED_IP=""
 DETECTED_TZ=""
-if [[ -z "$ACCESS" || ( ( "$ACCESS" == public || "$ROUTERS" == public ) && -z "$PUBLIC_IP_KNOWN" ) ||
-  -z "$TIMEZONE_KNOWN" ||
-  ( "$ROUTERS" == wireguard && -z "$ENDPOINT_KNOWN" ) ]]; then
+if [[ -z "$ACCESS" || -z "$TIMEZONE_KNOWN" || ( "$ROUTERS" == wireguard && -z "$ENDPOINT_KNOWN" ) ]] ||
+  { needs_public_ip && [[ -z "$PUBLIC_IP_KNOWN" ]]; }; then
   info=$(ip_info)
   DETECTED_IP=$(json_value "$info" ip)
   valid_ipv4 "$DETECTED_IP" || DETECTED_IP=""
@@ -42,6 +45,7 @@ ROUTER_NETWORK=""
 WG_SUBNET=""
 WG_PORT=""
 WG_ENDPOINT=""
+L2TP_SUBNET=""
 if [[ "$ROUTERS" == lan ]]; then
   default_network=$(cidr_network "$(ip -4 -o addr show scope global | awk '!found { print $4; found = 1 }')")
   ROUTER_NETWORK=$(answer "${OPT_ROUTER_NETWORK:-}" router_network \
@@ -55,6 +59,9 @@ elif [[ "$ROUTERS" == wireguard ]]; then
   WG_ENDPOINT=$(answer "${OPT_WG_ENDPOINT:-}" wg_endpoint \
     "Public address the routers/NAS connect to (IP or name of this server)" "${DETECTED_IP:-$LAN_IP}")
   [[ -n "$WG_ENDPOINT" ]] || die "WireGuard needs the public address the routers/NAS connect to: --wg-endpoint=ADDRESS"
+elif [[ "$ROUTERS" == l2tp ]]; then
+  L2TP_SUBNET=$(answer "${OPT_L2TP_SUBNET:-}" l2tp_subnet "L2TP tunnel network" 10.251.0.0/24)
+  valid_cidr "$L2TP_SUBNET" || die "L2TP network: give a network like 10.251.0.0/24."
 fi
 
 if [[ -z "$ACCESS" ]]; then
@@ -70,9 +77,8 @@ fi
 [[ "$ACCESS" == local || "$ACCESS" == public || "$ACCESS" == domain ]] ||
   die "--access must be local, public or domain."
 
-#  The public IP serves the panel (public access) and is where the routers/NAS send RADIUS (public routers).
 PUBLIC_IP=""
-if [[ "$ACCESS" == public || "$ROUTERS" == public ]]; then
+if needs_public_ip; then
   PUBLIC_IP=$(answer "${OPT_PUBLIC_IP:-}" public_ip "Public IP of this server" "$DETECTED_IP")
   valid_ipv4 "$PUBLIC_IP" || die "Public IP: give an address like 203.0.113.7 (--public-ip=ADDRESS)."
 fi
@@ -134,6 +140,7 @@ fi
 conf_set routers "$ROUTERS"
 #  Mode-specific answers are kept when the mode changes, so switching back asks nothing.
 if [[ -n "$ROUTER_NETWORK" ]]; then conf_set router_network "$ROUTER_NETWORK"; fi
+if [[ -n "$L2TP_SUBNET" ]]; then conf_set l2tp_subnet "$L2TP_SUBNET"; fi
 if [[ -n "$WG_SUBNET" ]]; then
   conf_set wg_subnet "$WG_SUBNET"
   conf_set wg_port "$WG_PORT"
@@ -143,4 +150,4 @@ conf_set access "$ACCESS"
 if [[ -n "$PUBLIC_IP" ]]; then conf_set public_ip "$PUBLIC_IP"; fi
 if [[ -n "$DOMAIN" ]]; then conf_set domain "$DOMAIN"; fi
 conf_set timezone "$TIMEZONE"
-say "Routers/NAS: $ROUTERS${ROUTER_NETWORK:+ ($ROUTER_NETWORK)}${WG_SUBNET:+ (tunnel $WG_SUBNET, UDP $WG_PORT, endpoint $WG_ENDPOINT)}${RADIUS_TO:+ (to $RADIUS_TO)}; panel: $ACCESS ($PANEL_HOST); timezone: $TIMEZONE"
+say "Routers/NAS: $ROUTERS${ROUTER_NETWORK:+ ($ROUTER_NETWORK)}${WG_SUBNET:+ (tunnel $WG_SUBNET, UDP $WG_PORT, endpoint $WG_ENDPOINT)}${L2TP_SUBNET:+ (tunnel $L2TP_SUBNET, to $PUBLIC_IP)}${RADIUS_TO:+ (to $RADIUS_TO)}; panel: $ACCESS ($PANEL_HOST); timezone: $TIMEZONE"

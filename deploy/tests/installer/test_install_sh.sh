@@ -55,6 +55,11 @@ check "network of an address" "$(cidr_network 192.168.10.20/24)" 192.168.10.0/24
 check "network of a /20" "$(cidr_network 172.16.37.9/20)" 172.16.32.0/20
 check "first host" "$(cidr_host 10.250.0.0/24 1)" 10.250.0.1
 check "size of /24" "$(cidr_size 10.250.0.0/24)" 256
+chap=$'# Secrets for authentication using CHAP\n"office" * "pw" *\n"lab-ros6" ispgrid "Abc123" 10.251.0.2 # ISPGrid\n"site-2" ispgrid "Xyz789" 10.251.0.3 # ISPGrid'
+check "l2tp addresses in use" "$(l2tp_used_ips "$chap" | tr '\n' ' ')" "10.251.0.2 10.251.0.3 "
+check "l2tp peer known" "$(yes_no l2tp_peer_exists "$chap" lab-ros6)" yes
+check "other ppp users are no l2tp peers" "$(yes_no l2tp_peer_exists "$chap" office)" no
+check "l2tp peer line" "$(l2tp_peer_line site-3 Pw1 10.251.0.4)" '"site-3" ispgrid "Pw1" 10.251.0.4 # ISPGrid'
 check "next free skips used" "$(next_free_host 10.250.0.0/24 10.250.0.1 10.250.0.2 10.250.0.4)" 10.250.0.3
 check "full subnet" "$(yes_no next_free_host 10.250.0.0/30 10.250.0.1 10.250.0.2)" no
 
@@ -130,6 +135,14 @@ check "wireguard rules" "$(firewall_rules wireguard 22 '' 51820 | tr '\n' ';')" 
   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow 51820/udp comment ISPGrid;allow in on wg0 to any port 1812,1813 proto udp comment ISPGrid;allow in on wg0 to any port 8088 proto tcp comment ISPGrid;"
 check "public rules" "$(firewall_rules public 22 '' '' | tr '\n' ';')" \
   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow from any to any port 1812,1813 proto udp comment ISPGrid;allow from any to any port 8088 proto tcp comment ISPGrid;"
+check "l2tp rules" "$(firewall_rules l2tp 22 10.251.0.0/24 '' | tr '\n' ';')" \
+  "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow to any port 500,4500 proto udp comment ISPGrid;allow proto esp from any to any comment ISPGrid;allow from 10.251.0.0/24 to any port 1812,1813 proto udp comment ISPGrid;allow from 10.251.0.0/24 to any port 8088 proto tcp comment ISPGrid;"
+before_rules=$'*filter\n:ufw-before-input - [0:0]\n-A ufw-before-input -i lo -j ACCEPT\n# don\'t delete the \'COMMIT\' line or these rules won\'t be processed\nCOMMIT'
+with_l2tp=$(ufw_before_rules_l2tp "$before_rules")
+check "l2tp inside ipsec only, before COMMIT" "$(tail -n 3 <<<"$with_l2tp")" \
+  $'# ISPGrid: L2TP from routers/NAS only inside IPsec\n-A ufw-before-input -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT\nCOMMIT'
+check "l2tp rule added once" "$(ufw_before_rules_l2tp "$with_l2tp" | grep -c 'dport 1701')" 1
+check "before.rules otherwise unchanged" "$(ufw_before_rules_l2tp "$before_rules" | grep -vc 'ISPGrid\|1701')" 5
 ufw_left_over=$'table ip filter {\n\tchain INPUT {\n\t\ttype filter hook input priority filter; policy accept;\n\t\tcounter packets 409 bytes 1793259 jump ufw-before-logging-input\n\t}\n\tchain ufw-before-input {\n\t\tct state related,established counter accept\n\t}\n}'
 probe=$'table inet probe {\n\tchain input {\n\t\ttype filter hook input priority filter; policy accept;\n\t\ttcp dport 9999 accept\n\t}\n}'
 docker=$'table ip filter {\n\tchain FORWARD {\n\t\tcounter packets 0 bytes 0 jump DOCKER-USER\n\t\tiifname "docker0" oifname != "docker0" counter accept\n\t}\n}'
@@ -192,6 +205,7 @@ check "access flag" "$(access_from public '' '' local '')" "public"
 check "domain flag means domain" "$(access_from '' panel.example.com '' local '')" "domain"
 check "public ip flag means public" "$(access_from '' '' 203.0.113.7 '' '')" "public"
 check "public ip with public routers chooses no access" "$(access_from '' '' 203.0.113.7 '' '' public)" ""
+check "public ip with l2tp routers chooses no access" "$(access_from '' '' 203.0.113.7 '' '' l2tp)" ""
 check "saved access" "$(access_from '' '' '' local '')" "local"
 check "old install with a domain" "$(access_from '' '' '' '' panel.example.com)" "domain"
 check "nothing known: ask" "$(access_from '' '' '' '' '')" ""

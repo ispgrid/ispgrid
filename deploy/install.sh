@@ -21,17 +21,21 @@ Usage: sudo bash install.sh [options]
 Installs ISPGrid on a fresh Ubuntu 24.04 or 26.04 server, or upgrades an existing install.
 Anything not given is asked; with --yes nothing is asked and the defaults are used.
 
-  --routers=lan|wireguard|public
+  --routers=lan|wireguard|l2tp|public
                             lan: the routers/NAS reach this server on a private network (default)
                             wireguard: the routers/NAS connect over the internet through a WireGuard tunnel
-                            public: the routers/NAS send RADIUS over the internet without a tunnel (for
-                            routers without WireGuard, like RouterOS 6; RADIUS is not encrypted)
+                            (RouterOS 7)
+                            l2tp: the routers/NAS connect over the internet through an L2TP/IPsec tunnel
+                            (RouterOS 6)
+                            public: the routers/NAS send RADIUS over the internet without a tunnel (UNSECURED:
+                            RADIUS is not encrypted; not recommended)
   --router-network=CIDR     lan only: the network the routers/NAS are in (default: this server's subnet)
   --access=local|public|domain
                             how the panel is opened: on this network only (http://<LAN IP>, default), on a
                             public IP without HTTPS (http://<public IP>, for trying it out), or with a domain
                             (https://<domain>, Let's Encrypt)
-  --public-ip=ADDRESS       public access or routers: this server's public IP (default: as seen by ipapi.co)
+  --public-ip=ADDRESS       public access, l2tp or public routers: this server's public IP (default: as seen
+                            by ipapi.co)
   --domain=NAME             domain: a name pointing here, for HTTPS from Let's Encrypt
   --admin-name=NAME         first install: the admin's name (default: Admin)
   --admin-email=EMAIL       first install: the admin's login email (required)
@@ -42,6 +46,7 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --wg-subnet=CIDR          wireguard only: the tunnel network (default: 10.250.0.0/24)
   --wg-port=PORT            wireguard only: the UDP port (default: 51820)
   --wg-endpoint=ADDRESS     wireguard only: the public address the routers/NAS connect to (default: public IP)
+  --l2tp-subnet=CIDR        l2tp only: the tunnel network (default: 10.251.0.0/24)
   --version=vX.Y.Z          the version to install or upgrade to (default: the newest release)
   --token                   asks (hidden) for a GitHub token with read access, while the repository is private.
                             --token=TOKEN also works, but sudo's log and the shell history keep the command line
@@ -316,6 +321,40 @@ valid_domain() { [[ "$1" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$ ]
 
 valid_peer_name() { [[ "$1" =~ ^[A-Za-z0-9_-]{1,32}$ ]]; }
 
+#  L2TP routers/NAS are lines of /etc/ppp/chap-secrets with the server name "ispgrid": "name" ispgrid "password" ip
+#  l2tp_peer_line <name> <password> <tunnel ip>
+l2tp_peer_line() { printf '"%s" ispgrid "%s" %s # ISPGrid
+' "$1" "$2" "$3"; }
+
+#  l2tp_used_ips <chap-secrets content>: the tunnel addresses given to routers/NAS, one per line
+l2tp_used_ips() { awk '$2 == "ispgrid" { print $4 }' <<<"$1"; }
+
+#  l2tp_peer_exists <chap-secrets content> <name>
+l2tp_peer_exists() { awk -v name="\"$2\"" '$1 == name && $2 == "ispgrid" { found = 1 } END { exit !found }' <<<"$1"; }
+
+#  ufw_before_rules_l2tp <before.rules content>: the content with L2TP (UDP 1701) accepted only when it arrived
+#  inside IPsec, added once before the filter table's COMMIT. Plain L2TP would carry the routers' logins unencrypted.
+ufw_before_rules_l2tp() {
+  if grep -q -- '--dport 1701 -m policy' <<<"$1"; then
+    printf '%s
+' "$1"
+    return 0
+  fi
+  awk '
+    { lines[NR] = $0 }
+    $0 == "COMMIT" { last = NR }
+    END {
+      for (i = 1; i <= NR; i++) {
+        if (i == last) {
+          print "# ISPGrid: L2TP from routers/NAS only inside IPsec"
+          print "-A ufw-before-input -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT"
+        }
+        print lines[i]
+      }
+    }
+  ' <<<"$1"
+}
+
 #  strong_password: the panel's production rule (AppServiceProvider): 12+, upper, lower, digit, symbol
 strong_password() {
   (( ${#1} >= 12 )) && [[ "$1" =~ [a-z] && "$1" =~ [A-Z] && "$1" =~ [0-9] && "$1" =~ [^A-Za-z0-9] ]]
@@ -354,14 +393,19 @@ foreign_nft_rules() {
   ' <<<"$1"
 }
 
-#  firewall_rules <lan|wireguard|public> <ssh port> <router network> <wg port>: ufw rules, one per line
-#  (public: RADIUS from anywhere; FreeRADIUS answers only the routers/NAS added in the panel)
+#  firewall_rules <lan|wireguard|l2tp|public> <ssh port> <router or tunnel network> <wg port>: ufw rules, one per
+#  line (public: RADIUS from anywhere; FreeRADIUS answers only the routers/NAS added in the panel). l2tp also needs
+#  ufw_before_rules_l2tp, as ufw rules cannot ask whether a packet came through IPsec.
 firewall_rules() {
   local routers=$1 ssh_port=$2 network=$3 wg_port=$4
   echo "allow $ssh_port/tcp comment ISPGrid"
   echo "allow 80/tcp comment ISPGrid"
   echo "allow 443/tcp comment ISPGrid"
   [[ "$routers" == public ]] && network=any
+  if [[ "$routers" == l2tp ]]; then
+    echo "allow to any port 500,4500 proto udp comment ISPGrid"
+    echo "allow proto esp from any to any comment ISPGrid"
+  fi
   if [[ "$routers" == wireguard ]]; then
     echo "allow $wg_port/udp comment ISPGrid"
     echo "allow in on wg0 to any port 1812,1813 proto udp comment ISPGrid"
@@ -426,13 +470,13 @@ is_utc_zone() {
 
 #  access_from <--access> <--domain> <--public-ip> <saved access> <saved domain> [routers]: how the panel is opened
 #  (local, public or domain), or nothing when it has to be asked. Installs from before the question saved only a
-#  domain. With public routers, --public-ip is where RADIUS goes and says nothing about the panel.
+#  domain. With public or l2tp routers, --public-ip is where the routers/NAS connect and says nothing about the panel.
 access_from() {
   if [[ -n "$1" ]]; then
     echo "$1"
   elif [[ -n "$2" ]]; then
     echo domain
-  elif [[ -n "$3" && "${6:-}" != public ]]; then
+  elif [[ -n "$3" && "${6:-}" != public && "${6:-}" != l2tp ]]; then
     echo public
   elif [[ -n "$4" ]]; then
     echo "$4"
@@ -583,6 +627,7 @@ parse_args() {
       --access=*) OPT_ACCESS=${arg#*=} ;;
       --public-ip=*) OPT_PUBLIC_IP=${arg#*=} ;;
       --wg-endpoint=*) OPT_WG_ENDPOINT=${arg#*=} ;;
+      --l2tp-subnet=*) OPT_L2TP_SUBNET=${arg#*=} ;;
       --admin-name=*) OPT_ADMIN_NAME=${arg#*=} ;;
       --admin-email=*) OPT_ADMIN_EMAIL=${arg#*=} ;;
       --admin-password=*) OPT_ADMIN_PASSWORD=${arg#*=} ;;

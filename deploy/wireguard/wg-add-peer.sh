@@ -5,7 +5,8 @@
 #
 #    /opt/ispgrid/deploy/wireguard/wg-add-peer.sh <name> [--endpoint=PUBLIC_ADDRESS]
 #
-#  The router/NAS's private key is shown once and not kept here. RouterOS 6 has no WireGuard: see the router guide.
+#  The router/NAS's private key is shown once and not kept here. RouterOS 6 has no WireGuard: install with
+#  --routers=l2tp and use deploy/l2tp/l2tp-add-peer.sh.
 #
 set -Eeuo pipefail
 # shellcheck source=../install.sh
