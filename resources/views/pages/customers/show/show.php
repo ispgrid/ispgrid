@@ -14,6 +14,7 @@ use App\Models\AccountAttribute;
 use App\Models\AddressList;
 use App\Models\AppSetting;
 use App\Models\Nas;
+use App\Models\NotificationLog;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\Radacct;
@@ -31,6 +32,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -97,6 +99,30 @@ new #[Title('Customer')] class extends Component
             'address',
             'radiusAttributes',
         ])->findOrFail($this->accountId);
+    }
+
+    /**
+     * The last 10 messages, for roles with the message log box.
+     *
+     * @return list<array{when: string, rule: string, status: string, color: string, text: string}>
+     */
+    #[Computed]
+    public function messages(): array
+    {
+        if (Gate::denies('view-notification-log')) {
+            return [];
+        }
+
+        $format = AppSetting::valueOf('date_format', 'd/m/Y').' H:i';
+
+        return NotificationLog::query()->with('rule:id,name')->where('account_id', $this->account->id)->latest('id')->limit(10)->get()
+            ->map(fn (NotificationLog $log): array => [
+                'when' => $log->created_at->format($format),
+                'rule' => $log->rule?->name ?? __('Test'),
+                'status' => $log->status->label(),
+                'color' => $log->status->color(),
+                'text' => $log->preview ?? implode(' | ', $log->values ?? []),
+            ])->all();
     }
 
     /**

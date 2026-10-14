@@ -32,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('notifications/rules', 'pages::notifications.rules')->name('notification-rules.index');
     Route::livewire('notifications/rules/create', 'pages::notifications.rule-form')->name('notification-rules.create');
     Route::livewire('notifications/rules/{rule}/edit', 'pages::notifications.rule-form')->name('notification-rules.edit');
+    Route::livewire('notifications/log', 'pages::notifications.log')->name('notification-log.index');
     Route::livewire('activity', 'pages::activity.index')->name('activity.index');
     Route::livewire('system/import', 'pages::system.import')->name('import.index');
 });

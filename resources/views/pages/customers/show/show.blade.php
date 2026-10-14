@@ -155,6 +155,29 @@
         </x-ui.table>
     </x-ui.card>
 
+    @can('view-notification-log')
+        <x-ui.card>
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <x-ui.heading>{{ __('Messages') }}</x-ui.heading>
+                <x-ui.link href="{{ route('notification-log.index', ['customer' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('All messages') }}</x-ui.link>
+            </div>
+            @if ($this->messages === [])
+                <x-ui.text muted class="mt-4">{{ __('No messages yet.') }}</x-ui.text>
+            @else
+                <ul class="mt-4 grid gap-3 text-sm">
+                    @foreach ($this->messages as $message)
+                        <li class="flex flex-wrap items-start gap-2" wire:key="message-{{ $loop->index }}">
+                            <span class="tabular-nums text-zinc-500 dark:text-zinc-400">{{ $message['when'] }}</span>
+                            <x-ui.badge :color="$message['color']">{{ $message['status'] }}</x-ui.badge>
+                            <span class="font-medium">{{ $message['rule'] }}</span>
+                            <span class="basis-full break-words">{{ $message['text'] }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </x-ui.card>
+    @endcan
+
     @unless ($this->account->trashed())
         <x-ui.card>
             <div class="flex flex-wrap items-start justify-between gap-4">
