@@ -6,11 +6,15 @@ cd "$ISPGRID_HOME" || die "Missing $ISPGRID_HOME"
 id ispgrid >/dev/null 2>&1 || useradd --system --user-group --home-dir "$ISPGRID_HOME" --no-create-home --shell /usr/sbin/nologin ispgrid
 chown -R root:root "$ISPGRID_HOME"
 
-COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader
+#  bootstrap/cache is the app user's, and booting the app loads the PHP in it: root never boots the app. The caches
+#  are removed and Composer runs without its scripts; package:discover runs as the app user.
+rm -f bootstrap/cache/*.php
+COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 npm ci --no-audit --no-fund --loglevel=error
 npm run build
 rm -rf node_modules
 chown -R ispgrid:ispgrid storage bootstrap/cache
+artisan package:discover
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
