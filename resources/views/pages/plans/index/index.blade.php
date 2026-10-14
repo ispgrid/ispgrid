@@ -24,7 +24,7 @@
         @forelse ($this->rows as $row)
             <tr wire:key="plan-{{ $row['id'] }}">
                 <x-ui.td>
-                    <span class="font-medium">{{ $row['name'] }}</span>
+                    <x-ui.link href="{{ route('plans.show', $row['id']) }}" wire:navigate class="font-medium">{{ $row['name'] }}</x-ui.link>
                     @if ($row['trashed'])
                         <x-ui.badge class="ms-2">{{ __('Deleted') }}</x-ui.badge>
                     @endif
