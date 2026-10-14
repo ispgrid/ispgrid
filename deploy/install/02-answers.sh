@@ -20,11 +20,13 @@ ACCESS=$(access_from "${OPT_ACCESS:-}" "${OPT_DOMAIN:-}" "${OPT_PUBLIC_IP:-}" "$
   "$(conf_get domain || true)")
 TIMEZONE_KNOWN=${OPT_TIMEZONE:-$(conf_get timezone || true)}
 ENDPOINT_KNOWN=${OPT_WG_ENDPOINT:-$(conf_get wg_endpoint || true)}
+PUBLIC_IP_KNOWN=${OPT_PUBLIC_IP:-$(conf_get public_ip || true)}
 
 #  This server's public IP and its timezone, from ipapi.co, only when a question needs them; nothing when offline.
 DETECTED_IP=""
 DETECTED_TZ=""
-if [[ -z "$ACCESS" || -z "$TIMEZONE_KNOWN" || ( "$ROUTERS" == wireguard && -z "$ENDPOINT_KNOWN" ) ]]; then
+if [[ -z "$ACCESS" || ( "$ACCESS" == public && -z "$PUBLIC_IP_KNOWN" ) || -z "$TIMEZONE_KNOWN" ||
+  ( "$ROUTERS" == wireguard && -z "$ENDPOINT_KNOWN" ) ]]; then
   info=$(ip_info)
   DETECTED_IP=$(json_value "$info" ip)
   valid_ipv4 "$DETECTED_IP" || DETECTED_IP=""
