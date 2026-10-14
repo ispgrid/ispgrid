@@ -49,7 +49,7 @@ new #[Title('FreeRADIUS settings')] class extends Component
     {
         return [
             'expire_type' => ['required', 'in:0,1'],
-            'disabled_users_pool' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_.-]+$/'],
+            'disabled_users_pool' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_.-]+$/D'],
             'default_session_timeout' => ['required', 'integer', 'between:300,604800'],
             'reject_session_timeout' => ['required', 'integer', 'between:60,65535'],
             'count_and_reject' => ['boolean'],

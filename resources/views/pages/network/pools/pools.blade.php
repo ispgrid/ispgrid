@@ -66,7 +66,7 @@
         <form wire:submit="save" class="grid gap-5">
             <x-ui.heading size="lg">{{ $editingId ? __('Edit pool') : __('Add pool') }}</x-ui.heading>
 
-            <x-ui.input wire:model="name" :label="__('Name')" :description="__('Exactly as in /ip pool on the routers.')" maxlength="64" required autocomplete="off" />
+            <x-ui.input wire:model="name" english :label="__('Name')" :description="__('Exactly as in /ip pool on the routers.')" maxlength="64" required autocomplete="off" />
             <x-ui.input wire:model="description" :label="__('Description')" maxlength="255" />
 
             <div class="flex justify-end gap-2">

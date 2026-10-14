@@ -16,7 +16,7 @@
                 <x-ui.tab-panel name="general" class="grid gap-5">
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="name" :label="__('Name')" :description="__('Shown to staff, e.g. Home 25 Mbps.')" maxlength="255" required />
-                        <x-ui.input wire:model="slug" :label="__('Slug')" :description="__('The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.')" maxlength="64" :readonly="$planId !== null" required autocomplete="off" />
+                        <x-ui.input wire:model="slug" english :label="__('Slug')" :description="__('The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.')" maxlength="64" :readonly="$planId !== null" required autocomplete="off" />
                         <x-ui.input wire:model="validity" type="number" min="1" max="3650" :label="__('Validity (days)')" :description="__('How long a recharge lasts.')" required />
                         <x-ui.input wire:model="price" type="number" min="0" step="0.01" :label="__('Price')" required />
                     </div>
@@ -26,8 +26,8 @@
                 <x-ui.tab-panel name="speed" class="grid gap-5">
                     <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                        <x-ui.input wire:model="upload_speed" :label="__('Upload')" required autocomplete="off" />
-                        <x-ui.input wire:model="download_speed" :label="__('Download')" required autocomplete="off" />
+                        <x-ui.input wire:model="upload_speed" english :label="__('Upload')" required autocomplete="off" />
+                        <x-ui.input wire:model="download_speed" english :label="__('Download')" required autocomplete="off" />
                     </div>
 
                     <div>
@@ -35,10 +35,10 @@
                         <x-ui.text muted class="mt-1">{{ __('Optional. Fill in all five fields or none. The customer gets the burst speed until their average speed over the burst time reaches the threshold.') }}</x-ui.text>
                     </div>
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                        <x-ui.input wire:model="burst_upload" :label="__('Burst upload')" autocomplete="off" />
-                        <x-ui.input wire:model="burst_download" :label="__('Burst download')" autocomplete="off" />
-                        <x-ui.input wire:model="threshold_upload" :label="__('Threshold upload')" autocomplete="off" />
-                        <x-ui.input wire:model="threshold_download" :label="__('Threshold download')" autocomplete="off" />
+                        <x-ui.input wire:model="burst_upload" english :label="__('Burst upload')" autocomplete="off" />
+                        <x-ui.input wire:model="burst_download" english :label="__('Burst download')" autocomplete="off" />
+                        <x-ui.input wire:model="threshold_upload" english :label="__('Threshold upload')" autocomplete="off" />
+                        <x-ui.input wire:model="threshold_download" english :label="__('Threshold download')" autocomplete="off" />
                         <x-ui.input wire:model="burst_time" type="number" min="1" max="3600" :label="__('Burst time (seconds)')" />
                     </div>
 
@@ -48,8 +48,8 @@
                     </div>
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="priority" type="number" min="1" max="8" :label="__('Priority')" />
-                        <x-ui.input wire:model="min_upload" :label="__('Minimum upload')" autocomplete="off" />
-                        <x-ui.input wire:model="min_download" :label="__('Minimum download')" autocomplete="off" />
+                        <x-ui.input wire:model="min_upload" english :label="__('Minimum upload')" autocomplete="off" />
+                        <x-ui.input wire:model="min_download" english :label="__('Minimum download')" autocomplete="off" />
                     </div>
                 </x-ui.tab-panel>
 
@@ -73,8 +73,8 @@
 
                     @if ($is_fup)
                         <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                            <x-ui.input wire:model="fup_upload" :label="__('Fair usage upload')" required autocomplete="off" />
-                            <x-ui.input wire:model="fup_download" :label="__('Fair usage download')" required autocomplete="off" />
+                            <x-ui.input wire:model="fup_upload" english :label="__('Fair usage upload')" required autocomplete="off" />
+                            <x-ui.input wire:model="fup_download" english :label="__('Fair usage download')" required autocomplete="off" />
                         </div>
                     @endif
                 </x-ui.tab-panel>
@@ -108,8 +108,8 @@
 
                         @if ($slot_mode === 'boost')
                             <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                                <x-ui.input wire:model="slot_upload" :label="__('Upload during the slot')" required autocomplete="off" />
-                                <x-ui.input wire:model="slot_download" :label="__('Download during the slot')" required autocomplete="off" />
+                                <x-ui.input wire:model="slot_upload" english :label="__('Upload during the slot')" required autocomplete="off" />
+                                <x-ui.input wire:model="slot_download" english :label="__('Download during the slot')" required autocomplete="off" />
                             </div>
                         @endif
                     @endif
@@ -146,7 +146,7 @@
                     @foreach ($custom_attributes as $index => $row)
                         <div wire:key="custom-attribute-{{ $index }}" class="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">
                             <x-ui.select wire:model="custom_attributes.{{ $index }}.attribute" :label="__('Attribute')" :options="$this->allowlist" :placeholder="__('Choose an attribute')" />
-                            <x-ui.input wire:model="custom_attributes.{{ $index }}.value" :label="__('Value')" maxlength="253" autocomplete="off" />
+                            <x-ui.input wire:model="custom_attributes.{{ $index }}.value" english :label="__('Value')" maxlength="253" autocomplete="off" />
                             <x-ui.button variant="ghost" icon="trash" class="sm:mt-6" wire:click="removeAttribute({{ $index }})">{{ __('Remove') }}</x-ui.button>
                         </div>
                     @endforeach

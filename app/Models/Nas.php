@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\RadiusText;
 use App\Support\RouterOsVersion;
 use Database\Factories\NasFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,6 +25,14 @@ class Nas extends Model
     use HasFactory, LogsActivity, SoftDeletes;
 
     protected $table = 'nas';
+
+    /**
+     * The columns FreeRADIUS loads (client_query) take English text only; the description is the app's own.
+     */
+    protected static function booted(): void
+    {
+        static::saving(fn (self $router) => RadiusText::check('nas', $router->only(['nasname', 'shortname', 'type', 'secret', 'server'])));
+    }
 
     /**
      * @return array<string, string>

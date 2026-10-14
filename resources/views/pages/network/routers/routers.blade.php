@@ -81,12 +81,12 @@
             <x-ui.heading size="lg">{{ $editingId ? __('Edit router') : __('Add router') }}</x-ui.heading>
 
             <div class="grid gap-5 sm:grid-cols-2">
-                <x-ui.input wire:model="shortname" :label="__('Name')" maxlength="32" required autocomplete="off" />
-                <x-ui.input wire:model="nasname" :label="__('IP address')" :description="__('The address the router sends RADIUS from.')" required autocomplete="off" />
+                <x-ui.input wire:model="shortname" english :label="__('Name')" maxlength="32" required autocomplete="off" />
+                <x-ui.input wire:model="nasname" english :label="__('IP address')" :description="__('The address the router sends RADIUS from.')" required autocomplete="off" />
             </div>
 
             <div class="grid gap-2">
-                <x-ui.input wire:model="secret" type="password" viewable :label="__('Secret')" :description="__('The same secret as in /radius on the router, 8 to 60 characters.')" maxlength="60" required autocomplete="off" />
+                <x-ui.input wire:model="secret" english type="password" viewable :label="__('Secret')" :description="__('The same secret as in /radius on the router, 8 to 60 characters.')" maxlength="60" required autocomplete="off" />
                 <div>
                     <x-ui.button size="sm" variant="secondary" icon="key" wire:click="generateSecret">{{ __('Generate a secret') }}</x-ui.button>
                 </div>

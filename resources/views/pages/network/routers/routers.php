@@ -237,7 +237,7 @@ new #[Title('Routers')] class extends Component
     private function rules(?int $ignoreId): array
     {
         return [
-            'shortname' => ['required', 'string', 'max:32',
+            'shortname' => ['required', 'string', 'max:32', 'regex:/^[\x20-\x7E]+$/D',
                 Rule::unique(Nas::class, 'shortname')->withoutTrashed()->ignore($ignoreId),
                 new NotUsedByTrashed(Nas::class, 'shortname', __('A deleted router uses this name. Restore it instead.'), $ignoreId),
             ],
@@ -245,7 +245,7 @@ new #[Title('Routers')] class extends Component
                 Rule::unique(Nas::class, 'nasname')->withoutTrashed()->ignore($ignoreId),
                 new NotUsedByTrashed(Nas::class, 'nasname', __('A deleted router uses this IP address. Restore it instead.'), $ignoreId),
             ],
-            'secret' => ['required', 'string', 'min:8', 'max:60', 'regex:/^[A-Za-z0-9._~!@#%^*+=-]+$/'],
+            'secret' => ['required', 'string', 'min:8', 'max:60', 'regex:/^[A-Za-z0-9._~!@#%^*+=-]+$/D'],
             'routeros_version' => ['required', 'string', function (string $attribute, string $value, Closure $fail): void {
                 if (RouterOsVersion::parse($value) === null) {
                     $fail(__('Enter the version as the router shows it, e.g. 7.23.7.'));
@@ -262,6 +262,7 @@ new #[Title('Routers')] class extends Component
     {
         return [
             'nasname.ipv4' => __('Enter the IPv4 address the router sends RADIUS from, e.g. 10.0.0.1.'),
+            'shortname.regex' => __('Use English letters, digits and symbols only: FreeRADIUS loads this name.'),
             'secret.regex' => __('Use letters, digits and . _ ~ ! @ # % ^ * + = - only.'),
         ];
     }

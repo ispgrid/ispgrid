@@ -16,6 +16,7 @@ use App\Models\Pool;
 use App\Models\Radacct;
 use App\Models\User;
 use Database\Seeders\RadiusAttributeSeeder;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
@@ -87,7 +88,14 @@ it('leaves the checks to the server, so a bad field on a hidden tab cannot silen
 
 it('refuses a username FreeRADIUS cannot match', function (string $username) {
     newCustomerForm()->set('username', $username)->call('save')->assertHasErrors(['username']);
-})->with(['alice smith', 'bc:24:11:00:30:20', "o'brien", 'ali"ce', 'name#1', 'a-very-long-name-'.str_repeat('x', 60), '']);
+})->with(['alice smith', 'bc:24:11:00:30:20', "o'brien", 'ali"ce', 'name#1', 'a-very-long-name-'.str_repeat('x', 60), '', 'राम']);
+
+it('tells Hindi staff that a username takes English letters only', function () {
+    App::setLocale('hi');
+
+    newCustomerForm()->set('username', 'राम')->call('save')
+        ->assertHasErrors(['username' => 'सिर्फ़ अंग्रेज़ी अक्षर (A-Z), अंक, ., -, _ और @ इस्तेमाल करें।']);
+});
 
 it('accepts the characters FreeRADIUS reads as they are', function () {
     newCustomerForm()->set('username', 'Alice.R-2_x@isp')->call('save')->assertHasNoErrors();
@@ -439,7 +447,7 @@ it('records the address and address lists in the activity log, never the passwor
 
 it('refuses a password FreeRADIUS would unquote or expand', function (string $password) {
     newCustomerForm()->set('password', $password)->call('save')->assertHasErrors(['password']);
-})->with(['"secret12"', "'secret12'", '`date`', 'pass"word', 'back\slash']);
+})->with(['"secret12"', "'secret12'", '`date`', 'pass"word', 'back\slash', 'पासवर्ड123']);
 
 it('refuses a tampered password on an IPoE customer', function () {
     freeIp('172.16.30.20');

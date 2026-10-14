@@ -167,7 +167,7 @@ new #[Title('Pools')] class extends Component
     private function rules(?int $ignoreId): array
     {
         return [
-            'name' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_.-]+$/',
+            'name' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_.-]+$/D',
                 Rule::unique(Pool::class, 'name')->withoutTrashed()->ignore($ignoreId),
                 new NotUsedByTrashed(Pool::class, 'name', __('A deleted pool uses this name. Restore it instead.'), $ignoreId),
             ],

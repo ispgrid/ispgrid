@@ -15,7 +15,7 @@
                 <x-ui.heading>{{ __('Expired and disabled customers') }}</x-ui.heading>
                 <x-ui.select wire:model="expire_type" :label="__('When an account expires')" :options="$this->expireTypes" />
                 <x-ui.input
-                    wire:model.live.blur="disabled_users_pool"
+                    wire:model.live.blur="disabled_users_pool" english
                     :label="__('Disabled pool')"
                     :description="__('The IP pool for inactive, suspended and expired customers. Every router needs a pool with this name.')"
                     maxlength="64"

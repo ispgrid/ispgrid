@@ -61,9 +61,9 @@
                 <x-ui.tab-panel name="service" class="grid gap-5">
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.select wire:model.live="service_type" :label="__('Type')" :options="$this->serviceTypes" required />
-                        <x-ui.input wire:model="username" :label="__('Username')" :description="__('The login name: letters, digits, ., -, _ and @. It cannot change after saving.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
+                        <x-ui.input wire:model="username" english :label="__('Username')" :description="__('The login name: letters, digits, ., -, _ and @. It cannot change after saving.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
                         @unless ($this->isIpoe)
-                            <x-ui.input wire:model="password" :label="__('Password')" viewable maxlength="64" required autocomplete="off" />
+                            <x-ui.input wire:model="password" english :label="__('Password')" viewable maxlength="64" required autocomplete="off" />
                             <x-ui.input wire:model="mac_type" type="number" min="0" max="100" :label="__('Device limit')" :description="__('PPPoE: how many routers may log in with this account. Hotspot: devices online at once. 0 means no limit.')" required />
                         @endunless
                     </div>
@@ -81,7 +81,7 @@
                 <x-ui.tab-panel name="network" class="grid gap-5">
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="sm:col-span-2">
-                            <x-ui.input wire:model="ip_address" :label="$this->isIpoe ? __('IP address') : __('Static IP')" :description="$this->isIpoe ? __('The address of the customer device. FreeRADIUS finds the customer by it.') : __('Optional. Sent as Framed-IP-Address.')" :required="$this->isIpoe" autocomplete="off" />
+                            <x-ui.input wire:model="ip_address" english :label="$this->isIpoe ? __('IP address') : __('Static IP')" :description="$this->isIpoe ? __('The address of the customer device. FreeRADIUS finds the customer by it.') : __('Optional. Sent as Framed-IP-Address.')" :required="$this->isIpoe" autocomplete="off" />
                         </div>
                         <div class="flex flex-wrap items-end gap-3 sm:col-span-2">
                             <div class="min-w-0 grow">
@@ -114,16 +114,16 @@
                     @if ($override_plan)
                         <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
                         <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                            <x-ui.input wire:model="override_upload" :label="__('Upload')" required autocomplete="off" />
-                            <x-ui.input wire:model="override_download" :label="__('Download')" required autocomplete="off" />
-                            <x-ui.input wire:model="override_burst_upload" :label="__('Burst upload')" autocomplete="off" />
-                            <x-ui.input wire:model="override_burst_download" :label="__('Burst download')" autocomplete="off" />
-                            <x-ui.input wire:model="override_threshold_upload" :label="__('Threshold upload')" autocomplete="off" />
-                            <x-ui.input wire:model="override_threshold_download" :label="__('Threshold download')" autocomplete="off" />
+                            <x-ui.input wire:model="override_upload" english :label="__('Upload')" required autocomplete="off" />
+                            <x-ui.input wire:model="override_download" english :label="__('Download')" required autocomplete="off" />
+                            <x-ui.input wire:model="override_burst_upload" english :label="__('Burst upload')" autocomplete="off" />
+                            <x-ui.input wire:model="override_burst_download" english :label="__('Burst download')" autocomplete="off" />
+                            <x-ui.input wire:model="override_threshold_upload" english :label="__('Threshold upload')" autocomplete="off" />
+                            <x-ui.input wire:model="override_threshold_download" english :label="__('Threshold download')" autocomplete="off" />
                             <x-ui.input wire:model="override_burst_time" type="number" min="1" max="3600" :label="__('Burst time (seconds)')" />
                             <x-ui.input wire:model="override_priority" type="number" min="1" max="8" :label="__('Priority')" />
-                            <x-ui.input wire:model="override_min_upload" :label="__('Minimum upload')" autocomplete="off" />
-                            <x-ui.input wire:model="override_min_download" :label="__('Minimum download')" autocomplete="off" />
+                            <x-ui.input wire:model="override_min_upload" english :label="__('Minimum upload')" autocomplete="off" />
+                            <x-ui.input wire:model="override_min_download" english :label="__('Minimum download')" autocomplete="off" />
                         </div>
                     @endif
                 </x-ui.tab-panel>
@@ -134,7 +134,7 @@
                     @foreach ($custom_attributes as $index => $row)
                         <div wire:key="custom-attribute-{{ $index }}" class="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">
                             <x-ui.select wire:model="custom_attributes.{{ $index }}.attribute" :label="__('Attribute')" :options="$this->allowlist" :placeholder="__('Choose an attribute')" required />
-                            <x-ui.input wire:model="custom_attributes.{{ $index }}.value" :label="__('Value')" maxlength="253" required autocomplete="off" />
+                            <x-ui.input wire:model="custom_attributes.{{ $index }}.value" english :label="__('Value')" maxlength="253" required autocomplete="off" />
                             <x-ui.button variant="ghost" icon="trash" class="sm:mt-6" wire:click="removeAttribute({{ $index }})">{{ __('Remove') }}</x-ui.button>
                         </div>
                     @endforeach

@@ -68,6 +68,12 @@ it('refuses what FreeRADIUS cannot use', function (string $field, string $value)
     'short secret' => ['secret', 'abc'],
     'secret with a space' => ['secret', 'two words1'],
     'beta version' => ['routeros_version', '7.15rc1'],
+    'name in Hindi' => ['shortname', 'मुख्य-राउटर'],
+    'name with a line break' => ['shortname', 'core-1
+'],
+    'secret in Hindi' => ['secret', 'गुप्त-शब्द-12345'],
+    'secret with a line break' => ['secret', 'Secret12345
+'],
 ]);
 
 it('tells staff to restore a deleted router instead of reusing its IP or name', function () {

@@ -4,6 +4,8 @@
     'type' => 'text',
     'description' => null,
     'viewable' => false,
+    // The value goes to FreeRADIUS, which reads English letters, digits and symbols only: warn while other text is typed.
+    'english' => false,
 ])
 
 @php
@@ -13,7 +15,7 @@
     $required = (bool) $attributes->get('required', false);
 @endphp
 
-<div class="grid content-start gap-1.5">
+<div class="grid content-start gap-1.5" @if ($english) x-data="{ notEnglish: false }" @endif>
     @if ($label)
         <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}@if ($required)<span class="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>@endif</label>
     @endif
@@ -24,6 +26,7 @@
             @if ($name) name="{{ $name }}" @endif
             type="{{ $type }}"
             @if ($viewable) x-bind:type="visible ? 'text' : 'password'" @endif
+            @if ($english) lang="en" dir="ltr" spellcheck="false" autocapitalize="off" x-on:input="notEnglish = /[^\x20-\x7E]/.test($event.target.value)" @endif
             @if ($error) aria-invalid="true" aria-describedby="{{ $id }}-error" @endif
             {{ $attributes->except('id')->class([
                 'block w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-2 focus:outline-offset-1 focus:outline-deep-green dark:focus:outline-signal disabled:opacity-60 dark:bg-zinc-800 dark:text-white',
@@ -45,6 +48,10 @@
             </button>
         @endif
     </div>
+
+    @if ($english)
+        <p x-show="notEnglish" x-cloak role="alert" class="text-sm text-amber-700 dark:text-amber-400">{{ __('Only English letters, digits and symbols: FreeRADIUS cannot read other characters.') }}</p>
+    @endif
 
     @if ($description)
         <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $description }}</p>
