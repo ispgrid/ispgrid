@@ -25,8 +25,11 @@ mapfile -t rules < <(firewall_rules "$ROUTERS" "${ssh_port:-22}" "$ROUTER_NETWOR
 
 if [[ "$mode" == other ]]; then
   FIREWALL_NOTE="A firewall is already managed on this server ($([[ "$firewalld_active" == yes ]] && echo firewalld || echo nftables/iptables rules)); nothing was changed. Allow these ports in it (shown as ufw rules):"
+  for rule in "${rules[@]}"; do
+    FIREWALL_NOTE+=$'\n'"  ufw $rule"
+  done
+  FIREWALL_NOTE+=$'\n'
   say "$FIREWALL_NOTE"
-  printf '  ufw %s\n' "${rules[@]}"
 else
   command -v ufw >/dev/null 2>&1 || apt_install ufw
   for rule in "${rules[@]}"; do
