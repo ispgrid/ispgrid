@@ -4,6 +4,7 @@ namespace App\Actions\Radius;
 
 use App\Enums\SlotMode;
 use App\Models\Plan;
+use App\Support\RadiusText;
 use App\Support\RateLimit;
 use Illuminate\Support\Facades\DB;
 
@@ -38,15 +39,17 @@ class SyncPlanToRadius
     public function handle(Plan $plan): bool
     {
         $plan->load(['pool', 'addressLists', 'radiusAttributes']);
-        $before = $this->snapshot($plan->slug);
-
-        DB::table('radgroupreply')->where('groupname', $plan->slug)->delete();
-        DB::table('radgroupreply')->insert(array_map(fn (array $row): array => [
+        $rows = array_map(fn (array $row): array => [
             'groupname' => $plan->slug,
             'attribute' => $row[0],
             'op' => $row[1],
             'value' => (string) $row[2],
-        ], $this->rows($plan)));
+        ], $this->rows($plan));
+        RadiusText::check('radgroupreply', $rows);
+        $before = $this->snapshot($plan->slug);
+
+        DB::table('radgroupreply')->where('groupname', $plan->slug)->delete();
+        DB::table('radgroupreply')->insert($rows);
 
         return $this->snapshot($plan->slug) !== $before;
     }

@@ -1,4 +1,4 @@
-<section class="grid max-w-4xl gap-6">
+<section class="grid gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.link href="{{ route('customers.index') }}" wire:navigate class="text-sm">{{ __('Customers') }}</x-ui.link>
@@ -101,7 +101,7 @@
         @else
             <x-ui.table class="mt-4">
                 <x-slot:head>
-                    <x-ui.th>{{ __('Router') }}</x-ui.th>
+                    <x-ui.th>{{ __('NAS') }}</x-ui.th>
                     <x-ui.th>{{ __('IP address') }}</x-ui.th>
                     <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
                     <x-ui.th>{{ __('Started') }}</x-ui.th>
@@ -209,7 +209,7 @@
                     <x-ui.th>{{ __('When') }}</x-ui.th>
                     <x-ui.th>{{ __('Result') }}</x-ui.th>
                     <x-ui.th>{{ __('Reason') }}</x-ui.th>
-                    <x-ui.th>{{ __('Router') }}</x-ui.th>
+                    <x-ui.th>{{ __('NAS') }}</x-ui.th>
                     <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
                 </x-slot:head>
                 @foreach ($this->logins as $login)

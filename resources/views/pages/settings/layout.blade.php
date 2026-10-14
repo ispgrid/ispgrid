@@ -5,7 +5,7 @@
         <x-ui.nav-item :href="route('appearance.edit')" :current="request()->routeIs('appearance.edit')">{{ __('Appearance') }}</x-ui.nav-item>
     </nav>
 
-    <div class="w-full max-w-lg flex-1">
+    <div class="w-full min-w-0 flex-1">
         <x-ui.heading>{{ $heading ?? '' }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ $subheading ?? '' }}</x-ui.text>
 

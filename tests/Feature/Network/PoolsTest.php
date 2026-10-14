@@ -38,7 +38,8 @@ it('adds a pool', function () {
 
 it('refuses a name a router or FreeRADIUS cannot use', function (string $name) {
     Livewire::test('pages::network.pools')->call('create')->set('name', $name)->call('save')->assertHasErrors(['name']);
-})->with(['two words', 'pool|x', "o'brien", '']);
+})->with(['two words', 'pool|x', "o'brien", '', 'पूल', 'pppoe
+']);
 
 it('tells staff to restore a deleted pool instead of reusing its name', function () {
     Pool::factory()->trashed()->create(['name' => 'old_pool']);

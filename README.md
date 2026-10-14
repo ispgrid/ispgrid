@@ -81,7 +81,7 @@ For each router:
    sudo /opt/ispgrid/deploy/l2tp/l2tp-add-peer.sh office-router      # l2tp
    ```
 
-2. **In the panel:** Network, Routers, add the router with its address (its tunnel address in a tunnel mode) and a
+2. **In the panel:** Network, NAS, add the router with its address (its tunnel address in a tunnel mode) and a
    RADIUS secret.
 3. **On the router:** point `/radius` at the server with the same secret, for `ppp` and/or `hotspot`, and allow
    Disconnect-Requests from the panel:
@@ -177,7 +177,7 @@ ISPGrid stands on the work of these projects. Thank you to everyone who builds a
 - [Tailwind CSS](https://tailwindcss.com) and [Vite](https://vite.dev)
 - [Heroicons](https://heroicons.com): icons
 - [spatie/laravel-activitylog](https://github.com/spatie/laravel-activitylog): the activity log
-- [Geist](https://vercel.com/font) and [JetBrains Mono](https://www.jetbrains.com/lp/mono/): fonts
+- [Geist](https://vercel.com/font), [JetBrains Mono](https://www.jetbrains.com/lp/mono/) and [Noto Sans Devanagari](https://fonts.google.com/noto/specimen/Noto+Sans+Devanagari): fonts
 
 **Testing and tooling**
 - [Pest](https://pestphp.com), [Larastan](https://github.com/larastan/larastan), [Laravel Pint](https://github.com/laravel/pint)
@@ -188,5 +188,5 @@ Each keeps its own licence. ISPGrid is not affiliated with or endorsed by any of
 
 ISPGrid is open source under the [MIT License](LICENSE).
 
-The fonts in `resources/fonts` (Geist, JetBrains Mono) are under the SIL Open Font License. The icons are from
+The fonts in `resources/fonts` (Geist, JetBrains Mono, Noto Sans Devanagari) are under the SIL Open Font License. The icons are from
 Heroicons (MIT License, Copyright (c) Tailwind Labs, Inc.).

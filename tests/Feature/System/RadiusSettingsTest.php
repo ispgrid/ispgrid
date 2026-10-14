@@ -64,7 +64,8 @@ it('refuses a disabled pool name FreeRADIUS cannot read', function (string $name
         ->set('disabled_users_pool', $name)
         ->call('save')
         ->assertHasErrors(['disabled_users_pool']);
-})->with(['pool|x', 'two words', '']);
+})->with(['pool|x', 'two words', '', 'पूल', 'disabled_pool
+']);
 
 it('warns when no pool has the disabled pool name', function () {
     Livewire::test('pages::system.radius-settings')->assertSee('No pool is named disabled_pool');

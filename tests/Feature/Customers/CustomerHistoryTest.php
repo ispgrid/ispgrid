@@ -37,7 +37,7 @@ it('shows the open sessions and disconnects one of them', function () {
         ->assertSee('10.10.10.5')
         ->assertSee('core')
         ->call('disconnect', $session->radacctid)
-        ->assertDispatched('toast', message: 'Disconnect sent to the router. The session closes when the router confirms.', variant: 'success');
+        ->assertDispatched('toast', message: 'Disconnect sent to the NAS. The session closes when the NAS confirms.', variant: 'success');
 
     Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->username === 'alice' && $job->sessionId === $session->radacctid);
     expect(Activity::query()->where(['event' => 'disconnected', 'subject_id' => $account->id])->exists())->toBeTrue();

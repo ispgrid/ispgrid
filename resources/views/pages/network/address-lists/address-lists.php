@@ -97,7 +97,7 @@ new #[Title('Address lists')] class extends Component
         $this->dispatch('modal-close', name: 'address-list-form');
         $this->resetForm();
         $this->toast($renamed
-            ? __('Address list renamed. Rename it in the router firewall rules too; online customers get the new name at their next login.')
+            ? __('Address list renamed. Rename it in the NAS firewall rules too; online customers get the new name at their next login.')
             : __('Address list saved.'));
     }
 
@@ -145,7 +145,7 @@ new #[Title('Address lists')] class extends Component
     private function rules(?int $ignoreId): array
     {
         return [
-            'name' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/',
+            'name' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/D',
                 Rule::unique(AddressList::class, 'name')->withoutTrashed()->ignore($ignoreId),
                 new NotUsedByTrashed(AddressList::class, 'name', __('A deleted address list uses this name. Restore it instead.'), $ignoreId),
             ],

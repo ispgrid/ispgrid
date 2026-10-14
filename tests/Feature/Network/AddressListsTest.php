@@ -29,7 +29,8 @@ it('adds an address list', function () {
 
 it('refuses a name with characters the router list name cannot have', function (string $name) {
     Livewire::test('pages::network.address-lists')->call('create')->set('name', $name)->call('save')->assertHasErrors(['name']);
-})->with(['two words', 'list.name', "it's", '']);
+})->with(['two words', 'list.name', "it's", '', 'सूची', 'blocked
+']);
 
 it('tells staff to restore a deleted list instead of reusing its name', function () {
     AddressList::factory()->trashed()->create(['name' => 'old_list']);

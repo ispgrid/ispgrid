@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\RadiusText;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -21,6 +22,14 @@ class RadiusSetting extends Model
     public $timestamps = false;
 
     public $incrementing = false;
+
+    /**
+     * isp reads the disabled pool name and sends it to the router as Framed-Pool.
+     */
+    protected static function booted(): void
+    {
+        static::saving(fn (self $settings) => RadiusText::check('settings', $settings->only(['disabled_users_pool'])));
+    }
 
     public static function current(): self
     {

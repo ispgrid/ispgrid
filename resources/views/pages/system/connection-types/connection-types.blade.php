@@ -1,4 +1,4 @@
-<section class="grid max-w-3xl gap-6">
+<section class="grid gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Connection types') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Labels for customers, such as Home or Business. A type in use cannot be deleted.') }}</x-ui.text>

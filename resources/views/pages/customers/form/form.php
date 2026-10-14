@@ -114,6 +114,12 @@ new #[Title('Customer')] class extends Component
     public string $autoFilledIp = '';
 
     /**
+     * The title the customer had when the form opened. One from before the list (e.g. imported) stays selectable.
+     */
+    #[Locked]
+    public string $savedTitle = '';
+
+    /**
      * The range "Next free IP" picks from. Not saved.
      */
     public string $free_ip_range = '';
@@ -171,6 +177,8 @@ new #[Title('Customer')] class extends Component
             $this->{$field} = (string) ($model->{$field} ?? '');
         }
 
+        $this->savedTitle = $this->title;
+
         // The generated IPoE password stays hidden: it must not turn into a PPPoE password nobody chose.
         if ($model->service_type === ServiceType::Ipoe) {
             $this->password = '';
@@ -219,6 +227,29 @@ new #[Title('Customer')] class extends Component
         return collect([ServiceType::Ppp, ServiceType::Hotspot, ServiceType::Ipoe])
             ->mapWithKeys(fn (ServiceType $type): array => [$type->value => $type->label()])
             ->all();
+    }
+
+    /**
+     * The titles staff pick from, saved in English and shown in the panel language.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function titles(): array
+    {
+        $titles = [
+            'Mr' => __('Mr'),
+            'Mrs' => __('Mrs'),
+            'Ms' => __('Ms'),
+            'Dr' => __('Dr'),
+            'M/s' => __('M/s'),
+        ];
+
+        if ($this->savedTitle !== '' && ! array_key_exists($this->savedTitle, $titles)) {
+            $titles[$this->savedTitle] = $this->savedTitle;
+        }
+
+        return $titles;
     }
 
     /**
@@ -494,7 +525,7 @@ new #[Title('Customer')] class extends Component
 
         return [
             ...CustomerRules::rules($this->accountId === null, $isIpoe, $this->hasAddress(), $this->phoneDigits),
-            'title' => ['nullable', 'string', 'max:20'],
+            'title' => ['nullable', 'string', Rule::in(array_keys($this->titles))],
             'company' => ['nullable', 'string', 'max:255'],
             'whatsapp' => $phone,
             'alt_number' => $phone,
@@ -534,7 +565,7 @@ new #[Title('Customer')] class extends Component
             ...CustomerRules::messages($this->phoneDigits),
             'whatsapp.regex' => $digits,
             'alt_number.regex' => $digits,
-            'nas_id.exists' => __('This router was deleted. Choose another one.'),
+            'nas_id.exists' => __('This NAS was deleted. Choose another one.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),

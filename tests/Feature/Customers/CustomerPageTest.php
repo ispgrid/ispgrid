@@ -44,7 +44,7 @@ it('shows what the customer has and how to reach them', function () {
         ->assertSee('Home 25')
         ->assertSee('31/01/2030 18:00')
         ->assertSee('PPPoE')
-        ->assertSee('Any router');
+        ->assertSee('Any NAS');
 });
 
 it('gives the technician the IP, mask, gateway and DNS', function () {
@@ -240,7 +240,7 @@ it('refuses to restore a customer whose plan, router or address list was deleted
         ->and(DB::table('radcheck')->where('username', $account->username)->count())->toBe(0);
 })->with([
     ['plan', 'First restore what this customer uses: the plan Old plan.'],
-    ['router', 'First restore what this customer uses: the router old-router.'],
+    ['router', 'First restore what this customer uses: the NAS old-router.'],
     ['address list', 'First restore what this customer uses: the address list old-list.'],
 ]);
 

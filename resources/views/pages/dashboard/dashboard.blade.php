@@ -8,7 +8,7 @@
         <x-ui.alert variant="warning" wire:key="outdated-{{ $outdated['id'] }}">
             <span class="font-medium">{{ $outdated['router'] }}</span>
             <span>{{ $outdated['warning'] }}</span>
-            <x-ui.link href="{{ route('routers.index') }}" wire:navigate>{{ __('Open routers') }}</x-ui.link>
+            <x-ui.link href="{{ route('routers.index') }}" wire:navigate>{{ __('Open NAS') }}</x-ui.link>
         </x-ui.alert>
     @endforeach
 
@@ -35,7 +35,7 @@
                     <x-ui.th>{{ __('Username') }}</x-ui.th>
                     <x-ui.th>{{ __('Result') }}</x-ui.th>
                     <x-ui.th>{{ __('Reason') }}</x-ui.th>
-                    <x-ui.th>{{ __('Router') }}</x-ui.th>
+                    <x-ui.th>{{ __('NAS') }}</x-ui.th>
                 </x-slot:head>
                 @foreach ($this->failedLogins as $login)
                     <tr wire:key="failed-{{ $login['id'] }}">

@@ -63,7 +63,7 @@ it('leaves the checks to the server, so a bad field on a hidden tab cannot silen
 
 it('refuses a slug FreeRADIUS cannot use as a group name', function (string $slug) {
     newPlanForm()->set('slug', $slug)->call('save')->assertHasErrors(['slug']);
-})->with(['Home', 'home 25', 'home.25', "o'brien", '']);
+})->with(['Home', 'home 25', 'home.25', "o'brien", '', 'घर']);
 
 it('tells staff to restore a deleted plan instead of reusing its slug', function () {
     Plan::factory()->trashed()->create(['slug' => 'home_25']);
@@ -252,6 +252,7 @@ it('refuses a custom attribute FreeRADIUS would fail on', function (string $attr
 })->with([
     'not on the allowlist' => ['Framed-Pool', 'pppoe', 'custom_attributes.0.attribute'],
     'wrong type' => ['Idle-Timeout', 'five minutes', 'custom_attributes.0.value'],
+    'text in Hindi' => ['Mikrotik-Group', 'समूह', 'custom_attributes.0.value'],
 ]);
 
 it('allows a single-value attribute only once', function () {

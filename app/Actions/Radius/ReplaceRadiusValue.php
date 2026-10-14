@@ -2,6 +2,7 @@
 
 namespace App\Actions\Radius;
 
+use App\Support\RadiusText;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +20,7 @@ final class ReplaceRadiusValue
      */
     public function handle(string $table, iterable $owners, string $attribute, string $from, string $to): int
     {
+        RadiusText::check($table, ['value' => $to]);
         $ownerColumn = $table === 'radgroupreply' ? 'groupname' : 'username';
 
         return collect($owners)

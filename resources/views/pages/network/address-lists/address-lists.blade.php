@@ -2,7 +2,7 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Address lists') }}</x-ui.heading>
-            <x-ui.text muted class="mt-1">{{ __("Firewall address lists on the routers. A customer is added to their plan's lists, or to their own lists when they have any.") }}</x-ui.text>
+            <x-ui.text muted class="mt-1">{{ __("Firewall address lists on the NAS. A customer is added to their plan's lists, or to their own lists when they have any.") }}</x-ui.text>
         </div>
 
         @can('create', \App\Models\AddressList::class)
@@ -63,7 +63,7 @@
         <form wire:submit="save" class="grid gap-5">
             <x-ui.heading size="lg">{{ $editingId ? __('Edit address list') : __('Add address list') }}</x-ui.heading>
 
-            <x-ui.input wire:model="name" :label="__('Name')" :description="__('Exactly as used in the router firewall rules.')" maxlength="64" required autocomplete="off" />
+            <x-ui.input wire:model="name" english :label="__('Name')" :description="__('Exactly as used in the NAS firewall rules.')" maxlength="64" required autocomplete="off" />
             <x-ui.input wire:model="description" :label="__('Description')" maxlength="255" />
 
             <div class="flex justify-end gap-2">

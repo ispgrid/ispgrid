@@ -2,7 +2,7 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Customers') }}</x-ui.heading>
-            <x-ui.text muted class="mt-1">{{ __('Everyone who logs in through your routers. FreeRADIUS knows each customer by their username.') }}</x-ui.text>
+            <x-ui.text muted class="mt-1">{{ __('Everyone who logs in through your NAS. FreeRADIUS knows each customer by their username.') }}</x-ui.text>
         </div>
 
         @can('create', \App\Models\Account::class)
@@ -15,7 +15,7 @@
         <x-ui.select wire:model.live="status" :label="__('Status')" :options="$this->statuses" />
         <x-ui.select wire:model.live="plan" :label="__('Plan')" :options="$this->plans" :placeholder="__('All plans')" />
         <x-ui.select wire:model.live="type" :label="__('Type')" :options="$this->types" :placeholder="__('All types')" />
-        <x-ui.select wire:model.live="router" :label="__('Router')" :options="$this->routers" :placeholder="__('All routers')" />
+        <x-ui.select wire:model.live="router" :label="__('NAS')" :options="$this->routers" :placeholder="__('All NAS')" />
         <x-ui.select wire:model.live="connection" :label="__('Connection type')" :options="$this->connectionTypes" :placeholder="__('All connection types')" />
         <div class="flex items-end pb-2">
             <x-ui.checkbox wire:model.live="expiring" :label="__('Expiring within 7 days')" />
@@ -32,7 +32,7 @@
             <x-ui.th>{{ __('Plan') }}</x-ui.th>
             <x-ui.th>{{ __('Status') }}</x-ui.th>
             <x-ui.th>{{ __('Expiry') }}</x-ui.th>
-            <x-ui.th>{{ __('Router') }}</x-ui.th>
+            <x-ui.th>{{ __('NAS') }}</x-ui.th>
         </x-slot:head>
 
         @forelse ($this->rows as $row)
@@ -57,7 +57,7 @@
                         @endif
                     @endif
                 </x-ui.td>
-                <x-ui.td>{{ $row['router'] ?? __('Any router') }}</x-ui.td>
+                <x-ui.td>{{ $row['router'] ?? __('Any NAS') }}</x-ui.td>
             </tr>
         @empty
             <tr>

@@ -28,7 +28,7 @@ final class RateLimit
      */
     public static function bits(?string $speed): ?int
     {
-        if ($speed === null || preg_match('/^([1-9][0-9]{0,6})([kM])$/', $speed, $match) !== 1) {
+        if ($speed === null || preg_match('/^([1-9][0-9]{0,6})([kM])$/D', $speed, $match) !== 1) {
             return null;
         }
 

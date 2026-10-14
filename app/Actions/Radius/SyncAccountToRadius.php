@@ -6,6 +6,7 @@ use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\Ip;
 use App\Models\Ipoe;
+use App\Support\RadiusText;
 use App\Support\RateLimit;
 use Illuminate\Support\Facades\DB;
 
@@ -57,12 +58,19 @@ class SyncAccountToRadius
     private function writeRows(Account $account): void
     {
         $username = $account->username;
+        $check = $this->owned($username, $this->checkRows($account));
+        $reply = $this->owned($username, $this->replyRows($account));
+        $group = $account->plan !== null ? ['username' => $username, 'groupname' => $account->plan->slug, 'priority' => 1] : null;
 
-        DB::table('radcheck')->insert($this->owned($username, $this->checkRows($account)));
-        DB::table('radreply')->insert($this->owned($username, $this->replyRows($account)));
+        RadiusText::check('radcheck', $check);
+        RadiusText::check('radreply', $reply);
+        RadiusText::check('radusergroup', $group ?? []);
 
-        if ($account->plan !== null) {
-            DB::table('radusergroup')->insert(['username' => $username, 'groupname' => $account->plan->slug, 'priority' => 1]);
+        DB::table('radcheck')->insert($check);
+        DB::table('radreply')->insert($reply);
+
+        if ($group !== null) {
+            DB::table('radusergroup')->insert($group);
         }
 
         if ($account->service_type === ServiceType::Ipoe && $account->ip !== null) {

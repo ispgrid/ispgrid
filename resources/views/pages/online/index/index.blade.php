@@ -1,18 +1,18 @@
 <section class="grid gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Online') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ __('Sessions the routers report as open. A session the router stops reporting is closed after 15 minutes.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ __('Sessions each NAS reports as open. A session the NAS stops reporting is closed after 15 minutes.') }}</x-ui.text>
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <x-ui.input wire:model.live.debounce.300ms="search" type="search" :label="__('Search')" :placeholder="__('Username, IP or MAC')" autocomplete="off" />
-        <x-ui.select wire:model.live="router" :label="__('Router')" :options="$this->routers" :placeholder="__('All routers')" />
+        <x-ui.select wire:model.live="router" :label="__('NAS')" :options="$this->routers" :placeholder="__('All NAS')" />
     </div>
 
     <x-ui.table>
         <x-slot:head>
             <x-ui.th>{{ __('Customer') }}</x-ui.th>
-            <x-ui.th>{{ __('Router') }}</x-ui.th>
+            <x-ui.th>{{ __('NAS') }}</x-ui.th>
             <x-ui.th>{{ __('IP address') }}</x-ui.th>
             <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
             <x-ui.th>{{ __('Started') }}</x-ui.th>

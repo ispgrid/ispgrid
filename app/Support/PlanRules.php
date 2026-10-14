@@ -19,7 +19,7 @@ final class PlanRules
     public static function rules(bool $isNew): array
     {
         return [
-            'slug' => $isNew ? ['required', 'string', 'max:64', 'regex:/^[a-z0-9_-]+$/',
+            'slug' => $isNew ? ['required', 'string', 'max:64', 'regex:/^[a-z0-9_-]+$/D',
                 Rule::unique(Plan::class, 'slug')->withoutTrashed(),
                 new NotUsedByTrashed(Plan::class, 'slug', __('A deleted plan uses this slug. Restore it instead.')),
             ] : [],

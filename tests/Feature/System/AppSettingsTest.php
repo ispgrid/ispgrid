@@ -60,6 +60,7 @@ it('rejects values outside the allowed lists', function (string $field, string $
     'lowercase currency' => ['currency_code', 'usd'],
     'too many phone digits' => ['phone_digits', '16'],
     'empty notice message' => ['notice_message', ''],
+    'language the panel does not ship' => ['locale', 'fr'],
 ]);
 
 it('accepts an empty customer ID label, which hides that field', function () {

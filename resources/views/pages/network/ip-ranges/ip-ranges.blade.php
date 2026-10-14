@@ -65,7 +65,7 @@
 
             <x-ui.input wire:model="name" :label="__('Name')" maxlength="100" required autocomplete="off" />
             <x-ui.input
-                wire:model="network"
+                wire:model="network" english
                 :label="__('Network')"
                 :description="$editingId ? __('The network of a range cannot change.') : __('IPv4 with its prefix, e.g. 10.20.0.0/24 (at most /20).')"
                 :readonly="$editingId !== null"

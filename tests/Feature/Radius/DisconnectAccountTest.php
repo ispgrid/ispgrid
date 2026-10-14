@@ -75,7 +75,7 @@ it('fails when the session is on a router the app does not know', function () {
     Radacct::factory()->create(['username' => 'alice', 'nasipaddress' => '10.9.9.9']);
 
     expect(fn () => (new DisconnectAccount('alice'))->handle())
-        ->toThrow(RuntimeException::class, '10.9.9.9 is not in the router list');
+        ->toThrow(RuntimeException::class, '10.9.9.9 is not in the NAS list');
 });
 
 it('logs the failure on the customer after the last try', function () {

@@ -82,3 +82,15 @@ it('marks the label of a required field with an asterisk', function (string $com
     $this->blade("<x-ui.{$component} name=\"company\" label=\"Company\" :required=\"false\" />")
         ->assertDontSee('aria-hidden="true"> *</span>', false);
 })->with(['input', 'select', 'textarea']);
+
+it('keeps an English-only field in English and warns while non-English text is typed', function () {
+    $this->blade('<x-ui.input name="username" label="Username" english />')
+        ->assertSee('lang="en"', false)
+        ->assertSee('spellcheck="false"', false)
+        ->assertSee('x-on:input="notEnglish =', false)
+        ->assertSee('Only English letters, digits and symbols: FreeRADIUS cannot read other characters.');
+
+    $this->blade('<x-ui.input name="company" label="Company" />')
+        ->assertDontSee('lang="en"', false)
+        ->assertDontSee('notEnglish', false);
+});
