@@ -332,9 +332,9 @@ l2tp_used_ips() { awk '$2 == "ispgrid" { print $4 }' <<<"$1"; }
 #  l2tp_peer_exists <chap-secrets content> <name>
 l2tp_peer_exists() { awk -v name="\"$2\"" '$1 == name && $2 == "ispgrid" { found = 1 } END { exit !found }' <<<"$1"; }
 
-#  without_plugin_noise: stdin minus swanctl's "plugin 'x': failed to load" lines (optional strongSwan plugins that
-#  Ubuntu does not install; swanctl names them on every call)
-without_plugin_noise() { grep -v "^plugin '[^']*': failed to load" || true; }
+#  without_plugin_noise: stdin minus swanctl's lines about optional strongSwan plugins it cannot load (Ubuntu does not
+#  install them all; swanctl names them on every call)
+without_plugin_noise() { grep -v -e "^plugin '[^']*': failed to load" -e "^agent plugin requires" || true; }
 
 #  l2tp_psk <ispgrid-l2tp-secret.conf content>: the IPsec key shared by the L2TP routers/NAS
 l2tp_psk() { sed -n -E 's/^[[:space:]]*secret[[:space:]]*=[[:space:]]*"(.*)"[[:space:]]*$/\1/p' <<<"$1" | head -n 1; }
