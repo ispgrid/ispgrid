@@ -29,6 +29,9 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('system/freeradius', 'pages::system.radius-settings')->name('radius-settings.edit');
     Route::livewire('system/connection-types', 'pages::system.connection-types')->name('connection-types.index');
     Route::livewire('notifications/providers', 'pages::notifications.providers')->name('notifications.providers');
+    Route::livewire('notifications/rules', 'pages::notifications.rules')->name('notification-rules.index');
+    Route::livewire('notifications/rules/create', 'pages::notifications.rule-form')->name('notification-rules.create');
+    Route::livewire('notifications/rules/{rule}/edit', 'pages::notifications.rule-form')->name('notification-rules.edit');
     Route::livewire('activity', 'pages::activity.index')->name('activity.index');
     Route::livewire('system/import', 'pages::system.import')->name('import.index');
 });
