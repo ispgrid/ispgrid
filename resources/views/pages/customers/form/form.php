@@ -16,6 +16,8 @@ use App\Models\IpRange;
 use App\Models\Nas;
 use App\Models\Pool;
 use App\Models\RadiusAttribute;
+use App\Notifications\Notifier;
+use App\Notifications\Triggers\CustomerCreated;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\IpAddress;
@@ -140,6 +142,8 @@ new #[Title('Customer')] class extends Component
 
     public bool $override_plan = false;
 
+    public bool $notifications_off = false;
+
     public string $override_upload = '';
 
     public string $override_download = '';
@@ -201,6 +205,7 @@ new #[Title('Customer')] class extends Component
         $this->service_type = $model->service_type->value;
         $this->ip_address = $model->ip?->address ?? '';
         $this->override_plan = $model->override_plan;
+        $this->notifications_off = $model->notifications_off;
         $this->address_list_ids = $model->addressLists->map(fn (AddressList $list): string => (string) $list->id)->all();
         $this->custom_attributes = $model->radiusAttributes->sortBy('id')
             ->map(fn (AccountAttribute $attribute): array => ['attribute' => $attribute->attribute, 'value' => $attribute->value])
@@ -485,6 +490,7 @@ new #[Title('Customer')] class extends Component
 
                 if ($isNew) {
                     $this->logCreated($account);
+                    app(Notifier::class)->fire(CustomerCreated::key(), $account);
                 } else {
                     $this->logRelationChanges($account, $before);
                 }
@@ -698,6 +704,7 @@ new #[Title('Customer')] class extends Component
             'tax_id' => $this->nullIfEmpty($this->tax_id),
             'business_id' => $this->nullIfEmpty($this->business_id),
             'remarks' => $this->nullIfEmpty($this->remarks),
+            'notifications_off' => $this->notifications_off,
             'service_type' => $this->service_type,
             'password' => $this->password !== '' ? $this->password : null,
             'mac_type' => $isIpoe ? 1 : (int) $this->mac_type,

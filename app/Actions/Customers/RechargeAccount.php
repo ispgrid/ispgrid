@@ -8,14 +8,16 @@ use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Models\Account;
 use App\Models\Plan;
 use App\Models\Recharge;
+use App\Notifications\Notifier;
+use App\Notifications\Triggers\RechargeDone;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 /**
  * A recharge (spec section 5): records it, gives the customer the plan, the new expiry and a fresh usage period
- * (Isp-Usage-Since), makes an Inactive customer Active and rebuilds their FreeRADIUS rows, all in one transaction.
- * The caller queues the disconnect after the commit.
+ * (Isp-Usage-Since), makes an Inactive customer Active and rebuilds their FreeRADIUS rows, all in one transaction,
+ * and queues the recharge message. The caller queues the disconnect after the commit.
  */
 final class RechargeAccount
 {
@@ -24,7 +26,7 @@ final class RechargeAccount
      */
     public const DATE_FORMAT = 'Y-m-d H:i';
 
-    public function __construct(private SyncAccountToRadius $sync) {}
+    public function __construct(private SyncAccountToRadius $sync, private Notifier $notifier) {}
 
     /**
      * @param  ?string  $expectedExpiry  the expiry ('Y-m-d H:i:s', '' for none) the new one was computed from;
@@ -68,6 +70,9 @@ final class RechargeAccount
                 'note' => $note,
                 'user_id' => auth()->id(),
             ]);
+
+            // Rows now, inside the transaction; the send jobs are queued after the commit.
+            $this->notifier->fire(RechargeDone::key(), $account, $recharge);
 
             activity()
                 ->performedOn($account)

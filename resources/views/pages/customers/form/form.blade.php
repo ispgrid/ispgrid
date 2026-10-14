@@ -34,6 +34,7 @@
                                 <x-ui.input wire:model="business_id" :label="$this->businessIdLabel" maxlength="30" />
                             @endif
                         </div>
+                        <x-ui.switch wire:model="notifications_off" :label="__('No reminders')" :description="__('No expiry reminders by SMS or WhatsApp. Recharge confirmations still go out.')" />
                     </section>
 
                     <section class="grid gap-4" aria-labelledby="customer-address">
