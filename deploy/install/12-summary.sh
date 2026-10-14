@@ -28,12 +28,16 @@ summary_rows() {
     radius_ip=$tunnel_ip
     echo "row|Connection|L2TP/IPsec tunnel, this server is $tunnel_ip (network $L2TP_SUBNET)"
     echo "row|Endpoint|$PUBLIC_IP, UDP 500 and 4500 (IPsec)"
-    echo "text|Behind NAT? Forward UDP 500 and 4500 from $PUBLIC_IP to $(primary_ip)."
+    if [[ "$PUBLIC_IP" != "$(primary_ip)" ]]; then
+      echo "text|Behind NAT? Forward UDP 500 and 4500 from $PUBLIC_IP to $(primary_ip)."
+    fi
     echo "row|Add one|sudo $ISPGRID_HOME/deploy/l2tp/l2tp-add-peer.sh NAME"
   elif [[ "$ROUTERS" == public ]]; then
     radius_ip=$PUBLIC_IP
     echo "row|Connection|over the internet without a tunnel: RADIUS is not encrypted, so give each router/NAS a long secret"
-    echo "text|Behind NAT? Forward UDP 1812 and 1813 and TCP 8088 from $PUBLIC_IP to $(primary_ip)."
+    if [[ "$PUBLIC_IP" != "$(primary_ip)" ]]; then
+      echo "text|Behind NAT? Forward UDP 1812 and 1813 and TCP 8088 from $PUBLIC_IP to $(primary_ip)."
+    fi
   else
     radius_ip=$(primary_ip)
     echo "row|Connection|same network: $ROUTER_NETWORK"
