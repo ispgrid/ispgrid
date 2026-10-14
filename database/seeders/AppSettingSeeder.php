@@ -23,6 +23,7 @@ class AppSettingSeeder extends Seeder
             'tax_id_label' => 'GSTIN',
             'business_id_label' => 'PAN',
             'expiry_mode' => 'exact',
+            'locale' => 'en',
             'default_pool_ppp' => '',
             'default_pool_hotspot' => '',
             'default_ip_range_ipoe' => '',

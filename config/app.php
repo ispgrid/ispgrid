@@ -85,6 +85,16 @@ return [
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*
+    | The languages the panel ships, by code, each named in its own language. Adding one takes a lang/<code>.json
+    | file and a line here; staff choose it in App settings or on their profile.
+    */
+
+    'locales' => [
+        'en' => 'English',
+        'hi' => 'हिन्दी',
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------

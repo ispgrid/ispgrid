@@ -10,5 +10,20 @@
                 <x-ui.button type="submit" data-test="update-profile-button">{{ __('Save') }}</x-ui.button>
             </div>
         </form>
+
+        <form wire:submit="updateLanguage" class="mt-10 grid gap-5">
+            <x-ui.heading>{{ __('Language') }}</x-ui.heading>
+            <x-ui.select
+                wire:model="locale"
+                :label="__('Your panel language')"
+                :options="$this->languages"
+                :placeholder="__('Panel default (:language)', ['language' => $this->panelLanguage])"
+                :description="__('The panel default is set in App settings.')"
+            />
+
+            <div>
+                <x-ui.button type="submit">{{ __('Save language') }}</x-ui.button>
+            </div>
+        </form>
     </x-pages::settings.layout>
 </section>

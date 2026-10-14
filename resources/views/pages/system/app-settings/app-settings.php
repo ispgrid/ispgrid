@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Middleware\SetLocale;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
 use App\Models\IpRange;
 use App\Models\Pool;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -49,6 +51,8 @@ new #[Title('App settings')] class extends Component
 
     public string $notice_message = '';
 
+    public string $locale = '';
+
     public function mount(): void
     {
         $this->authorize('manage-app-settings');
@@ -56,6 +60,9 @@ new #[Title('App settings')] class extends Component
         foreach (array_keys($this->rules()) as $key) {
             $this->{$key} = (string) AppSetting::valueOf($key, '');
         }
+
+        // Installs from before languages have no row until the next upgrade seeds it: they run in English.
+        $this->locale = $this->locale !== '' ? $this->locale : config('app.fallback_locale');
     }
 
     /**
@@ -80,6 +87,7 @@ new #[Title('App settings')] class extends Component
             'notice_isp_name' => ['nullable', 'string', 'max:100'],
             'notice_phone' => ['nullable', 'string', 'max:30'],
             'notice_message' => ['required', 'string', 'max:500'],
+            'locale' => ['required', Rule::in(array_keys(config('app.locales')))],
         ];
     }
 
@@ -123,6 +131,7 @@ new #[Title('App settings')] class extends Component
         $this->authorize('manage-app-settings');
 
         $validated = $this->validate();
+        $languageChanged = $validated['locale'] !== AppSetting::valueOf('locale', config('app.fallback_locale'));
 
         DB::transaction(function () use ($validated): void {
             foreach ($validated as $key => $value) {
@@ -130,7 +139,25 @@ new #[Title('App settings')] class extends Component
             }
         }, attempts: 3);
 
-        $this->toast(__('Settings saved.'));
+        if (! $languageChanged) {
+            $this->toast(__('Settings saved.'));
+
+            return;
+        }
+
+        // A full reload, so the whole page (menu included) shows the new language for staff who follow it.
+        App::setLocale(SetLocale::resolve(auth()->user()->locale));
+        session()->flash('toast', __('Settings saved.'));
+        $this->redirectRoute('app-settings.edit');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function languages(): array
+    {
+        return config('app.locales');
     }
 
     /**

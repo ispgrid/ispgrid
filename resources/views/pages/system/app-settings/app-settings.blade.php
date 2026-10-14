@@ -10,6 +10,11 @@
 
     <form wire:submit="save" class="grid gap-6">
         <x-ui.card class="grid gap-5">
+            <x-ui.heading>{{ __('Language') }}</x-ui.heading>
+            <x-ui.select wire:model="locale" :label="__('Panel language')" :options="$this->languages" :description="__('For the login page, the notice page and every staff member who has not chosen a language on their profile.')" />
+        </x-ui.card>
+
+        <x-ui.card class="grid gap-5">
             <x-ui.heading>{{ __('Money and numbers') }}</x-ui.heading>
             <div class="grid gap-5 sm:grid-cols-3">
                 <x-ui.input wire:model="currency_code" :label="__('Currency code')" maxlength="3" :description="__('ISO code, e.g. INR, USD')" />
