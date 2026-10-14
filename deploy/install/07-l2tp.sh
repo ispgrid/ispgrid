@@ -40,5 +40,9 @@ else
   systemctl is-active -q xl2tpd || systemctl start xl2tpd
 fi
 #  charon-systemd loads swanctl.conf when it starts; a loaded config is loaded again harmlessly.
-swanctl --load-all >/dev/null
+if ! swanctl_out=$(swanctl --load-all 2>&1); then
+  console "$(without_plugin_noise <<<"$swanctl_out")"
+  die "strongSwan could not load the L2TP/IPsec config (/etc/swanctl/conf.d/ispgrid-l2tp*.conf)."
+fi
+without_plugin_noise <<<"$swanctl_out"
 say "L2TP/IPsec: this server is $(cidr_host "$L2TP_SUBNET" 1) in $L2TP_SUBNET; routers/NAS connect to $PUBLIC_IP (UDP 500, 4500)"

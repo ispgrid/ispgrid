@@ -61,6 +61,9 @@ check "l2tp peer known" "$(yes_no l2tp_peer_exists "$chap" lab-ros6)" yes
 check "other ppp users are no l2tp peers" "$(yes_no l2tp_peer_exists "$chap" office)" no
 psk_conf=$'secrets {\n  ike-ispgrid-l2tp {\n    secret = "Abc123xyz"\n  }\n}'
 check "l2tp ipsec key" "$(l2tp_psk "$psk_conf")" Abc123xyz
+swanctl_out=$'agent plugin requires CAP_SETUID/CAP_SETGID capability\nplugin \'ldap\': failed to load - ldap_plugin_create not found and no plugin file available\nloaded ike secret \'ike-ispgrid-l2tp\'\nplugin \'curl\': failed to load - curl_plugin_create not found and no plugin file available'
+check "swanctl without plugin noise" "$(without_plugin_noise <<<"$swanctl_out")" "loaded ike secret 'ike-ispgrid-l2tp'"
+check "swanctl plugin noise only" "$(without_plugin_noise <<<"plugin 'ccm': failed to load - x"; echo "rc=$?")" "rc=0"
 check "l2tp peer line" "$(l2tp_peer_line site-3 Pw1 10.251.0.4)" '"site-3" ispgrid "Pw1" 10.251.0.4 # ISPGrid'
 check "next free skips used" "$(next_free_host 10.250.0.0/24 10.250.0.1 10.250.0.2 10.250.0.4)" 10.250.0.3
 check "full subnet" "$(yes_no next_free_host 10.250.0.0/30 10.250.0.1 10.250.0.2)" no
