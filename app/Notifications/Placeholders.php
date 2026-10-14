@@ -1,0 +1,134 @@
+<?php
+
+namespace App\Notifications;
+
+use App\Models\Account;
+use App\Models\AppSetting;
+use App\Models\Recharge;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
+
+/**
+ * The values a rule can put into a template, in the order the rule lists them. Each is cut to 30 characters,
+ * the DLT limit for one variable.
+ */
+final class Placeholders
+{
+    public const MAX_LENGTH = 30;
+
+    /** Values every customer has. */
+    public const COMMON = ['customer_name', 'username', 'mobile', 'plan_name', 'plan_speed', 'plan_price',
+        'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number'];
+
+    /** Values only a recharge has. */
+    public const RECHARGE = ['amount_paid', 'recharge_reference'];
+
+    /** @var array<string, string> */
+    private array $settings = [];
+
+    /**
+     * @return array<string, string>
+     */
+    public static function labels(): array
+    {
+        return [
+            'customer_name' => __('Customer name'),
+            'username' => __('Username'),
+            'mobile' => __('Mobile'),
+            'plan_name' => __('Plan name'),
+            'plan_speed' => __('Plan speed'),
+            'plan_price' => __('Plan price'),
+            'amount_paid' => __('Amount paid'),
+            'recharge_reference' => __('Recharge reference'),
+            'expiry_date' => __('Expiry date'),
+            'expiry_datetime' => __('Expiry date and time'),
+            'days_left' => __('Days left'),
+            'isp_name' => __('ISP name'),
+            'support_number' => __('Support number'),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $keys
+     * @return array{values: list<string>, trimmed: bool}
+     */
+    public function values(array $keys, ?Account $account, ?Recharge $recharge, CarbonImmutable $now): array
+    {
+        $values = [];
+        $trimmed = false;
+
+        foreach ($keys as $key) {
+            $value = $account === null ? '['.(self::labels()[$key] ?? $key).']' : $this->resolve($key, $account, $recharge, $now);
+
+            if (mb_strlen($value) > self::MAX_LENGTH) {
+                $value = mb_substr($value, 0, self::MAX_LENGTH);
+                $trimmed = true;
+            }
+
+            $values[] = $value;
+        }
+
+        return ['values' => $values, 'trimmed' => $trimmed];
+    }
+
+    /**
+     * The approved text with {1}, {2}, ... replaced by the values.
+     *
+     * @param  list<string>  $values
+     */
+    public static function preview(?string $approvedText, array $values): ?string
+    {
+        if ($approvedText === null || $approvedText === '') {
+            return null;
+        }
+
+        $pairs = [];
+
+        foreach ($values as $index => $value) {
+            $pairs['{'.($index + 1).'}'] = $value;
+        }
+
+        return strtr($approvedText, $pairs);
+    }
+
+    private function resolve(string $key, Account $account, ?Recharge $recharge, CarbonImmutable $now): string
+    {
+        $plan = $account->plan;
+        $expiry = $account->expiry;
+
+        return match ($key) {
+            'customer_name' => (string) ($account->fullname ?: $account->username),
+            'username' => (string) $account->username,
+            'mobile' => (string) $account->mobile,
+            'plan_name' => (string) $plan?->name,
+            'plan_speed' => (string) $plan?->download,
+            'plan_price' => $plan === null ? '' : $this->amount((string) $plan->price),
+            'amount_paid' => $recharge === null ? '' : $this->amount((string) $recharge->amount),
+            'recharge_reference' => $recharge === null ? '' : (string) $recharge->id,
+            'expiry_date' => $expiry === null ? '' : $expiry->format($this->setting('notify_date_format', 'd-M-Y')),
+            'expiry_datetime' => $expiry === null ? '' : $expiry->format($this->setting('notify_date_format', 'd-M-Y').' '.$this->setting('notify_time_format', 'h:iA')),
+            'days_left' => $expiry === null ? '' : (string) $this->daysLeft($now, $expiry),
+            'isp_name' => $this->setting('notice_isp_name', ''),
+            'support_number' => $this->setting('notice_phone', ''),
+            default => '',
+        };
+    }
+
+    /**
+     * Calendar days from today to the expiry day, never below zero.
+     */
+    private function daysLeft(CarbonImmutable $now, CarbonInterface $expiry): int
+    {
+        return max(0, (int) $now->startOfDay()->diffInDays(CarbonImmutable::instance($expiry)->startOfDay(), false));
+    }
+
+    private function amount(string $amount): string
+    {
+        return number_format((float) $amount, (int) $this->setting('currency_decimals', '2'), '.', '');
+    }
+
+    private function setting(string $key, string $default): string
+    {
+        return $this->settings[$key] ??= (string) AppSetting::valueOf($key, $default);
+    }
+}
