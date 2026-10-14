@@ -159,8 +159,34 @@ bash deploy/tests/installer/test_install_sh.sh   # installer helpers
 Branches follow GitHub flow: one branch per feature from `master`, merged back when it is done and tested.
 Releases are tags (`v0.1.0`), and the installer installs tags.
 
+## Built with
+
+ISPGrid stands on the work of these projects. Thank you to everyone who builds and maintains them.
+
+**On the server**
+- [FreeRADIUS](https://freeradius.org) (packages from [InkBridge Networks](https://www.inkbridgenetworks.com)): authentication, authorization and accounting
+- [MariaDB](https://mariadb.org): the database shared by FreeRADIUS and the panel
+- [PHP](https://www.php.net) and [nginx](https://nginx.org): run and serve the panel
+- [Certbot](https://certbot.eff.org) and [Let's Encrypt](https://letsencrypt.org): HTTPS certificates
+- [WireGuard](https://www.wireguard.com), [strongSwan](https://www.strongswan.org) and [xl2tpd](https://github.com/xelerance/xl2tpd): tunnels for routers that are not on your network
+- [Ubuntu](https://ubuntu.com): the supported server
+
+**The panel**
+- [Laravel](https://laravel.com), with [Fortify](https://github.com/laravel/fortify) (login, two-factor) and [Passkeys](https://github.com/laravel/passkeys)
+- [Livewire](https://livewire.laravel.com) and [Blaze](https://github.com/livewire/blaze), with [Alpine.js](https://alpinejs.dev)
+- [Tailwind CSS](https://tailwindcss.com) and [Vite](https://vite.dev)
+- [Heroicons](https://heroicons.com): icons
+- [spatie/laravel-activitylog](https://github.com/spatie/laravel-activitylog): the activity log
+- [Geist](https://vercel.com/font) and [JetBrains Mono](https://www.jetbrains.com/lp/mono/): fonts
+
+**Testing and tooling**
+- [Pest](https://pestphp.com), [Larastan](https://github.com/larastan/larastan), [Laravel Pint](https://github.com/laravel/pint)
+
+Each keeps its own licence. ISPGrid is not affiliated with or endorsed by any of these projects.
+
 ## License
 
 ISPGrid is open source under the [MIT License](LICENSE).
 
-The fonts in `resources/fonts` (Geist, JetBrains Mono) are under the SIL Open Font License.
+The fonts in `resources/fonts` (Geist, JetBrains Mono) are under the SIL Open Font License. The icons are from
+Heroicons (MIT License, Copyright (c) Tailwind Labs, Inc.).
