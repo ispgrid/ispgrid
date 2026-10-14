@@ -310,6 +310,27 @@ it('checks phone numbers against the digit count in the app settings', function 
     newCustomerForm()->set('mobile', '98765432')->call('save')->assertHasNoErrors();
 });
 
+it('takes the title from the list', function () {
+    newCustomerForm()->set('title', 'Mrs')->call('save')->assertHasNoErrors();
+    expect(Account::query()->where('username', 'alice')->value('title'))->toBe('Mrs');
+
+    newCustomerForm()->set('username', 'bob')->set('title', 'Sir')->call('save')->assertHasErrors(['title']);
+});
+
+it('keeps a title from before the list when the customer is edited', function () {
+    $account = Account::factory()->create(['title' => 'Prof']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertSee('<option value="Prof"', false)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->set('title', 'Sir')
+        ->call('save')
+        ->assertHasErrors(['title']);
+
+    expect($account->fresh()->title)->toBe('Prof');
+});
+
 it('saves the installation address and removes it when emptied', function () {
     newCustomerForm()->set('address.line1', '12 MG Road')->set('address.city', 'Pune')->call('save')->assertHasNoErrors();
 

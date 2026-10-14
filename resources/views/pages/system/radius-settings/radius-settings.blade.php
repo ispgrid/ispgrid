@@ -9,8 +9,9 @@
     @endif
 
     <form wire:submit="save" class="grid gap-6">
-        <div class="grid items-start gap-6 xl:grid-cols-2">
-            <x-ui.card class="grid gap-5">
+        {{-- The first card is the tallest: it fills the left column, the other two stack beside it. --}}
+        <div class="grid gap-6 xl:grid-cols-2">
+            <x-ui.card class="grid content-start gap-5 xl:row-span-2">
                 <x-ui.heading>{{ __('Expired and disabled customers') }}</x-ui.heading>
                 <x-ui.select wire:model="expire_type" :label="__('When an account expires')" :options="$this->expireTypes" />
                 <x-ui.input
@@ -25,12 +26,12 @@
                 <x-ui.input wire:model="reject_session_timeout" type="number" min="60" max="65535" :label="__('Session length in the disabled pool (seconds)')" :description="__('After this the customer reconnects, so a recharge takes effect without a disconnect.')" />
             </x-ui.card>
 
-            <x-ui.card class="grid gap-5">
+            <x-ui.card class="grid content-start gap-5">
                 <x-ui.heading>{{ __('Sessions') }}</x-ui.heading>
                 <x-ui.input wire:model="default_session_timeout" type="number" min="300" max="604800" :label="__('Longest session (seconds)')" :description="__('Every session ends after this and reconnects, e.g. 64800 for 18 hours.')" />
             </x-ui.card>
 
-            <x-ui.card class="grid gap-5">
+            <x-ui.card class="grid content-start gap-5">
                 <x-ui.heading>{{ __('Failed logins') }}</x-ui.heading>
                 <x-ui.switch wire:model="count_and_reject" :label="__('Block repeated failed logins')" :description="__('A device that keeps failing is refused for a while. IPoE logins are never counted.')" />
                 <div class="grid gap-5 sm:grid-cols-2">
