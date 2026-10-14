@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -34,6 +35,28 @@ class UserFactory extends Factory
             'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
         ];
+    }
+
+    /**
+     * Staff are Admin unless a state below says otherwise, as everyone was before roles existed.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            if ($user->roles()->doesntExist()) {
+                $user->assignRole(Role::ADMIN);
+            }
+        });
+    }
+
+    public function role(string $name): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->syncRoles([$name]));
+    }
+
+    public function withoutRole(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->syncRoles([]));
     }
 
     /**

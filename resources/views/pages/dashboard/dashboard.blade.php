@@ -8,23 +8,34 @@
         <x-ui.alert variant="warning" wire:key="outdated-{{ $outdated['id'] }}">
             <span class="font-medium">{{ $outdated['router'] }}</span>
             <span>{{ $outdated['warning'] }}</span>
-            <x-ui.link href="{{ route('routers.index') }}" wire:navigate>{{ __('Open NAS') }}</x-ui.link>
+            @can('view-network')
+                <x-ui.link href="{{ route('routers.index') }}" wire:navigate>{{ __('Open NAS') }}</x-ui.link>
+            @endcan
         </x-ui.alert>
     @endforeach
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         @foreach ($this->figureCards as $figure)
-            <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
-                <span class="block text-sm text-zinc-500 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>
-            </a>
+            @if ($figure['href'])
+                <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
+                    <span class="block text-sm text-zinc-500 dark:text-zinc-400">{{ $figure['label'] }}</span>
+                    <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>
+                </a>
+            @else
+                <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+                    <span class="block text-sm text-zinc-500 dark:text-zinc-400">{{ $figure['label'] }}</span>
+                    <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>
+                </div>
+            @endif
         @endforeach
     </div>
 
     <x-ui.card>
         <div class="flex flex-wrap items-start justify-between gap-4">
             <x-ui.heading>{{ __('Latest refused logins') }}</x-ui.heading>
-            <x-ui.link href="{{ route('login-log.index', ['result' => 'rejected']) }}" wire:navigate class="text-sm">{{ __('Open the login log') }}</x-ui.link>
+            @can('view-login-log')
+                <x-ui.link href="{{ route('login-log.index', ['result' => 'rejected']) }}" wire:navigate class="text-sm">{{ __('Open the login log') }}</x-ui.link>
+            @endcan
         </div>
         @if ($this->failedLogins === [])
             <x-ui.text muted class="mt-4">{{ __('No refused login yet.') }}</x-ui.text>

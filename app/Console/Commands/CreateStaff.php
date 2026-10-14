@@ -4,10 +4,12 @@ namespace App\Console\Commands;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Concerns\PasswordValidationRules;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -16,7 +18,7 @@ use Illuminate\Validation\ValidationException;
     {--email= : Login email}
     {--password= : Password (asked for when missing)}
     {--reset : Set a new password for the active staff member with this email instead of creating one}')]
-#[Description('Create a staff login, or reset one with --reset (works without a mail server)')]
+#[Description('Create an Admin staff login, or reset one with --reset (works without a mail server)')]
 class CreateStaff extends Command
 {
     use PasswordValidationRules;
@@ -31,12 +33,12 @@ class CreateStaff extends Command
                 return $this->resetPassword($email, $password);
             }
 
-            $staff = $createNewUser->create([
+            $staff = DB::transaction(fn (): User => $createNewUser->create([
                 'name' => (string) $this->option('name'),
                 'email' => $email,
                 'password' => $password,
                 'password_confirmation' => $password,
-            ]);
+            ])->assignRole(Role::ADMIN));
         } catch (ValidationException $exception) {
             foreach ($exception->validator->errors()->all() as $message) {
                 $this->error($message);

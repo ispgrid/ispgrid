@@ -63,7 +63,11 @@
                         <x-ui.select wire:model.live="service_type" :label="__('Type')" :options="$this->serviceTypes" required />
                         <x-ui.input wire:model="username" english :label="__('Username')" :description="__('The login name: letters, digits, ., -, _ and @. It cannot change after saving.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
                         @unless ($this->isIpoe)
-                            <x-ui.input wire:model="password" english :label="__('Password')" viewable maxlength="64" required autocomplete="off" />
+                            @if ($keepsPassword)
+                                <x-ui.input wire:model="password" english :label="__('Password')" :description="__('Leave empty to keep the current password.')" viewable maxlength="64" autocomplete="off" />
+                            @else
+                                <x-ui.input wire:model="password" english :label="__('Password')" viewable maxlength="64" required autocomplete="off" />
+                            @endif
                             <x-ui.input wire:model="mac_type" type="number" min="0" max="100" :label="__('Device limit')" :description="__('PPPoE: how many routers may log in with this account. Hotspot: devices online at once. 0 means no limit.')" required />
                         @endunless
                     </div>

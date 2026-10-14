@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -23,10 +24,14 @@ class DatabaseSeeder extends Seeder
         ]);
 
         if (app()->isLocal()) {
-            User::query()->firstOrCreate(
+            $user = User::query()->firstOrCreate(
                 ['email' => 'test@example.com'],
                 ['name' => 'Test User', 'password' => 'password', 'email_verified_at' => now()],
             );
+
+            if ($user->roles()->doesntExist()) {
+                $user->assignRole(Role::ADMIN);
+            }
         }
     }
 }

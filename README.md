@@ -25,7 +25,8 @@ a customer who is online is changed, their session is disconnected so the change
 - **Online and Login log:** who is connected, from which router, IP and device, with traffic; every accepted and
   refused login with the reason. Disconnect a session from the panel.
 - **Network:** routers (NAS), pools, IP ranges with an IP inventory, address lists.
-- **Staff and Activity log:** staff accounts with two-factor login and passkeys; who changed what, newest first.
+- **Staff, roles and Activity log:** staff accounts with two-factor login and passkeys; an Admin role and a Technician
+  role (or your own) that set what each person may see and do; who changed what, newest first.
 - **Import:** customers from CSV, checked by the same rules as the form.
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for routers
   that are not on your network, and a FreeRADIUS self-test (127 checks) at the end of every install and upgrade.

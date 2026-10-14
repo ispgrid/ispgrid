@@ -24,6 +24,7 @@ use App\Support\RateLimit;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -120,6 +121,12 @@ new #[Title('Customer')] class extends Component
     public string $savedTitle = '';
 
     /**
+     * The role may edit this customer but not see the password: the field starts empty and empty keeps it.
+     */
+    #[Locked]
+    public bool $keepsPassword = false;
+
+    /**
      * The range "Next free IP" picks from. Not saved.
      */
     public string $free_ip_range = '';
@@ -182,6 +189,9 @@ new #[Title('Customer')] class extends Component
         // The generated IPoE password stays hidden: it must not turn into a PPPoE password nobody chose.
         if ($model->service_type === ServiceType::Ipoe) {
             $this->password = '';
+        } elseif (Gate::denies('viewPassword', $model)) {
+            $this->password = '';
+            $this->keepsPassword = true;
         }
 
         foreach (self::ADDRESS_FIELDS as $field) {
@@ -522,9 +532,14 @@ new #[Title('Customer')] class extends Component
         $isIpoe = $this->isIpoe;
         $speed = ['nullable', 'string', 'max:20'];
         $phone = CustomerRules::phone($this->phoneDigits);
+        $shared = CustomerRules::rules($this->accountId === null, $isIpoe, $this->hasAddress(), $this->phoneDigits);
+
+        if ($this->keepsPassword) {
+            $shared['password'][0] = 'nullable';
+        }
 
         return [
-            ...CustomerRules::rules($this->accountId === null, $isIpoe, $this->hasAddress(), $this->phoneDigits),
+            ...$shared,
             'title' => ['nullable', 'string', Rule::in(array_keys($this->titles))],
             'company' => ['nullable', 'string', 'max:255'],
             'whatsapp' => $phone,

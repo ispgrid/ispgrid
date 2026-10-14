@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Enums\Permission;
 use App\Models\Passkey;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -56,16 +57,15 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Gates for screens that have no model of their own. All staff are equal in the MVP.
+     * Every box on the Roles screen is a gate (Admin passes them all), plus staff and roles management, which
+     * stays with Admin.
      */
     protected function configureGates(): void
     {
-        Gate::define('manage-app-settings', fn (User $user): bool => true);
-        Gate::define('manage-radius-settings', fn (User $user): bool => true);
-        Gate::define('view-activity-log', fn (User $user): bool => true);
-        Gate::define('view-online-sessions', fn (User $user): bool => true);
-        Gate::define('disconnect-sessions', fn (User $user): bool => true);
-        Gate::define('view-login-log', fn (User $user): bool => true);
-        Gate::define('import-data', fn (User $user): bool => true);
+        foreach (Permission::cases() as $permission) {
+            Gate::define($permission->value, fn (User $user): bool => $user->hasAccess($permission));
+        }
+
+        Gate::define('manage-staff', fn (User $user): bool => $user->isAdmin());
     }
 }
