@@ -562,3 +562,14 @@ it('does not disconnect an online customer for a profile change', function () {
     Queue::assertNothingPushed();
     expect(session('toast'))->toBe('Customer saved.');
 });
+
+it('marks every field a new customer needs', function () {
+    $html = preg_replace('/<!--\[if \w+\]><!\[endif\]-->/', '', Livewire::test('pages::customers.form')->html());
+
+    foreach (['Full name', 'Type', 'Username', 'Password', 'Device limit'] as $label) {
+        expect($html)->toContain($label.'<span class="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>');
+    }
+
+    expect($html)->not->toContain('Company<span')
+        ->and($html)->toContain('Fields marked * are required.');
+});

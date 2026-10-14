@@ -11,11 +11,12 @@
     $name ??= $attributes->wire('model')->value();
     $id = $attributes->get('id') ?? \App\Support\FormField::id($name);
     $error = $name && isset($errors) ? $errors->first($name) : null;
+    $required = (bool) $attributes->get('required', false);
 @endphp
 
 <div class="grid content-start gap-1.5">
     @if ($label)
-        <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}</label>
+        <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}@if ($required)<span class="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>@endif</label>
     @endif
 
     <select
