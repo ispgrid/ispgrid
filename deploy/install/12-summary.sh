@@ -10,8 +10,10 @@ say "ISPGrid $ISPGRID_TARGET is ready: $url"
 if [[ -n "${ADMIN_CREATED:-}" ]]; then
   say "Admin login: $ADMIN_EMAIL"
   if [[ -n "${ADMIN_PASSWORD_GENERATED:-}" ]]; then
-    say "Admin password (shown once; change it after logging in): $ADMIN_PASSWORD"
+    say "Admin password (change it after logging in): $ADMIN_PASSWORD"
   fi
+else
+  say "Lost the admin password? sudo runuser -u ispgrid -- php $ISPGRID_HOME/artisan staff:create --reset --email=EMAIL"
 fi
 if [[ -n "${DOMAIN:-}" && -z "${HTTPS_OK:-}" ]]; then
   say "HTTPS is not set up yet for $DOMAIN: run the installer again once its DNS points here."

@@ -47,5 +47,10 @@ ADMIN_CREATED=""
 if need_admin; then
   artisan staff:create --name="$ADMIN_NAME" --email="$ADMIN_EMAIL" --password="$ADMIN_PASSWORD"
   ADMIN_CREATED=1
+  #  Shown now as well: if a later step fails, the rerun finds the admin and has no password to show.
+  say "Admin login: $ADMIN_EMAIL"
+  if [[ -n "${ADMIN_PASSWORD_GENERATED:-}" ]]; then
+    say "Admin password (generated; note it now): $ADMIN_PASSWORD"
+  fi
 fi
 say "Panel code at $ISPGRID_HOME ($(git -C "$ISPGRID_HOME" describe --tags --always 2>/dev/null))"
