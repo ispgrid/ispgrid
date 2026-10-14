@@ -18,6 +18,7 @@ firewalld_active=no
 systemctl is-active -q firewalld 2>/dev/null && firewalld_active=yes
 other=no
 [[ "$ufw_active" == no ]] && other_rules_present && other=yes
+note_space=" "
 mode=$(firewall_mode "$ufw_active" "$firewalld_active" "$other")
 
 ssh_port=$(sshd -T 2>/dev/null | awk '$1 == "port" && !found { print $2; found = 1 }' || true)
@@ -29,6 +30,7 @@ if [[ "$mode" == other ]]; then
     FIREWALL_NOTE+=$'\n'"  ufw $rule"
   done
   FIREWALL_NOTE+=$'\n'
+  note_space=""
   say "$FIREWALL_NOTE"
 else
   command -v ufw >/dev/null 2>&1 || apt_install ufw
@@ -43,9 +45,9 @@ fi
 
 vendor=$(cloud_vendor "$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/bios_vendor /sys/class/dmi/id/chassis_asset_tag 2>/dev/null | tr '\n' ' ')")
 if [[ -n "$vendor" ]]; then
-  FIREWALL_NOTE+=" This server runs at $vendor: its own firewall (security group) must allow the same ports."
+  FIREWALL_NOTE+="${note_space}This server runs at $vendor: its own firewall (security group) must allow the same ports."
   [[ "$vendor" == "Oracle Cloud" ]] && FIREWALL_NOTE+=" Oracle images also have iptables rules in /etc/iptables/rules.v4 that block them."
   say "$FIREWALL_NOTE"
 elif [[ -d /var/lib/cloud/instance ]]; then
-  FIREWALL_NOTE+=" If this server runs at a cloud provider, its firewall must allow the same ports."
+  FIREWALL_NOTE+="${note_space}If this server runs at a cloud provider, its firewall must allow the same ports."
 fi
