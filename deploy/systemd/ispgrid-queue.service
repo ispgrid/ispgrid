@@ -1,0 +1,14 @@
+[Unit]
+Description=ISPGrid queue worker (sends Disconnect-Requests to routers)
+After=network.target mariadb.service
+
+[Service]
+User=ispgrid
+Group=ispgrid
+WorkingDirectory=/opt/ispgrid
+ExecStart=/usr/bin/php /opt/ispgrid/artisan queue:work --tries=3 --max-time=3600
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

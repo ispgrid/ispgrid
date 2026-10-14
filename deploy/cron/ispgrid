@@ -1,0 +1,2 @@
+# ISPGrid scheduler (closes stale sessions and runs the panel's other timed jobs).
+* * * * * ispgrid cd /opt/ispgrid && php artisan schedule:run >> /dev/null 2>&1
