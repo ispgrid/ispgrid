@@ -30,6 +30,10 @@ class AppSettingSeeder extends Seeder
             'notice_isp_name' => '',
             'notice_phone' => '',
             'notice_message' => 'Your account is inactive or expired. Please contact us to renew.',
+            'notify_hours_from' => '09:00',
+            'notify_hours_to' => '21:00',
+            'notify_date_format' => 'd-M-Y',
+            'notify_time_format' => 'h:iA',
         ];
 
         foreach ($defaults as $key => $value) {

@@ -21,7 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * The password is stored in plain text like radcheck: PAP, CHAP and MS-CHAP need the cleartext.
  */
 #[Fillable(['username', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
-    'tax_id', 'business_id', 'remarks', 'address_id', 'connection_type_id', 'user_id',
+    'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id',
     'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'usage_since', 'ip_id', 'pool_id',
     'override_plan', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
     'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
@@ -41,6 +41,7 @@ class Account extends Model
         'mac_type' => 1,
         'status_id' => 1,
         'override_plan' => false,
+        'notifications_off' => false,
     ];
 
     /**
@@ -51,7 +52,7 @@ class Account extends Model
     {
         return LogOptions::defaults()->logOnly([
             'username', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
-            'tax_id', 'business_id', 'remarks', 'connection_type_id',
+            'tax_id', 'business_id', 'remarks', 'notifications_off', 'connection_type_id',
             'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'usage_since', 'ip_id', 'pool_id',
             'override_plan', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
             'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
@@ -70,6 +71,7 @@ class Account extends Model
             'expiry' => 'datetime',
             'usage_since' => 'datetime',
             'override_plan' => 'boolean',
+            'notifications_off' => 'boolean',
             'mac_type' => 'integer',
             'plan_id' => 'integer',
             'nas_id' => 'integer',
@@ -166,5 +168,13 @@ class Account extends Model
     public function radiusAttributes(): HasMany
     {
         return $this->hasMany(AccountAttribute::class);
+    }
+
+    /**
+     * @return HasMany<NotificationLog, $this>
+     */
+    public function notificationLogs(): HasMany
+    {
+        return $this->hasMany(NotificationLog::class);
     }
 }

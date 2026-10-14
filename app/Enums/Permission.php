@@ -37,6 +37,10 @@ enum Permission: string
     case ManageRadiusSettings = 'manage-radius-settings';
     case ViewActivityLog = 'view-activity-log';
 
+    case ViewNotificationLog = 'view-notification-log';
+    case ManageNotificationRules = 'manage-notification-rules';
+    case ManageNotificationProviders = 'manage-notification-providers';
+
     public function label(): string
     {
         return match ($this) {
@@ -63,6 +67,9 @@ enum Permission: string
             self::ManageAppSettings => __('App settings'),
             self::ManageRadiusSettings => __('FreeRADIUS settings'),
             self::ViewActivityLog => __('View activity log'),
+            self::ViewNotificationLog => __('View message log'),
+            self::ManageNotificationRules => __('Manage notification rules'),
+            self::ManageNotificationProviders => __('Manage notification providers (API keys)'),
         };
     }
 
@@ -79,6 +86,8 @@ enum Permission: string
             self::ViewPlans, self::ManagePlans => __('Plans'),
             self::ViewNetwork, self::ManageNas, self::ManagePools, self::ManageIpRanges,
             self::ManageAddressLists => __('Network'),
+            self::ViewNotificationLog, self::ManageNotificationRules,
+            self::ManageNotificationProviders => __('Notifications'),
             default => __('System'),
         };
     }
@@ -93,6 +102,7 @@ enum Permission: string
             self::DeleteCustomers, self::ViewCustomerPasswords, self::ResetCustomerDevices => self::ViewCustomers,
             self::ManagePlans => self::ViewPlans,
             self::ManageNas, self::ManagePools, self::ManageIpRanges, self::ManageAddressLists => self::ViewNetwork,
+            self::ManageNotificationRules, self::ManageNotificationProviders => self::ViewNotificationLog,
             default => null,
         };
     }
