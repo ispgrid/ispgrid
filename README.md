@@ -27,6 +27,8 @@ a customer who is online is changed, their session is disconnected so the change
 - **Network:** routers (NAS), pools, IP ranges with an IP inventory, address lists.
 - **Staff, roles and Activity log:** staff accounts with two-factor login and passkeys; an Admin role and a Technician
   role (or your own) that set what each person may see and do; who changed what, newest first.
+- **Notifications:** expiry reminders, recharge and welcome messages by SMS (MSG91, DLT templates) and WhatsApp
+  (wacrm), as rules you set up in the panel. Other providers can be added (see `CONTRIBUTING.md`).
 - **Import:** customers from CSV, checked by the same rules as the form.
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for routers
   that are not on your network, and a FreeRADIUS self-test (127 checks) at the end of every install and upgrade.

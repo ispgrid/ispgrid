@@ -3,6 +3,7 @@
 use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\IpRange;
+use App\Models\NotificationRule;
 use App\Models\Plan;
 use App\Models\Role;
 use App\Models\User;
@@ -37,6 +38,11 @@ dataset('pages', [
     'connection types' => [fn () => route('connection-types.index'), Permission::ManageConnectionTypes],
     'activity log' => [fn () => route('activity.index'), Permission::ViewActivityLog],
     'import' => [fn () => route('import.index'), Permission::ImportData],
+    'notification providers' => [fn () => route('notifications.providers'), Permission::ManageNotificationProviders],
+    'notification rules' => [fn () => route('notification-rules.index'), Permission::ManageNotificationRules],
+    'add notification rule' => [fn () => route('notification-rules.create'), Permission::ManageNotificationRules],
+    'edit notification rule' => [fn () => route('notification-rules.edit', NotificationRule::factory()->create()), Permission::ManageNotificationRules],
+    'message log' => [fn () => route('notification-log.index'), Permission::ViewNotificationLog],
 ]);
 
 it('opens a page only with its box', function (Closure $url, Permission $permission) {

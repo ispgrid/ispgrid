@@ -23,6 +23,20 @@
     </x-ui.nav-group>
 @endcan
 
+@canany(['view-notification-log', 'manage-notification-rules', 'manage-notification-providers'])
+    <x-ui.nav-group name="notifications" :heading="__('Notifications')" collapsible :active="request()->routeIs('notification-rules.*', 'notification-log.*', 'notifications.*')">
+        @can('manage-notification-rules')
+            <x-ui.nav-item :href="route('notification-rules.index')" icon="bell" :current="request()->routeIs('notification-rules.*')">{{ __('Rules') }}</x-ui.nav-item>
+        @endcan
+        @can('view-notification-log')
+            <x-ui.nav-item :href="route('notification-log.index')" icon="chat-bubble-left-right" :current="request()->routeIs('notification-log.*')">{{ __('Message log') }}</x-ui.nav-item>
+        @endcan
+        @can('manage-notification-providers')
+            <x-ui.nav-item :href="route('notifications.providers')" icon="paper-airplane" :current="request()->routeIs('notifications.*')">{{ __('Providers') }}</x-ui.nav-item>
+        @endcan
+    </x-ui.nav-group>
+@endcanany
+
 @canany(['manage-staff', 'manage-app-settings', 'manage-radius-settings', 'manage-connection-types', 'view-activity-log', 'import-data'])
     <x-ui.nav-group name="system" :heading="__('System')" collapsible :active="request()->routeIs('staff.*', 'roles.*', 'app-settings.*', 'radius-settings.*', 'connection-types.*', 'activity.*', 'import.*')">
         @can('manage-staff')

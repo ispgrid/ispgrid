@@ -9,11 +9,14 @@ use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\IpRange;
 use App\Models\Nas;
+use App\Models\NotificationProvider;
+use App\Models\NotificationRule;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\NotificationRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -38,6 +41,8 @@ final class ActivityFormatter
         Plan::class => 'Plan',
         RadiusSetting::class => 'FreeRADIUS settings',
         Role::class => 'Role',
+        NotificationRule::class => 'Notification rule',
+        NotificationProvider::class => 'Notification provider',
     ];
 
     public static function subjectType(?string $class): string
@@ -59,9 +64,21 @@ final class ActivityFormatter
             $subject instanceof AppSetting => $subject->key,
             $subject instanceof Account => $subject->username,
             $subject instanceof Role => $subject->label(),
+            $subject instanceof NotificationRule => $subject->name,
+            $subject instanceof NotificationProvider => self::providerLabel($subject->provider),
             // A deleted role is gone for good: its delete entry keeps the name.
             default => $activity->attribute_changes['old']['name'] ?? '#'.$activity->subject_id,
         };
+    }
+
+    /**
+     * A provider's label, or its key when the provider is no longer installed.
+     */
+    private static function providerLabel(string $key): string
+    {
+        $class = app(NotificationRegistry::class)->providerClass($key);
+
+        return $class === null ? $key : $class::label();
     }
 
     public static function causerName(Activity $activity): string

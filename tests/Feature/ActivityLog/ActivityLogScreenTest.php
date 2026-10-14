@@ -3,6 +3,8 @@
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Nas;
+use App\Models\NotificationProvider;
+use App\Models\NotificationRule;
 use App\Models\Role;
 use App\Models\User;
 use Livewire\Livewire;
@@ -98,4 +100,13 @@ it('shows a role change on a staff member and a deleted role by its name', funct
 
     Livewire::test('pages::activity.index')
         ->assertSeeInOrder(['Deleted', 'Role', 'Billing desk', 'Role changed', 'Staff', 'Ravi', 'Billing desk', 'Admin']);
+});
+
+it('names notification rules and providers in the log', function () {
+    NotificationRule::factory()->create(['name' => 'Expiring soon']);
+    $provider = NotificationProvider::query()->create(['provider' => 'wacrm', 'enabled' => true, 'settings' => []]);
+    activity()->performedOn($provider)->event('updated')->withChanges(['attributes' => ['enabled' => 'On', 'changed' => 'API key']])->log('updated');
+
+    Livewire::test('pages::activity.index')
+        ->assertSee(['Notification rule', 'Expiring soon', 'Notification provider', 'wacrm (WhatsApp)']);
 });
