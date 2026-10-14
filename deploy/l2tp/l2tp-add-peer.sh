@@ -40,7 +40,8 @@ add_peer() {
   conf_set public_ip "$endpoint"
 
   password=$(random_secret 24)
-  psk=$(awk -F'"' '/secret/ { print $2; exit }' "$psk_file")
+  psk=$(l2tp_psk "$(cat "$psk_file")")
+  [[ -n "$psk" ]] || die "No IPsec key in $psk_file: run the installer again."
   ( umask 077; l2tp_peer_line "$name" "$password" "$peer_ip" >> "$secrets" )
 
   cat <<EOF

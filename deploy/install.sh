@@ -332,6 +332,9 @@ l2tp_used_ips() { awk '$2 == "ispgrid" { print $4 }' <<<"$1"; }
 #  l2tp_peer_exists <chap-secrets content> <name>
 l2tp_peer_exists() { awk -v name="\"$2\"" '$1 == name && $2 == "ispgrid" { found = 1 } END { exit !found }' <<<"$1"; }
 
+#  l2tp_psk <ispgrid-l2tp-secret.conf content>: the IPsec key shared by the L2TP routers/NAS
+l2tp_psk() { sed -n -E 's/^[[:space:]]*secret[[:space:]]*=[[:space:]]*"(.*)"[[:space:]]*$/\1/p' <<<"$1" | head -n 1; }
+
 #  ufw_before_rules_l2tp <before.rules content>: the content with L2TP (UDP 1701) accepted only when it arrived
 #  inside IPsec, added once before the filter table's COMMIT. Plain L2TP would carry the routers' logins unencrypted.
 ufw_before_rules_l2tp() {
