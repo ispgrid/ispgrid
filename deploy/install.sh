@@ -450,8 +450,9 @@ repeat_text() {
 }
 
 #  box_render <unicode yes|no> <colour yes|no> [columns]: the summary box, from rows on stdin: "title|TEXT",
-#  "section|TEXT", "row|KEY|VALUE", "secret|KEY|VALUE" (the value stands out) and "text|TEXT". Long values wrap so
-#  the box is at most [columns] wide (default 104); numbered text ("2. ...") wraps with a hanging indent.
+#  "section|TEXT", "row|KEY|VALUE", "secret|KEY|VALUE" (the value stands out) and "text|TEXT" (a note in line with
+#  the values; numbered text ("2. ...") starts at the keys, with a hanging indent). Long values wrap so the box is at
+#  most [columns] wide (default 104).
 box_render() {
   local unicode=$1 colour=$2 columns=${3:-104} kind key value part first indent wrap width i line pad
   width=$(( columns - 4 < 60 ? columns - 4 : 60 ))
@@ -475,10 +476,16 @@ box_render() {
       row | secret | text)
         if [[ "$kind" == text ]]; then
           value=$key
-          first="  "
-          indent="  "
-          [[ "$value" =~ ^[0-9]+\.\  ]] && indent="     "
-          wrap=$(( columns - 9 ))
+          if [[ "$value" =~ ^[0-9]+\.\  ]]; then
+            first="  "
+            indent="     "
+            wrap=$(( columns - 9 ))
+          else
+            #  A note under a row: in line with the values.
+            first="               "
+            indent=$first
+            wrap=$(( columns - 19 ))
+          fi
         else
           printf -v first '  %-12s ' "$key"
           indent="               "

@@ -48,7 +48,7 @@ summary_rows() {
   fi
   echo "row|Backups|nightly at 02:30 to $ISPGRID_BACKUPS, kept 14 days: copy them to another machine too"
   if [[ -n "${ISPGRID_RUN_BACKUP:-}" ]]; then
-    echo "row|Before upgrade|$ISPGRID_RUN_BACKUP"
+    echo "row|Last backup|$ISPGRID_RUN_BACKUP (taken before this upgrade)"
   fi
   echo "row|Self-test|${SELFTEST_RESULT:-not run}"
   echo "row|Code|$ISPGRID_HOME"
