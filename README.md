@@ -161,7 +161,6 @@ Releases are tags (`v0.1.0`), and the installer installs tags.
 
 ## License
 
-ISPGrid is free software under the [GNU Affero General Public License v3.0](LICENSE). If you run a modified version
-for others over a network, you must offer them its source.
+ISPGrid is open source under the [MIT License](LICENSE).
 
 The fonts in `resources/fonts` (Geist, JetBrains Mono) are under the SIL Open Font License.
