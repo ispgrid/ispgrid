@@ -6,6 +6,10 @@ use App\Enums\Permission;
 use App\Models\Passkey;
 use App\Models\User;
 use App\Notifications\NotificationRegistry;
+use App\Notifications\Triggers\AfterExpiry;
+use App\Notifications\Triggers\BeforeExpiry;
+use App\Notifications\Triggers\CustomerCreated;
+use App\Notifications\Triggers\RechargeDone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +25,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(NotificationRegistry::class, fn (): NotificationRegistry => new NotificationRegistry);
+        $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
+            $registry = new NotificationRegistry;
+
+            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class] as $trigger) {
+                $registry->registerTrigger($trigger);
+            }
+
+            return $registry;
+        });
     }
 
     /**
