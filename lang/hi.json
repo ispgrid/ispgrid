@@ -785,6 +785,7 @@
     "In MSG91 under Authkey.": "MSG91 में Authkey के अंदर।",
     "MSG91 template ID": "MSG91 टेम्पलेट ID",
     "The template linked to your DLT template.": "आपके DLT टेम्पलेट से जुड़ा टेम्पलेट।",
+    "This is a DLT template ID. Enter the MSG91 template ID from the Templates page in MSG91 (24 letters and digits).": "यह DLT टेम्पलेट ID है। MSG91 के Templates पेज से MSG91 टेम्पलेट ID डालें (24 अक्षर और अंक)।",
     "Variable names": "वेरिएबल के नाम",
     "Comma separated, as in the template. Leave empty for VAR1, VAR2, ...": "कॉमा से अलग, जैसे टेम्पलेट में हैं। VAR1, VAR2, ... के लिए खाली छोड़ें",
     "MSG91 has no check that sends nothing. Use Send test on a rule.": "MSG91 में बिना संदेश भेजे जाँच नहीं होती। किसी नियम पर टेस्ट भेजें का उपयोग करें।",

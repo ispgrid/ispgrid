@@ -51,6 +51,17 @@ it('checks the trigger and template fields and the values', function () {
         ->assertHasErrors(['triggerSettings.days', 'template.name', 'values.0']);
 });
 
+it('refuses a DLT template ID where MSG91 wants its own template ID', function () {
+    NotificationProvider::query()->create(['provider' => 'msg91', 'enabled' => true, 'settings' => ['auth_key' => 'k-1']]);
+    $form = ruleForm()->set('provider', 'msg91')->set('values', ['customer_name']);
+
+    $form->set('template.template_id', '1307161483515667788')->call('save')
+        ->assertHasErrors(['template.template_id'])
+        ->assertSee('This is a DLT template ID. Enter the MSG91 template ID from the Templates page in MSG91 (24 letters and digits).');
+
+    $form->set('template.template_id', '692d9d7e17dbf3327d4ed6b3')->call('save')->assertHasNoErrors();
+});
+
 it('offers only the providers that are switched on', function () {
     ruleForm()->set('provider', 'msg91')->call('save')->assertHasErrors(['provider']);
 });

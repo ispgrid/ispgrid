@@ -7,6 +7,7 @@ use App\Notifications\Contracts\Provider;
 use App\Notifications\OutgoingMessage;
 use App\Notifications\SendResult;
 use App\Notifications\SettingField;
+use Closure;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -45,7 +46,7 @@ final class Msg91Sms implements Provider
     public static function templateFields(): array
     {
         return [
-            new SettingField('template_id', __('MSG91 template ID'), help: __('The template linked to your DLT template.'), maxLength: 50),
+            new SettingField('template_id', __('MSG91 template ID'), help: __('The template linked to your DLT template.'), maxLength: 50, rules: [self::notDltTemplateId(...)]),
             new SettingField('variables', __('Variable names'), required: false, help: __('Comma separated, as in the template. Leave empty for VAR1, VAR2, ...'), maxLength: 200),
         ];
     }
@@ -83,6 +84,17 @@ final class Msg91Sms implements Provider
     public function testConnection(): SendResult
     {
         return SendResult::failed(__('MSG91 has no check that sends nothing. Use Send test on a rule.'));
+    }
+
+    /**
+     * MSG91 answers "success" even for a template ID it does not know, and sends nothing. A DLT template ID (all
+     * digits) is the usual mistake, so it is refused here.
+     */
+    private static function notDltTemplateId(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (is_string($value) && preg_match('/^[0-9]{12,}$/', $value) === 1) {
+            $fail(__('This is a DLT template ID. Enter the MSG91 template ID from the Templates page in MSG91 (24 letters and digits).'));
+        }
     }
 
     /**
