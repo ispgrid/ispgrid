@@ -3,6 +3,7 @@
 @php
     $name ??= $attributes->wire('model')->value();
     $id = $attributes->get('id') ?? \App\Support\FormField::id($name);
+    $error = $name && isset($errors) ? $errors->first($name) : null;
 @endphp
 
 <label for="{{ $id }}" class="flex cursor-pointer items-start justify-between gap-4">
@@ -18,3 +19,6 @@
         <span class="absolute start-0.5 top-0.5 size-5 rounded-full bg-white shadow transition peer-checked:translate-x-5 rtl:peer-checked:-translate-x-5 dark:peer-checked:bg-zinc-900"></span>
     </span>
 </label>
+@if ($error)
+    <p id="{{ $id }}-error" class="text-sm text-red-600 dark:text-red-400">{{ $error }}</p>
+@endif

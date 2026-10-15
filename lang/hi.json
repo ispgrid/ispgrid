@@ -880,5 +880,8 @@
     "Providers": "प्रदाता",
     "The wacrm address did not answer like wacrm. Check the address.": "wacrm पते से wacrm जैसा जवाब नहीं आया। पता जाँचें।",
     "The rule is switched off or deleted.": "नियम बंद है या हटा दिया गया है।",
-    ":validity from first login": ":validity, पहले लॉगिन से"
+    ":validity from first login": ":validity, पहले लॉगिन से",
+    "Services": "सेवाएँ",
+    "Customers who log in on the Hotspot login page. While it is off, FreeRADIUS refuses those logins. IPoE is not affected.": "Hotspot लॉगिन पेज पर लॉगिन करने वाले ग्राहक। बंद रहने पर FreeRADIUS ये लॉगिन मना कर देता है। IPoE पर असर नहीं पड़ता।",
+    ":count Hotspot customer exists. Delete them or change their type first.|:count Hotspot customers exist. Delete them or change their type first.": ":count Hotspot ग्राहक मौजूद है। पहले उसे हटाएँ या उसका प्रकार बदलें।|:count Hotspot ग्राहक मौजूद हैं। पहले उन्हें हटाएँ या उनका प्रकार बदलें।"
 }

@@ -6,10 +6,14 @@ use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
 use App\Models\IpRange;
 use App\Models\Pool;
+use App\Models\RadiusSetting;
+use App\Support\Hotspot;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -56,13 +60,17 @@ new #[Title('App settings')] class extends Component
 
     public string $login_log_days = '';
 
+    public bool $hotspot_enabled = false;
+
     public function mount(): void
     {
         $this->authorize('manage-app-settings');
 
-        foreach (array_keys($this->rules()) as $key) {
+        foreach (array_keys(Arr::except($this->rules(), Hotspot::SETTING)) as $key) {
             $this->{$key} = (string) AppSetting::valueOf($key, '');
         }
+
+        $this->hotspot_enabled = Hotspot::enabled();
 
         // Installs from before languages have no row until the next upgrade seeds it: they run in English.
         $this->locale = $this->locale !== '' ? $this->locale : config('app.fallback_locale');
@@ -95,6 +103,7 @@ new #[Title('App settings')] class extends Component
             'notice_message' => ['required', 'string', 'max:500'],
             'locale' => ['required', Rule::in(array_keys(config('app.locales')))],
             'login_log_days' => ['required', 'integer', 'between:7,3650'],
+            'hotspot_enabled' => ['boolean'],
         ];
     }
 
@@ -138,9 +147,12 @@ new #[Title('App settings')] class extends Component
         $this->authorize('manage-app-settings');
 
         $validated = $this->validate();
+        $hotspot = (bool) Arr::pull($validated, Hotspot::SETTING);
         $languageChanged = $validated['locale'] !== AppSetting::valueOf('locale', config('app.fallback_locale'));
 
-        DB::transaction(function () use ($validated): void {
+        DB::transaction(function () use ($validated, $hotspot): void {
+            $this->saveHotspot($hotspot);
+
             foreach ($validated as $key => $value) {
                 AppSetting::put($key, (string) $value);
             }
@@ -156,6 +168,27 @@ new #[Title('App settings')] class extends Component
         App::setLocale(SetLocale::resolve(auth()->user()->locale));
         session()->flash('toast', __('Settings saved.'));
         $this->redirectRoute('app-settings.edit');
+    }
+
+    /**
+     * Turning Hotspot off would hide customers who still get online. The settings row is locked first: a Hotspot
+     * customer saved meanwhile holds a shared lock on it (Hotspot::enabled()), so it is either counted here or
+     * refused there. isp reads the column on every Hotspot page login, so no FreeRADIUS restart is needed.
+     */
+    private function saveHotspot(bool $enabled): void
+    {
+        $settings = RadiusSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
+
+        $count = $enabled ? 0 : Hotspot::customerCount();
+
+        if ($count > 0) {
+            throw ValidationException::withMessages([Hotspot::SETTING => trans_choice(
+                ':count Hotspot customer exists. Delete them or change their type first.|:count Hotspot customers exist. Delete them or change their type first.',
+                $count,
+            )]);
+        }
+
+        $settings->update([Hotspot::SETTING => $enabled]);
     }
 
     /**

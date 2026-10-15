@@ -2,6 +2,7 @@
 
 use App\Actions\Import\RowError;
 use App\Enums\Permission;
+use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
@@ -97,4 +98,12 @@ function staffHolding(Permission ...$permissions): User
 function staffLacking(Permission $missing): User
 {
     return staffHolding(...array_filter(Permission::cases(), fn (Permission $permission): bool => $permission !== $missing));
+}
+
+/**
+ * Turns the Hotspot switch on (the FreeRADIUS settings row, created when a test has none).
+ */
+function turnHotspotOn(): void
+{
+    RadiusSetting::query()->updateOrCreate(['id' => 1], ['hotspot_enabled' => true]);
 }

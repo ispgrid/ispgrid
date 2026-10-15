@@ -1,15 +1,21 @@
 <?php
 
+use App\Enums\ServiceType;
+use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\IpRange;
 use App\Models\Pool;
+use App\Models\RadiusSetting;
 use App\Models\User;
+use App\Support\Hotspot;
 use Database\Seeders\AppSettingSeeder;
+use Database\Seeders\RadiusSettingSeeder;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     $this->seed(AppSettingSeeder::class);
+    $this->seed(RadiusSettingSeeder::class);
     $this->actingAs(User::factory()->create());
 });
 
@@ -124,4 +130,56 @@ it('shows 90 days on an install whose settings predate the login log setting', f
         ->assertHasNoErrors();
 
     expect(AppSetting::valueOf('login_log_days'))->toBe('90');
+});
+
+it('turns Hotspot on and off in the FreeRADIUS settings, and shows the Hotspot pool only while it is on', function () {
+    Livewire::test('pages::system.app-settings')
+        ->assertSet('hotspot_enabled', false)
+        ->assertDontSee('Pool for Hotspot customers')
+        ->set('hotspot_enabled', true)
+        ->assertSee('Pool for Hotspot customers')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(RadiusSetting::current()->hotspot_enabled)->toBeTrue()->and(Hotspot::enabled())->toBeTrue();
+
+    Livewire::test('pages::system.app-settings')
+        ->assertSet('hotspot_enabled', true)
+        ->set('hotspot_enabled', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Hotspot::enabled())->toBeFalse();
+});
+
+it('refuses to turn Hotspot off while Hotspot customers exist, and saves nothing', function () {
+    turnHotspotOn();
+    Account::factory()->count(2)->hotspot()->create();
+
+    Livewire::test('pages::system.app-settings')
+        ->set('currency_code', 'USD')
+        ->set('hotspot_enabled', false)
+        ->call('save')
+        ->assertHasErrors(['hotspot_enabled'])
+        ->assertSee('2 Hotspot customers exist. Delete them or change their type first.');
+
+    expect(Hotspot::enabled())->toBeTrue()
+        ->and(AppSetting::valueOf('currency_code'))->toBe('INR');
+});
+
+it('turns Hotspot off when only deleted Hotspot customers are left', function () {
+    turnHotspotOn();
+    Account::factory()->hotspot()->trashed()->create();
+
+    Livewire::test('pages::system.app-settings')->set('hotspot_enabled', false)->call('save')->assertHasNoErrors();
+
+    expect(Hotspot::enabled())->toBeFalse();
+});
+
+it('offers Hotspot customers only while Hotspot is on', function () {
+    expect(Hotspot::serviceTypes())->toBe([ServiceType::Ppp, ServiceType::Ipoe]);
+
+    turnHotspotOn();
+
+    expect(Hotspot::serviceTypes())->toBe([ServiceType::Ppp, ServiceType::Hotspot, ServiceType::Ipoe]);
 });
