@@ -37,6 +37,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --public-ip=ADDRESS       public access, l2tp or public routers: this server's public IP (default: as seen
                             by ipapi.co)
   --domain=NAME             domain: a name pointing here, for HTTPS from Let's Encrypt
+  --le-email=EMAIL          the email Let's Encrypt sends certificate expiry notices to (default: the first
+                            admin's email; this sets or replaces it)
   --admin-name=NAME         first install: the admin's name (default: Admin)
   --admin-email=EMAIL       first install: the admin's login email (required)
   --admin-password=PASS     first install: at least 12 characters with upper and lower case, a digit and a
@@ -225,6 +227,18 @@ show_box() {
 }
 
 #  ---- Pure helpers (tested by deploy/tests/installer/test_install_sh.sh) ----
+
+#  certbot_failure_reason <certbot output>: email (Let's Encrypt refused the account email), dns (the domain does not
+#  point here or port 80 is not reachable) or other
+certbot_failure_reason() {
+  if grep -qiE 'invalid email|unable to register an account' <<<"$1"; then
+    echo email
+  elif grep -qiE 'DNS problem|NXDOMAIN|Timeout during connect|Connection refused|no valid A records|unauthorized' <<<"$1"; then
+    echo dns
+  else
+    echo other
+  fi
+}
 
 #  mariadb_restart_needed <config changed: yes|no> <old timezone> <new timezone> <running: yes|no>: MariaDB reads
 #  its config and the system timezone only when it starts; a needless restart drops FreeRADIUS's connections
@@ -665,6 +679,7 @@ parse_args() {
       --l2tp-subnet=*) OPT_L2TP_SUBNET=${arg#*=} ;;
       --admin-name=*) OPT_ADMIN_NAME=${arg#*=} ;;
       --admin-email=*) OPT_ADMIN_EMAIL=${arg#*=} ;;
+      --le-email=*) OPT_LE_EMAIL=${arg#*=} ;;
       --admin-password=*) OPT_ADMIN_PASSWORD=${arg#*=} ;;
       --timezone=*) OPT_TIMEZONE=${arg#*=} ;;
       --wg-subnet=*) OPT_WG_SUBNET=${arg#*=} ;;
