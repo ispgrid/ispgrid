@@ -9,11 +9,14 @@ use App\Models\Ipoe;
 use App\Support\RadiusText;
 use App\Support\RateLimit;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
 /**
  * Rebuilds one account's FreeRADIUS rows from the app tables (app-integration.md section 1): radcheck,
  * radusergroup, radreply and, for IPoE, its ipoes row; and keeps ips.is_used. A deleted account and a STATIC
- * leased line get no rows.
+ * leased line get no rows. A Hotspot account whose validity waits for the first login gets
+ * Hotspot-First-Login-Validity (minutes) instead of Expiration; FreeRADIUS turns it into an Expiration on that
+ * login.
  * Call it inside the save's transaction: FreeRADIUS reads the old rows until the commit and the new ones after.
  * Not final, so a test can make it fail and prove the save rolls back.
  */
@@ -30,6 +33,7 @@ class SyncAccountToRadius
      */
     public function handle(Account $account, ?int $previousIpId = null): bool
     {
+        $this->refreshClock($account);
         $account->load(['plan', 'nas', 'pool', 'ip', 'addressLists', 'radiusAttributes']);
         $username = $account->username;
         $before = $this->snapshot($account);
@@ -53,6 +57,21 @@ class SyncAccountToRadius
         }
 
         return $this->snapshot($account) !== $before;
+    }
+
+    /**
+     * FreeRADIUS writes these columns on a Hotspot first login (isp post-auth step 9b) while holding the account
+     * row lock. Re-reading them under the same lock means a copy loaded before that login cannot write the
+     * validity row back and restart the clock.
+     */
+    private function refreshClock(Account $account): void
+    {
+        $columns = ['expiry', 'hotspot_pending_validity', 'hotspot_first_login_at'];
+        $fresh = Account::query()->withTrashed()->whereKey($account->id)->lockForUpdate()->first($columns);
+
+        if ($fresh !== null) {
+            $account->forceFill($fresh->only($columns))->syncOriginalAttributes($columns);
+        }
     }
 
     private function writeRows(Account $account): void
@@ -125,7 +144,13 @@ class SyncAccountToRadius
         $rows[] = ['Acct-Status-Id', ':=', $account->status_id->value];
         $rows[] = ['Acct-Mac-Type', ':=', $isIpoe ? 1 : $account->mac_type];
 
-        if ($account->expiry !== null) {
+        if ($account->hotspot_pending_validity !== null) {
+            if ($account->service_type !== ServiceType::Hotspot || $account->expiry !== null) {
+                throw new LogicException("{$account->username}: a validity waiting for the first login needs a Hotspot account without an expiry.");
+            }
+
+            $rows[] = ['Hotspot-First-Login-Validity', ':=', $account->hotspot_pending_validity];
+        } elseif ($account->expiry !== null) {
             $rows[] = ['Expiration', ':=', $account->expiry->format(self::DATE_FORMAT)];
         }
 
