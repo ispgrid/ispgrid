@@ -57,10 +57,10 @@ new #[Title('Notification rule')] class extends Component
     public function mount(?int $rule = null): void
     {
         $this->authorize('manage-notification-rules');
-        $this->provider = NotificationProvider::enabledKeys()[0] ?? '';
-        $this->resetTemplate();
-
         if ($rule === null) {
+            $this->provider = NotificationProvider::enabledKeys()[0] ?? '';
+            $this->resetTemplate();
+
             return;
         }
 
