@@ -24,7 +24,6 @@
     ":digits digits": ":digits अंक",
     ":given of :total": ":total में से :given",
     ":given of :total given out": ":total में से :given दिए गए",
-    ":name (:days days, :price)": ":name (:days दिन, :price)",
     ":name can be added only once.": ":name सिर्फ़ एक बार जोड़ा जा सकता है।",
     ":name can log in again.": ":name फिर से लॉग इन कर सकते हैं।",
     ":name can now log in.": ":name अब लॉग इन कर सकते हैं।",
@@ -890,5 +889,9 @@
     "Unit": "इकाई",
     "Validity starts at first login": "वैधता पहले लॉगिन से शुरू होती है",
     "For Hotspot customers: the time starts at their first login. Unused, it never runs out.": "Hotspot ग्राहकों के लिए: समय उनके पहले लॉगिन से शुरू होता है। इस्तेमाल न हो तो यह कभी खत्म नहीं होता।",
-    "Hotspot is turned off in App settings.": "ऐप सेटिंग्स में Hotspot बंद है।"
+    "Hotspot is turned off in App settings.": "ऐप सेटिंग्स में Hotspot बंद है।",
+    ":name (:validity, :price)": ":name (:validity, :price)",
+    "Starts at first login: :validity": "पहले लॉगिन से शुरू: :validity",
+    "Recharged: :validity from the first login.": "रिचार्ज हो गया: पहले लॉगिन से :validity।",
+    "This plan starts at the first Hotspot login. Choose another plan.": "यह प्लान पहले Hotspot लॉगिन से शुरू होता है। दूसरा प्लान चुनें।"
 }

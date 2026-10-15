@@ -347,7 +347,11 @@
                 @endif
 
                 <x-ui.select wire:model.live="recharge_plan_id" :label="__('Plan')" :options="$this->rechargePlans" :placeholder="__('Choose a plan')" />
-                <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
+                @if ($this->rechargePending !== null)
+                    <x-ui.text>{{ __('Starts at first login: :validity', ['validity' => $this->rechargePending]) }}</x-ui.text>
+                @else
+                    <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
+                @endif
                 <x-ui.input wire:model="recharge_amount" inputmode="decimal" :label="__('Amount')" :description="__('The plan price. Change it for a discount or a part payment.')" />
                 <x-ui.input wire:model="recharge_note" :label="__('Note')" maxlength="255" />
 
