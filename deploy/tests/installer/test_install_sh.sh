@@ -243,6 +243,12 @@ OPT_SKIP_SELFTEST=""
 parse_args --skip-selftest
 check "skip the self-test" "${OPT_SKIP_SELFTEST:-}" 1
 
+#  MariaDB restarts only when its config or the timezone changed, or it is not running
+check "mariadb: nothing changed" "$(yes_no mariadb_restart_needed no Asia/Kolkata Asia/Kolkata yes)" no
+check "mariadb: config changed" "$(yes_no mariadb_restart_needed yes Asia/Kolkata Asia/Kolkata yes)" yes
+check "mariadb: timezone changed" "$(yes_no mariadb_restart_needed no Etc/UTC Asia/Kolkata yes)" yes
+check "mariadb: not running" "$(yes_no mariadb_restart_needed no Asia/Kolkata Asia/Kolkata no)" yes
+
 #  Stale ufw rules: ISPGrid rules no longer wanted (a changed network, SSH port or mode); other rules are left alone
 added="Added user rules (see 'ufw status' for running firewall):
 ufw allow 2222/tcp comment 'ISPGrid'
