@@ -1,7 +1,9 @@
 <?php
 
+use App\Contracts\SessionKeeper;
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Support\SessionKeepers;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -279,4 +281,67 @@ it('removes sessions in batches', function () {
     $this->artisan('radius:prune', ['--chunk' => 2])
         ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 5 rows removed.')
         ->assertSuccessful();
+});
+
+class KeepsListedSessions implements SessionKeeper
+{
+    /** @var list<string> */
+    public static array $kept = [];
+
+    public function kept(array $acctUniqueIds): array
+    {
+        return array_values(array_intersect($acctUniqueIds, self::$kept));
+    }
+}
+
+class ReturnsStrangers implements SessionKeeper
+{
+    public function kept(array $acctUniqueIds): array
+    {
+        return ['not-asked-1', ...array_reverse($acctUniqueIds), 'not-asked-2'];
+    }
+}
+
+class BrokenKeeper implements SessionKeeper
+{
+    public function kept(array $acctUniqueIds): array
+    {
+        throw new RuntimeException('archive database is down');
+    }
+}
+
+it('removes only the old sessions every keeper already has', function () {
+    sessionRow('saved', '400 DAY');
+    sessionRow('unsaved', '400 DAY');
+    KeepsListedSessions::$kept = [DB::table('radacct')->where('username', 'saved')->value('acctuniqueid')];
+    app(SessionKeepers::class)->register(KeepsListedSessions::class);
+
+    $this->artisan('radius:prune')
+        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 1 rows removed.')
+        ->assertSuccessful();
+
+    expect(sessionUsernames())->toBe(['unsaved']);
+});
+
+it('ignores ids a keeper returns that it was not asked about', function () {
+    sessionRow('old', '400 DAY');
+    sessionRow('recent', '10 DAY');
+    app(SessionKeepers::class)->register(ReturnsStrangers::class);
+
+    $this->artisan('radius:prune')->assertSuccessful();
+
+    expect(sessionUsernames())->toBe(['recent']);
+});
+
+it('stops removing sessions when a keeper fails, and says so', function () {
+    Log::spy();
+    sessionRow('old', '400 DAY');
+    app(SessionKeepers::class)->register(BrokenKeeper::class);
+
+    $this->artisan('radius:prune')
+        ->expectsOutputToContain('Session cleanup stopped: archive database is down')
+        ->assertFailed();
+
+    expect(sessionUsernames())->toBe(['old']);
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message): bool => str_contains($message, 'archive database is down'));
 });

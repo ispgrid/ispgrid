@@ -3,12 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Models\AppSetting;
+use App\Support\SessionKeepers;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Keeps the FreeRADIUS logs bounded: login attempts (radpostauth) and closed sessions (radacct) older than the App
@@ -16,6 +18,8 @@ use Illuminate\Support\Facades\Log;
  * minutes, so removing day-old ones never changes a login decision.
  * Ages use the database clock (NOW()), not PHP's: FreeRADIUS writes the times in the server's local time,
  * which is the database's time on the same box, whatever the app timezone is.
+ * With session keepers (add-ons that archive sessions), a session is deleted only when every keeper already has
+ * it; a keeper that fails stops the session part for that night.
  */
 #[Signature('radius:prune
     {--chunk=5000 : Rows removed per statement}')]
@@ -26,8 +30,13 @@ class PruneRadiusLogs extends Command
 
     public const DEFAULT_SESSION_HISTORY_DAYS = 365;
 
-    public function handle(): int
+    private SessionKeepers $keepers;
+
+    private int $sessionsRemoved = 0;
+
+    public function handle(SessionKeepers $keepers): int
     {
+        $this->keepers = $keepers;
         $chunk = (int) $this->option('chunk');
 
         if ($chunk < 1) {
@@ -38,7 +47,13 @@ class PruneRadiusLogs extends Command
 
         $loginLog = $this->pruneLoginLog($this->loginLogDays(), $chunk);
 
-        $sessions = $this->pruneSessions($this->sessionHistoryDays(), $chunk);
+        try {
+            $sessions = $this->pruneSessions($this->sessionHistoryDays(), $chunk);
+            $stopped = null;
+        } catch (Throwable $exception) {
+            $sessions = $this->sessionsRemoved;
+            $stopped = "Session cleanup stopped: {$exception->getMessage()}";
+        }
 
         $rejectCounters = DB::table('reject_counters')
             ->whereRaw('last_update < NOW() - INTERVAL 1 DAY')
@@ -47,6 +62,13 @@ class PruneRadiusLogs extends Command
         $summary = "Login log: {$loginLog} rows removed. Reject counters: {$rejectCounters} rows removed. Sessions: {$sessions} rows removed.";
         Log::info($summary);
         $this->info($summary);
+
+        if ($stopped !== null) {
+            Log::error($stopped);
+            $this->error($stopped);
+
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }
@@ -116,10 +138,11 @@ class PruneRadiusLogs extends Command
             }
 
             $afterId = (int) $batch->last()->radacctid;
-            $ids = $this->deletable($batch->pluck('acctuniqueid')->all());
+            $ids = $this->deletable(array_values(array_map(fn (mixed $id): string => (string) $id, $batch->pluck('acctuniqueid')->all())));
 
             if ($ids !== []) {
                 $removed += DB::table('radacct')->whereIn('acctuniqueid', $ids)->delete();
+                $this->sessionsRemoved = $removed;
             }
         } while ($batch->count() === $chunk);
 
@@ -127,11 +150,17 @@ class PruneRadiusLogs extends Command
     }
 
     /**
+     * With keepers, only what every keeper already holds; ids a keeper adds on its own are ignored.
+     *
      * @param  list<string>  $acctUniqueIds
      * @return list<string>
      */
     private function deletable(array $acctUniqueIds): array
     {
+        foreach ($this->keepers->all() as $keeper) {
+            $acctUniqueIds = array_values(array_intersect($acctUniqueIds, $keeper->kept($acctUniqueIds)));
+        }
+
         return $acctUniqueIds;
     }
 
