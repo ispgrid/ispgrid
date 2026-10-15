@@ -14,6 +14,22 @@ it('creates a staff login from the command line', function () {
     expect(User::query()->where('email', 'admin@isp.example')->exists())->toBeTrue();
 });
 
+it('takes the password from ISPGRID_STAFF_PASSWORD so it stays off the command line', function () {
+    putenv('ISPGRID_STAFF_PASSWORD=env-secret-pass-789');
+
+    try {
+        $this->artisan('staff:create', [
+            '--name' => 'First Admin',
+            '--email' => 'admin@isp.example',
+        ])->expectsOutput('Staff member admin@isp.example created.')
+            ->assertSuccessful();
+    } finally {
+        putenv('ISPGRID_STAFF_PASSWORD');
+    }
+
+    expect(Hash::check('env-secret-pass-789', User::query()->where('email', 'admin@isp.example')->value('password')))->toBeTrue();
+});
+
 it('prints the validation errors and fails', function () {
     User::factory()->create(['email' => 'admin@isp.example']);
 

@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 #[Signature('staff:create
     {--name= : Full name}
     {--email= : Login email}
-    {--password= : Password (asked for when missing)}
+    {--password= : Password (else ISPGRID_STAFF_PASSWORD, which stays out of ps; else asked for)}
     {--reset : Set a new password for the active staff member with this email instead of creating one}')]
 #[Description('Create an Admin staff login, or reset one with --reset (works without a mail server)')]
 class CreateStaff extends Command
@@ -26,7 +26,7 @@ class CreateStaff extends Command
     public function handle(CreateNewUser $createNewUser): int
     {
         $email = (string) $this->option('email');
-        $password = (string) ($this->option('password') ?? $this->secret('Password'));
+        $password = (string) ($this->option('password') ?? (getenv('ISPGRID_STAFF_PASSWORD') ?: $this->secret('Password')));
 
         try {
             if ($this->option('reset')) {

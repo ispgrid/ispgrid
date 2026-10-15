@@ -183,8 +183,10 @@ rm -f "$tmp/storage/framework/down"
 OPT_TOKEN_ASK=""
 parse_args --token --yes
 check "bare --token asks" "${OPT_TOKEN_ASK:-}" 1
-check "re-exec args without the token" "$(without_token_args --version=v1 --token --token=abc --yes | tr '
+check "re-exec args without the token" "$(without_secret_args --version=v1 --token --token=abc --yes | tr '
 ' ' ')" "--version=v1 --yes "
+check "re-exec args without the admin password" "$(without_secret_args --admin-email=a@b.c --admin-password='S3cret!pass' --yes | tr '
+' ' ')" "--admin-email=a@b.c --yes "
 OPT_YES=""
 
 #  Output: durations, the step clock
