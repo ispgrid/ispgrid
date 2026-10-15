@@ -844,16 +844,14 @@ new #[Title('Customer')] class extends Component
     {
         $this->authorize('restore', $this->account);
 
-        $blockers = $this->restoreBlockers();
-
-        if ($blockers !== []) {
-            $this->toast(__('First restore what this customer uses: :items.', ['items' => implode(', ', $blockers)]), 'danger');
-
-            return;
-        }
-
-        $address = DB::transaction(function () use ($sync): ?string {
+        $outcome = DB::transaction(function () use ($sync): array {
             $account = Account::onlyTrashed()->lockForUpdate()->findOrFail($this->accountId);
+            $blockers = $this->restoreBlockers($account);
+
+            if ($blockers !== []) {
+                return ['blockers' => $blockers];
+            }
+
             $ip = $account->service_type === ServiceType::Ipoe ? CustomerDefaults::nextIpoeIp() : null;
             $poolId = CustomerDefaults::poolId($account->service_type);
 
@@ -872,26 +870,38 @@ new #[Title('Customer')] class extends Component
                 ], fn (?string $value): bool => $value !== null)])
                 ->log('restored');
 
-            return $ip?->address;
+            return ['address' => $ip?->address];
         }, attempts: 3);
+
+        if (isset($outcome['blockers'])) {
+            $this->toast(__('First restore what this customer uses: :items.', ['items' => implode(', ', $outcome['blockers'])]), 'danger');
+
+            return;
+        }
 
         unset($this->account, $this->service, $this->technician, $this->activities);
         $this->status = (string) AccountStatus::Inactive->value;
 
-        $this->toast($this->account->service_type === ServiceType::Ipoe && $address === null
+        $this->toast($this->account->service_type === ServiceType::Ipoe && $outcome['address'] === null
             ? __('Customer restored as Inactive. Give them an IP on the Network tab: the default IPoE range has no free address.')
             : __('Customer restored as Inactive.'));
     }
 
     /**
      * Deleted records the customer points at. Restoring would write rows that log them in without their plan
-     * or bind them to a router FreeRADIUS no longer loads. (The pool was dropped by the delete.)
+     * or bind them to a router FreeRADIUS no longer loads. (The pool was dropped by the delete.) Called inside the
+     * restore transaction: the Hotspot read holds its shared lock until the commit, so Hotspot cannot be turned off
+     * between this check and the restore.
      *
      * @return list<string>
      */
-    private function restoreBlockers(): array
+    private function restoreBlockers(Account $account): array
     {
-        $account = $this->account;
+        $account->load([
+            'plan' => fn ($query) => $query->withTrashed(),
+            'nas' => fn ($query) => $query->withTrashed(),
+            'addressLists' => fn ($query) => $query->withTrashed(),
+        ]);
         $blockers = [];
 
         if ($account->plan?->trashed()) {

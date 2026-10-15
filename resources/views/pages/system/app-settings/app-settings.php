@@ -174,10 +174,19 @@ new #[Title('App settings')] class extends Component
      * Turning Hotspot off would hide customers who still get online. The settings row is locked first: a Hotspot
      * customer saved meanwhile holds a shared lock on it (Hotspot::enabled()), so it is either counted here or
      * refused there. isp reads the column on every Hotspot page login, so no FreeRADIUS restart is needed.
+     * Without the settings row (every install seeds it) Hotspot reads as off, and only turning it on is refused.
      */
     private function saveHotspot(bool $enabled): void
     {
-        $settings = RadiusSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
+        $settings = RadiusSetting::query()->whereKey(1)->lockForUpdate()->first();
+
+        if ($settings === null) {
+            if ($enabled) {
+                throw ValidationException::withMessages([Hotspot::SETTING => __('The FreeRADIUS settings are missing. Run the installer again to restore them.')]);
+            }
+
+            return;
+        }
 
         $count = $enabled ? 0 : Hotspot::customerCount();
 
