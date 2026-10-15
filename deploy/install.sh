@@ -929,6 +929,12 @@ bootstrap() {
   repo=${repo:-$ISPGRID_REPO_DEFAULT}
   [[ "$repo" == http* ]] && depth=(--depth 1)
   installed=$(conf_get version || true)
+  if [[ "$repo" == http* ]] && ! git_auth ls-remote -q "$repo" HEAD >/dev/null 2>&1; then
+    if [[ -n "${OPT_TOKEN:-}" ]]; then
+      die "Can't read $repo with this token. It needs read access to the repository's contents."
+    fi
+    die "Can't read $repo. While the repository is private, run the installer with --token."
+  fi
   if [[ -n "${OPT_VERSION:-}" ]]; then
     target=$OPT_VERSION
   else
