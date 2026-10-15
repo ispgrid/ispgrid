@@ -60,6 +60,8 @@ new #[Title('App settings')] class extends Component
 
     public string $login_log_days = '';
 
+    public string $session_history_days = '';
+
     public bool $hotspot_enabled = false;
 
     public function mount(): void
@@ -77,6 +79,9 @@ new #[Title('App settings')] class extends Component
 
         // Installs from before the cleanup job have no row until the next upgrade seeds it: the job keeps 90 days.
         $this->login_log_days = $this->login_log_days !== '' ? $this->login_log_days : (string) PruneRadiusLogs::DEFAULT_LOGIN_LOG_DAYS;
+
+        // Installs from before session cleanup have no row until the next upgrade seeds it: the job keeps 365 days.
+        $this->session_history_days = $this->session_history_days !== '' ? $this->session_history_days : (string) PruneRadiusLogs::DEFAULT_SESSION_HISTORY_DAYS;
     }
 
     /**
@@ -103,6 +108,7 @@ new #[Title('App settings')] class extends Component
             'notice_message' => ['required', 'string', 'max:500'],
             'locale' => ['required', Rule::in(array_keys(config('app.locales')))],
             'login_log_days' => ['required', 'integer', 'between:7,3650'],
+            'session_history_days' => ['required', 'integer', 'between:31,3650'],
             'hotspot_enabled' => ['boolean'],
         ];
     }

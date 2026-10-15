@@ -70,6 +70,8 @@ it('rejects values outside the allowed lists', function (string $field, string $
     'login log kept under a week' => ['login_log_days', '6'],
     'login log kept over ten years' => ['login_log_days', '3651'],
     'login log days not a number' => ['login_log_days', 'ninety'],
+    'session history under a month' => ['session_history_days', '30'],
+    'session history over ten years' => ['session_history_days', '3651'],
 ]);
 
 it('accepts an empty customer ID label, which hides that field', function () {
@@ -206,4 +208,26 @@ it('offers Hotspot customers only while Hotspot is on', function () {
     turnHotspotOn();
 
     expect(Hotspot::serviceTypes())->toBe([ServiceType::Ppp, ServiceType::Hotspot, ServiceType::Ipoe]);
+});
+
+it('saves how many days the session history is kept', function () {
+    Livewire::test('pages::system.app-settings')
+        ->assertSet('session_history_days', '365')
+        ->assertSee(__('Keep session history (days)'))
+        ->set('session_history_days', '400')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(AppSetting::valueOf('session_history_days'))->toBe('400');
+});
+
+it('shows 365 days on an install whose settings predate the session history setting', function () {
+    AppSetting::query()->where('key', 'session_history_days')->delete();
+
+    Livewire::test('pages::system.app-settings')
+        ->assertSet('session_history_days', '365')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(AppSetting::valueOf('session_history_days'))->toBe('365');
 });

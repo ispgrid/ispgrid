@@ -72,8 +72,9 @@
             </x-ui.card>
 
             <x-ui.card class="grid content-start gap-5">
-                <x-ui.heading>{{ __('Login log') }}</x-ui.heading>
+                <x-ui.heading>{{ __('Logs') }}</x-ui.heading>
                 <x-ui.input wire:model="login_log_days" type="number" min="7" max="3650" :label="__('Keep login log (days)')" :description="__('Older login attempts are removed every night. 7 to 3650 days.')" />
+                <x-ui.input wire:model="session_history_days" type="number" min="31" max="3650" :label="__('Keep session history (days)')" :description="__('Closed sessions older than this are removed every night, except those since the customer last recharged (they count towards data and time limits). 31 to 3650 days.')" />
             </x-ui.card>
 
             <x-ui.card class="grid content-start gap-5">

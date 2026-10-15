@@ -35,6 +35,7 @@ class AppSettingSeeder extends Seeder
             'notify_date_format' => 'd-M-Y',
             'notify_time_format' => 'h:iA',
             'login_log_days' => '90',
+            'session_history_days' => '365',
         ];
 
         foreach ($defaults as $key => $value) {
