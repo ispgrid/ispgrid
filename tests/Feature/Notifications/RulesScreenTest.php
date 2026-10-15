@@ -118,3 +118,13 @@ it('lists rules, switches them on and off and deletes them', function () {
     Livewire::test('pages::notifications.rules')->call('delete', $rule->id);
     expect($rule->fresh()->trashed())->toBeTrue();
 });
+
+it('shows the fields of the rule\'s own provider when another provider comes first', function () {
+    NotificationProvider::query()->create(['provider' => 'msg91', 'enabled' => true, 'settings' => ['auth_key' => 'k-1']]);
+    $rule = NotificationRule::factory()->create(['provider' => 'wacrm', 'template' => ['name' => 'recharge_success', 'language' => 'en']]);
+
+    Livewire::test('pages::notifications.rule-form', ['rule' => $rule->id])
+        ->assertSee('Template name')
+        ->assertDontSee('MSG91 template ID')
+        ->assertSet('template', ['name' => 'recharge_success', 'language' => 'en']);
+});
