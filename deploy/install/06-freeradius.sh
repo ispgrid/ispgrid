@@ -5,12 +5,15 @@
 step "FreeRADIUS"
 src="$ISPGRID_HOME/deploy/freeradius"
 
+#  FreeRADIUS reads everything and writes only these (app-integration.md section 8).
 mysql <<SQL
 GRANT INSERT, UPDATE, DELETE ON radius.radacct TO 'freeradius'@'localhost';
 GRANT INSERT, UPDATE, DELETE ON radius.radpostauth TO 'freeradius'@'localhost';
 GRANT INSERT, UPDATE, DELETE ON radius.account_macs TO 'freeradius'@'localhost';
 GRANT INSERT, UPDATE, DELETE ON radius.reject_counters TO 'freeradius'@'localhost';
 GRANT INSERT, UPDATE, DELETE ON radius.nasreload TO 'freeradius'@'localhost';
+GRANT UPDATE (expiry, hotspot_first_login_at, hotspot_pending_validity) ON radius.accounts TO 'freeradius'@'localhost';
+GRANT UPDATE (attribute, value) ON radius.radcheck TO 'freeradius'@'localhost';
 SQL
 
 stage=$(mktemp -d /tmp/ispgrid-raddb.XXXXXX)

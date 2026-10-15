@@ -4,7 +4,8 @@
 #  Seeds its own fixtures (users t_*, IPoE IPs 10.99.0.x, plan groups t_plan*),
 #  so it can be re-run at any time. Usage: radius_policy_tests.sh
 #
-#  Settings are cached by FreeRADIUS for 24 hours: restart it after changing the settings table.
+#  Settings are cached by FreeRADIUS for 24 hours: restart it after changing the settings table. The Hotspot switch
+#  (settings.hotspot_enabled) is not cached: the tests turn it on, off for one section, and put it back on exit.
 #
 
 SERVER="127.0.0.1"
@@ -24,6 +25,7 @@ FIXTURE_USERS=(t_ppp t_ppp2 t_static t_disabled t_exp_hard t_exp_soft t_hs t_hs_
   t_ipoe t_ipoe2 t_ipoe_hs t_ipoe_gone t_ipoe_off t_ipoe_sus t_ipoe_term t_ipoe_exp t_ipoe_hard t_ipoe_noplan
   t_ipoe_q t_q_fup t_q_day t_q_big t_q_month t_q_hs t_slot_full t_slot_out t_slot_in t_slot_hs
   t_boost_out t_boost_in t_lists_plan t_lists_own t_lists_off t_nobody t_probe
+  t_fl t_fl_off t_fl_sus t_fl_lim t_fl_ppp t_fl_ipoe t_fl_both t_fl_week
   "$IPOE_USER" DE:AD:00:00:00:01 DE:AD:00:00:00:02 DE:AD:00:00:00:03 DE:AD:00:00:00:20 DE:AD:00:00:00:21
   DE:AD:00:00:00:22 DE:AD:00:00:00:23 DE:AD:00:00:00:24 DE:AD:00:00:00:25 DE:AD:00:00:00:26)
 FIXTURE_LIST="$(printf "'%s'," "${FIXTURE_USERS[@]}")"
@@ -144,6 +146,16 @@ seed() {
          ('t_slot_full', 'Isp-Slot-From', ':=', '$H1'), ('t_slot_full', 'Isp-Slot-To', ':=', '$H2'),
          ('t_slot_full', 'Isp-Slot-Full-Days', ':=', '1');"
 
+  # Validity from the first login: user type status devices minutes [expiration]
+  add_pending t_fl      HOTSPOT 1 0 180
+  add_pending t_fl_off  HOTSPOT 2 0 180
+  add_pending t_fl_sus  HOTSPOT 3 0 180
+  add_pending t_fl_lim  HOTSPOT 1 1 180
+  add_pending t_fl_ppp  PPP     1 0 180
+  add_pending t_fl_ipoe IPOE    1 1 180
+  add_pending t_fl_both HOTSPOT 1 0 180 "01 Jan 2030 00:00"
+  add_pending t_fl_week HOTSPOT 1 0 10080
+
   sql "INSERT INTO radreply (username, attribute, op, value) VALUES
          ('t_static', 'Framed-IP-Address', ':=', '10.10.10.123'),
          ('t_static', 'Mikrotik-Rate-Limit', ':=', '100M/100M'),
@@ -167,6 +179,25 @@ add_user() {
        INSERT INTO radusergroup (username, groupname, priority) VALUES ('$u', 't_plan40', 1);"
   if [[ -n "$etype" ]]; then
     sql "INSERT INTO radcheck (username, attribute, op, value) VALUES ('$u', 'Expire-Type', ':=', '$etype');"
+  fi
+}
+
+#  First-login fixtures: add_pending <user> <type> <status> <devices online> <minutes> [expiration]
+#  radcheck carries Hotspot-First-Login-Validity (bad data: also Expiration); accounts holds the waiting minutes,
+#  which the isp server clears when it stamps the first login.
+add_pending() {
+  local u="$1" type="$2" status="$3" macs="$4" minutes="$5" exp="$6"
+  sql "INSERT INTO radcheck (username, attribute, op, value) VALUES
+         ('$u', 'Cleartext-Password', ':=', 'pass'),
+         ('$u', 'Acct-Service-Type', ':=', '$type'),
+         ('$u', 'Acct-Status-Id', ':=', '$status'),
+         ('$u', 'Acct-Mac-Type', ':=', '$macs'),
+         ('$u', 'Hotspot-First-Login-Validity', ':=', '$minutes');
+       INSERT INTO radusergroup (username, groupname, priority) VALUES ('$u', 't_plan40', 1);
+       INSERT INTO accounts (username, fullname, service_type, hotspot_pending_validity, created_at, updated_at)
+         VALUES ('$u', '$u', '$type', $minutes, NOW(), NOW());"
+  if [[ -n "$exp" ]]; then
+    sql "INSERT INTO radcheck (username, attribute, op, value) VALUES ('$u', 'Expiration', ':=', '$exp');"
   fi
 }
 
@@ -290,6 +321,31 @@ logged() {
   result $ok "$1" "(log has '$msg', want '$3')" "radpostauth.reply_msg for $2 = '$msg' (expected to contain '$3')"
 }
 
+#  accept_with_timeout <name> <attrs> <min> <max>: Access-Accept with a Session-Timeout from <min> to <max> seconds
+accept_with_timeout() {
+  local out t
+  out="$(printf '%b' "$2" | radclient -x -r 1 -t 3 "$SERVER:1812" auth "$SECRET" 2>&1)"
+  t=$(sed -n 's/^[[:space:]]*Session-Timeout = \([0-9][0-9]*\).*/\1/p' <<<"$out" | tail -1)
+  result "$(grep -q 'Received Access-Accept' <<<"$out" && [[ -n "$t" && "$t" -ge "$3" && "$t" -le "$4" ]] && echo 1 || echo 0)" \
+    "$1" "(got ${t:-no Session-Timeout}, want $3 to $4)"
+}
+
+#  state_is <name> <user> <want>: the first-login state of an account as
+#  expiry set | first login set | waiting minutes cleared | Expiration rows | validity rows
+state_is() {
+  local s
+  s=$(sql "SELECT CONCAT_WS('|', a.expiry IS NOT NULL, a.hotspot_first_login_at IS NOT NULL, a.hotspot_pending_validity IS NULL,
+             (SELECT COUNT(*) FROM radcheck WHERE username = a.username AND attribute = 'Expiration'),
+             (SELECT COUNT(*) FROM radcheck WHERE username = a.username AND attribute = 'Hotspot-First-Login-Validity'))
+           FROM accounts a WHERE a.username = '$2'")
+  result "$([[ "$s" == "$3" ]] && echo 1 || echo 0)" "$1" "(state $s, want $3)"
+}
+
+#  minutes_left <user>: minutes from the start of this minute to the account's expiry
+minutes_left() {
+  sql "SELECT TIMESTAMPDIFF(MINUTE, NOW() - INTERVAL SECOND(NOW()) SECOND, expiry) FROM accounts WHERE username = '$1'"
+}
+
 #  spam <count> <attrs>: send requests and ignore the answers
 spam() {
   note "Setup: sent $1 more requests like the next test's (answers ignored)"
@@ -316,6 +372,13 @@ TO_MIDNIGHT=$(( $(date -d 'tomorrow 00:00' +%s) - $(date +%s) ))
 
 seed
 seed_routers
+
+#  The Hotspot switch (settings.hotspot_enabled): isp reads it on every Hotspot page login, not from its cache.
+#  The tests run with Hotspot on and turn it off for one section; the operator's value is put back on exit.
+HOTSPOT_WAS=$(sql "SELECT hotspot_enabled FROM settings LIMIT 1")
+set_hotspot() { sql "UPDATE settings SET hotspot_enabled = $1"; note "Setup: Hotspot switch set to $1"; }
+trap 'set_hotspot "${HOTSPOT_WAS:-0}"' EXIT
+set_hotspot 1
 
 M1="D4:45:E8:00:00:01"; M2="D4:45:E8:00:00:02"; M3="D4-45-E8-00-00-03"; M4="d445.e800.0004"
 M5="D4:45:E8:00:00:05"; M6="D4:45:E8:00:00:06"; M7="D4:45:E8:00:00:07"
@@ -366,6 +429,20 @@ check "  same, wrong password: no account info"  Reject "$(ppp t_terminated wron
 check "Unknown status (9) counts as inactive"    Accept "$(ppp t_status9 pass $M2)" \
       'Framed-Pool = "disabled_pool"' 'Account is inactive'
 
+section "Hotspot switch off (settings.hotspot_enabled = 0)"
+set_hotspot 0
+counted_before=$(sql "SELECT COALESCE(SUM(counter), 0) FROM reject_counters WHERE username = 't_ppp' AND mac = ''")
+check "Hotspot page login refused"               Reject "$(login t_hs pass $M1)" 'Hotspot is turned off'
+logged "  reason logged"                         t_hs 'Hotspot is turned off'
+check "PPPoE name on the login page, wrong password" Reject "$(login t_ppp wrong $M1)" 'Hotspot is turned off'
+counted_after=$(sql "SELECT COALESCE(SUM(counter), 0) FROM reject_counters WHERE username = 't_ppp' AND mac = ''")
+result "$([[ "$counted_before" == "$counted_after" ]] && echo 1 || echo 0)" "  not counted against the PPPoE customer" "($counted_before -> $counted_after)"
+check "Unknown name refused the same way"        Reject "$(login t_nobody pass $M1)" 'Hotspot is turned off'
+check "IPoE MAC login still answered"            Accept "$(maclogin DE:AD:00:00:00:20 10.99.0.20)" 'Account is inactive'
+check "PPPoE not affected"                       Accept "$(ppp t_static pass $M2)" 'Framed-IP-Address = 10.10.10.123'
+set_hotspot 1
+check "Turned on again: read at once, no restart" Accept "$(login t_hs pass $M1)" 'Mikrotik-Rate-Limit = "40M/40M"'
+
 section "Hotspot (no MAC binding, Acct-Mac-Type = devices online at once)"
 check "Hotspot login, any MAC"                   Accept "$(login t_hs pass $M1)" 'Mikrotik-Rate-Limit = "40M/40M"'
 bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_hs'")
@@ -383,6 +460,39 @@ check "Hotspot suspended account"                Reject "$(login t_hs_sus pass $
 check "Hotspot account via PPP"                  Reject "$(ppp t_hs pass $M3)" 'may only connect via HOTSPOT'
 spam $((LIMIT + 1)) "$(login t_hs_lock wrong $M5)"
 check "Hotspot locked after $((LIMIT + 1)) wrong passwords" Reject "$(login t_hs_lock pass $M6)" 'Too many failed logins'
+
+section "Hotspot validity from the first login (Hotspot-First-Login-Validity)"
+check "Wrong password: reject"                         Reject "$(login t_fl wrong $M1)" 'Wrong Password'
+state_is "  clock not started"                         t_fl "0|0|0|0|1"
+accept_with_timeout "First login: accept, session ends with the validity" "$(login t_fl pass $M1)" 10740 10800
+state_is "  clock started: expiry, first login, Expiration row" t_fl "1|1|1|1|0"
+mins=$(minutes_left t_fl)
+result "$([[ "$mins" -ge 179 && "$mins" -le 180 ]] && echo 1 || echo 0)" "  expiry is the validity after this minute" "($mins minutes, want 179 to 180)"
+same=$(sql "SELECT r.value = DATE_FORMAT(a.expiry, '%d %b %Y %H:%i') FROM accounts a JOIN radcheck r ON r.username = a.username AND r.attribute = 'Expiration' WHERE a.username = 't_fl'")
+result "$([[ "$same" == 1 ]] && echo 1 || echo 0)" "  Expiration row in the app's format, same time" "(got '$same')"
+before=$(sql "SELECT expiry FROM accounts WHERE username = 't_fl'")
+check "Second login, other device: accept"             Accept "$(login t_fl pass $M2)"
+after=$(sql "SELECT expiry FROM accounts WHERE username = 't_fl'")
+result "$([[ -n "$before" && "$before" == "$after" ]] && echo 1 || echo 0)" "  expiry unchanged" "($before -> $after)"
+check "Inactive account: reject"                       Reject "$(login t_fl_off pass $M1)" 'Account is inactive'
+state_is "  clock not started"                         t_fl_off "0|0|0|0|1"
+check "Suspended account: reject"                      Reject "$(login t_fl_sus pass $M1)" 'Account is suspended'
+state_is "  clock not started"                         t_fl_sus "0|0|0|0|1"
+online t_fl_lim t-fl-1 "$M3"
+check "Device limit reached: reject"                   Reject "$(login t_fl_lim pass $M5)" 'Maximum devices online (1)'
+state_is "  clock not started"                         t_fl_lim "0|0|0|0|1"
+check "PPPoE account with the validity: reject"        Reject "$(ppp t_fl_ppp pass $M1)" 'Error: Hotspot-First-Login-Validity on account type PPP'
+state_is "  nothing changed"                           t_fl_ppp "0|0|0|0|1"
+check "IPoE account with the validity: reject"         Reject "$(login t_fl_ipoe pass $M1)" 'Error: Hotspot-First-Login-Validity on account type IPOE'
+state_is "  nothing changed"                           t_fl_ipoe "0|0|0|0|1"
+check "Both Expiration and the validity: reject"       Reject "$(login t_fl_both pass $M1)" 'Error: both Expiration and Hotspot-First-Login-Validity'
+state_is "  nothing changed"                           t_fl_both "0|0|0|1|1"
+check "Hotspot account via PPP: reject"                Reject "$(ppp t_fl_week pass $M1)" 'may only connect via HOTSPOT'
+state_is "  clock not started"                         t_fl_week "0|0|0|0|1"
+CAP=$(sql "SELECT COALESCE(default_session_timeout, 86400) FROM settings LIMIT 1")
+accept_with_timeout "7-day validity: first session capped at the default ($CAP s)" "$(login t_fl_week pass $M1)" "$CAP" "$CAP"
+mins=$(minutes_left t_fl_week)
+result "$([[ "$mins" -ge 10079 && "$mins" -le 10080 ]] && echo 1 || echo 0)" "  expiry 7 days on" "($mins minutes, want 10079 to 10080)"
 
 I1="DE:AD:00:00:00:01"; I2="DE:AD:00:00:00:02"; I3="DE:AD:00:00:00:03"
 section "IPoE (Hotspot MAC login, account found by the device IP)"

@@ -73,3 +73,12 @@ ATTRIBUTE    Isp-Ipoe-User             3075    string
 ATTRIBUTE    Isp-Ipoe-Login            3076    integer
 ATTRIBUTE    Isp-Mac-Bound             3077    string
 ATTRIBUTE    Isp-Require-Ma            3078    string
+
+#  Hotspot validity from the first login (2026-10-15)
+#  radcheck: minutes of validity that start at the first Hotspot page login (instead of Expiration)
+ATTRIBUTE    Hotspot-First-Login-Validity 3079 integer
+#  per request: the expiry this login starts ('YYYY-MM-DD HH:MM:00'), and 1 = this login starts it
+ATTRIBUTE    Hotspot-First-Login-Expiry   3080 string
+ATTRIBUTE    Hotspot-First-Login          3081 integer
+#  per request: settings.hotspot_enabled, read on each Hotspot page login (step 3c)
+ATTRIBUTE    Hotspot-Enabled              3082 string

@@ -31,7 +31,7 @@ a customer who is online is changed, their session is disconnected so the change
   (wacrm), as rules you set up in the panel. Other providers can be added (see `CONTRIBUTING.md`).
 - **Import:** customers from CSV, checked by the same rules as the form.
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for routers
-  that are not on your network, and a FreeRADIUS self-test (127 checks) at the end of every install and upgrade.
+  that are not on your network, and a FreeRADIUS self-test (159 checks) at the end of every install and upgrade.
 
 ## Requirements
 
