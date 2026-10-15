@@ -47,6 +47,7 @@ class PruneRadiusLogs extends Command
 
     /**
      * Small chunks, oldest first, so no single statement holds locks long while FreeRADIUS inserts.
+     * Ordered by (authdate, id), the order of idx_radpostauth_date: each chunk reads only the rows it removes.
      */
     private function pruneLoginLog(int $days, int $chunk): int
     {
@@ -55,6 +56,7 @@ class PruneRadiusLogs extends Command
         do {
             $deleted = DB::table('radpostauth')
                 ->whereRaw('authdate < NOW() - INTERVAL ? DAY', [$days])
+                ->orderBy('authdate')
                 ->orderBy('id')
                 ->limit($chunk)
                 ->delete();

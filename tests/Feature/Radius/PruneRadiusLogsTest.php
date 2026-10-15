@@ -169,3 +169,14 @@ it('indexes the login log by date for the cleanup and the Login log page', funct
     expect($index)->not->toBeNull()
         ->and($index['columns'])->toBe(['authdate']);
 });
+
+it('walks the login log along its date index, oldest first', function () {
+    loginLogRow('old', '100 DAY');
+    DB::enableQueryLog();
+
+    $this->artisan('radius:prune')->assertSuccessful();
+
+    $delete = collect(DB::getQueryLog())
+        ->first(fn (array $query): bool => str_starts_with($query['query'], 'delete from `radpostauth`'));
+    expect($delete['query'])->toEndWith('order by `authdate` asc, `id` asc limit 5000');
+});
