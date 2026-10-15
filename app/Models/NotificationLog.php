@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One message: what was sent to whom and what the provider said. The once_key (unique) is what keeps a reminder
  * from going out twice. The template and values are copied from the rule when the row is made, so a Retry sends
  * exactly the same message.
+ *
+ * @property array<string, string>|null $template
+ * @property list<string>|null $values
  */
 #[Fillable(['notification_rule_id', 'account_id', 'provider', 'channel', 'to', 'template', 'values', 'values_trimmed',
     'preview', 'status', 'error', 'provider_message_id', 'attempts', 'once_key', 'sent_at', 'user_id'])]

@@ -74,7 +74,7 @@ class User extends Authenticatable implements PasskeyUser
      */
     public function staffRole(): ?Role
     {
-        return $this->roles->first();
+        return $this->roles->whereInstanceOf(Role::class)->first();
     }
 
     /**

@@ -18,7 +18,7 @@ class IpoeFactory extends Factory
     {
         return [
             'account_id' => Account::factory()->ipoe(),
-            'username' => fn (array $attributes) => Account::query()->findOrFail($attributes['account_id'])->username,
+            'username' => fn (array $attributes) => Account::query()->whereKey($attributes['account_id'])->value('username'),
             'ip_address' => fake()->unique()->ipv4(),
         ];
     }

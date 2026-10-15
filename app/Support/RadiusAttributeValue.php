@@ -12,19 +12,26 @@ final class RadiusAttributeValue
 {
     public static function error(RadiusAttribute $attribute, string $value): ?string
     {
+        $valid = match ($attribute->type) {
+            'integer' => preg_match('/^(0|[1-9][0-9]{0,9})$/D', $value) === 1 && (int) $value <= 4_294_967_295,
+            'ipv4' => filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false,
+            'ipv4-prefix' => self::isPrefix($value, FILTER_FLAG_IPV4, 32),
+            'ipv6-prefix' => self::isPrefix($value, FILTER_FLAG_IPV6, 128),
+            'enum' => in_array($value, $attribute->allowed_values ?? [], true),
+            default => preg_match('/^[\x20-\x7E]{1,253}$/D', $value) === 1 && strpbrk($value, '"\'\\`') === false,
+        };
+
+        if ($valid) {
+            return null;
+        }
+
         return match ($attribute->type) {
-            'integer' => preg_match('/^(0|[1-9][0-9]{0,9})$/D', $value) === 1 && (int) $value <= 4_294_967_295
-                ? null : __('Enter a whole number.'),
-            'ipv4' => filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
-                ? null : __('Enter an IPv4 address, e.g. 255.255.255.0.'),
-            'ipv4-prefix' => self::isPrefix($value, FILTER_FLAG_IPV4, 32)
-                ? null : __('Enter an IPv4 prefix, e.g. 10.0.0.0/24.'),
-            'ipv6-prefix' => self::isPrefix($value, FILTER_FLAG_IPV6, 128)
-                ? null : __('Enter an IPv6 prefix, e.g. 2001:db8::/48.'),
-            'enum' => in_array($value, $attribute->allowed_values ?? [], true)
-                ? null : __('Choose one of: :values.', ['values' => implode(', ', $attribute->allowed_values ?? [])]),
-            default => preg_match('/^[\x20-\x7E]{1,253}$/D', $value) === 1 && strpbrk($value, '"\'\\`') === false
-                ? null : __('Use plain text without quotes or backslashes, up to 253 characters.'),
+            'integer' => __('Enter a whole number.'),
+            'ipv4' => __('Enter an IPv4 address, e.g. 255.255.255.0.'),
+            'ipv4-prefix' => __('Enter an IPv4 prefix, e.g. 10.0.0.0/24.'),
+            'ipv6-prefix' => __('Enter an IPv6 prefix, e.g. 2001:db8::/48.'),
+            'enum' => __('Choose one of: :values.', ['values' => implode(', ', $attribute->allowed_values ?? [])]),
+            default => __('Use plain text without quotes or backslashes, up to 253 characters.'),
         };
     }
 

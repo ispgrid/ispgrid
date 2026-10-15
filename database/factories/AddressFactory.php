@@ -20,7 +20,7 @@ class AddressFactory extends Factory
             'line2' => null,
             'area' => null,
             'city' => fake()->city(),
-            'state' => fake()->state(),
+            'state' => fake()->randomElement(['Uttar Pradesh', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Delhi']),
             'postal_code' => fake()->postcode(),
             'country' => 'India',
             'latitude' => null,

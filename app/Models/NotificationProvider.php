@@ -27,7 +27,8 @@ class NotificationProvider extends Model
      */
     public static function enabledKeys(): array
     {
-        return static::query()->where('enabled', true)->orderBy('provider')->pluck('provider')->all();
+        return array_values(static::query()->where('enabled', true)->orderBy('provider')->get()
+            ->map(fn (self $provider): string => $provider->provider)->all());
     }
 
     /**
@@ -35,6 +36,6 @@ class NotificationProvider extends Model
      */
     public static function settingsFor(string $key): array
     {
-        return static::query()->where('provider', $key)->first()?->settings ?? [];
+        return static::query()->where('provider', $key)->first()->settings ?? [];
     }
 }

@@ -53,7 +53,7 @@ class ResyncRadius extends Command
         $planCount = 0;
 
         foreach (Plan::withTrashed()->orderBy('id')->pluck('id') as $id) {
-            DB::transaction(fn () => $plans->handle(Plan::withTrashed()->lockForUpdate()->findOrFail($id)), attempts: 3);
+            DB::transaction(fn () => $plans->handle(Plan::withTrashed()->lockForUpdate()->whereKey($id)->firstOrFail()), attempts: 3);
             $planCount++;
         }
 

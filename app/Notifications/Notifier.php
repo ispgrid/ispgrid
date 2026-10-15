@@ -157,12 +157,14 @@ final class Notifier
      */
     private function filtered(Builder $query, NotificationRule $rule): Builder
     {
-        $filters = $rule->filters ?? [];
+        $plans = $rule->filters['plans'] ?? [];
+        $serviceTypes = $rule->filters['service_types'] ?? [];
+        $statuses = $rule->filters['statuses'] ?? [];
 
         return $query
-            ->when(($filters['plans'] ?? []) !== [], fn (Builder $q) => $q->whereIn('plan_id', $filters['plans']))
-            ->when(($filters['service_types'] ?? []) !== [], fn (Builder $q) => $q->whereIn('service_type', $filters['service_types']))
-            ->when(($filters['statuses'] ?? []) !== [], fn (Builder $q) => $q->whereIn('status_id', $filters['statuses']));
+            ->when($plans !== [], fn (Builder $q) => $q->whereIn('plan_id', $plans))
+            ->when($serviceTypes !== [], fn (Builder $q) => $q->whereIn('service_type', $serviceTypes))
+            ->when($statuses !== [], fn (Builder $q) => $q->whereIn('status_id', $statuses));
     }
 
     private function queue(NotificationRule $rule, Trigger $trigger, Account $account, ?Recharge $recharge, CarbonImmutable $now): ?NotificationLog
