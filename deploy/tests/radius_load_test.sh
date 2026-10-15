@@ -2,7 +2,8 @@
 #
 #  Load test for the "isp" virtual server: N PPPoE customers log in at once (as after a NAS reboot),
 #  then their sessions start and stop. Creates its own customers (lt_00001..) and plan group (lt_plan),
-#  and removes every lt_ row when it ends, also after a failure or Ctrl-C.
+#  and removes every lt_ row when it ends, also after a failure or Ctrl-C. The requests are sent by
+#  radius_load_send.py (next to this script).
 #
 #  Usage: radius_load_test.sh [-n accounts] [-p parallel] [-s secret] [--cleanup]
 #    -n         customers to log in (default 2000, at most 99999)
@@ -12,7 +13,6 @@
 #  RADIUS_DB picks the database (default radius). Run as root on the RADIUS server.
 #
 
-SERVER="127.0.0.1"
 DB="${RADIUS_DB:-radius}"
 SECRET="${RADIUS_SECRET:-testing123}"
 COUNT=2000
@@ -37,9 +37,11 @@ done
 [[ "$COUNT" =~ ^[1-9][0-9]{0,4}$ ]] || usage
 [[ "$PARALLEL" =~ ^[1-9][0-9]{0,3}$ ]] || usage
 
-for tool in mysql radclient; do
+SENDER="$(dirname "$(readlink -f "$0")")/radius_load_send.py"
+for tool in mysql python3; do
   command -v "$tool" >/dev/null || { echo "$tool is not installed." >&2; exit 2; }
 done
+[[ -f "$SENDER" ]] || { echo "$SENDER is missing." >&2; exit 2; }
 
 sql() { mysql -N "$DB" -e "$1"; }
 
@@ -79,8 +81,6 @@ trap 'delete_rows; rm -rf "$WORK"' EXIT
 trap 'echo; echo "Stopped; removing lt_ rows."; exit 130' INT TERM
 
 username() { printf 'lt_%05d' "$1"; }
-mac()      { printf '02:4C:54:%02X:%02X:%02X' $(( ($1 >> 16) & 255 )) $(( ($1 >> 8) & 255 )) $(( $1 & 255 )); }
-address()  { printf '100.%d.%d.%d' $(( 64 + ($1 >> 16) )) $(( ($1 >> 8) & 255 )) $(( $1 & 255 )); }
 
 #  Customers: PPPoE, active, one bound device (the first login binds the MAC), plan lt_plan, expiring in a year.
 EXPIRES="$(LC_ALL=C date -d '+1 year' '+%d %b %Y 00:00')"
@@ -98,43 +98,28 @@ EXPIRES="$(LC_ALL=C date -d '+1 year' '+%d %b %Y 00:00')"
 } > "$WORK/seed.sql"
 mysql "$DB" < "$WORK/seed.sql" || { echo "Could not create the lt_ customers." >&2; exit 1; }
 
-#  One radclient file per phase: requests separated by a blank line.
-for (( i = 1; i <= COUNT; i++ )); do
-  u="$(username "$i")"; m="$(mac "$i")"; ip="$(address "$i")"
-  printf 'User-Name = "%s"\nUser-Password = "pass"\nService-Type = Framed-User\nFramed-Protocol = PPP\nCalling-Station-Id = "%s"\nCalled-Station-Id = "pppoe-load"\nNAS-IP-Address = 127.0.0.1\n\n' \
-    "$u" "$m" >> "$WORK/auth.txt"
-  printf 'User-Name = "%s"\nAcct-Status-Type = Start\nAcct-Session-Id = "lt-%s"\nNAS-IP-Address = 127.0.0.1\nFramed-IP-Address = %s\nCalling-Station-Id = "%s"\n\n' \
-    "$u" "$i" "$ip" "$m" >> "$WORK/start.txt"
-  printf 'User-Name = "%s"\nAcct-Status-Type = Stop\nAcct-Session-Id = "lt-%s"\nNAS-IP-Address = 127.0.0.1\nFramed-IP-Address = %s\nCalling-Station-Id = "%s"\nAcct-Session-Time = 60\nAcct-Input-Octets = 1000000\nAcct-Output-Octets = 5000000\n\n' \
-    "$u" "$i" "$ip" "$m" >> "$WORK/stop.txt"
-done
-
-#  summary_value <radclient -s output> <label>: the number after "<label> :" in the packet summary.
-summary_value() { awk -F: -v label="$2" '$1 ~ label { gsub(/[ \t]/, "", $2); print $2; exit }' <<<"$1"; }
-
-#  run_phase <label> <port> <auth|acct> <file>: send every request, print one result line.
+#  run_phase <label> <auth|start|stop>: send the phase, print one result line.
 run_phase() {
-  local label="$1" port="$2" type="$3" file="$4" out started ms answered rejected lost
-  started=$(date +%s%N)
-  out="$(radclient -s -f "$file" -p "$PARALLEL" -r 1 -t 10 "$SERVER:$port" "$type" "$SECRET" 2>&1)"
-  ms=$(( ($(date +%s%N) - started) / 1000000 ))
+  local answered rejected lost ms
+  read -r answered rejected lost ms < <(python3 "$SENDER" "$2" "$COUNT" "$PARALLEL" "$SECRET")
+  if [[ -z "$ms" ]]; then
+    echo "$1: the sender failed." >&2
+    FAILED=1
+    return
+  fi
   (( ms > 0 )) || ms=1
-  answered="$(summary_value "$out" 'Accepted')"
-  rejected="$(summary_value "$out" 'Rejected')"
-  lost="$(summary_value "$out" 'Lost')"
-  answered="${answered:-0}"; rejected="${rejected:-0}"; lost="${lost:-$COUNT}"
-  printf '%s: %s answered, %s rejected, %s lost, %s s, %s req/s\n' "$label" \
+  printf '%s: %s answered, %s rejected, %s lost, %s s, %s req/s\n' "$1" \
     "$(( answered + rejected ))" "$rejected" "$lost" \
     "$(awk -v ms="$ms" 'BEGIN { printf "%.2f", ms / 1000 }')" \
-    "$(awk -v n="$COUNT" -v ms="$ms" 'BEGIN { printf "%.0f", n * 1000 / ms }')"
+    "$(awk -v n="$(( answered + rejected ))" -v ms="$ms" 'BEGIN { printf "%.0f", n * 1000 / ms }')"
   [[ "$rejected" == 0 && "$lost" == 0 ]] || FAILED=1
 }
 
 echo "Load test: $COUNT PPPoE customers, $PARALLEL requests in flight, database $DB"
-run_phase "Logins (Access-Request)" 1812 auth "$WORK/auth.txt"
-run_phase "Accounting-Start" 1813 acct "$WORK/start.txt"
+run_phase "Logins (Access-Request)" auth
+run_phase "Accounting-Start" start
 echo "  open sessions stored: $(sql "SELECT COUNT(*) FROM radacct WHERE username LIKE 'lt\_%' AND acctstoptime IS NULL")"
-run_phase "Accounting-Stop" 1813 acct "$WORK/stop.txt"
+run_phase "Accounting-Stop" stop
 echo "  sessions still open: $(sql "SELECT COUNT(*) FROM radacct WHERE username LIKE 'lt\_%' AND acctstoptime IS NULL")"
 echo "  login log rows: $(sql "SELECT COUNT(*) FROM radpostauth WHERE username LIKE 'lt\_%'"), devices bound: $(sql "SELECT COUNT(*) FROM account_macs WHERE username LIKE 'lt\_%'")"
 
