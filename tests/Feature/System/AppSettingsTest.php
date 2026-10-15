@@ -61,6 +61,9 @@ it('rejects values outside the allowed lists', function (string $field, string $
     'too many phone digits' => ['phone_digits', '16'],
     'empty notice message' => ['notice_message', ''],
     'language the panel does not ship' => ['locale', 'fr'],
+    'login log kept under a week' => ['login_log_days', '6'],
+    'login log kept over ten years' => ['login_log_days', '3651'],
+    'login log days not a number' => ['login_log_days', 'ninety'],
 ]);
 
 it('accepts an empty customer ID label, which hides that field', function () {
@@ -99,4 +102,26 @@ it('refuses a deleted pool or range as a default', function () {
         ->set('default_ip_range_ipoe', (string) IpRange::factory()->trashed()->create()->id)
         ->call('save')
         ->assertHasErrors(['default_pool_ppp', 'default_ip_range_ipoe']);
+});
+
+it('saves how many days the login log is kept', function () {
+    Livewire::test('pages::system.app-settings')
+        ->assertSet('login_log_days', '90')
+        ->assertSee(__('Keep login log (days)'))
+        ->set('login_log_days', '365')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(AppSetting::valueOf('login_log_days'))->toBe('365');
+});
+
+it('shows 90 days on an install whose settings predate the login log setting', function () {
+    AppSetting::query()->where('key', 'login_log_days')->delete();
+
+    Livewire::test('pages::system.app-settings')
+        ->assertSet('login_log_days', '90')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(AppSetting::valueOf('login_log_days'))->toBe('90');
 });

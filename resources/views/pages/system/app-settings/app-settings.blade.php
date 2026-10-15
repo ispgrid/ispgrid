@@ -68,6 +68,11 @@
                 </div>
                 <x-ui.textarea wire:model="notice_message" :label="__('Message')" rows="3" />
             </x-ui.card>
+
+            <x-ui.card class="grid content-start gap-5">
+                <x-ui.heading>{{ __('Login log') }}</x-ui.heading>
+                <x-ui.input wire:model="login_log_days" type="number" min="7" max="3650" :label="__('Keep login log (days)')" :description="__('Older login attempts are removed every night. 7 to 3650 days.')" />
+            </x-ui.card>
         </div>
 
         <x-ui.form-actions>

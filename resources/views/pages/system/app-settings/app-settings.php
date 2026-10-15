@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\PruneRadiusLogs;
 use App\Http\Middleware\SetLocale;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
@@ -53,6 +54,8 @@ new #[Title('App settings')] class extends Component
 
     public string $locale = '';
 
+    public string $login_log_days = '';
+
     public function mount(): void
     {
         $this->authorize('manage-app-settings');
@@ -63,6 +66,9 @@ new #[Title('App settings')] class extends Component
 
         // Installs from before languages have no row until the next upgrade seeds it: they run in English.
         $this->locale = $this->locale !== '' ? $this->locale : config('app.fallback_locale');
+
+        // Installs from before the cleanup job have no row until the next upgrade seeds it: the job keeps 90 days.
+        $this->login_log_days = $this->login_log_days !== '' ? $this->login_log_days : (string) PruneRadiusLogs::DEFAULT_LOGIN_LOG_DAYS;
     }
 
     /**
@@ -88,6 +94,7 @@ new #[Title('App settings')] class extends Component
             'notice_phone' => ['nullable', 'string', 'max:30'],
             'notice_message' => ['required', 'string', 'max:500'],
             'locale' => ['required', Rule::in(array_keys(config('app.locales')))],
+            'login_log_days' => ['required', 'integer', 'between:7,3650'],
         ];
     }
 
