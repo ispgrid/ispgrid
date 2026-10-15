@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Log;
  * Keeps the FreeRADIUS logs bounded: login attempts (radpostauth) older than the App settings period, and
  * reject counters untouched for a day. FreeRADIUS only reads counters newer than Reject-Packet-Interval
  * minutes, so removing day-old ones never changes a login decision.
- * Ages use the database clock (NOW()), the same clock FreeRADIUS writes them with.
+ * Ages use the database clock (NOW()), not PHP's: FreeRADIUS writes the times in the server's local time,
+ * which is the database's time on the same box, whatever the app timezone is.
  */
 #[Signature('radius:prune
     {--chunk=5000 : Login log rows removed per statement}')]

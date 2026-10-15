@@ -75,19 +75,21 @@ leftovers() {
 }
 
 if [[ -n "$CLEANUP_ONLY" ]]; then
-  delete_rows
+  delete_rows || { echo "Could not remove the lt_ rows from $DB." >&2; exit 1; }
   echo "lt_ rows removed."
   exit 0
 fi
 
-if [[ "$(leftovers)" != 0 ]]; then
+LEFT="$(leftovers)" || { echo "Could not read $DB." >&2; exit 2; }
+if [[ "$LEFT" != 0 ]]; then
   echo "lt_ rows from an earlier run are still in $DB. Run $0 --cleanup first." >&2
   exit 2
 fi
 
 WORK="$(mktemp -d)"
-trap 'delete_rows; rm -rf "$WORK"' EXIT
-trap 'echo; echo "Stopped; removing lt_ rows."; exit 130' INT TERM
+trap 'delete_rows || echo "Could not remove the lt_ rows: run $0 --cleanup." >&2; rm -rf "$WORK"' EXIT
+#  FreeRADIUS still answers the requests already in flight; let it write their rows before they are removed.
+trap 'echo; echo "Stopped; removing lt_ rows."; sleep 2; exit 130' INT TERM
 
 username() { printf 'lt_%05d' "$1"; }
 
@@ -110,7 +112,8 @@ mysql "$DB" < "$WORK/seed.sql" || { echo "Could not create the lt_ customers." >
 #  run_phase <label> <auth|start|stop>: send the phase, print one result line.
 run_phase() {
   local answered rejected lost ms
-  read -r answered rejected lost ms < <(python3 "$SENDER" "$2" "$COUNT" "$PARALLEL" "$SECRET")
+  #  The secret goes in the environment, not on the command line, where any local user could read it.
+  read -r answered rejected lost ms < <(RADIUS_LOAD_SECRET="$SECRET" python3 "$SENDER" "$2" "$COUNT" "$PARALLEL")
   if [[ -z "$ms" ]]; then
     echo "$1: the sender failed." >&2
     FAILED=1

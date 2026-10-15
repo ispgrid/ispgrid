@@ -4,9 +4,10 @@
 Used by radius_load_test.sh, which creates the customers lt_00001.. first. radclient is not used: with -f and
 -p it quits before every reply has arrived (FreeRADIUS 3.2.10), so its counts are wrong under load.
 
-Usage: radius_load_send.py <auth|start|stop> <count> <parallel> <secret>
+Usage: RADIUS_LOAD_SECRET=<secret> radius_load_send.py <auth|start|stop> <count> <parallel>
 Prints: <answered> <rejected> <lost> <milliseconds>
-Keeps <parallel> requests in flight; a request without a reply after 10 seconds is lost (no retries).
+Keeps <parallel> requests in flight; a request without a reply after 10 seconds, or with a reply of an
+unexpected kind, is lost (no retries). The secret comes from the environment so the process list never shows it.
 """
 import hashlib
 import hmac
@@ -19,7 +20,9 @@ import time
 
 SERVER = "127.0.0.1"
 TIMEOUT = 10.0
-IDS_PER_SOCKET = 256
+#  Of the 256 IDs a socket has, use 200: the kernel caps a socket's receive buffer (net.core.rmem_max), and
+#  200 waiting replies always fit, so a burst of replies is never dropped before it is read.
+IDS_PER_SOCKET = 200
 ACCESS_ACCEPT, ACCESS_REJECT, ACCOUNTING_RESPONSE = 2, 3, 5
 
 
@@ -81,9 +84,10 @@ def accounting_request(i, packet_id, secret, status):
 
 
 def main():
-    if len(sys.argv) != 5 or sys.argv[1] not in ("auth", "start", "stop"):
-        sys.exit(f"usage: {sys.argv[0]} <auth|start|stop> <count> <parallel> <secret>")
-    phase, count, parallel, secret = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4].encode()
+    secret = os.environ.get("RADIUS_LOAD_SECRET", "").encode()
+    if len(sys.argv) != 4 or sys.argv[1] not in ("auth", "start", "stop") or not secret:
+        sys.exit(f"usage: RADIUS_LOAD_SECRET=<secret> {sys.argv[0]} <auth|start|stop> <count> <parallel>")
+    phase, count, parallel = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
     port = 1812 if phase == "auth" else 1813
 
     def build(i, packet_id):
@@ -96,7 +100,7 @@ def main():
     selector = selectors.DefaultSelector()
 
     def add_socket():
-        """Each socket gives 256 more request IDs; IDs of lost requests are never reused."""
+        """Each socket gives IDS_PER_SOCKET more request IDs; IDs of lost requests are never reused."""
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
         sock.bind(("127.0.0.1", 0))
@@ -106,7 +110,7 @@ def main():
         sockets.append(sock)
 
     in_flight = {}                                      # (socket index, id) -> time sent
-    answered = rejected = lost = 0
+    answered = rejected = 0
     next_customer = 1
     started = time.monotonic()
 
@@ -137,10 +141,10 @@ def main():
         now = time.monotonic()
         for request, sent in list(in_flight.items()):
             if now - sent > TIMEOUT:
-                del in_flight[request]
-                lost += 1                               # its ID is never reused: a late reply is ignored
+                del in_flight[request]                  # its ID is never reused: a late reply is ignored
 
-    print(answered, rejected, lost, int((time.monotonic() - started) * 1000))
+    #  Everything not answered or rejected is lost: timeouts and replies of an unexpected kind alike.
+    print(answered, rejected, count - answered - rejected, int((time.monotonic() - started) * 1000))
 
 
 if __name__ == "__main__":

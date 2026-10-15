@@ -16,18 +16,35 @@ FAIL=0
 
 sql() { mysql -N "$DB" -e "$1"; }
 
-#  The test rows (users t_*, the IPoE MAC, test plan groups). Used before seeding and by CLEANUP=1.
+#  Every username the cases below create, log in as or log (IPoE logins are logged under the device MAC).
+#  Cleanup deletes exactly these names, never by prefix: a real customer may be called t_office or T_PPP,
+#  and the installer runs this on live databases. Add each new fixture user here.
+FIXTURE_USERS=(t_ppp t_ppp2 t_static t_disabled t_exp_hard t_exp_soft t_hs t_hs_lock t_throttle t_noplan
+  t_hs_off t_hs_noplan t_badrow t_suspended t_terminated t_status9 t_hs_sus t_bound t_bound_other
+  t_ipoe t_ipoe2 t_ipoe_hs t_ipoe_gone t_ipoe_off t_ipoe_sus t_ipoe_term t_ipoe_exp t_ipoe_hard t_ipoe_noplan
+  t_ipoe_q t_q_fup t_q_day t_q_big t_q_month t_q_hs t_slot_full t_slot_out t_slot_in t_slot_hs
+  t_boost_out t_boost_in t_lists_plan t_lists_own t_lists_off t_nobody t_probe
+  "$IPOE_USER" DE:AD:00:00:00:01 DE:AD:00:00:00:02 DE:AD:00:00:00:03 DE:AD:00:00:00:20 DE:AD:00:00:00:21
+  DE:AD:00:00:00:22 DE:AD:00:00:00:23 DE:AD:00:00:00:24 DE:AD:00:00:00:25 DE:AD:00:00:00:26)
+FIXTURE_LIST="$(printf "'%s'," "${FIXTURE_USERS[@]}")"
+FIXTURE_LIST="${FIXTURE_LIST%,}"
+#  IN uses the username index; BINARY makes the match case-sensitive.
+FIXTURES="username IN ($FIXTURE_LIST) AND BINARY username IN ($FIXTURE_LIST)"
+FIXTURE_SESSIONS="BINARY acctsessionid IN ('t-ipoe-1', 't-ipoe-2', 't-sess-1')"
+FIXTURE_ROUTERS="BINARY shortname IN ('t_router_new', 't_router_old', 't_router_gone')"
+
+#  The test rows (the users above, test plan groups). Used before seeding and by CLEANUP=1.
 delete_fixtures() {
-  sql "DELETE FROM radcheck WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
-       DELETE FROM radreply WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
-       DELETE FROM radusergroup WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
-       DELETE FROM radgroupreply WHERE groupname IN ('t_plan40', 't_plan_fup', 't_plan_lists');
-       DELETE FROM account_macs WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
-       DELETE FROM reject_counters WHERE username LIKE 't\_%' OR username = '$IPOE_USER';
-       DELETE FROM radacct WHERE username LIKE 't\_%' OR acctsessionid LIKE 't-%';
-       DELETE FROM radpostauth WHERE username LIKE 't\_%' OR username = '$IPOE_USER' OR username LIKE 'DE:AD:%';
-       DELETE FROM ipoes WHERE username LIKE 't\_%';
-       DELETE FROM accounts WHERE username LIKE 't\_%';"
+  sql "DELETE FROM radcheck WHERE $FIXTURES;
+       DELETE FROM radreply WHERE $FIXTURES;
+       DELETE FROM radusergroup WHERE $FIXTURES;
+       DELETE FROM radgroupreply WHERE BINARY groupname IN ('t_plan40', 't_plan_fup', 't_plan_lists');
+       DELETE FROM account_macs WHERE $FIXTURES;
+       DELETE FROM reject_counters WHERE $FIXTURES;
+       DELETE FROM radacct WHERE $FIXTURES OR $FIXTURE_SESSIONS;
+       DELETE FROM radpostauth WHERE $FIXTURES;
+       DELETE FROM ipoes WHERE $FIXTURES;
+       DELETE FROM accounts WHERE $FIXTURES;"
 }
 
 seed() {
@@ -169,9 +186,9 @@ add_ipoe() {
 PROBE_SECRET="t_probe_secret"
 seed_routers() {
   local want="127.0.0.2:1:1,127.0.0.3:0:1,127.0.0.4:0:0" have
-  have=$(sql "SELECT GROUP_CONCAT(CONCAT(nasname, ':', require_message_auth, ':', deleted_at IS NULL) ORDER BY nasname) FROM nas WHERE shortname LIKE 't\_router\_%'")
+  have=$(sql "SELECT GROUP_CONCAT(CONCAT(nasname, ':', require_message_auth, ':', deleted_at IS NULL) ORDER BY nasname) FROM nas WHERE $FIXTURE_ROUTERS")
   [[ "$have" == "$want" ]] && return 0
-  sql "DELETE FROM nas WHERE shortname LIKE 't\_router\_%';
+  sql "DELETE FROM nas WHERE $FIXTURE_ROUTERS;
        INSERT INTO nas (nasname, shortname, type, secret, require_message_auth, deleted_at) VALUES
          ('127.0.0.2', 't_router_new', 'other', '$PROBE_SECRET', 1, NULL),
          ('127.0.0.3', 't_router_old', 'other', '$PROBE_SECRET', 0, NULL),
@@ -517,21 +534,21 @@ probe "New router: Proxy-State without Message-Auth dropped" 127.0.0.2 proxy-sta
 probe "Wrong Message-Auth dropped by FreeRADIUS itself" 127.0.0.2 bad-ma DROPPED
 
 section "Login log (radpostauth)"
-stored=$(sql "SELECT COUNT(*) FROM radpostauth WHERE (username LIKE 't\_%' OR username LIKE 'DE:AD:%') AND pass <> ''")
+stored=$(sql "SELECT COUNT(*) FROM radpostauth WHERE $FIXTURES AND pass <> ''")
 result "$([[ "$stored" -eq 0 ]] && echo 1 || echo 0)" "No password stored" "($stored rows with a password)"
-quoted=$(sql "SELECT COUNT(*) FROM radpostauth WHERE (username LIKE 't\_%' OR username LIKE 'DE:AD:%') AND reply_msg LIKE '%=3D27%'")
+quoted=$(sql "SELECT COUNT(*) FROM radpostauth WHERE $FIXTURES AND reply_msg LIKE '%=3D27%'")
 result "$([[ "$quoted" -eq 0 ]] && echo 1 || echo 0)" "No escaped quotes in reasons" "($quoted rows with =3D27)"
 
 section "Accounting"
 acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" 2>&1)"
 rows=$(sql "SELECT COUNT(*) FROM radacct WHERE username = 't_ppp' AND acctsessionid = 't-sess-1'")
 result "$(grep -q "Accounting-Response" <<<"$acct_out" && [[ "$rows" -ge 1 ]] && echo 1 || echo 0)" "Accounting Start stored in radacct" "" "$(grep -m1 "Received" <<<"$acct_out" | sed "s/ from.*//"); radacct rows for t-sess-1: $rows"
-sql "DELETE FROM radacct WHERE username LIKE 't\_%'"
+sql "DELETE FROM radacct WHERE $FIXTURES"
 
 #  CLEANUP=1 (the installer): leave no test rows or test routers behind in a production database.
 if [[ "${CLEANUP:-}" == 1 ]]; then
   delete_fixtures
-  sql "DELETE FROM nas WHERE shortname LIKE 't\_router\_%'"
+  sql "DELETE FROM nas WHERE $FIXTURE_ROUTERS"
   systemctl restart freeradius && sleep 2
   echo "(test rows and test routers removed, FreeRADIUS restarted)"
 fi
