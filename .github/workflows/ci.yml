@@ -59,6 +59,9 @@ jobs:
       - name: Code style
         run: vendor/bin/pint --test
 
+      - name: Static analysis (Larastan)
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
       - name: Tests (MariaDB)
         run: php artisan test
 
