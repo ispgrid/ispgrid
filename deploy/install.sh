@@ -226,6 +226,12 @@ show_box() {
 
 #  ---- Pure helpers (tested by deploy/tests/installer/test_install_sh.sh) ----
 
+#  https_redirect_all <nginx site file> <domain>: certbot's port-80 block answers 404 for every name but the domain,
+#  so http://<IP> stopped working once HTTPS was on; send those to https://<domain> as well
+https_redirect_all() {
+  sed -i "s|return 404; # managed by Certbot|return 301 https://$2\$request_uri; # ISPGrid: the IP and other names too|" "$1"
+}
+
 #  os_supported <ID> <VERSION_ID>
 os_supported() { [[ "$1" == "ubuntu" && ( "$2" == "24.04" || "$2" == "26.04" ) ]]; }
 
