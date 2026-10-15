@@ -49,7 +49,8 @@ artisan optimize
 
 ADMIN_CREATED=""
 if need_admin; then
-  artisan staff:create --name="$ADMIN_NAME" --email="$ADMIN_EMAIL" --password="$ADMIN_PASSWORD" >/dev/null
+  #  The password goes in the environment: a command line is readable by every user (ps).
+  ISPGRID_STAFF_PASSWORD="$ADMIN_PASSWORD" artisan staff:create --name="$ADMIN_NAME" --email="$ADMIN_EMAIL" >/dev/null
   #  From here a failure shows the login in its box: the rerun finds the admin and has no password to show.
   ADMIN_CREATED=1
   say "Admin user $ADMIN_EMAIL created"

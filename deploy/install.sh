@@ -40,7 +40,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --admin-name=NAME         first install: the admin's name (default: Admin)
   --admin-email=EMAIL       first install: the admin's login email (required)
   --admin-password=PASS     first install: at least 12 characters with upper and lower case, a digit and a
-                            symbol (default: generated and shown once)
+                            symbol (default: asked, hidden; with --yes generated and shown once). Like
+                            --token=TOKEN, sudo's log and the shell history keep the command line
   --timezone=AREA/CITY      the server's timezone, used by FreeRADIUS, MariaDB and the panel (default: the
                             server's own; when that is UTC, the one ipapi.co gives for this server's public IP)
   --wg-subnet=CIDR          wireguard only: the tunnel network (default: 10.250.0.0/24)
@@ -773,12 +774,13 @@ git_auth() {
   fi
 }
 
-#  without_token_args <args...>: the arguments, one per line, minus --token: the re-exec no longer needs it
-without_token_args() {
+#  without_secret_args <args...>: the arguments, one per line, minus --token (the re-exec no longer needs it) and
+#  --admin-password (handed over in the environment instead): a command line is readable by every user (ps)
+without_secret_args() {
   local arg
   for arg in "$@"; do
     case "$arg" in
-      --token | --token=*) ;;
+      --token | --token=* | --admin-password=*) ;;
       *) printf '%s\n' "$arg" ;;
     esac
   done
@@ -975,7 +977,10 @@ bootstrap() {
   install -d -m 755 "$(dirname "$ISPGRID_CONF")"
   conf_set repo "$repo"
   local args=()
-  mapfile -t args < <(without_token_args "$@")
+  mapfile -t args < <(without_secret_args "$@")
+  if [[ -n "${OPT_ADMIN_PASSWORD:-}" ]]; then
+    export OPT_ADMIN_PASSWORD
+  fi
   step_close ok
   exec bash "$ISPGRID_HOME/deploy/install.sh" "${args[@]}"
 }
