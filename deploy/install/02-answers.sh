@@ -47,9 +47,13 @@ WG_PORT=""
 WG_ENDPOINT=""
 L2TP_SUBNET=""
 if [[ "$ROUTERS" == lan ]]; then
-  default_network=$(cidr_network "$(ip -4 -o addr show scope global | awk '!found { print $4; found = 1 }')")
-  ROUTER_NETWORK=$(answer "${OPT_ROUTER_NETWORK:-}" router_network \
-    "Network your routers/NAS are in (only it may send RADIUS here)" "$default_network")
+  addresses=$(ip -4 -o addr show scope global)
+  default_network=$(router_network_default "$addresses" "$LAN_IP")
+  networks=$(local_networks "$addresses" | paste -sd ' ' -)
+  network_question="Network your routers/NAS are in (only it may send RADIUS here)"
+  #  A server with several networks: show them, the default is only a guess.
+  if [[ "$networks" == *" "* ]]; then network_question+="; this server has $networks"; fi
+  ROUTER_NETWORK=$(answer "${OPT_ROUTER_NETWORK:-}" router_network "$network_question" "$default_network")
   valid_cidr "$ROUTER_NETWORK" || die "Router/NAS network: give a network like 10.0.0.0/24."
 elif [[ "$ROUTERS" == wireguard ]]; then
   WG_SUBNET=$(answer "${OPT_WG_SUBNET:-}" wg_subnet "WireGuard tunnel network" 10.250.0.0/24)
@@ -152,6 +156,12 @@ if [[ -n "$WG_SUBNET" ]]; then
 fi
 conf_set access "$ACCESS"
 if [[ -n "$PUBLIC_IP" ]]; then conf_set public_ip "$PUBLIC_IP"; fi
-if [[ -n "$DOMAIN" ]]; then conf_set domain "$DOMAIN"; fi
+if [[ -n "$DOMAIN" ]]; then
+  conf_set domain "$DOMAIN"
+elif [[ -n "$(conf_get domain || true)" ]]; then
+  #  Switched back from a domain (--access=local or public): forget it, or a later run would bring it back.
+  say "Domain $(conf_get domain) is no longer used; the panel is on http://$PANEL_HOST"
+  conf_set domain ""
+fi
 conf_set timezone "$TIMEZONE"
 say "Routers/NAS: $ROUTERS${ROUTER_NETWORK:+ ($ROUTER_NETWORK)}${WG_SUBNET:+ (tunnel $WG_SUBNET, UDP $WG_PORT, endpoint $WG_ENDPOINT)}${L2TP_SUBNET:+ (tunnel $L2TP_SUBNET, to $PUBLIC_IP)}${RADIUS_TO:+ (to $RADIUS_TO)}; panel: $ACCESS ($PANEL_HOST); timezone: $TIMEZONE"
