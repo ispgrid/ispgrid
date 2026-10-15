@@ -70,3 +70,10 @@ it('registers the four built-in triggers', function () {
     expect(array_keys(app(NotificationRegistry::class)->triggers()))
         ->toBe(['before_expiry', 'after_expiry', 'recharge_done', 'customer_created']);
 });
+
+it('catches up next morning on a same-day message for a plan that ended after the sending hours', function () {
+    Account::factory()->create(['username' => 'late_last_night', 'expiry' => '2026-08-18 22:00:00']);
+    Account::factory()->create(['username' => 'yesterday_noon', 'expiry' => '2026-08-18 12:00:00']);
+
+    expect(dueUsernames(new AfterExpiry, ['days' => 0], '2026-08-19 09:00'))->toBe(['late_last_night']);
+});

@@ -48,3 +48,16 @@ it('treats a Meta rejection as retryable and a missing setup as final', function
     expect(wacrm()->send($message)->retryable)->toBeTrue()
         ->and(wacrm()->send($message)->retryable)->toBeFalse();
 });
+
+it('does not take a web page at the wacrm address for an answer', function () {
+    Http::fake(['crm.example.test/*' => Http::response('<html>wacrm</html>', 200, ['Content-Type' => 'text/html'])]);
+
+    expect(wacrm()->send(new OutgoingMessage('+919876543210', ['name' => 't', 'language' => 'en'], [], null, '1'))->sent)->toBeFalse()
+        ->and(wacrm()->testConnection()->sent)->toBeFalse();
+});
+
+it('retries a rate limit that comes without a JSON body', function () {
+    Http::fake(['crm.example.test/*' => Http::response('Too Many Requests', 429)]);
+
+    expect(wacrm()->send(new OutgoingMessage('+919876543210', ['name' => 't', 'language' => 'en'], [], null, '1'))->retryable)->toBeTrue();
+});

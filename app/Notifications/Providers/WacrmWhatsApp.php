@@ -72,18 +72,30 @@ final class WacrmWhatsApp implements Provider
             ],
         ]);
 
-        if ($response->successful()) {
-            return SendResult::sent((string) ($response->json('data.whatsapp_message_id') ?? $response->json('data.message_id') ?? ''));
+        if ($response->successful() && $response->json('data.message_id') !== null) {
+            return SendResult::sent((string) ($response->json('data.whatsapp_message_id') ?? $response->json('data.message_id')));
         }
 
-        return $this->failure($response);
+        return $response->successful() ? self::notWacrm() : $this->failure($response);
     }
 
     public function testConnection(): SendResult
     {
         $response = $this->client()->get('api/v1/me');
 
-        return $response->successful() ? SendResult::sent('') : $this->failure($response);
+        if ($response->successful()) {
+            return is_array($response->json('data')) ? SendResult::sent('') : self::notWacrm();
+        }
+
+        return $this->failure($response);
+    }
+
+    /**
+     * A 2xx answer without wacrm's JSON: the address points at something else, such as a web page.
+     */
+    private static function notWacrm(): SendResult
+    {
+        return SendResult::failed(__('The wacrm address did not answer like wacrm. Check the address.'));
     }
 
     private function client(): PendingRequest
@@ -103,7 +115,7 @@ final class WacrmWhatsApp implements Provider
 
         return SendResult::failed(
             "{$code}: {$message}",
-            in_array($code, self::RETRYABLE, true) || $response->serverError(),
+            in_array($code, self::RETRYABLE, true) || $response->serverError() || $response->status() === 429,
             $retryAfter !== '' ? (int) $retryAfter : null,
         );
     }

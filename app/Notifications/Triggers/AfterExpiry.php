@@ -3,6 +3,7 @@
 namespace App\Notifications\Triggers;
 
 use App\Models\Account;
+use App\Models\AppSetting;
 use App\Models\Recharge;
 use App\Notifications\Contracts\Trigger;
 use App\Notifications\Placeholders;
@@ -51,7 +52,15 @@ final class AfterExpiry implements Trigger
 
     public function due(array $settings, CarbonImmutable $now): Builder
     {
-        $day = $now->subDays((int) ($settings['days'] ?? 0));
+        $days = (int) ($settings['days'] ?? 0);
+        $day = $now->subDays($days);
+
+        if ($days === 0) {
+            // A plan that ended after yesterday's last run in the sending hours is messaged this morning.
+            $lastRun = $now->subDay()->setTimeFromTimeString((string) AppSetting::valueOf('notify_hours_to', '21:00'))->subMinutes(15);
+
+            return Account::query()->where('expiry', '>', $lastRun)->where('expiry', '<=', $now);
+        }
 
         return Account::query()
             ->whereBetween('expiry', [$day->startOfDay(), $day->endOfDay()])

@@ -110,13 +110,25 @@ final class Notifier
         ]);
 
         SendNotification::dispatchSync($log->id);
+        $log->refresh();
 
-        return $log->fresh();
+        // A test runs once, here: a retryable failure is not tried again, so it is final.
+        if ($log->status === NotificationStatus::Queued) {
+            $log->update(['status' => NotificationStatus::Failed]);
+        }
+
+        return $log;
     }
 
+    /**
+     * Sends a failed message again, with the template its rule has now (the usual fix is a corrected template ID).
+     */
     public function retry(NotificationLog $log): void
     {
-        $log->update(['status' => NotificationStatus::Queued, 'attempts' => 0, 'error' => null, 'user_id' => auth()->id()]);
+        $rule = $log->rule;
+        $template = $rule !== null && ! $rule->trashed() && $rule->provider === $log->provider ? $rule->template : $log->template;
+
+        $log->update(['status' => NotificationStatus::Queued, 'attempts' => 0, 'error' => null, 'template' => $template, 'user_id' => auth()->id()]);
 
         SendNotification::dispatch($log->id);
     }

@@ -6,7 +6,7 @@ After=network.target mariadb.service
 User=ispgrid
 Group=ispgrid
 WorkingDirectory=/opt/ispgrid
-ExecStart=/usr/bin/php /opt/ispgrid/artisan queue:work --tries=3 --max-time=3600
+ExecStart=/usr/bin/php /opt/ispgrid/artisan queue:work --queue=default,notifications --tries=3 --max-time=3600
 Restart=always
 RestartSec=5
 

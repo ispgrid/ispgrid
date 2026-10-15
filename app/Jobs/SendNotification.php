@@ -27,13 +27,26 @@ class SendNotification implements ShouldQueue
 
     public int $timeout = 60;
 
-    public function __construct(public int $logId) {}
+    /**
+     * On its own queue, so a slow provider never holds up Disconnect-Requests on the default one.
+     */
+    public function __construct(public int $logId)
+    {
+        $this->onQueue('notifications');
+    }
 
     public function handle(NotificationRegistry $registry): void
     {
         $log = NotificationLog::query()->find($this->logId);
 
         if ($log === null || $log->status !== NotificationStatus::Queued) {
+            return;
+        }
+
+        // A customer message (not a test) stops when its rule is switched off or deleted, even mid-retry.
+        if ($log->once_key !== null && ($log->rule === null || $log->rule->trashed() || ! $log->rule->enabled)) {
+            $log->update(['status' => NotificationStatus::Failed, 'error' => __('The rule is switched off or deleted.')]);
+
             return;
         }
 
@@ -70,5 +83,26 @@ class SendNotification implements ShouldQueue
         }
 
         $log->update(['status' => NotificationStatus::Failed, 'error' => $reason]);
+    }
+
+    /**
+     * The job died outside the send (a timeout, a database error, a key that no longer decrypts): the row must not
+     * stay Queued, or it never gets a Retry button.
+     */
+    public function failed(Throwable $exception): void
+    {
+        $log = NotificationLog::query()->find($this->logId);
+
+        if ($log === null || $log->status !== NotificationStatus::Queued) {
+            return;
+        }
+
+        try {
+            $secrets = app(NotificationRegistry::class)->secretValues($log->provider, NotificationProvider::settingsFor($log->provider));
+        } catch (Throwable) {
+            $secrets = [];
+        }
+
+        $log->update(['status' => NotificationStatus::Failed, 'error' => mb_substr(Redactor::scrub($exception->getMessage(), $secrets), 0, 500)]);
     }
 }

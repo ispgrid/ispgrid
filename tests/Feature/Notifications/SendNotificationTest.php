@@ -4,7 +4,9 @@ use App\Enums\NotificationStatus;
 use App\Jobs\SendNotification;
 use App\Models\NotificationLog;
 use App\Models\NotificationProvider;
+use App\Models\NotificationRule;
 use App\Notifications\NotificationRegistry;
+use App\Notifications\Notifier;
 use App\Notifications\SendResult;
 use Illuminate\Http\Client\ConnectionException;
 use Tests\Feature\Notifications\FakeProvider;
@@ -96,4 +98,41 @@ it('gives up after the last try and keeps the reason', function () {
     $job->assertNotReleased();
     expect($log->fresh()->status)->toBe(NotificationStatus::Failed)
         ->and($log->fresh()->error)->toBe('internal');
+});
+
+it('runs on its own queue so disconnects never wait behind messages', function () {
+    expect((new SendNotification(1))->queue)->toBe('notifications');
+});
+
+it('marks the row failed, without the key, when the job dies outside the send', function () {
+    $log = NotificationLog::factory()->create();
+
+    (new SendNotification($log->id))->failed(new RuntimeException('Worker timed out with tok-secret-123'));
+
+    expect($log->fresh()->status)->toBe(NotificationStatus::Failed)
+        ->and($log->fresh()->error)->toBe('Worker timed out with ••••');
+});
+
+it('does not send a waiting reminder once its rule is switched off or deleted', function () {
+    $off = NotificationRule::factory()->create(['enabled' => false]);
+    $deleted = NotificationRule::factory()->enabled()->create();
+    $deleted->delete();
+    $first = NotificationLog::factory()->create(['notification_rule_id' => $off->id, 'once_key' => 'k1']);
+    $second = NotificationLog::factory()->create(['notification_rule_id' => $deleted->id, 'once_key' => 'k2']);
+
+    runJob($first);
+    runJob($second);
+
+    expect($first->fresh()->status)->toBe(NotificationStatus::Failed)
+        ->and($first->fresh()->error)->toBe('The rule is switched off or deleted.')
+        ->and($second->fresh()->status)->toBe(NotificationStatus::Failed)
+        ->and(FakeProvider::$sent)->toBe([]);
+});
+
+it('fails a test message the provider asks to retry, since a test is not tried again', function () {
+    FakeProvider::$next = SendResult::failed('rate_limited', retryable: true, retryAfterSeconds: 30);
+
+    $log = app(Notifier::class)->sendTest(NotificationRule::factory()->create(), '+919876543210');
+
+    expect($log->status)->toBe(NotificationStatus::Failed)->and($log->error)->toBe('rate_limited');
 });

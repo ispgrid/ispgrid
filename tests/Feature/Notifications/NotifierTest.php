@@ -140,3 +140,12 @@ it('runs from the scheduler every 15 minutes', function () {
 
     $this->artisan('notifications:dispatch')->expectsOutput('Queued 1 message.')->assertSuccessful();
 });
+
+it('retries with the template the rule has now', function () {
+    $rule = NotificationRule::factory()->create(['template' => ['template_id' => 'fixed']]);
+    $log = NotificationLog::factory()->failed()->create(['notification_rule_id' => $rule->id, 'template' => ['template_id' => 'typo']]);
+
+    notifier()->retry($log);
+
+    expect($log->fresh()->template)->toBe(['template_id' => 'fixed']);
+});
