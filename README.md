@@ -6,32 +6,36 @@
 </p>
 
 <p align="center">
-  FreeRADIUS and an operator panel for ISPs and WISPs that run MikroTik routers.<br>
+  FreeRADIUS and an operator panel for ISPs and WISPs that use MikroTik as their NAS.<br>
   PPPoE, Hotspot and IPoE customers, plans, recharges and live sessions, set up on a fresh server with one command.
 </p>
 
 ---
 
-ISPGrid installs FreeRADIUS, MariaDB and a web panel on one Ubuntu server. Your MikroTik routers send their logins to
-it, and your staff manage customers in the panel. Every change in the panel is written to FreeRADIUS at once; when
+ISPGrid installs FreeRADIUS, MariaDB and a web panel on one Ubuntu server. Your MikroTik NAS send their logins to it,
+and your staff manage customers in the panel. Every change in the panel is written to FreeRADIUS at once; when
 a customer who is online is changed, their session is disconnected so the change applies now.
 
 ## Features
 
-- **Customers:** PPPoE, Hotspot and IPoE accounts, with profile, address, device limit, router binding, static IP,
+- **Customers:** PPPoE, Hotspot and IPoE accounts, with profile, address, device limit, NAS binding, static IP,
   pool, address lists, a custom speed and extra RADIUS attributes.
-- **Plans and recharges:** speed (with burst), validity, data and time limits with an optional fair usage speed,
-  time slots; recharge to give a customer a plan and an expiry. Expired and disabled customers get a disabled pool and a notice page.
-- **Online and Login log:** who is connected, from which router, IP and device, with traffic; every accepted and
+- **Plans and recharges:** speed (with burst), validity in days or hours, data and time limits with an optional fair
+  usage speed, time slots; recharge to give a customer a plan and an expiry. Expired and disabled customers get a
+  disabled pool and a notice page.
+- **Hotspot:** off until you turn it on in App settings (while it is off, FreeRADIUS refuses Hotspot page logins).
+  A Hotspot plan can start its validity at the customer's first login instead of at the recharge.
+- **Online and Login log:** who is connected, from which NAS, IP and device, with traffic; every accepted and
   refused login with the reason. Disconnect a session from the panel.
-- **Network:** routers (NAS), pools, IP ranges with an IP inventory, address lists.
+- **Network:** NAS, pools, IP ranges with an IP inventory, address lists.
 - **Staff, roles and Activity log:** staff accounts with two-factor login and passkeys; an Admin role and a Technician
   role (or your own) that set what each person may see and do; who changed what, newest first.
 - **Notifications:** expiry reminders, recharge and welcome messages by SMS (MSG91, DLT templates) and WhatsApp
   (wacrm), as rules you set up in the panel. Other providers can be added (see `CONTRIBUTING.md`).
 - **Import:** customers from CSV, checked by the same rules as the form.
-- **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for routers
-  that are not on your network, and a FreeRADIUS self-test (159 checks) at the end of every install and upgrade.
+- **Languages:** English and Hindi; each staff member picks their own. More can be added (see `CONTRIBUTING.md`).
+- **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for NAS that
+  are not on your network, and a FreeRADIUS self-test (159 checks) at the end of every install and upgrade.
 
 ## Requirements
 
@@ -39,7 +43,7 @@ a customer who is online is changed, their session is disconnected so the change
   MySQL on it yet. These are the only two systems ISPGrid has been tested on, so the installer stops on anything
   else (Debian and other distributions included).
 - Root access (`sudo`).
-- MikroTik routers: RouterOS 7 (any connection type) or RouterOS 6 (LAN or L2TP/IPsec).
+- MikroTik NAS: RouterOS 7 (any connection type) or RouterOS 6 (LAN or L2TP/IPsec).
 - Sizing: on a 2 vCPU, 2 GB test server, about 1,100 PPPoE logins per second were answered with none lost
   (2,000 customers logging in at once). Run `deploy/tests/radius_load_test.sh` as root on your own server to
   measure it; it creates its own test customers (`lt_00001` and up) and removes them when it ends.
@@ -51,15 +55,15 @@ curl -fsSL https://raw.githubusercontent.com/ispgrid/ispgrid/master/deploy/insta
 sudo bash install.sh --admin-email=you@example.com
 ```
 
-The installer asks what it needs to know (where your routers are, how you open the panel, the admin password) and
-prints a summary at the end: the panel address, the admin login, and what to set on your routers. Every run is
+The installer asks what it needs to know (where your NAS are, how you open the panel, the admin password) and
+prints a summary at the end: the panel address, the admin login, and what to set on your NAS. Every run is
 logged to `/var/log/ispgrid-install.log`; `sudo ispgrid-info` shows the summary again later.
 
 Common options (all of them: `sudo bash install.sh --help`):
 
 | Option | What it does |
 |---|---|
-| `--routers=lan\|wireguard\|l2tp\|public` | Where your routers are (see below). Default: `lan`. |
+| `--routers=lan\|wireguard\|l2tp\|public` | Where your NAS are (see below). Default: `lan`. |
 | `--access=local\|public\|domain` | How you open the panel: on your network, on a public IP, or on a domain with HTTPS. |
 | `--domain=panel.example.com` | With `--access=domain`: the name pointing at this server, for a Let's Encrypt certificate. |
 | `--admin-email=EMAIL` | The first admin's login. The password is generated and shown once unless you pass `--admin-password`. |
@@ -69,28 +73,28 @@ Common options (all of them: `sudo bash install.sh --help`):
 
 Passkeys need the panel on HTTPS with a domain name (`--access=domain`); browsers do not offer them over plain HTTP.
 
-## Connecting your routers
+## Connecting your NAS
 
 | `--routers=` | Use it when | What the installer sets up |
 |---|---|---|
-| `lan` | The routers reach the server on a private network. | RADIUS (UDP 1812, 1813) allowed from that network. |
-| `wireguard` | The routers are elsewhere and run RouterOS 7. | A WireGuard server (UDP 51820); routers connect through the tunnel. |
-| `l2tp` | The routers are elsewhere and run RouterOS 6. | An L2TP/IPsec server (UDP 500, 4500); routers connect through the tunnel. |
+| `lan` | The NAS reach the server on a private network. | RADIUS (UDP 1812, 1813) allowed from that network. |
+| `wireguard` | The NAS are elsewhere and run RouterOS 7. | A WireGuard server (UDP 51820); NAS connect through the tunnel. |
+| `l2tp` | The NAS are elsewhere and run RouterOS 6. | An L2TP/IPsec server (UDP 500, 4500); NAS connect through the tunnel. |
 | `public` | Only if a tunnel is impossible. | RADIUS open to the internet. **Not recommended:** RADIUS traffic is not encrypted. |
 
-For each router:
+For each NAS:
 
-1. **Tunnel modes only:** on the server, create the router's tunnel login. It prints the RouterOS commands to paste,
+1. **Tunnel modes only:** on the server, create the NAS's tunnel login. It prints the RouterOS commands to paste,
    including the tunnel address to use in step 2.
 
    ```bash
-   sudo /opt/ispgrid/deploy/wireguard/wg-add-peer.sh office-router   # wireguard
-   sudo /opt/ispgrid/deploy/l2tp/l2tp-add-peer.sh office-router      # l2tp
+   sudo /opt/ispgrid/deploy/wireguard/wg-add-peer.sh office-nas   # wireguard
+   sudo /opt/ispgrid/deploy/l2tp/l2tp-add-peer.sh office-nas      # l2tp
    ```
 
-2. **In the panel:** Network, NAS, add the router with its address (its tunnel address in a tunnel mode) and a
+2. **In the panel:** Network, NAS, add the NAS with its address (its tunnel address in a tunnel mode) and a
    RADIUS secret.
-3. **On the router:** point `/radius` at the server with the same secret, for `ppp` and/or `hotspot`, and allow
+3. **On the NAS:** point `/radius` at the server with the same secret, for `ppp` and/or `hotspot`, and allow
    Disconnect-Requests from the panel:
 
    ```
@@ -102,7 +106,7 @@ For each router:
    In a tunnel mode, use the `/radius` line the add-peer script printed instead (it also sets the source address).
    For Hotspot, also turn on `use-radius` in the Hotspot server profile.
 
-   If the router's firewall drops input it does not know, accept UDP 3799 from the server (or from the tunnel
+   If the NAS firewall drops input it does not know, accept UDP 3799 from the server (or from the tunnel
    interface), or Disconnect from the panel will not reach it.
 
 ## Upgrade
@@ -166,6 +170,11 @@ bash deploy/tests/installer/test_install_sh.sh   # installer helpers
 Branches follow GitHub flow: one branch per feature from `master`, merged back when it is done and tested.
 Releases are tags (`v0.1.0`), and the installer installs tags.
 
+## Contributing
+
+Pull requests are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) explains how to add a language, a notification
+provider (SMS, WhatsApp, email) or a trigger.
+
 ## Built with
 
 ISPGrid stands on the work of these projects. Thank you to everyone who builds and maintains them.
@@ -175,7 +184,7 @@ ISPGrid stands on the work of these projects. Thank you to everyone who builds a
 - [MariaDB](https://mariadb.org): the database shared by FreeRADIUS and the panel
 - [PHP](https://www.php.net) and [nginx](https://nginx.org): run and serve the panel
 - [Certbot](https://certbot.eff.org) and [Let's Encrypt](https://letsencrypt.org): HTTPS certificates
-- [WireGuard](https://www.wireguard.com), [strongSwan](https://www.strongswan.org) and [xl2tpd](https://github.com/xelerance/xl2tpd): tunnels for routers that are not on your network
+- [WireGuard](https://www.wireguard.com), [strongSwan](https://www.strongswan.org) and [xl2tpd](https://github.com/xelerance/xl2tpd): tunnels for NAS that are not on your network
 - [Ubuntu](https://ubuntu.com): the supported server
 
 **The panel**
