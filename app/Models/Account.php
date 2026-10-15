@@ -19,11 +19,13 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * A customer account. The source of truth for its FreeRADIUS rows (SyncAccountToRadius rebuilds them).
  * The password is stored in plain text like radcheck: PAP, CHAP and MS-CHAP need the cleartext.
+ * A Hotspot account recharged with a first-login plan has hotspot_pending_validity (minutes) and no expiry
+ * until FreeRADIUS stamps its first login (app-integration.md section 8).
  */
 #[Fillable(['username', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
     'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id',
-    'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'usage_since', 'ip_id', 'pool_id',
-    'override_plan', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
+    'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'hotspot_pending_validity', 'hotspot_first_login_at',
+    'usage_since', 'ip_id', 'pool_id', 'override_plan', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
     'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
     'override_min_upload', 'override_min_download'])]
 class Account extends Model
@@ -69,6 +71,8 @@ class Account extends Model
             'status_id' => AccountStatus::class,
             'service_type' => ServiceType::class,
             'expiry' => 'datetime',
+            'hotspot_pending_validity' => 'integer',
+            'hotspot_first_login_at' => 'datetime',
             'usage_since' => 'datetime',
             'override_plan' => 'boolean',
             'notifications_off' => 'boolean',

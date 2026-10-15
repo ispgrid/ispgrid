@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\Ip;
 use App\Models\Ipoe;
+use App\Models\Recharge;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Spatie\Activitylog\Models\Activity;
 
@@ -46,5 +47,21 @@ it('logs nothing for a new customer saved again without changes', function () {
 
     $account->update(['mac_type' => 1, 'status_id' => 1, 'override_plan' => false]);
 
-    expect(Activity::query()->where('subject_id', $account->id)->pluck('event')->all())->toBe(['created']);
+    expect(Activity::query()->whereMorphedTo('subject', $account)->pluck('event')->all())->toBe(['created']);
+});
+
+it('keeps a Hotspot validity that waits for the first login, without an expiry', function () {
+    $account = Account::factory()->hotspotPending(180)->create()->fresh();
+
+    expect($account)
+        ->service_type->toBe(ServiceType::Hotspot)
+        ->expiry->toBeNull()
+        ->hotspot_pending_validity->toBe(180)
+        ->hotspot_first_login_at->toBeNull();
+});
+
+it('records a recharge that leaves the validity waiting, without a new expiry', function () {
+    $recharge = Recharge::factory()->create(['new_expiry' => null, 'new_pending_validity' => 180])->fresh();
+
+    expect($recharge->new_expiry)->toBeNull()->and($recharge->new_pending_validity)->toBe(180);
 });
