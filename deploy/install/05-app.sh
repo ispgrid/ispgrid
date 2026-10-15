@@ -38,6 +38,10 @@ env_set .env DB_DATABASE radius
 env_set .env DB_USERNAME ispgrid
 env_set .env DB_PASSWORD "$DB_APP_PASSWORD"
 env_set .env QUEUE_CONNECTION database
+#  Database sessions (User::endSessions logs staff out everywhere), encrypted with APP_KEY. An upgrade that turns
+#  encryption on logs staff out once.
+env_set .env SESSION_DRIVER database
+env_set .env SESSION_ENCRYPT true
 
 artisan migrate --force
 artisan db:seed --force

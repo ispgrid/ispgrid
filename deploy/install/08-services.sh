@@ -32,6 +32,14 @@ if [[ -n "$DOMAIN" ]]; then
   fi
 fi
 
+#  With HTTPS the session cookie is sent over HTTPS only; on plain HTTP it must not be, or nobody can log in.
+if [[ -n "$HTTPS_OK" ]]; then
+  env_set "$ISPGRID_HOME/.env" SESSION_SECURE_COOKIE true
+else
+  env_set "$ISPGRID_HOME/.env" SESSION_SECURE_COOKIE false
+fi
+artisan config:cache
+
 install -m 644 "$deploy/systemd/ispgrid-queue.service" /etc/systemd/system/ispgrid-queue.service
 systemctl daemon-reload
 systemctl enable -q ispgrid-queue
