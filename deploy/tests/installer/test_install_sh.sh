@@ -243,6 +243,18 @@ OPT_SKIP_SELFTEST=""
 parse_args --skip-selftest
 check "skip the self-test" "${OPT_SKIP_SELFTEST:-}" 1
 
+#  Stale ufw rules: ISPGrid rules no longer wanted (a changed network, SSH port or mode); other rules are left alone
+added="Added user rules (see 'ufw status' for running firewall):
+ufw allow 2222/tcp comment 'ISPGrid'
+ufw allow 80/tcp comment 'ISPGrid'
+ufw allow from 10.2.2.0/24 to any port 1812,1813 proto udp comment 'ISPGrid'
+ufw allow 5000/tcp
+ufw allow from 192.0.2.0/24 to any port 1812,1813 proto udp comment 'ISPGrid'"
+mapfile -t wanted < <(firewall_rules lan 2222 192.0.2.0/24 '')
+check "stale ufw rules" "$(stale_ufw_rules "$added" "${wanted[@]}" | tr '
+' ';')" "allow from 10.2.2.0/24 to any port 1812,1813 proto udp;"
+check "nothing stale" "$(stale_ufw_rules "$added" "${wanted[@]}" 'allow from 10.2.2.0/24 to any port 1812,1813 proto udp comment ISPGrid')" ""
+
 #  certbot's port-80 block: every name but the domain (http://IP too) goes to https://<domain>, not to a 404
 cat > "$tmp/certbot-site" <<'NGINX'
 server {

@@ -41,6 +41,20 @@ else
     read -r -a args <<<"$rule"
     ufw "${args[@]}" >/dev/null
   done
+  #  Rules from an earlier run that no longer apply (another router network, SSH port or mode) are removed; the
+  #  wanted rules are then added once more, so a rule ufw printed differently is never left deleted.
+  mapfile -t stale < <(stale_ufw_rules "$(ufw show added 2>/dev/null || true)" "${rules[@]}")
+  if (( ${#stale[@]} > 0 )); then
+    for rule in "${stale[@]}"; do
+      read -r -a args <<<"$rule"
+      ufw delete "${args[@]}" >/dev/null || warn "Could not remove the old firewall rule: ufw $rule"
+    done
+    for rule in "${rules[@]}"; do
+      read -r -a args <<<"$rule"
+      ufw "${args[@]}" >/dev/null
+    done
+    say "Removed old firewall rules: ${#stale[@]}"
+  fi
   if [[ "$ROUTERS" == l2tp ]]; then
     before_rules=$(cat /etc/ufw/before.rules)
     with_l2tp=$(ufw_before_rules_l2tp "$before_rules")

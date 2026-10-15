@@ -430,6 +430,23 @@ firewall_rules() {
   fi
 }
 
+#  stale_ufw_rules <"ufw show added" output> <wanted rules (firewall_rules)...>: the ISPGrid rules no longer wanted
+#  (an old router network, SSH port or mode), one per line, as "ufw delete" takes them; other rules are left alone
+stale_ufw_rules() {
+  local added=$1 line spec want
+  shift
+  local -A wanted=()
+  for want in "$@"; do
+    wanted["${want% comment ISPGrid}"]=1
+  done
+  while IFS= read -r line; do
+    [[ "$line" == "ufw "*" comment 'ISPGrid'" ]] || continue
+    spec=${line#ufw }
+    spec=${spec% comment \'ISPGrid\'}
+    [[ -n "${wanted[$spec]:-}" ]] || printf '%s\n' "$spec"
+  done <<<"$added"
+}
+
 #  cloud_vendor <DMI text>: the provider's name, or nothing
 cloud_vendor() {
   case "$1" in
