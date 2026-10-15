@@ -21,8 +21,26 @@ HTTPS_OK=""
 if [[ -n "$DOMAIN" ]]; then
   email=$(conf_get le_email || true)
   if [[ -n "$email" ]]; then account=(--email "$email"); else account=(--register-unsafely-without-email); fi
-  if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --keep-until-expiring --redirect "${account[@]}"; then
+  certbot_args=(--nginx -d "$DOMAIN" --non-interactive --agree-tos --keep-until-expiring --redirect)
+  certbot_reason=""
+  if certbot_out=$(certbot "${certbot_args[@]}" "${account[@]}" 2>&1); then
     HTTPS_OK=1
+  fi
+  log_only "$certbot_out"
+  if [[ -z "$HTTPS_OK" ]]; then
+    certbot_reason=$(certbot_failure_reason "$certbot_out")
+  fi
+  #  The email only gets expiry notices: a refused one must not cost the panel its HTTPS.
+  if [[ "$certbot_reason" == email ]]; then
+    if certbot_out=$(certbot "${certbot_args[@]}" --register-unsafely-without-email 2>&1); then
+      HTTPS_OK=1
+      warn "Let's Encrypt refused the email $email, so HTTPS was set up without one (no certificate expiry emails). Give a real address with --le-email=EMAIL."
+    else
+      certbot_reason=$(certbot_failure_reason "$certbot_out")
+    fi
+    log_only "$certbot_out"
+  fi
+  if [[ -n "$HTTPS_OK" ]]; then
     https_redirect_all /etc/nginx/sites-available/ispgrid "$DOMAIN"
     nginx -t -q
     systemctl reload nginx
@@ -31,7 +49,12 @@ if [[ -n "$DOMAIN" ]]; then
   else
     env_set "$ISPGRID_HOME/.env" APP_URL "http://$(primary_ip)"
     artisan config:cache
-    warn "HTTPS was not set up for $DOMAIN (does its DNS point at this server?). For now the panel works on http://$(primary_ip); run the installer again once DNS is right."
+    if [[ "$certbot_reason" == dns ]]; then
+      warn "HTTPS was not set up for $DOMAIN (does its DNS point at this server, with port 80 open?). For now the panel works on http://$(primary_ip); run the installer again once DNS is right."
+    else
+      certbot_error=$(grep -iE 'error|detail' <<<"$certbot_out" | tail -n 1 || true)
+      warn "HTTPS was not set up for $DOMAIN: ${certbot_error:-certbot failed}. For now the panel works on http://$(primary_ip); see /var/log/letsencrypt/letsencrypt.log and run the installer again."
+    fi
   fi
 fi
 

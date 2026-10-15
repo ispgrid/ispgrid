@@ -243,6 +243,14 @@ OPT_SKIP_SELFTEST=""
 parse_args --skip-selftest
 check "skip the self-test" "${OPT_SKIP_SELFTEST:-}" 1
 
+#  --le-email, and why certbot failed: the email (retry without one), DNS or reachability (the domain), or other
+parse_args --le-email=noc@isp.example
+check "le-email option" "${OPT_LE_EMAIL:-}" noc@isp.example
+check "certbot: bad email" "$(certbot_failure_reason 'Unable to register an account with ACME server. The ACME server believes k@k.k is an invalid email address.')" email
+check "certbot: dns" "$(certbot_failure_reason 'Detail: DNS problem: NXDOMAIN looking up A for panel.example.com')" dns
+check "certbot: unreachable" "$(certbot_failure_reason 'Detail: 203.0.113.9: Timeout during connect (likely firewall problem)')" dns
+check "certbot: other" "$(certbot_failure_reason 'too many certificates (5) already issued for this exact set of domains')" other
+
 #  MariaDB restarts only when its config or the timezone changed, or it is not running
 check "mariadb: nothing changed" "$(yes_no mariadb_restart_needed no Asia/Kolkata Asia/Kolkata yes)" no
 check "mariadb: config changed" "$(yes_no mariadb_restart_needed yes Asia/Kolkata Asia/Kolkata yes)" yes

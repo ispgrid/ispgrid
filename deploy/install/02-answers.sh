@@ -136,6 +136,10 @@ if need_admin; then
   fi
   conf_get le_email >/dev/null || conf_set le_email "$ADMIN_EMAIL"
 fi
+if [[ -n "${OPT_LE_EMAIL:-}" ]]; then
+  valid_email "$OPT_LE_EMAIL" || die "--le-email needs an email address like you@example.com."
+  conf_set le_email "$OPT_LE_EMAIL"
+fi
 
 conf_set routers "$ROUTERS"
 #  Mode-specific answers are kept when the mode changes, so switching back asks nothing.
