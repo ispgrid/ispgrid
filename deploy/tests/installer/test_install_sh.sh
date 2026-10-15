@@ -251,6 +251,27 @@ check "certbot: dns" "$(certbot_failure_reason 'Detail: DNS problem: NXDOMAIN lo
 check "certbot: unreachable" "$(certbot_failure_reason 'Detail: 203.0.113.9: Timeout during connect (likely firewall problem)')" dns
 check "certbot: other" "$(certbot_failure_reason 'too many certificates (5) already issued for this exact set of domains')" other
 
+#  FreeRADIUS restarts when its config changed, a restart from an interrupted run is pending, or it is not running
+check "radius: nothing to do" "$(yes_no radius_restart_needed '' no yes)" no
+check "radius: config changed" "$(yes_no radius_restart_needed 1 no yes)" yes
+check "radius: restart pending" "$(yes_no radius_restart_needed '' yes yes)" yes
+check "radius: not running" "$(yes_no radius_restart_needed '' no no)" yes
+
+#  WireGuard: a changed tunnel network or port rewrites only those two lines; the key and the peers stay
+wg_conf=$'[Interface]\nAddress = 10.250.0.1/24\nListenPort = 51820\nPrivateKey = KEY\n\n[Peer]\n# lab\nPublicKey = PEER\nAllowedIPs = 10.250.0.2/32'
+wg_new=$(wg_interface_update "$wg_conf" 10.77.0.1/24 51900)
+check "wg: address" "$(grep -c '^Address = 10.77.0.1/24$' <<<"$wg_new")" 1
+check "wg: port" "$(grep -c '^ListenPort = 51900$' <<<"$wg_new")" 1
+check "wg: key and peer kept" "$(grep -cE '^(PrivateKey = KEY|PublicKey = PEER|AllowedIPs = 10.250.0.2/32)$' <<<"$wg_new")" 3
+check "wg: unchanged" "$(wg_interface_update "$wg_conf" 10.250.0.1/24 51820)" "$wg_conf"
+
+#  Router network default: a private network, the internet-facing one first; the others are listed in the question
+addrs=$'2: eth0    inet 203.0.113.7/24 brd 203.0.113.255 scope global eth0\n3: eth1    inet 10.20.0.5/16 brd 10.20.255.255 scope global eth1\n4: eth2    inet 192.168.88.2/24 scope global eth2'
+check "router network: private beats public" "$(router_network_default "$addrs" 203.0.113.7)" 10.20.0.0/16
+check "router network: internet-facing private" "$(router_network_default "$addrs" 192.168.88.2)" 192.168.88.0/24
+check "router network: only public" "$(router_network_default '2: eth0    inet 203.0.113.7/24 scope global eth0' 203.0.113.7)" 203.0.113.0/24
+check "router network: all listed" "$(local_networks "$addrs" | tr '\n' ' ')" "203.0.113.0/24 10.20.0.0/16 192.168.88.0/24 "
+
 #  MariaDB restarts only when its config or the timezone changed, or it is not running
 check "mariadb: nothing changed" "$(yes_no mariadb_restart_needed no Asia/Kolkata Asia/Kolkata yes)" no
 check "mariadb: config changed" "$(yes_no mariadb_restart_needed yes Asia/Kolkata Asia/Kolkata yes)" yes

@@ -33,7 +33,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --access=local|public|domain
                             how the panel is opened: on this network only (http://<LAN IP>, default), on a
                             public IP without HTTPS (http://<public IP>, for trying it out), or with a domain
-                            (https://<domain>, Let's Encrypt)
+                            (https://<domain>, Let's Encrypt). local or public also switches a domain install
+                            back to plain HTTP
   --public-ip=ADDRESS       public access, l2tp or public routers: this server's public IP (default: as seen
                             by ipapi.co)
   --domain=NAME             domain: a name pointing here, for HTTPS from Let's Encrypt
@@ -237,6 +238,52 @@ certbot_failure_reason() {
     echo dns
   else
     echo other
+  fi
+}
+
+#  radius_restart_needed <config changed: 1 or empty> <restart pending: yes|no> <running: yes|no>: "pending" is a
+#  run that copied a new config and stopped before restarting FreeRADIUS, which would keep the old config forever
+radius_restart_needed() { [[ -n "$1" || "$2" == yes || "$3" == no ]]; }
+
+#  wg_interface_update <wg0.conf text> <address/prefix> <port>: the text with the [Interface] Address and ListenPort
+#  set; the private key and the [Peer] sections stay as they are
+wg_interface_update() {
+  awk -v address="$2" -v port="$3" '
+    /^\[/ { section = $0 }
+    section == "[Interface]" && /^Address = / { print "Address = " address; next }
+    section == "[Interface]" && /^ListenPort = / { print "ListenPort = " port; next }
+    { print }
+  ' <<<"$1"
+}
+
+#  local_networks <"ip -4 -o addr show scope global" output>: this server's IPv4 networks, one per line
+local_networks() {
+  local cidr
+  while read -r cidr; do
+    [[ -n "$cidr" ]] && cidr_network "$cidr"
+  done < <(awk '{ for (i = 1; i < NF; i++) if ($i == "inet") print $(i + 1) }' <<<"$1")
+}
+
+#  is_private_ipv4 <address>: 10/8, 172.16/12, 192.168/16 or 100.64/10 (CGNAT)
+is_private_ipv4() {
+  [[ "$1" =~ ^10\. || "$1" =~ ^192\.168\. || "$1" =~ ^172\.(1[6-9]|2[0-9]|3[01])\. || "$1" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\. ]]
+}
+
+#  router_network_default <"ip -4 -o addr show scope global" output> <primary IP>: where the routers/NAS most likely
+#  are: the internet-facing network when it is private, else the first private one, else the internet-facing one
+router_network_default() {
+  local cidr primary="" first_private=""
+  while read -r cidr; do
+    [[ -n "$cidr" ]] || continue
+    [[ "${cidr%/*}" == "$2" ]] && primary=$cidr
+    [[ -z "$first_private" ]] && is_private_ipv4 "${cidr%/*}" && first_private=$cidr
+  done < <(awk '{ for (i = 1; i < NF; i++) if ($i == "inet") print $(i + 1) }' <<<"$1")
+  if [[ -n "$primary" ]] && is_private_ipv4 "${primary%/*}"; then
+    cidr_network "$primary"
+  elif [[ -n "$first_private" ]]; then
+    cidr_network "$first_private"
+  elif [[ -n "$primary" ]]; then
+    cidr_network "$primary"
   fi
 }
 

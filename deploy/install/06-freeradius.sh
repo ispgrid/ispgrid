@@ -49,19 +49,29 @@ if ! freeradius -C -d "$stage" > /tmp/ispgrid-radius-check.log 2>&1; then
 fi
 sed -i "s|^raddbdir = .*|raddbdir = /etc/freeradius|" "$stage/radiusd.conf"
 
+#  The marker outlives a run that stops between the copy and the restart, so the next run still restarts.
+restart_marker="$(dirname "$ISPGRID_CONF")/radius-restart-pending"
 RADIUS_CHANGED=""
 if ! diff -rq --no-dereference "$stage" /etc/freeradius >/dev/null 2>&1; then
+  touch "$restart_marker"
   rsync -a --delete "$stage/" /etc/freeradius/
   RADIUS_CHANGED=1
 fi
 rm -rf "$stage"
 systemctl enable -q freeradius
-if [[ -n "$RADIUS_CHANGED" ]] || ! systemctl is-active -q freeradius; then
+restart_pending=no
+if [[ -f "$restart_marker" ]]; then restart_pending=yes; fi
+radius_running=no
+if systemctl is-active -q freeradius; then radius_running=yes; fi
+if radius_restart_needed "$RADIUS_CHANGED" "$restart_pending" "$radius_running"; then
   systemctl restart freeradius
 fi
 systemctl is-active -q freeradius || die "FreeRADIUS did not start: journalctl -u freeradius"
+rm -f "$restart_marker"
 if [[ -n "$RADIUS_CHANGED" ]]; then
   radius_state="config updated and restarted"
+elif [[ "$restart_pending" == yes ]]; then
+  radius_state="restarted (an earlier run stopped before restarting it)"
 else
   radius_state="config unchanged"
 fi
