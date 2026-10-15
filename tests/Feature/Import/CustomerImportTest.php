@@ -235,7 +235,7 @@ it('checks the profile and service fields as the form does', function (array $va
     'username characters' => [['username' => 'al ice'], '2 username: Use letters, digits, ., -, _ and @ only.'],
     'password quote' => [['password' => 'pa"ss'], '2 password: Leave out quotes, backticks and backslashes: FreeRADIUS reads them as part of its own syntax.'],
     'no password' => [['password' => ''], '2 password: The password field is required.'],
-    'service type' => [['service_type' => 'STATIC'], '2 service_type: The selected service type is invalid.'],
+    'service type' => [['service_type' => 'STATIC'], '2 service_type: Choose PPPoE or IPoE. Hotspot is turned off in App settings.'],
     'device limit' => [['device_limit' => '101'], '2 device_limit: The mac type field must be between 0 and 100.'],
     'address without line 1' => [['city' => 'Kolkata'], '2 line1: Enter the first address line, or leave the whole address empty.'],
     'connection type' => [['connection_type' => 'Nowhere'], '2 connection_type: No connection type named Nowhere.'],
@@ -300,4 +300,13 @@ it('turns a unique violation at the last moment into a file problem', function (
     expect(failedCustomerImport(importCustomerRows([])))
         ->toBe(['- -: A record in this file was taken meanwhile by someone else. Check the file again.'])
         ->and(Account::query()->count())->toBe(0);
+});
+
+it('refuses Hotspot rows while Hotspot is turned off', function () {
+    expect(customerCheck(['service_type' => 'HOTSPOT']))
+        ->toBe(['2 service_type: Choose PPPoE or IPoE. Hotspot is turned off in App settings.']);
+
+    turnHotspotOn();
+
+    expect(customerCheck(['service_type' => 'HOTSPOT']))->toBe([]);
 });

@@ -7,6 +7,7 @@ use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Nas;
 use App\Models\Plan;
+use App\Support\Hotspot;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Computed;
@@ -90,7 +91,7 @@ new #[Title('Customers')] class extends Component
     #[Computed]
     public function types(): array
     {
-        return collect([ServiceType::Ppp, ServiceType::Hotspot, ServiceType::Ipoe])
+        return collect(Hotspot::serviceTypes())
             ->mapWithKeys(fn (ServiceType $type): array => [$type->value => $type->label()])
             ->all();
     }

@@ -115,3 +115,11 @@ it('lists only expired customers when asked', function () {
         ->assertSee('lapsed')
         ->assertDontSee('paidup');
 });
+
+it('offers the Hotspot type filter only while Hotspot is turned on', function () {
+    expect(array_keys(Livewire::test('pages::customers.index')->instance()->types))->toBe(['PPP', 'IPOE']);
+
+    turnHotspotOn();
+
+    expect(array_keys(Livewire::test('pages::customers.index')->instance()->types))->toBe(['PPP', 'HOTSPOT', 'IPOE']);
+});

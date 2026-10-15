@@ -285,3 +285,17 @@ it('disconnects a customer who is online when deleted', function () {
 
     Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->username === 'alice');
 });
+
+it('restores a deleted Hotspot customer only while Hotspot is turned on', function () {
+    $account = Account::factory()->hotspot()->trashed()->create();
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->call('restore')
+        ->assertDispatched('toast', message: 'First restore what this customer uses: Hotspot (turn it on in App settings).', variant: 'danger');
+    expect($account->fresh()->trashed())->toBeTrue();
+
+    turnHotspotOn();
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])->call('restore');
+    expect($account->fresh()->trashed())->toBeFalse();
+});

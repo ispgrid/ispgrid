@@ -2,6 +2,7 @@
 
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
+use App\Enums\ServiceType;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\Address;
@@ -167,6 +168,7 @@ it('refuses a deleted router or pool', function () {
 });
 
 it('starts a new customer with the default pool of their type', function () {
+    turnHotspotOn();
     $pppoe = Pool::factory()->create();
     $hotspot = Pool::factory()->create();
     AppSetting::put('default_pool_ppp', (string) $pppoe->id);
@@ -601,4 +603,33 @@ it('marks every field a new customer needs', function () {
 
     expect($html)->not->toContain('Company<span')
         ->and($html)->toContain('Fields marked * are required.');
+});
+
+it('offers Hotspot only while it is turned on', function () {
+    expect(array_keys(Livewire::test('pages::customers.form')->instance()->serviceTypes))->toBe(['PPP', 'IPOE']);
+
+    turnHotspotOn();
+
+    expect(array_keys(Livewire::test('pages::customers.form')->instance()->serviceTypes))->toBe(['PPP', 'HOTSPOT', 'IPOE']);
+});
+
+it('refuses a Hotspot customer while Hotspot is turned off', function () {
+    newCustomerForm()->set('service_type', 'HOTSPOT')->call('save')
+        ->assertHasErrors(['service_type'])
+        ->assertSee('Choose PPPoE or IPoE. Hotspot is turned off in App settings.');
+
+    expect(Account::query()->count())->toBe(0);
+});
+
+it('keeps a Hotspot customer on Hotspot while a validity waits for their first login', function () {
+    turnHotspotOn();
+    $account = Account::factory()->hotspotPending(180)->create();
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('service_type', 'PPP')
+        ->call('save')
+        ->assertHasErrors(['service_type'])
+        ->assertSee('This customer has 3 hours waiting for the first login. Recharge or wait for it to start before changing the type.');
+
+    expect($account->fresh()->service_type)->toBe(ServiceType::Hotspot);
 });

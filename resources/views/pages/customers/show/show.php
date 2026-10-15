@@ -24,6 +24,7 @@ use App\Models\User;
 use App\Support\ActivityFormatter;
 use App\Support\CustomerDefaults;
 use App\Support\ExpiryCalculator;
+use App\Support\Hotspot;
 use App\Support\Ipv4Cidr;
 use App\Support\Money;
 use App\Support\Units;
@@ -846,6 +847,10 @@ new #[Title('Customer')] class extends Component
 
         foreach ($account->addressLists->filter(fn (AddressList $list): bool => $list->trashed()) as $list) {
             $blockers[] = __('the address list :name', ['name' => $list->name]);
+        }
+
+        if ($account->service_type === ServiceType::Hotspot && ! Hotspot::enabled()) {
+            $blockers[] = __('Hotspot (turn it on in App settings)');
         }
 
         return $blockers;
