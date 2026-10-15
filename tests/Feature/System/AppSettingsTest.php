@@ -167,6 +167,30 @@ it('refuses to turn Hotspot off while Hotspot customers exist, and saves nothing
         ->and(AppSetting::valueOf('currency_code'))->toBe('INR');
 });
 
+it('saves the settings on a server without the FreeRADIUS settings row while Hotspot stays off', function () {
+    RadiusSetting::query()->delete();
+
+    Livewire::test('pages::system.app-settings')
+        ->set('currency_code', 'USD')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(AppSetting::valueOf('currency_code'))->toBe('USD');
+});
+
+it('refuses to turn Hotspot on without the FreeRADIUS settings row, and saves nothing', function () {
+    RadiusSetting::query()->delete();
+
+    Livewire::test('pages::system.app-settings')
+        ->set('currency_code', 'USD')
+        ->set('hotspot_enabled', true)
+        ->call('save')
+        ->assertHasErrors(['hotspot_enabled'])
+        ->assertSee('The FreeRADIUS settings are missing. Run the installer again to restore them.');
+
+    expect(AppSetting::valueOf('currency_code'))->toBe('INR');
+});
+
 it('turns Hotspot off when only deleted Hotspot customers are left', function () {
     turnHotspotOn();
     Account::factory()->hotspot()->trashed()->create();

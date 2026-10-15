@@ -15,6 +15,7 @@ use App\Models\Pool;
 use App\Models\Radacct;
 use App\Models\Recharge;
 use App\Models\User;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
@@ -299,6 +300,25 @@ it('restores a deleted Hotspot customer only while Hotspot is turned on', functi
 
     Livewire::test('pages::customers.show', ['account' => $account->id])->call('restore');
     expect($account->fresh()->trashed())->toBeFalse();
+});
+
+it('reads the Hotspot switch inside the restore transaction, so turning Hotspot off cannot slip in between', function () {
+    turnHotspotOn();
+    $account = Account::factory()->hotspot()->trashed()->create();
+    $page = showCustomer($account);
+    $outerLevel = DB::transactionLevel();
+    $levels = [];
+    DB::listen(function (QueryExecuted $query) use (&$levels): void {
+        if (str_contains($query->sql, 'hotspot_enabled')) {
+            $levels[] = $query->connection->transactionLevel();
+        }
+    });
+
+    $page->call('restore');
+
+    expect($account->fresh()->trashed())->toBeFalse()
+        ->and($levels)->not->toBeEmpty()
+        ->and(min($levels))->toBeGreaterThan($outerLevel);
 });
 
 it('shows a validity waiting for the first login instead of an expiry', function () {
