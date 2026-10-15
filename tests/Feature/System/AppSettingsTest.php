@@ -7,6 +7,7 @@ use App\Models\IpRange;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Models\User;
+use App\Support\Addons\AddonManifest;
 use App\Support\Hotspot;
 use Database\Seeders\AppSettingSeeder;
 use Database\Seeders\RadiusSettingSeeder;
@@ -230,4 +231,22 @@ it('shows 365 days on an install whose settings predate the session history sett
         ->assertHasNoErrors();
 
     expect(AppSetting::valueOf('session_history_days'))->toBe('365');
+});
+
+it('lists the installed add-ons and says when one is not loaded', function () {
+    $path = tempnam(sys_get_temp_dir(), 'installed');
+    file_put_contents($path, json_encode(['packages' => [
+        ['name' => 'acme/new', 'version' => '0.1.2', 'extra' => ['ispgrid' => ['name' => 'New add-on', 'core' => ['0.1']]]],
+        ['name' => 'acme/old', 'version' => '0.0.9', 'extra' => ['ispgrid' => ['name' => 'Old add-on', 'core' => ['0.0']]]],
+    ]]));
+    app()->instance(AddonManifest::class, new AddonManifest($path, 'v0.1.0'));
+
+    Livewire::test('pages::system.app-settings')
+        ->assertSeeInOrder(['New add-on', 'acme/new', '0.1.2', __('Active'), 'Old add-on', __('Not loaded: built for core :supports, this is :core', ['supports' => '0.0', 'core' => '0.1'])]);
+});
+
+it('says when no add-on is installed', function () {
+    app()->instance(AddonManifest::class, new AddonManifest(sys_get_temp_dir().'/none.json', 'v0.1.0'));
+
+    Livewire::test('pages::system.app-settings')->assertSee(__('No add-ons installed.'));
 });

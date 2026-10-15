@@ -59,3 +59,25 @@ A trigger is a kind of event rules can send on.
 2. Register it in `AppServiceProvider`: `$registry->registerTrigger(YourTrigger::class);`.
 3. Test it like `tests/Feature/Notifications/TriggersTest.php`: who is due at a frozen time, the date edges, and that a
    second run sends nothing.
+
+## Write an add-on
+
+An add-on is a Composer package that adds a feature without changing core. `ispgrid/ipdr` (Session records) is the
+example to copy.
+
+- **composer.json:** `"extra": {"ispgrid": {"name": "Shown name", "core": ["0.1"], "providers": ["Vendor\Pkg\PkgServiceProvider"]}}`.
+  `core` lists the core minor series it supports; core loads only add-ons that list the running series. Do not use
+  `extra.laravel`: core registers the providers itself.
+- **What it may use:** `App\Contracts` (such as `SessionKeeper`), the registries `App\Support\Permissions`,
+  `App\Support\Navigation\Navigation` and `App\Support\SessionKeepers`, `ActivityFormatter::addEventLabel()`, the
+  `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core is internal and may
+  change in any release.
+- **What it must not do:** write `radcheck`, `radreply`, `radusergroup`, `radacct` or any other `rad*` table.
+  Anything FreeRADIUS must do differently is a core change.
+- **Permissions:** register the box in the provider and insert its `permissions` row (guard `web`) in a migration.
+- **Strings:** `__()` everywhere, and a `lang/hi.json` loaded with `loadJsonTranslationsFrom()`.
+- **Develop locally:** in the core checkout, `composer config repositories.my-addon path ../path/to/addon` and
+  `composer require vendor/pkg:@dev`. Do not commit the changed `composer.json` and `composer.lock`.
+- **Test:** `ISPGRID_ADDONS=on php vendor/bin/pest --test-directory=vendor/vendor/pkg/tests vendor/vendor/pkg/tests`.
+  Core's own tests run with add-ons off.
+- **Install on a server:** `sudo bash install.sh --addon=vendor/pkg` (see `install.sh --help`).

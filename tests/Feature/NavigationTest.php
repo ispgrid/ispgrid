@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Role;
 use App\Models\User;
+use App\Support\Navigation\Navigation;
+use App\Support\Navigation\NavItem;
 
 it('sends visitors from the home page to the dashboard', function () {
     $this->get('/')->assertRedirect('/dashboard');
@@ -55,4 +58,30 @@ it('shows Import in the System menu and opens it there', function () {
         ->get(route('import.index'))
         ->assertSee(route('import.index'))
         ->assertSee("navGroup('system', true)", false);
+});
+
+it('shows an added menu item in its place for staff who may see it', function () {
+    app(Navigation::class)->add(new NavItem(
+        group: 'main',
+        label: fn (): string => 'Session records',
+        route: 'dashboard',
+        icon: 'document-magnifying-glass',
+        active: ['nothing.*'],
+        visible: fn (User $user): bool => $user->isAdmin(),
+        order: 45,
+    ));
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('online.index'))
+        ->assertSeeInOrder([__('Login log'), 'Session records', __('Plans')]);
+
+    $this->actingAs(User::factory()->role(Role::TECHNICIAN)->create())
+        ->get(route('online.index'))
+        ->assertDontSee('Session records');
+});
+
+it('hides a menu group with nothing visible in it', function () {
+    $this->actingAs(User::factory()->role(Role::TECHNICIAN)->create())
+        ->get(route('dashboard'))
+        ->assertDontSee("navGroup('system'", false);
 });

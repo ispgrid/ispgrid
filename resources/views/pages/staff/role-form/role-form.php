@@ -1,7 +1,7 @@
 <?php
 
-use App\Enums\Permission;
 use App\Models\Role;
+use App\Support\Permissions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -45,7 +45,7 @@ new #[Title('Role')] class extends Component
      */
     public function updatedPermissions(): void
     {
-        $this->permissions = array_values(array_unique([...$this->permissions, ...Permission::withImplied($this->permissions)]));
+        $this->permissions = array_values(array_unique([...$this->permissions, ...app(Permissions::class)->withImplied($this->permissions)]));
     }
 
     /**
@@ -54,12 +54,7 @@ new #[Title('Role')] class extends Component
     #[Computed]
     public function areas(): array
     {
-        return collect(Permission::byArea())
-            ->map(fn (array $permissions): array => array_map(
-                fn (Permission $permission): array => ['value' => $permission->value, 'label' => $permission->label()],
-                $permissions,
-            ))
-            ->all();
+        return app(Permissions::class)->byArea();
     }
 
     public function save(): void
@@ -69,7 +64,7 @@ new #[Title('Role')] class extends Component
 
         $this->validate([
             'name' => ['required', 'string', 'max:50', Rule::unique(Role::class, 'name')->ignore($this->roleId)],
-            'permissions' => ['array', Rule::in(array_map(fn (Permission $permission): string => $permission->value, Permission::cases()))],
+            'permissions' => ['array', Rule::in(app(Permissions::class)->names())],
         ], [
             'name.unique' => __('Another role has this name.'),
             'permissions.in' => __('Tick only the boxes on this page.'),
@@ -78,7 +73,7 @@ new #[Title('Role')] class extends Component
             'permissions' => __('Permissions'),
         ]);
 
-        $permissions = Permission::withImplied($this->permissions);
+        $permissions = app(Permissions::class)->withImplied($this->permissions);
 
         DB::transaction(function () use ($permissions): void {
             $role = $this->roleId === null ? new Role(['guard_name' => 'web']) : Role::query()->lockForUpdate()->findOrFail($this->roleId);

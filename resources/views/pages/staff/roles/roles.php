@@ -1,9 +1,9 @@
 <?php
 
-use App\Enums\Permission;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Permissions;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -43,7 +43,7 @@ new #[Title('Roles')] class extends Component
     #[Computed]
     public function permissionCount(): int
     {
-        return count(Permission::cases());
+        return count(app(Permissions::class)->names());
     }
 
     /**
