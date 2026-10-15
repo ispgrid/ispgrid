@@ -53,7 +53,7 @@ it('keys event triggers by the recharge and the customer', function () {
 });
 
 it('offers recharge values only to the recharge trigger and never a password', function () {
-    expect(RechargeDone::placeholders())->toContain('amount_paid', 'recharge_reference')
+    expect(RechargeDone::placeholders())->toContain('amount_paid', 'recharge_reference', 'recharge_note', 'recharge_date', 'recharge_datetime')
         ->and(BeforeExpiry::placeholders())->not->toContain('amount_paid')
         ->and(CustomerCreated::placeholders())->not->toContain('expiry_date')
         ->and(array_merge(BeforeExpiry::placeholders(), RechargeDone::placeholders(), CustomerCreated::placeholders()))->not->toContain('password');
