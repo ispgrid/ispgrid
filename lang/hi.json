@@ -896,10 +896,13 @@
     "For Hotspot customers: the time starts at their first login. Unused, it never runs out.": "Hotspot ग्राहकों के लिए: समय उनके पहले लॉगिन से शुरू होता है। इस्तेमाल न हो तो यह कभी खत्म नहीं होता।",
     "Hotspot is turned off in App settings.": "ऐप सेटिंग्स में Hotspot बंद है।",
     ":name (:validity, :price)": ":name (:validity, :price)",
+    "Closed sessions older than this are removed every night, except those since the customer last recharged (they count towards data and time limits). 31 to 3650 days.": "इससे पुराने बंद सत्र हर रात हटा दिए जाते हैं, सिवाय उन सत्रों के जो ग्राहक के पिछले रिचार्ज के बाद के हैं (वे डेटा और समय सीमा में गिने जाते हैं)। 31 से 3650 दिन।",
     "Starts at first login: :validity": "पहले लॉगिन से शुरू: :validity",
     "Recharged: :validity from the first login.": "रिचार्ज हो गया: पहले लॉगिन से :validity।",
     "This plan starts at the first Hotspot login. Choose another plan.": "यह प्लान पहले Hotspot लॉगिन से शुरू होता है। दूसरा प्लान चुनें।",
     "Starts at first login (:validity)": "पहले लॉगिन से शुरू (:validity)",
     "First login": "पहला लॉगिन",
+    "Keep session history (days)": "सत्र इतिहास कितने दिन रखें",
+    "Logs": "लॉग",
     "Not started": "शुरू नहीं हुआ"
 }

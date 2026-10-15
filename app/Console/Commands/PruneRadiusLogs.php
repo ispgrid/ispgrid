@@ -23,6 +23,8 @@ class PruneRadiusLogs extends Command
 {
     public const DEFAULT_LOGIN_LOG_DAYS = 90;
 
+    public const DEFAULT_SESSION_HISTORY_DAYS = 365;
+
     public function handle(): int
     {
         $chunk = (int) $this->option('chunk');
