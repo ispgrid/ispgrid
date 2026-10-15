@@ -69,6 +69,7 @@ Common options (all of them: `sudo bash install.sh --help`):
 | `--admin-email=EMAIL` | The first admin's login. The password is generated and shown once unless you pass `--admin-password`. |
 | `--timezone=Asia/Kolkata` | The timezone for FreeRADIUS, MariaDB and the panel. |
 | `--version=vX.Y.Z` | The version to install. Default: the newest release. |
+| `--addon=ispgrid/ipdr` | Install an add-on, such as Session records (IPDR) for Indian ISPs. Upgrades keep it. |
 | `--yes` | Ask nothing and use the defaults. |
 
 Passkeys need the panel on HTTPS with a domain name (`--access=domain`); browsers do not offer them over plain HTTP.
@@ -120,8 +121,8 @@ sudo /opt/ispgrid/deploy/install.sh --version=vX.Y.Z
 ## Backups and restore
 
 A backup runs every night at 02:30 and is kept for 14 days in `/var/backups/ispgrid`: the database
-(`radius-*.sql.gz`) and the configuration that belongs to it (`config-*.tgz`: FreeRADIUS, the panel's `.env`, the
-tunnel keys). Run one now with `sudo ispgrid-backup`. **Copy `/var/backups/ispgrid` to another machine:** a backup on
+(`radius-*.sql.gz`, and `ispgrid_*-*.sql.gz` for add-ons such as Session records) and the configuration that belongs
+to it (`config-*.tgz`: FreeRADIUS, the panel's `.env`, the add-on list, the tunnel keys). Run one now with `sudo ispgrid-backup`. **Copy `/var/backups/ispgrid` to another machine:** a backup on
 the same disk does not survive the disk.
 
 To restore, on a server installed with the same ISPGrid version:
@@ -130,12 +131,15 @@ To restore, on a server installed with the same ISPGrid version:
 sudo systemctl stop freeradius ispgrid-queue
 sudo runuser -u ispgrid -- php /opt/ispgrid/artisan down
 gunzip < /var/backups/ispgrid/radius-YYYYMMDD-HHMM.sql.gz | sudo mysql radius
+# each add-on database, e.g. Session records:
+sudo mysql -e 'CREATE DATABASE IF NOT EXISTS ispgrid_ipdr'
+gunzip < /var/backups/ispgrid/ispgrid_ipdr-YYYYMMDD-HHMM.sql.gz | sudo mysql ispgrid_ipdr
 sudo tar -xzf /var/backups/ispgrid/config-YYYYMMDD-HHMM.tgz -C /
 sudo /opt/ispgrid/deploy/install.sh --yes
 ```
 
-The last step sets the database passwords to the restored ones, restarts the services and the tunnels, and brings
-the panel back up.
+The last step sets the database passwords to the restored ones, installs the add-ons again, restarts the services
+and the tunnels, and brings the panel back up.
 
 ## Where things are
 

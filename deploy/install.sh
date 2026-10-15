@@ -57,6 +57,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --yes                     ask nothing
   --verbose                 show every command's output (it always goes to /var/log/ispgrid-install.log)
   --skip-selftest           skip the FreeRADIUS self-test at the end (161 checks, about 3 minutes)
+  --addon=PACKAGE[@VERSION] install an add-on (repeatable), e.g. --addon=ispgrid/ipdr; later upgrades keep it
+  --remove-addon=PACKAGE    stop installing an add-on (repeatable); its data, such as its database, is kept
   --help                    this text
 
 Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --steps=NN,NN (run only these steps),
@@ -338,6 +340,16 @@ newest_release() {
   [[ -n "$best" ]] && echo "$best"
   return 0
 }
+
+#  ---- Add-ons ----
+#  addon_valid <spec>: vendor/package, optionally @constraint (no quotes, semicolons or other shell characters)
+addon_valid() { [[ "$1" =~ ^[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*(@[A-Za-z0-9.^~*|,\<\>=\ -]+)?$ ]]; }
+addon_name() { printf '%s\n' "${1%%@*}"; }
+addon_constraint() { if [[ "$1" == *@* ]]; then printf '%s\n' "${1#*@}"; else printf '*\n'; fi; }
+#  core_series <tag>: "0.1" for v0.1.0 or v0.1.0-rc6; nothing for a branch
+core_series() { if [[ "$1" =~ ^v?([0-9]+)\.([0-9]+)\. ]]; then printf '%s.%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"; fi; }
+#  addon_supports <json list> <series>: the add-on lists the series (an empty series, a branch install, takes any)
+addon_supports() { [[ -z "$2" ]] || grep -qF "\"$2\"" <<<"$1"; }
 
 valid_cidr() {
   [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$ ]] || return 1
@@ -714,7 +726,9 @@ env_set() {
 #  ---- Arguments and questions ----
 
 parse_args() {
-  local arg
+  local arg spec
+  OPT_ADDONS=()
+  OPT_REMOVE_ADDONS=()
   for arg in "$@"; do
     case "$arg" in
       --routers=*) OPT_ROUTERS=${arg#*=} ;;
@@ -739,9 +753,14 @@ parse_args() {
       --yes) OPT_YES=1 ;;
       --verbose) OPT_VERBOSE=1 ;;
       --skip-selftest) OPT_SKIP_SELFTEST=1 ;;
+      --addon=*) OPT_ADDONS+=("${arg#*=}") ;;
+      --remove-addon=*) OPT_REMOVE_ADDONS+=("${arg#*=}") ;;
       -h|--help) OPT_HELP=1 ;;
       *) echo "Unknown option: $arg (see --help)" >&2; return 1 ;;
     esac
+  done
+  for spec in "${OPT_ADDONS[@]}" "${OPT_REMOVE_ADDONS[@]}"; do
+    addon_valid "$spec" || { echo "--addon and --remove-addon need vendor/package or vendor/package@version, e.g. ispgrid/ipdr (got $spec)" >&2; return 1; }
   done
 }
 
@@ -863,8 +882,8 @@ git_auth() {
   fi
 }
 
-#  without_secret_args <args...>: the arguments, one per line, minus --token (the re-exec no longer needs it) and
-#  --admin-password (handed over in the environment instead): a command line is readable by every user (ps)
+#  without_secret_args <args...>: the arguments, one per line, minus --token and --admin-password (both handed over
+#  in the environment instead): a command line is readable by every user (ps)
 without_secret_args() {
   local arg
   for arg in "$@"; do
@@ -1069,6 +1088,10 @@ bootstrap() {
   mapfile -t args < <(without_secret_args "$@")
   if [[ -n "${OPT_ADMIN_PASSWORD:-}" ]]; then
     export OPT_ADMIN_PASSWORD
+  fi
+  #  The token too, for add-ons in private repositories (step 5): the environment, never the command line or a file
+  if [[ -n "${OPT_TOKEN:-}" ]]; then
+    export OPT_TOKEN
   fi
   step_close ok
   exec bash "$ISPGRID_HOME/deploy/install.sh" "${args[@]}"
