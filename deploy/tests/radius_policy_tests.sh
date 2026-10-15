@@ -3,6 +3,8 @@
 #  End-to-end tests for the "isp" virtual server (auth 1812, acct 1813).
 #  Seeds its own fixtures (users t_*, IPoE IPs 10.99.0.x, plan groups t_plan*),
 #  so it can be re-run at any time. Usage: radius_policy_tests.sh
+#  Every fixture account is bound to this server (Isp-Nas 127.0.0.1, checked against the packet's source address),
+#  so its public password works on no real router while the test runs on a live install.
 #
 #  Settings are cached by FreeRADIUS for 24 hours: restart it after changing the settings table. The Hotspot switch
 #  (settings.hotspot_enabled) is not cached: the tests turn it on, off for one section, and put it back on exit.
@@ -82,8 +84,7 @@ seed() {
   add_user t_hs_sus    HOTSPOT 3 0 "01 Jan 2030 00:00"
   add_user t_bound     PPP     1 0 "01 Jan 2030 00:00"
   add_user t_bound_other PPP   1 0 "01 Jan 2030 00:00"
-  sql "INSERT INTO radcheck (username, attribute, op, value) VALUES
-         ('t_bound', 'Isp-Nas', ':=', '127.0.0.1'), ('t_bound_other', 'Isp-Nas', ':=', '10.9.9.9');"
+  sql "UPDATE radcheck SET value = '10.9.9.9' WHERE username = 't_bound_other' AND attribute = 'Isp-Nas'"
   # IPoE: found by the device IP. t_ipoe_hs has an ipoes row but is no IPoE account (bad data);
   # t_ipoe_gone has an ipoes row but no rows in radcheck (a deleted account).
   add_user t_ipoe      IPOE    1 1 "01 Jan 2030 00:00"
@@ -172,6 +173,7 @@ add_user() {
   local u="$1" type="$2" status="$3" macs="$4" exp="$5" etype="$6"
   sql "INSERT INTO radcheck (username, attribute, op, value) VALUES
          ('$u', 'Cleartext-Password', ':=', 'pass'),
+         ('$u', 'Isp-Nas', ':=', '127.0.0.1'),
          ('$u', 'Acct-Service-Type', ':=', '$type'),
          ('$u', 'Acct-Status-Id', ':=', '$status'),
          ('$u', 'Acct-Mac-Type', ':=', '$macs'),
@@ -189,6 +191,7 @@ add_pending() {
   local u="$1" type="$2" status="$3" macs="$4" minutes="$5" exp="$6"
   sql "INSERT INTO radcheck (username, attribute, op, value) VALUES
          ('$u', 'Cleartext-Password', ':=', 'pass'),
+         ('$u', 'Isp-Nas', ':=', '127.0.0.1'),
          ('$u', 'Acct-Service-Type', ':=', '$type'),
          ('$u', 'Acct-Status-Id', ':=', '$status'),
          ('$u', 'Acct-Mac-Type', ':=', '$macs'),
@@ -627,6 +630,8 @@ check "Bound to another router -> reject"        Reject "$(ppp t_bound_other pas
 logged "  reason logged"                         t_bound_other 'bound to 10.9.9.9'
 counted=$(sql "SELECT COUNT(*) FROM reject_counters WHERE username = 't_bound_other'")
 result "$([[ "$counted" -eq 0 ]] && echo 1 || echo 0)" "  not counted by the throttle" "($counted rows)"
+probe "Test customer from a real router is answered" 127.0.0.3 fixture ANSWERED
+logged "  rejected: test customers log in only from this server" t_ppp 'bound to 127.0.0.1'
 
 section "Routers (nas table)"
 probe "Router loaded from the nas table is answered" 127.0.0.3 ma ANSWERED
