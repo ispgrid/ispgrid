@@ -83,7 +83,7 @@ final class ActivityFormatter
 
     public static function causerName(Activity $activity): string
     {
-        return $activity->causer?->name ?? __('System');
+        return $activity->causer instanceof User ? $activity->causer->name : __('System');
     }
 
     public static function eventLabel(Activity $activity): string

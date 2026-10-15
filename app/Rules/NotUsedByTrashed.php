@@ -2,9 +2,15 @@
 
 namespace App\Rules;
 
+use App\Models\Account;
+use App\Models\AddressList;
+use App\Models\ConnectionType;
+use App\Models\Nas;
+use App\Models\Plan;
+use App\Models\Pool;
+use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Fails when a soft-deleted row already holds the value, so a form can say "restore it" instead of a bare
@@ -13,7 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 class NotUsedByTrashed implements ValidationRule
 {
     /**
-     * @param  class-string<Model>  $model
+     * @param  class-string<Account|AddressList|ConnectionType|Nas|Plan|Pool|User>  $model  a model with SoftDeletes
      */
     public function __construct(
         private string $model,

@@ -104,16 +104,17 @@ class SyncAccountToRadius
      */
     private function snapshot(Account $account): array
     {
-        $rows = fn (string $table): array => DB::table($table)->where('username', $account->username)->orderBy('id')
+        $rows = fn (string $table): array => array_values(DB::table($table)->where('username', $account->username)->orderBy('id')
             ->get(['attribute', 'op', 'value'])
             ->map(fn (object $row): string => "{$row->attribute} {$row->op} {$row->value}")
-            ->all();
+            ->all());
 
         return [
             'radcheck' => $rows('radcheck'),
             'radreply' => $rows('radreply'),
-            'radusergroup' => DB::table('radusergroup')->where('username', $account->username)->orderBy('groupname')->pluck('groupname')->all(),
-            'ipoes' => Ipoe::query()->where('account_id', $account->id)->pluck('ip_address')->all(),
+            'radusergroup' => array_values(DB::table('radusergroup')->where('username', $account->username)->orderBy('groupname')
+                ->get(['groupname'])->map(fn (object $row): string => $row->groupname)->all()),
+            'ipoes' => array_values(Ipoe::query()->where('account_id', $account->id)->get()->map(fn (Ipoe $ipoe): string => $ipoe->ip_address)->all()),
         ];
     }
 

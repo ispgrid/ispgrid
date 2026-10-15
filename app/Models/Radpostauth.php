@@ -46,7 +46,7 @@ class Radpostauth extends Model
         return [
             'id' => $this->id,
             'username' => $this->username,
-            'when' => $this->authdate?->format($dateFormat) ?? '',
+            'when' => $this->authdate->format($dateFormat),
             'result' => $result->label(),
             'color' => $result->color(),
             'reason' => (string) $this->reply_msg,

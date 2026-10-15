@@ -59,9 +59,9 @@ class SyncPlanToRadius
      */
     private function snapshot(string $slug): array
     {
-        return DB::table('radgroupreply')->where('groupname', $slug)->orderBy('id')->get(['attribute', 'op', 'value'])
+        return array_values(DB::table('radgroupreply')->where('groupname', $slug)->orderBy('id')->get(['attribute', 'op', 'value'])
             ->map(fn (object $row): string => "{$row->attribute} {$row->op} {$row->value}")
-            ->all();
+            ->all());
     }
 
     public static function rateLimit(Plan $plan): RateLimit

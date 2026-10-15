@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Actions\Import\RowError;
+use RuntimeException;
 
 /**
  * An import file read into rows keyed by column name (Plan 9 spec, "File format"). Rows are numbered like the
@@ -31,6 +32,11 @@ final class CsvFile
         }
 
         $stream = fopen('php://temp', 'r+');
+
+        if ($stream === false) {
+            throw new RuntimeException('Could not open a temporary stream for the CSV file.');
+        }
+
         fwrite($stream, (string) preg_replace('/^\xEF\xBB\xBF/', '', $content));
         rewind($stream);
 

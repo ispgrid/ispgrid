@@ -13,6 +13,11 @@ use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * An operator's rule: on this trigger, for these customers, send this provider template with these values.
+ *
+ * @property array<string, mixed>|null $trigger_settings
+ * @property array{plans?: list<int>, service_types?: list<string>, statuses?: list<int>}|null $filters
+ * @property array<string, string>|null $template
+ * @property list<string>|null $values
  */
 #[Fillable(['name', 'trigger', 'trigger_settings', 'filters', 'provider', 'template', 'values', 'approved_text', 'enabled'])]
 class NotificationRule extends Model

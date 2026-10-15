@@ -11,3 +11,15 @@ parameters:
         - routes/
 
     level: 7
+
+    # Read the casts from each model's casts() body: its @return array<string, string> hides them otherwise.
+    parseModelCastsMethod: true
+
+    ignoreErrors:
+        # Only the page components in resources/views use these traits, and those are not analysed (their
+        # #[Computed] properties and anonymous classes need a Livewire-aware setup).
+        -
+            identifier: trait.unused
+            paths:
+                - app/Livewire/Concerns/RestartsFreeRadius.php
+                - app/Livewire/Concerns/ShowsToasts.php

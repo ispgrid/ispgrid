@@ -206,7 +206,7 @@ final class ImportCustomers implements Importer
         $plan = $values['plan_slug'] === '' ? null : $plans->get(strtolower($values['plan_slug']));
         $expiry = $this->expiry($values['expiry']);
         $status = $values['status'] === '' ? AccountStatus::Inactive : (self::STATUSES[strtolower($values['status'])] ?? null);
-        $this->planErrors($values, $plan, $expiry, $status, $errors);
+        $errors = [...$errors, ...$this->planErrors($values, $plan, $expiry, $status)];
 
         $mac = strtoupper(str_replace([':', '-', '.'], '', $values['mac']));
 
@@ -257,7 +257,7 @@ final class ImportCustomers implements Importer
                 'usage_since' => $plan === null ? null : now(),
                 'status_id' => $status ?? AccountStatus::Inactive,
                 'ip_id' => $ip === '' ? null : Ip::query()->where('address', $ip)->value('id'),
-                'pool_id' => $isIpoe || $type === null ? null : ($pool?->id ?? CustomerDefaults::poolId($type)),
+                'pool_id' => $isIpoe || $type === null ? null : ($pool->id ?? CustomerDefaults::poolId($type)),
                 'connection_type_id' => $connectionType?->id,
             ],
             'address' => $hasAddress ? $address : null,
@@ -266,13 +266,16 @@ final class ImportCustomers implements Importer
     }
 
     /**
-     * A plan needs an expiry and an expiry needs a plan; Active needs both.
+     * A plan needs an expiry and an expiry needs a plan; Active needs both. These replace earlier errors of the
+     * same columns.
      *
      * @param  array<string, string>  $values
-     * @param  array<string, string>  $errors
+     * @return array<string, string>
      */
-    private function planErrors(array $values, ?Plan $plan, ?CarbonImmutable $expiry, ?AccountStatus $status, array &$errors): void
+    private function planErrors(array $values, ?Plan $plan, ?CarbonImmutable $expiry, ?AccountStatus $status): array
     {
+        $errors = [];
+
         if ($values['plan_slug'] !== '' && $plan === null) {
             $errors['plan_slug'] = __('No plan with this slug.');
         }
@@ -290,6 +293,8 @@ final class ImportCustomers implements Importer
         } elseif ($status === AccountStatus::Active && ($values['plan_slug'] === '' || $values['expiry'] === '')) {
             $errors['status'] = __('An Active customer needs a plan and an expiry.');
         }
+
+        return $errors;
     }
 
     /**
