@@ -13,6 +13,7 @@ use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\Radacct;
+use App\Models\Recharge;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -298,4 +299,33 @@ it('restores a deleted Hotspot customer only while Hotspot is turned on', functi
 
     Livewire::test('pages::customers.show', ['account' => $account->id])->call('restore');
     expect($account->fresh()->trashed())->toBeFalse();
+});
+
+it('shows a validity waiting for the first login instead of an expiry', function () {
+    $account = Account::factory()->hotspotPending(180)->create();
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->assertSee('Starts at first login (3 hours)')
+        ->assertDontSee('First login:');
+});
+
+it('shows the expiry FreeRADIUS stamped at the same wall-clock time, and when the first login was', function () {
+    AppSetting::put('date_format', 'd/m/Y');
+    $account = Account::factory()->hotspot()->create();
+    // As isp post-auth step 9b writes them: database clock, start of the minute.
+    DB::table('accounts')->where('id', $account->id)->update([
+        'expiry' => '2026-10-15 16:00:00', 'hotspot_first_login_at' => '2026-10-15 13:00:41', 'hotspot_pending_validity' => null,
+    ]);
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->assertSee('15/10/2026 16:00')
+        ->assertSee('First login')
+        ->assertSee('15/10/2026 13:00');
+});
+
+it('shows a recharge that left the validity waiting', function () {
+    $account = Account::factory()->hotspotPending(360)->create();
+    Recharge::factory()->create(['account_id' => $account->id, 'new_expiry' => null, 'new_pending_validity' => 360]);
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])->assertSee('6 hours from first login');
 });

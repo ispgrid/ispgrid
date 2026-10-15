@@ -145,7 +145,7 @@ new #[Title('Customers')] class extends Component
     }
 
     /**
-     * @return list<array{id: int, username: string, fullname: string, type: string, plan: ?string, status: string, color: string, expiry: ?string, expired: bool, router: ?string, trashed: bool}>
+     * @return list<array{id: int, username: string, fullname: string, type: string, plan: ?string, status: string, color: string, expiry: ?string, pending: bool, expired: bool, router: ?string, trashed: bool}>
      */
     #[Computed]
     public function rows(): array
@@ -161,6 +161,7 @@ new #[Title('Customers')] class extends Component
             'status' => $account->status_id->label(),
             'color' => $account->status_id->color(),
             'expiry' => $account->expiry?->format($format),
+            'pending' => $account->hotspot_pending_validity !== null,
             'expired' => $account->expiry?->isPast() ?? false,
             'router' => $account->nas === null ? null : ($account->nas->shortname ?? $account->nas->nasname),
             'trashed' => $account->trashed(),

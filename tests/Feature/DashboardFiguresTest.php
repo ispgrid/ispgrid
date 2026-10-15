@@ -41,3 +41,9 @@ it('lists the latest failed logins', function () {
         ->assertDontSee('bob')
         ->assertSee(route('login-log.index', ['result' => 'rejected']), false);
 });
+
+it('never counts a customer waiting for their first login as expiring or expired', function () {
+    Account::factory()->hotspotPending(180)->create(['status_id' => AccountStatus::Active]);
+
+    Livewire::test('pages::dashboard')->assertSet('figures', ['online' => 0, 'active' => 1, 'expiring' => 0, 'expired' => 0]);
+});

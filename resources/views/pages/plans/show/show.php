@@ -117,7 +117,7 @@ new #[Title('Plan')] class extends Component
     }
 
     /**
-     * @return list<array{id: int, username: string, fullname: string, type: string, status: string, color: string, expiry: ?string, expired: bool}>
+     * @return list<array{id: int, username: string, fullname: string, type: string, status: string, color: string, expiry: ?string, pending: bool, expired: bool}>
      */
     #[Computed]
     public function rows(): array
@@ -132,6 +132,7 @@ new #[Title('Plan')] class extends Component
             'status' => $account->status_id->label(),
             'color' => $account->status_id->color(),
             'expiry' => $account->expiry?->format($format),
+            'pending' => $account->hotspot_pending_validity !== null,
             'expired' => $account->expiry?->isPast() ?? false,
         ])->all();
     }

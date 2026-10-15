@@ -153,7 +153,10 @@ new #[Title('Customer')] class extends Component
         $rows = [
             __('Type') => $account->service_type->label(),
             __('Plan') => $account->plan?->name ?? __('None'),
-            __('Expiry') => $account->expiry?->format($this->dateFormat()) ?? __('Never'),
+            __('Expiry') => match (true) {
+                $account->hotspot_pending_validity !== null => __('Starts at first login (:validity)', ['validity' => ValidityUnit::describeMinutes($account->hotspot_pending_validity)]),
+                default => $account->expiry?->format($this->dateFormat()) ?? __('Never'),
+            },
             __('Device limit') => match (true) {
                 $isIpoe => '1',
                 $account->mac_type === 0 => __('No limit'),
@@ -166,6 +169,14 @@ new #[Title('Customer')] class extends Component
                 ? __('From the plan')
                 : $account->addressLists->sortBy('name')->pluck('name')->implode(', '),
         ];
+
+        if ($account->hotspot_first_login_at !== null && $account->expiry !== null) {
+            $rows = array_merge(
+                array_slice($rows, 0, 3, true),
+                [__('First login') => $account->hotspot_first_login_at->format($this->dateFormat())],
+                array_slice($rows, 3, null, true),
+            );
+        }
 
         if (! $isIpoe) {
             $rows[__('Pool')] = $account->pool?->name ?? __('From the plan');

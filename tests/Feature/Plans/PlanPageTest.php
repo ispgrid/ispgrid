@@ -103,3 +103,10 @@ it('shows the validity in its unit and from the first login', function () {
 
     Livewire::test('pages::plans.show', ['plan' => $plan->id])->assertSee('3 hours from first login');
 });
+
+it('shows its waiting customers as not started', function () {
+    $plan = Plan::factory()->hours(3)->firstLogin()->create();
+    Account::factory()->hotspotPending(180)->create(['plan_id' => $plan->id]);
+
+    Livewire::test('pages::plans.show', ['plan' => $plan->id])->assertSee('Not started');
+});

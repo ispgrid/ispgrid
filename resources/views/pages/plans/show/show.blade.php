@@ -60,7 +60,9 @@
                             <x-ui.td>{{ $row['type'] }}</x-ui.td>
                             <x-ui.td><x-ui.badge :color="$row['color']">{{ $row['status'] }}</x-ui.badge></x-ui.td>
                             <x-ui.td class="tabular-nums whitespace-nowrap">
-                                @if ($row['expiry'] === null)
+                                @if ($row['pending'])
+                                    {{ __('Not started') }}
+                                @elseif ($row['expiry'] === null)
                                     {{ __('Never') }}
                                 @else
                                     {{ $row['expiry'] }}
