@@ -36,7 +36,7 @@ new #[Title('Plans')] class extends Component
     }
 
     /**
-     * @return list<array{model: Plan, id: int, name: string, slug: string, speed: string, validity: int, price: string, pool: ?string, customers: int, trashed: bool}>
+     * @return list<array{model: Plan, id: int, name: string, slug: string, speed: string, validity: string, price: string, pool: ?string, customers: int, trashed: bool}>
      */
     #[Computed]
     public function rows(): array
@@ -49,7 +49,7 @@ new #[Title('Plans')] class extends Component
             'name' => $plan->name,
             'slug' => $plan->slug,
             'speed' => $plan->upload.'/'.$plan->download,
-            'validity' => $plan->validity,
+            'validity' => $plan->validityLabel(),
             'price' => $money->format((string) $plan->price),
             'pool' => $plan->pool?->name,
             'customers' => $plan->accounts_count,

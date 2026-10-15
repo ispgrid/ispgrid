@@ -31,7 +31,7 @@
                     <span class="block text-xs text-zinc-500 dark:text-zinc-400">{{ $row['slug'] }}</span>
                 </x-ui.td>
                 <x-ui.td class="tabular-nums">{{ $row['speed'] }}</x-ui.td>
-                <x-ui.td>{{ trans_choice(':count day|:count days', $row['validity']) }}</x-ui.td>
+                <x-ui.td>{{ $row['validity'] }}</x-ui.td>
                 <x-ui.td class="tabular-nums">{{ $row['price'] }}</x-ui.td>
                 <x-ui.td>{{ $row['pool'] ?? __('None') }}</x-ui.td>
                 <x-ui.td>{{ trans_choice(':count customer|:count customers', $row['customers']) }}</x-ui.td>

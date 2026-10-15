@@ -97,3 +97,9 @@ it('refuses roles without the plans box', function () {
         ->get(route('plans.show', Plan::factory()->create()))
         ->assertForbidden();
 });
+
+it('shows the validity in its unit and from the first login', function () {
+    $plan = Plan::factory()->hours(3)->firstLogin()->create();
+
+    Livewire::test('pages::plans.show', ['plan' => $plan->id])->assertSee('3 hours from first login');
+});

@@ -707,7 +707,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->recharge_expiry = ExpiryCalculator::fromSettings()
-            ->next($this->account->expiry, $plan->validity, now())
+            ->next($this->account->expiry, $plan->validity, $plan->validity_unit, now())
             ->format('Y-m-d\TH:i');
         $this->recharge_amount = (string) $plan->price;
     }

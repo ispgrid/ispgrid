@@ -2,6 +2,7 @@
 
 use App\Actions\Radius\SyncPlanToRadius;
 use App\Enums\ServiceType;
+use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AddressList;
@@ -348,4 +349,46 @@ it('disconnects nobody when a plan change does not reach FreeRADIUS', function (
 
     Queue::assertNothingPushed();
     expect(session('toast'))->toBe('Plan saved.');
+});
+
+it('takes a validity in hours, up to 720', function () {
+    newPlanForm()->set('validity_unit', 'hours')->set('validity', '721')->call('save')->assertHasErrors(['validity']);
+    newPlanForm()->set('validity_unit', 'hours')->set('validity', '3')->call('save')->assertHasNoErrors();
+
+    expect(Plan::query()->where('slug', 'home_25')->sole())
+        ->validity->toBe(3)
+        ->validity_unit->toBe(ValidityUnit::Hours);
+});
+
+it('keeps days at up to 3650 and refuses another unit', function () {
+    newPlanForm()->set('validity', '3651')->call('save')->assertHasErrors(['validity']);
+    newPlanForm()->set('validity_unit', 'weeks')->call('save')->assertHasErrors(['validity_unit']);
+});
+
+it('offers the first-login setting only while Hotspot is turned on', function () {
+    newPlanForm()->assertDontSee('Validity starts at first login')
+        ->set('hotspot_starts_at_first_login', true)
+        ->call('save')
+        ->assertHasErrors(['hotspot_starts_at_first_login']);
+    expect(Plan::query()->count())->toBe(0);
+
+    turnHotspotOn();
+
+    newPlanForm()->assertSee('Validity starts at first login')
+        ->set('validity_unit', 'hours')->set('validity', '3')
+        ->set('hotspot_starts_at_first_login', true)
+        ->call('save')
+        ->assertHasNoErrors();
+    expect(Plan::query()->sole()->hotspot_starts_at_first_login)->toBeTrue();
+});
+
+it('drops a first-login setting left from when Hotspot was on', function () {
+    $plan = Plan::factory()->hours(3)->firstLogin()->create();
+
+    Livewire::test('pages::plans.form', ['plan' => $plan->id])
+        ->assertSet('hotspot_starts_at_first_login', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($plan->fresh()->hotspot_starts_at_first_login)->toBeFalse();
 });

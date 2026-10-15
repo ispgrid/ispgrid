@@ -54,7 +54,7 @@ new #[Title('Plan')] class extends Component
             __('General') => [
                 __('Slug') => $plan->slug,
                 __('Speed (up/down)') => $plan->upload.'/'.$plan->download,
-                __('Validity') => trans_choice(':count day|:count days', $plan->validity),
+                __('Validity') => $plan->validityLabel(),
                 __('Price') => Money::fromSettings()->format((string) $plan->price),
                 __('Pool') => $plan->pool?->name,
                 __('Address lists') => $plan->addressLists->sortBy('name')->map(fn (AddressList $list): string => $list->name)->implode(', '),

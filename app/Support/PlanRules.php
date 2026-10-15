@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\ValidityUnit;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Rules\NotUsedByTrashed;
@@ -16,7 +17,7 @@ final class PlanRules
     /**
      * @return array<string, list<mixed>>
      */
-    public static function rules(bool $isNew): array
+    public static function rules(bool $isNew, ValidityUnit $unit = ValidityUnit::Days): array
     {
         return [
             'slug' => $isNew ? ['required', 'string', 'max:64', 'regex:/^[a-z0-9_-]+$/D',
@@ -24,7 +25,7 @@ final class PlanRules
                 new NotUsedByTrashed(Plan::class, 'slug', __('A deleted plan uses this slug. Restore it instead.')),
             ] : [],
             'name' => ['required', 'string', 'max:255'],
-            'validity' => ['required', 'integer', 'between:1,3650'],
+            'validity' => ['required', 'integer', 'between:1,'.$unit->max()],
             'price' => ['required', 'numeric', 'decimal:0,2', 'between:0,9999999999.99'],
             'description' => ['nullable', 'string', 'max:1000'],
             'upload_speed' => ['required', 'string', 'max:20'],

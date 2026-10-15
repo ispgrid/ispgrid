@@ -54,3 +54,9 @@ it('restores a deleted plan and rewrites its FreeRADIUS rows', function () {
     expect($plan->fresh()->trashed())->toBeFalse()
         ->and(DB::table('radgroupreply')->where('groupname', 'old')->value('value'))->toBe('5M/5M');
 });
+
+it('shows the validity in its unit and from the first login', function () {
+    Plan::factory()->hours(3)->firstLogin()->create(['name' => 'Hotspot 3h']);
+
+    Livewire::test('pages::plans.index')->assertSee('3 hours from first login');
+});
