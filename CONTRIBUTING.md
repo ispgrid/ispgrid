@@ -4,6 +4,26 @@ Thanks for helping. Work on a branch from `master` (no `/` in branch names), kee
 imperative subject, and run `php artisan test --compact` and `vendor/bin/pint --dirty` before opening a pull request.
 Every UI string goes through `__()` and needs a Hindi entry in `lang/hi.json`.
 
+## Add a language
+
+The panel is written in English; every other language is a translation file. Hindi (`hi`) is the example to copy.
+
+1. Copy `lang/hi.json` to `lang/<code>.json` (`<code>` as in Laravel, e.g. `ta`, `bn`, `pt_BR`) and translate the
+   values. The keys are the English text, so leave them as they are. Keep every `:placeholder` (`:count`, `:name`) and
+   the `|` between the singular and plural forms of a string.
+2. Copy `lang/hi/` to `lang/<code>/` and translate Laravel's own messages there (`auth.php`, `pagination.php`,
+   `passwords.php`, `validation.php`).
+3. Add the language to `locales` in `config/app.php`, with its name written in that language:
+   `'ta' => 'தமிழ்',`. It then shows in App settings and on each staff member's Profile.
+4. If Geist has no letters for the script, add a font: put an OFL-licensed `.ttf` in `resources/fonts`, add an
+   `@font-face` with the script's `unicode-range` in `resources/css/app.css` (see Noto Sans Devanagari), add it to
+   `--font-sans`, and name it under "License" in `README.md`.
+5. Run `php artisan test --compact tests/Feature/Support/TranslationsTest.php`. It fails for any string the panel
+   uses that the new file lacks, and for a translation that drops a `:placeholder`.
+
+Translate only the panel. Values that reach FreeRADIUS and the NAS (plan names, attribute values, messages sent to the
+NAS) must stay in English letters; the panel refuses anything else.
+
 ## Add a notification provider
 
 A provider delivers one message on one channel (SMS or WhatsApp). It decides nothing else: the panel picks the

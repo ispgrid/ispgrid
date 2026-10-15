@@ -1,12 +1,19 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/livewire-starter-kit",
+    "name": "ispgrid/ispgrid",
     "type": "project",
-    "description": "The official Laravel starter kit for Livewire.",
+    "description": "FreeRADIUS and an operator panel for ISPs and WISPs that use MikroTik as their NAS.",
     "keywords": [
-        "laravel",
-        "framework"
+        "isp",
+        "wisp",
+        "freeradius",
+        "radius",
+        "mikrotik",
+        "pppoe",
+        "hotspot",
+        "ipoe"
     ],
+    "homepage": "https://github.com/ispgrid/ispgrid",
     "license": "MIT",
     "require": {
         "php": "^8.3",
