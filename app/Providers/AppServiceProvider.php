@@ -12,6 +12,7 @@ use App\Notifications\Triggers\AfterExpiry;
 use App\Notifications\Triggers\BeforeExpiry;
 use App\Notifications\Triggers\CustomerCreated;
 use App\Notifications\Triggers\RechargeDone;
+use App\Support\Permissions;
 use App\Support\SessionKeepers;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -29,6 +30,16 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SessionKeepers::class);
+
+        $this->app->singleton(Permissions::class, function (): Permissions {
+            $permissions = new Permissions;
+
+            foreach (Permission::cases() as $permission) {
+                $permissions->register($permission->value, $permission->label(...), $permission->area(...), $permission->implies()?->value);
+            }
+
+            return $permissions;
+        });
 
         $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
             $registry = new NotificationRegistry;
@@ -78,14 +89,12 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Every box on the Roles screen is a gate (Admin passes them all), plus staff and roles management, which
-     * stays with Admin.
+     * Every box on the Roles screen is a gate (Admin passes them all), add-on boxes included even when an add-on
+     * registers them after this runs; plus staff and roles management, which stays with Admin.
      */
     protected function configureGates(): void
     {
-        foreach (Permission::cases() as $permission) {
-            Gate::define($permission->value, fn (User $user): bool => $user->hasAccess($permission));
-        }
+        Gate::before(fn (User $user, string $ability): ?bool => app(Permissions::class)->has($ability) ? $user->hasAccess($ability) : null);
 
         Gate::define('manage-staff', fn (User $user): bool => $user->isAdmin());
     }

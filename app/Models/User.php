@@ -64,9 +64,9 @@ class User extends Authenticatable implements PasskeyUser
     /**
      * Whether this staff member's role allows the action. Every policy and gate asks this.
      */
-    public function hasAccess(Permission $permission): bool
+    public function hasAccess(Permission|string $permission): bool
     {
-        return $this->isAdmin() || $this->checkPermissionTo($permission->value);
+        return $this->isAdmin() || $this->checkPermissionTo($permission instanceof Permission ? $permission->value : $permission);
     }
 
     /**

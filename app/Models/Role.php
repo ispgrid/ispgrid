@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\Permission;
+use App\Support\Permissions;
 use Spatie\Permission\Models\Role as SpatieRole;
 
 /**
@@ -35,9 +35,6 @@ class Role extends SpatieRole
      */
     public static function permissionLabels(array $names): string
     {
-        return collect(Permission::cases())
-            ->filter(fn (Permission $permission): bool => in_array($permission->value, $names, true))
-            ->map(fn (Permission $permission): string => $permission->label())
-            ->implode(', ');
+        return app(Permissions::class)->labels($names);
     }
 }
