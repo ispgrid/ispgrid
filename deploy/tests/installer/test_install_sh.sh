@@ -243,6 +243,24 @@ OPT_SKIP_SELFTEST=""
 parse_args --skip-selftest
 check "skip the self-test" "${OPT_SKIP_SELFTEST:-}" 1
 
+#  certbot's port-80 block: every name but the domain (http://IP too) goes to https://<domain>, not to a 404
+cat > "$tmp/certbot-site" <<'NGINX'
+server {
+    if ($host = panel.example.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80 default_server;
+    server_name panel.example.com;
+    return 404; # managed by Certbot
+}
+NGINX
+https_redirect_all "$tmp/certbot-site" panel.example.com
+check "ip and other names redirected" "$(grep -c 'return 301 https://panel.example.com$request_uri;' "$tmp/certbot-site")" 1
+check "no 404 left" "$(grep -c 'return 404' "$tmp/certbot-site")" 0
+https_redirect_all "$tmp/certbot-site" panel.example.com
+check "redirect added once" "$(grep -c 'return 301' "$tmp/certbot-site")" 2
+
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)
 check "piped into bash runs" "$piped" "Usage: sudo bash install.sh [options]"

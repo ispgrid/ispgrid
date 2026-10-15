@@ -23,6 +23,9 @@ if [[ -n "$DOMAIN" ]]; then
   if [[ -n "$email" ]]; then account=(--email "$email"); else account=(--register-unsafely-without-email); fi
   if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --keep-until-expiring --redirect "${account[@]}"; then
     HTTPS_OK=1
+    https_redirect_all /etc/nginx/sites-available/ispgrid "$DOMAIN"
+    nginx -t -q
+    systemctl reload nginx
     env_set "$ISPGRID_HOME/.env" APP_URL "https://$DOMAIN"
     artisan config:cache
   else
