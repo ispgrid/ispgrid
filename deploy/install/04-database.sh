@@ -2,10 +2,18 @@
 #  Step 4: one timezone for the server, MariaDB and FreeRADIUS (FreeRADIUS writes session times with NOW()); the
 #  radius database and its two users. Passwords already in use are kept; new ones are random.
 step "Database"
+old_timezone=$(timedatectl show -p Timezone --value 2>/dev/null || true)
 timedatectl set-timezone "$TIMEZONE"
-install -m 644 "$ISPGRID_HOME/deploy/mariadb/60-ispgrid.cnf" /etc/mysql/mariadb.conf.d/60-ispgrid.cnf
+mariadb_cnf=/etc/mysql/mariadb.conf.d/60-ispgrid.cnf
+cnf_changed=yes
+cmp -s "$ISPGRID_HOME/deploy/mariadb/60-ispgrid.cnf" "$mariadb_cnf" && cnf_changed=no
+install -m 644 "$ISPGRID_HOME/deploy/mariadb/60-ispgrid.cnf" "$mariadb_cnf"
 systemctl enable -q mariadb
-systemctl restart mariadb
+mariadb_running=no
+systemctl is-active -q mariadb && mariadb_running=yes
+if mariadb_restart_needed "$cnf_changed" "$old_timezone" "$TIMEZONE" "$mariadb_running"; then
+  systemctl restart mariadb
+fi
 
 DB_APP_PASSWORD=""
 if [[ -f "$ISPGRID_HOME/.env" && "$(env_get "$ISPGRID_HOME/.env" DB_USERNAME)" == ispgrid ]]; then

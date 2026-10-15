@@ -226,6 +226,10 @@ show_box() {
 
 #  ---- Pure helpers (tested by deploy/tests/installer/test_install_sh.sh) ----
 
+#  mariadb_restart_needed <config changed: yes|no> <old timezone> <new timezone> <running: yes|no>: MariaDB reads
+#  its config and the system timezone only when it starts; a needless restart drops FreeRADIUS's connections
+mariadb_restart_needed() { [[ "$1" == yes || "$2" != "$3" || "$4" == no ]]; }
+
 #  https_redirect_all <nginx site file> <domain>: certbot's port-80 block answers 404 for every name but the domain,
 #  so http://<IP> stopped working once HTTPS was on; send those to https://<domain> as well
 https_redirect_all() {
