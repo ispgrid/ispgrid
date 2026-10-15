@@ -115,3 +115,19 @@ it('lists only expired customers when asked', function () {
         ->assertSee('lapsed')
         ->assertDontSee('paidup');
 });
+
+it('offers the Hotspot type filter only while Hotspot is turned on', function () {
+    expect(array_keys(Livewire::test('pages::customers.index')->instance()->types))->toBe(['PPP', 'IPOE']);
+
+    turnHotspotOn();
+
+    expect(array_keys(Livewire::test('pages::customers.index')->instance()->types))->toBe(['PPP', 'HOTSPOT', 'IPOE']);
+});
+
+it('shows a validity waiting for the first login as not started, never as expired', function () {
+    Account::factory()->hotspotPending(180)->create(['username' => 'waiting1']);
+
+    Livewire::test('pages::customers.index')->assertSee('Not started');
+    Livewire::test('pages::customers.index')->set('expired', true)->assertDontSee('waiting1');
+    Livewire::test('pages::customers.index')->set('expiring', true)->assertDontSee('waiting1');
+});

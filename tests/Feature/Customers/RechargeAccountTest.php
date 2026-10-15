@@ -3,6 +3,7 @@
 use App\Actions\Customers\RechargeAccount;
 use App\Enums\AccountStatus;
 use App\Exceptions\ExpiryChangedMeanwhile;
+use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Models\Account;
 use App\Models\Plan;
 use App\Models\Recharge;
@@ -94,4 +95,96 @@ it('refuses a recharge made from an expiry that changed meanwhile', function () 
         ->toThrow(ExpiryChangedMeanwhile::class);
 
     expect(Recharge::query()->count())->toBe(0);
+});
+
+it('leaves a first-login validity waiting when the Hotspot customer has no running clock', function (?string $expiry) {
+    $account = Account::factory()->hotspot()->inactive()->create([
+        'username' => 'hs1', 'expiry' => $expiry, 'hotspot_first_login_at' => '2026-09-01 10:00:00',
+    ]);
+
+    $recharge = app(RechargeAccount::class)->handle($account->id, Plan::factory()->hours(3)->firstLogin()->create()->id, null, '20', null);
+
+    expect($account->fresh())
+        ->expiry->toBeNull()
+        ->hotspot_pending_validity->toBe(180)
+        ->hotspot_first_login_at->toBeNull()
+        ->status_id->toBe(AccountStatus::Active)
+        ->usage_since->format('Y-m-d H:i')->toBe('2026-10-10 14:30')
+        ->and($recharge->new_expiry)->toBeNull()
+        ->and($recharge->new_pending_validity)->toBe(180)
+        ->and(DB::table('radcheck')->where('username', 'hs1')->pluck('value', 'attribute')->only(['Expiration', 'Hotspot-First-Login-Validity'])->all())
+        ->toBe(['Hotspot-First-Login-Validity' => '180']);
+})->with(['never recharged' => [null], 'expired' => ['2026-10-01 10:00:00']]);
+
+it('adds up first-login validities sold before the first login', function () {
+    $account = Account::factory()->hotspotPending(180)->create();
+
+    $recharge = app(RechargeAccount::class)->handle($account->id, Plan::factory()->hours(3)->firstLogin()->create()->id, null, '20', null);
+
+    expect($account->fresh()->hotspot_pending_validity)->toBe(360)->and($recharge->new_pending_validity)->toBe(360);
+});
+
+it('extends a running clock like any recharge', function () {
+    $account = Account::factory()->hotspot()->create(['expiry' => '2026-10-10 16:00:00']);
+
+    app(RechargeAccount::class)->handle($account->id, Plan::factory()->hours(3)->firstLogin()->create()->id, Carbon::parse('2026-10-10 19:00'), '20', null);
+
+    expect($account->fresh())
+        ->expiry->format('Y-m-d H:i')->toBe('2026-10-10 19:00')
+        ->hotspot_pending_validity->toBeNull();
+});
+
+it('clears a waiting validity when the customer is recharged with a normal plan', function () {
+    $account = Account::factory()->hotspotPending(180)->create();
+
+    app(RechargeAccount::class)->handle($account->id, Plan::factory()->create()->id, Carbon::parse('2026-11-09 14:30'), '599', null);
+
+    expect($account->fresh())
+        ->expiry->format('Y-m-d H:i')->toBe('2026-11-09 14:30')
+        ->hotspot_pending_validity->toBeNull();
+});
+
+it('refuses a first-login plan for a PPPoE or IPoE customer', function (Closure $make) {
+    $account = $make();
+
+    expect(fn () => app(RechargeAccount::class)->handle($account->id, Plan::factory()->hours(3)->firstLogin()->create()->id, Carbon::parse('2026-10-10 17:30'), '20', null))
+        ->toThrow(FirstLoginPlanNeedsHotspot::class);
+    expect(Recharge::query()->count())->toBe(0);
+})->with([
+    'PPPoE' => [fn () => Account::factory()->create()],
+    'IPoE' => [fn () => Account::factory()->ipoe()->create()],
+]);
+
+it('needs an expiry unless the validity waits for the first login', function () {
+    $account = Account::factory()->create();
+
+    expect(fn () => app(RechargeAccount::class)->handle($account->id, Plan::factory()->create()->id, null, '599', null))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('logs a first-login recharge as validity from the first login', function () {
+    $account = Account::factory()->hotspotPending(180)->create();
+
+    app(RechargeAccount::class)->handle($account->id, Plan::factory()->hours(3)->firstLogin()->create(['name' => 'Hotspot 3h'])->id, null, '20', null);
+
+    $entry = Activity::query()->where('subject_id', $account->id)->where('event', 'recharged')->sole();
+    expect($entry->attribute_changes['old']['expiry'])->toBe('3 hours from first login')
+        ->and($entry->attribute_changes['attributes']['expiry'])->toBe('6 hours from first login');
+});
+
+it('remembers a waiting validity in the expiry key', function () {
+    expect(RechargeAccount::expiryKey(Account::factory()->hotspotPending(180)->make()))->toBe('pending:180')
+        ->and(RechargeAccount::expiryKey(Account::factory()->make(['expiry' => '2026-11-01 10:00:00'])))->toBe('2026-11-01 10:00:00')
+        ->and(RechargeAccount::expiryKey(Account::factory()->make(['expiry' => null])))->toBe('');
+});
+
+it('stops when FreeRADIUS started the clock after the expiry key was taken', function () {
+    $account = Account::factory()->hotspotPending(180)->create();
+    $key = RechargeAccount::expiryKey($account);
+    DB::table('accounts')->where('id', $account->id)->update([
+        'expiry' => '2026-10-10 17:30:00', 'hotspot_pending_validity' => null, 'hotspot_first_login_at' => now(),
+    ]);
+
+    expect(fn () => app(RechargeAccount::class)->handle($account->id, Plan::factory()->hours(3)->firstLogin()->create()->id, null, '20', null, $key))
+        ->toThrow(ExpiryChangedMeanwhile::class);
 });

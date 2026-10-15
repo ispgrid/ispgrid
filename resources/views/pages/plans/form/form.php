@@ -3,6 +3,7 @@
 use App\Actions\Radius\SyncPlanToRadius;
 use App\Enums\ServiceType;
 use App\Enums\SlotMode;
+use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
@@ -12,6 +13,7 @@ use App\Models\PlanAttribute;
 use App\Models\Pool;
 use App\Models\Radacct;
 use App\Models\RadiusAttribute;
+use App\Support\Hotspot;
 use App\Support\PlanRules;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
@@ -40,7 +42,7 @@ new #[Title('Plan')] class extends Component
      * @var array<string, list<string>>
      */
     private const TABS = [
-        'general' => ['slug', 'name', 'validity', 'price', 'description'],
+        'general' => ['slug', 'name', 'validity', 'validity_unit', 'hotspot_starts_at_first_login', 'price', 'description'],
         'speed' => ['upload_speed', 'download_speed', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
             'burst_time', 'priority', 'min_upload', 'min_download'],
         'limits' => ['limit_after', 'time_limit_hours', 'daily_data_gb', 'daily_time_hours', 'monthly_data_gb',
@@ -75,6 +77,10 @@ new #[Title('Plan')] class extends Component
     public string $name = '';
 
     public string $validity = '30';
+
+    public string $validity_unit = 'days';
+
+    public bool $hotspot_starts_at_first_login = false;
 
     public string $price = '0';
 
@@ -167,6 +173,9 @@ new #[Title('Plan')] class extends Component
             $this->{$field} = (string) ($model->{self::COLUMNS[$field] ?? $field} ?? '');
         }
 
+        $this->validity_unit = $model->validity_unit->value;
+        // Hidden while Hotspot is off; a setting left from before is dropped at the next save.
+        $this->hotspot_starts_at_first_login = Hotspot::enabled() && $model->hotspot_starts_at_first_login;
         $this->is_fup = $model->is_fup;
         $this->slot_mode = $model->slot_mode?->value ?? '';
         $this->slot_days = $model->slot_days === null ? [] : explode(',', $model->slot_days);
@@ -176,6 +185,21 @@ new #[Title('Plan')] class extends Component
             ->map(fn (PlanAttribute $attribute): array => ['attribute' => $attribute->attribute, 'value' => $attribute->value])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function validityUnits(): array
+    {
+        return collect(ValidityUnit::cases())->mapWithKeys(fn (ValidityUnit $unit): array => [$unit->value => $unit->label()])->all();
+    }
+
+    #[Computed]
+    public function hotspotOn(): bool
+    {
+        return Hotspot::enabled();
     }
 
     /**
@@ -397,7 +421,9 @@ new #[Title('Plan')] class extends Component
         $isBoost = $this->slot_mode === SlotMode::Boost->value;
 
         return [
-            ...PlanRules::rules($this->planId === null),
+            ...PlanRules::rules($this->planId === null, ValidityUnit::tryFrom($this->validity_unit) ?? ValidityUnit::Days),
+            'validity_unit' => ['required', Rule::enum(ValidityUnit::class)],
+            'hotspot_starts_at_first_login' => Hotspot::enabled() ? ['boolean'] : ['boolean', 'declined'],
             'burst_upload' => $speed,
             'burst_download' => $speed,
             'threshold_upload' => $speed,
@@ -439,6 +465,7 @@ new #[Title('Plan')] class extends Component
         return [
             ...PlanRules::messages(),
             'slot_days.required' => __('Choose at least one day.'),
+            'hotspot_starts_at_first_login.declined' => __('Hotspot is turned off in App settings.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),
@@ -553,6 +580,8 @@ new #[Title('Plan')] class extends Component
         return [
             'name' => $this->name,
             'validity' => (int) $this->validity,
+            'validity_unit' => $this->validity_unit,
+            'hotspot_starts_at_first_login' => $this->hotspot_starts_at_first_login,
             'price' => $this->price,
             'description' => $this->nullIfEmpty($this->description),
             'upload' => $this->upload_speed,

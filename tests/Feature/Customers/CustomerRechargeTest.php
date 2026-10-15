@@ -9,6 +9,7 @@ use App\Models\Radacct;
 use App\Models\Recharge;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -120,4 +121,70 @@ it('asks again when the customer was recharged while the dialog was open', funct
     $page->call('recharge')->assertHasNoErrors();
 
     expect(Recharge::query()->sole()->new_expiry->format('Y-m-d H:i'))->toBe('2026-12-31 10:00');
+});
+
+it('lists first-login plans only for Hotspot customers, each with its validity', function () {
+    $hours = Plan::factory()->hours(3)->firstLogin()->create(['name' => 'Hotspot 3h']);
+
+    $pppoePlans = Livewire::test('pages::customers.show', ['account' => Account::factory()->create()->id])->instance()->rechargePlans;
+    $hotspotPlans = Livewire::test('pages::customers.show', ['account' => Account::factory()->hotspot()->create()->id])->instance()->rechargePlans;
+
+    expect($pppoePlans)->toHaveKey($this->plan->id)->not->toHaveKey($hours->id)
+        ->and($pppoePlans[$this->plan->id])->toStartWith('Home 25 (30 days, ')
+        ->and($hotspotPlans[$hours->id])->toStartWith('Hotspot 3h (3 hours from first login, ');
+});
+
+it('shows that a first-login validity starts at the first login, and recharges without an expiry', function () {
+    $plan = Plan::factory()->hours(3)->firstLogin()->create(['price' => 20]);
+    $account = Account::factory()->hotspot()->inactive()->create(['plan_id' => $plan->id, 'expiry' => null]);
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->call('openRecharge')
+        ->assertSet('recharge_expiry', '')
+        ->assertSee('Starts at first login: 3 hours')
+        ->call('recharge')
+        ->assertHasNoErrors()
+        ->assertDispatched('toast', message: 'Recharged: 3 hours from the first login. The customer is Active now.', variant: 'success');
+
+    expect($account->fresh()->hotspot_pending_validity)->toBe(180);
+});
+
+it('extends a running Hotspot clock with an expiry staff can change', function () {
+    $plan = Plan::factory()->hours(3)->firstLogin()->create();
+    $account = Account::factory()->hotspot()->create(['plan_id' => $plan->id, 'expiry' => '2026-10-10 16:00:00']);
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->call('openRecharge')
+        ->assertSet('recharge_expiry', '2026-10-10T19:00')
+        ->assertDontSee('Starts at first login');
+});
+
+it('refills the dialog when the first login started the clock meanwhile', function () {
+    $plan = Plan::factory()->hours(3)->firstLogin()->create();
+    $account = Account::factory()->hotspotPending(180)->create(['plan_id' => $plan->id]);
+    $dialog = Livewire::test('pages::customers.show', ['account' => $account->id])->call('openRecharge');
+    DB::table('accounts')->where('id', $account->id)->update([
+        'expiry' => '2026-10-10 17:30:00', 'hotspot_pending_validity' => null, 'hotspot_first_login_at' => now(),
+    ]);
+
+    $dialog->call('recharge')
+        ->assertHasErrors(['recharge_expiry'])
+        ->assertSet('recharge_expiry', '2026-10-10T20:30');
+
+    expect(Recharge::query()->count())->toBe(0);
+});
+
+it('refuses a first-login plan for a PPPoE customer even when it is sent by hand', function () {
+    $plan = Plan::factory()->hours(3)->firstLogin()->create();
+    $account = Account::factory()->create();
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->call('openRecharge')
+        ->set('recharge_plan_id', (string) $plan->id)
+        ->set('recharge_expiry', '2026-10-10T17:30')
+        ->set('recharge_amount', '20')
+        ->call('recharge')
+        ->assertHasErrors(['recharge_plan_id']);
+
+    expect(Recharge::query()->count())->toBe(0);
 });

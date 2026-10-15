@@ -4,6 +4,7 @@ use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
+use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AccountAttribute;
@@ -20,6 +21,7 @@ use App\Notifications\Notifier;
 use App\Notifications\Triggers\CustomerCreated;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
+use App\Support\Hotspot;
 use App\Support\IpAddress;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
@@ -239,9 +241,29 @@ new #[Title('Customer')] class extends Component
     #[Computed]
     public function serviceTypes(): array
     {
-        return collect([ServiceType::Ppp, ServiceType::Hotspot, ServiceType::Ipoe])
+        return collect(Hotspot::serviceTypes())
             ->mapWithKeys(fn (ServiceType $type): array => [$type->value => $type->label()])
             ->all();
+    }
+
+    /**
+     * Checked inside the transaction, after the account row is locked. Hotspot is read with a shared lock, so
+     * turning it off in App settings meanwhile either waits for this save or is seen by it. A validity waiting for
+     * the first login exists only for Hotspot, so the type stays until it starts or a recharge replaces it.
+     */
+    private function refuseTypeChange(?ServiceType $previousType, ?Account $account): void
+    {
+        $type = ServiceType::from($this->service_type);
+
+        if ($type === ServiceType::Hotspot && $previousType !== ServiceType::Hotspot && ! Hotspot::enabled()) {
+            throw ValidationException::withMessages(['service_type' => __('Choose PPPoE or IPoE. Hotspot is turned off in App settings.')]);
+        }
+
+        if ($previousType === ServiceType::Hotspot && $type !== ServiceType::Hotspot && $account?->hotspot_pending_validity !== null) {
+            throw ValidationException::withMessages(['service_type' => __('This customer has :validity waiting for the first login. Recharge or wait for it to start before changing the type.', [
+                'validity' => ValidityUnit::describeMinutes($account->hotspot_pending_validity),
+            ])]);
+        }
     }
 
     /**
@@ -463,6 +485,7 @@ new #[Title('Customer')] class extends Component
                     : $this->relationSummary($account);
                 $previousIpId = $account?->ip_id;
                 $previousType = $account?->service_type;
+                $this->refuseTypeChange($previousType, $account);
                 $oldAddress = $account?->address;
                 $columns['address_id'] = $this->saveAddress($oldAddress);
                 $columns['password'] ??= $account?->password ?? Str::random(16);

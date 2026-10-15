@@ -5,12 +5,15 @@ use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\AddressList;
+use App\Models\AppSetting;
 use App\Models\Ip;
 use App\Models\Ipoe;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 
 /**
  * @return list<array{0: string, 1: string, 2: string}>
@@ -195,4 +198,82 @@ it('says whether FreeRADIUS reads different rows after the sync', function () {
     $account->update(['status_id' => AccountStatus::Suspended]);
 
     expect($sync->handle($account))->toBeTrue();
+});
+
+it('writes the first-login validity instead of an expiry for a waiting Hotspot customer', function () {
+    $account = Account::factory()->hotspotPending(180)->create(['username' => 'hs1', 'password' => 'secret12', 'mac_type' => 1]);
+
+    syncAccount($account);
+
+    expect(userRows('radcheck', 'hs1'))->toBe([
+        ['Cleartext-Password', ':=', 'secret12'],
+        ['Acct-Service-Type', ':=', 'HOTSPOT'],
+        ['Acct-Status-Id', ':=', '1'],
+        ['Acct-Mac-Type', ':=', '1'],
+        ['Hotspot-First-Login-Validity', ':=', '180'],
+    ]);
+});
+
+it('never writes a first-login validity for a PPPoE or IPoE account', function (Closure $make) {
+    $account = $make();
+
+    expect(fn () => syncAccount($account))->toThrow(LogicException::class);
+})->with([
+    'PPPoE' => [fn () => Account::factory()->create(['expiry' => null, 'hotspot_pending_validity' => 180])],
+    'IPoE' => [fn () => Account::factory()->ipoe()->create(['expiry' => null, 'hotspot_pending_validity' => 180])],
+]);
+
+it('refuses an account with both an expiry and a waiting validity', function () {
+    $account = Account::factory()->hotspot()->create(['expiry' => '2030-01-01 00:00:00', 'hotspot_pending_validity' => 180]);
+
+    expect(fn () => syncAccount($account))->toThrow(LogicException::class);
+});
+
+it('reads the clock again under a lock, so a copy loaded before the first login cannot restart it', function () {
+    $account = Account::factory()->hotspotPending(180)->create(['username' => 'hs1']);
+    $stale = $account->fresh();
+    // FreeRADIUS stamps the first login (isp post-auth step 9b) after the copy was loaded.
+    DB::table('accounts')->where('id', $account->id)->update([
+        'expiry' => '2030-01-01 10:00:00', 'hotspot_pending_validity' => null, 'hotspot_first_login_at' => '2030-01-01 07:00:00',
+    ]);
+
+    app(SyncAccountToRadius::class)->handle($stale);
+
+    expect(array_column(userRows('radcheck', 'hs1'), 2, 0))
+        ->toHaveKey('Expiration', '01 Jan 2030 10:00')
+        ->not->toHaveKey('Hotspot-First-Login-Validity')
+        ->and($stale->hotspot_pending_validity)->toBeNull()
+        ->and($stale->isDirty())->toBeFalse();
+});
+
+it('keeps the validity row when staff edit a waiting customer or change their status', function () {
+    turnHotspotOn();
+    AppSetting::put('phone_digits', '10');
+    $this->actingAs(User::factory()->create());
+    $account = Account::factory()->hotspotPending(180)->create(['username' => 'hs1', 'mobile' => null]);
+    syncAccount($account);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])->set('fullname', 'New Name')->call('save')->assertHasNoErrors();
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->set('status', (string) AccountStatus::Suspended->value)
+        ->set('remark', 'Unpaid')
+        ->call('changeStatus')
+        ->assertHasNoErrors();
+
+    expect(array_column(userRows('radcheck', 'hs1'), 2, 0))
+        ->toHaveKey('Hotspot-First-Login-Validity', '180')
+        ->not->toHaveKey('Expiration')
+        ->and($account->fresh()->hotspot_pending_validity)->toBe(180);
+});
+
+it('gives a waiting customer the validity row back when they are restored', function () {
+    $account = Account::factory()->hotspotPending(180)->create(['username' => 'hs1']);
+    $account->delete();
+    syncAccount($account);
+    expect(userRows('radcheck', 'hs1'))->toBe([]);
+
+    $account->restore();
+    syncAccount($account);
+
+    expect(array_column(userRows('radcheck', 'hs1'), 2, 0))->toHaveKey('Hotspot-First-Login-Validity', '180');
 });

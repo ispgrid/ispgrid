@@ -32,7 +32,7 @@ final class CustomerRules
             'address.state' => ['nullable', 'string', 'max:100'],
             'address.postal_code' => ['nullable', 'string', 'max:20'],
             'address.country' => ['nullable', 'string', 'max:60'],
-            'service_type' => ['required', Rule::in([ServiceType::Ppp->value, ServiceType::Hotspot->value, ServiceType::Ipoe->value])],
+            'service_type' => ['required', Rule::in(array_map(fn (ServiceType $type): string => $type->value, Hotspot::serviceTypes()))],
             'username' => $isNew ? ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9._@-]+$/D',
                 Rule::unique(Account::class, 'username')->withoutTrashed(),
                 new NotUsedByTrashed(Account::class, 'username', __('A deleted customer uses this username. Restore it instead.')),
@@ -60,6 +60,9 @@ final class CustomerRules
     {
         return [
             'mobile.regex' => __('Enter :digits digits.', ['digits' => $phoneDigits]),
+            'service_type.in' => Hotspot::enabled()
+                ? __('Choose PPPoE, Hotspot or IPoE.')
+                : __('Choose PPPoE or IPoE. Hotspot is turned off in App settings.'),
             'address.line1.required' => __('Enter the first address line, or leave the whole address empty.'),
             'username.regex' => __('Use letters, digits, ., -, _ and @ only.'),
             'password.regex' => __('Use letters, digits and symbols, without spaces.'),

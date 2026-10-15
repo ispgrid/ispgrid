@@ -17,9 +17,15 @@
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="name" :label="__('Name')" :description="__('Shown to staff, e.g. Home 25 Mbps.')" maxlength="255" required />
                         <x-ui.input wire:model="slug" english :label="__('Slug')" :description="__('The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.')" maxlength="64" :readonly="$planId !== null" required autocomplete="off" />
-                        <x-ui.input wire:model="validity" type="number" min="1" max="3650" :label="__('Validity (days)')" :description="__('How long a recharge lasts.')" required />
+                        <div class="grid grid-cols-2 items-start gap-2">
+                            <x-ui.input wire:model="validity" type="number" min="1" :max="$validity_unit === 'hours' ? 720 : 3650" :label="__('Validity')" :description="__('How long a recharge lasts.')" required />
+                            <x-ui.select wire:model.live="validity_unit" :label="__('Unit')" :options="$this->validityUnits" />
+                        </div>
                         <x-ui.input wire:model="price" type="number" min="0" step="0.01" :label="__('Price')" required />
                     </div>
+                    @if ($this->hotspotOn)
+                        <x-ui.switch wire:model="hotspot_starts_at_first_login" :label="__('Validity starts at first login')" :description="__('For Hotspot customers: the time starts at their first login. Unused, it never runs out.')" />
+                    @endif
                     <x-ui.textarea wire:model="description" :label="__('Description')" rows="2" maxlength="1000" />
                 </x-ui.tab-panel>
 

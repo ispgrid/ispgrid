@@ -52,7 +52,9 @@
                 </div>
                 <div class="grid gap-5 sm:grid-cols-2">
                     <x-ui.select wire:model="default_pool_ppp" :label="__('Pool for PPPoE customers')" :options="$this->pools" :placeholder="__('None (the plan pool applies)')" />
-                    <x-ui.select wire:model="default_pool_hotspot" :label="__('Pool for Hotspot customers')" :options="$this->pools" :placeholder="__('None (the plan pool applies)')" />
+                    @if ($hotspot_enabled)
+                        <x-ui.select wire:model="default_pool_hotspot" :label="__('Pool for Hotspot customers')" :options="$this->pools" :placeholder="__('None (the plan pool applies)')" />
+                    @endif
                 </div>
                 <x-ui.select wire:model="default_ip_range_ipoe" :label="__('IP range for IPoE customers')" :options="$this->ipRanges" :placeholder="__('None')" :description="__('New and restored IPoE customers get the next free address of this range.')" />
             </x-ui.card>
@@ -72,6 +74,11 @@
             <x-ui.card class="grid content-start gap-5">
                 <x-ui.heading>{{ __('Login log') }}</x-ui.heading>
                 <x-ui.input wire:model="login_log_days" type="number" min="7" max="3650" :label="__('Keep login log (days)')" :description="__('Older login attempts are removed every night. 7 to 3650 days.')" />
+            </x-ui.card>
+
+            <x-ui.card class="grid content-start gap-5">
+                <x-ui.heading>{{ __('Services') }}</x-ui.heading>
+                <x-ui.switch wire:model.live="hotspot_enabled" :label="__('Hotspot')" :description="__('Customers who log in on the Hotspot login page. While it is off, FreeRADIUS refuses those logins. IPoE is not affected.')" />
             </x-ui.card>
         </div>
 

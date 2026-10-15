@@ -4,20 +4,23 @@
 #
 #  Order of work:
 #    authorize     check the request, load the user and work out the facts. It only rejects what
-#                  no password could fix: a bad request, an unknown user, a PPPoE device that is
-#                  not allowed, an IPoE MAC mismatch or a locked Hotspot login.
+#                  no password could fix: a bad request, a Hotspot page login while Hotspot is off,
+#                  an unknown user, a PPPoE device that is not allowed, an IPoE MAC mismatch or a
+#                  locked Hotspot login.
 #    authenticate  check the password. A failure is recorded in Isp-Password-Failed and the
 #                  section returns ok, so post-auth can choose between "Wrong Password" and the
 #                  reject throttle. Post-auth checks that flag first.
 #    post-auth     apply the account rules (service, status, expiry, plan, Hotspot online limit), now
-#                  that the password is known. A wrong password never reveals the account state.
+#                  that the password is known, and store a Hotspot first login. A wrong password never
+#                  reveals the account state.
 #
 #  Data (stock FreeRADIUS schema, written by the management app):
 #    radcheck         per user: Cleartext-Password, Expiration, Acct-Service-Type (PPP|IPOE|HOTSPOT),
 #                     Acct-Mac-Type (PPP: max bound devices, HOTSPOT: max devices online at once,
 #                     0 = no limit), Acct-Status-Id (1 active, 2 inactive, 3 suspended,
 #                     4 terminated; other values = 2), optional Expire-Type, optional Isp-Nas (the only
-#                     router allowed, its IP)
+#                     router allowed, its IP), optional Hotspot-First-Login-Validity (HOTSPOT only, minutes;
+#                     instead of Expiration until the first login)
 #    radusergroup     user -> plan group (no row = "No plan assigned", disabled pool)
 #    radgroupreply    per plan: Mikrotik-Rate-Limit, Framed-Pool (op "="), Isp-Plan-Address-List (op "+=")
 #    radreply         per user: Framed-IP-Address, overrides (op ":="), Mikrotik-Address-List (op "+=")
@@ -26,7 +29,10 @@
 #    reject_counters  recent rejects per user and MAC (PPPoE) or per user (Hotspot, mac = '')
 #    radacct          open sessions, for the Hotspot online limit
 #    settings         one row, cached for 24 hours by mods-enabled/isp_settings.
-#                     Restart FreeRADIUS after changing it.
+#                     Restart FreeRADIUS after changing it. hotspot_enabled is the exception: read on
+#                     every Hotspot page login (step 3c), not cached.
+#    accounts         read and written only for a Hotspot first login (expiry, hotspot_first_login_at,
+#                     hotspot_pending_validity)
 #
 #  Per-request attributes (control list, defined in dictionary.isp):
 #    Isp-Mac              Calling-Station-Id as 12 uppercase hex digits
@@ -50,6 +56,9 @@
 #    Isp-Throttled        1 = accepted into the disabled pool by the reject throttle
 #    Isp-Reject-Reason    why the request was rejected; stored in radpostauth.reply_msg
 #    Isp-Require-Ma       1 = the router must send Message-Authenticator (nas.require_message_auth)
+#    Hotspot-First-Login        1 = this Hotspot login starts the validity (stamped in post-auth step 9b)
+#    Hotspot-First-Login-Expiry the expiry it starts, 'YYYY-MM-DD HH:MM:00' (database clock)
+#    Hotspot-Enabled      settings.hotspot_enabled for a Hotspot page login ("1" on, "0" off, "" database error)
 #
 
 server isp {
@@ -232,6 +241,37 @@ authorize {
 	}
 
 	#
+	#  3c. Hotspot switch (settings.hotspot_enabled, App settings): while it is off, a Hotspot page login (a
+	#      Login-User request that is not the IPoE MAC login of step 3b) is refused before the account is read,
+	#      so the login page never checks a password and never counts a reject against a PPPoE customer. Read on
+	#      each such login, not from the settings cache, so the switch works at once without a restart.
+	#
+	if ((&control:Acct-Packet-Type == "LOGIN") && (&control:Isp-Ipoe-Login != 1)) {
+		update control {
+			&Hotspot-Enabled := "%{sql:SELECT hotspot_enabled FROM settings LIMIT 1}"
+		}
+		if (&control:Hotspot-Enabled != "1") {
+			if (&control:Hotspot-Enabled == "0") {
+				update reply {
+					&Reply-Message := "Hotspot is turned off"
+				}
+				update control {
+					&Isp-Reject-Reason := "Hotspot is turned off (App settings)"
+				}
+			}
+			else {
+				update reply {
+					&Reply-Message := "Error: settings could not be read"
+				}
+				update control {
+					&Isp-Reject-Reason := "Could not read settings.hotspot_enabled (database error)"
+				}
+			}
+			reject
+		}
+	}
+
+	#
 	#  4. Load the user: radcheck -> control, radreply + plan group replies -> reply.
 	#     An unknown user gets the same answer as a wrong password.
 	#
@@ -265,6 +305,55 @@ authorize {
 	if ((&control:Count-And-Reject != 0) && (!&control:Acct-Service-Type || (&control:Acct-Service-Type != "IPOE"))) {
 		update control {
 			&Isp-Count-Reject := 1
+		}
+	}
+
+	#
+	#  4a. Hotspot validity from the first login: radcheck Hotspot-First-Login-Validity (minutes) instead of
+	#      Expiration, written by the app for a Hotspot account recharged with a first-login plan. Only a
+	#      Hotspot account may carry it, and never together with Expiration: either is bad app data, rejected
+	#      here and not counted. Otherwise the expiry this login would start (the start of this minute plus the
+	#      validity, by the database clock) becomes this request's Expiration, so the check below ends the
+	#      session at it. Post-auth stores it when the login is accepted (step 9b). The month is formatted
+	#      without DATE_FORMAT, because a literal % is awkward inside %{sql:...}.
+	#
+	if (&control:Hotspot-First-Login-Validity) {
+		if (!&control:Acct-Service-Type || (&control:Acct-Service-Type != "HOTSPOT")) {
+			update control {
+				&Isp-Reject-Reason := "Error: Hotspot-First-Login-Validity on account type %{%{control:Acct-Service-Type}:-unknown}"
+				&Isp-Count-Reject := 0
+			}
+			update reply {
+				&Reply-Message := "%{control:Isp-Reject-Reason}"
+			}
+			reject
+		}
+		if (&control:Expiration) {
+			update control {
+				&Isp-Reject-Reason := "Error: both Expiration and Hotspot-First-Login-Validity"
+				&Isp-Count-Reject := 0
+			}
+			update reply {
+				&Reply-Message := "%{control:Isp-Reject-Reason}"
+			}
+			reject
+		}
+		if ("%{sql:SELECT CONCAT(e, '|', LPAD(DAY(e), 2, '0'), ' ', LEFT(MONTHNAME(e), 3), ' ', YEAR(e), ' ', LEFT(TIME(e), 5)) FROM (SELECT NOW() - INTERVAL SECOND(NOW()) SECOND + INTERVAL %{control:Hotspot-First-Login-Validity} MINUTE AS e) x}" =~ /^([0-9-]+ [0-9:]+)\|([0-9]+ [A-Za-z]+ [0-9]+ [0-9:]+)$/) {
+			update control {
+				&Hotspot-First-Login-Expiry := "%{1}"
+				&Expiration := "%{2}"
+				&Hotspot-First-Login := 1
+			}
+		}
+		else {
+			update control {
+				&Isp-Reject-Reason := "Error: could not compute the Hotspot first-login expiry (database error)"
+				&Isp-Count-Reject := 0
+			}
+			update reply {
+				&Reply-Message := "Error: account data could not be read"
+			}
+			reject
 		}
 	}
 
@@ -890,6 +979,32 @@ post-auth {
 				&Reply-Message := "%{control:Isp-Disabled-Reason}"
 				&Mikrotik-Rate-Limit := "1M/1M"
 			}
+		}
+	}
+
+	#
+	#  9b. Hotspot first login: store the expiry computed in step 4a, in one statement, so the account (expiry,
+	#      hotspot_first_login_at, hotspot_pending_validity) and its radcheck row (the validity becomes
+	#      Expiration) change together or not at all. Only for an accepted Hotspot page login (not PPP, not an
+	#      IPoE MAC login) that passed every account rule. A second device logging in at the same moment finds
+	#      the validity gone and changes nothing. STRAIGHT_JOIN reads (and locks) the account row before the
+	#      radcheck row, the order the app's SyncAccountToRadius uses, so the two never deadlock each other.
+	#      Isp-Query-Result is reused for the row count; the limits above are done with it.
+	#
+	if ((&control:Hotspot-First-Login == 1) && (&control:Acct-Packet-Type == "LOGIN") && (&control:Acct-Service-Type == "HOTSPOT") && (&control:Isp-Ipoe-Login != 1) && !&control:Isp-Reject-Reason && (&control:Isp-Disabled-Pool == 0) && (&control:Isp-Throttled == 0)) {
+		update control {
+			&Isp-Query-Result := "%{sql:UPDATE accounts a STRAIGHT_JOIN radcheck r ON r.username = a.username AND r.attribute = 'Hotspot-First-Login-Validity' SET a.expiry = '%{control:Hotspot-First-Login-Expiry}', a.hotspot_first_login_at = NOW(), a.hotspot_pending_validity = NULL, r.attribute = 'Expiration', r.value = CONCAT(LPAD(DAY('%{control:Hotspot-First-Login-Expiry}'), 2, '0'), ' ', LEFT(MONTHNAME('%{control:Hotspot-First-Login-Expiry}'), 3), ' ', YEAR('%{control:Hotspot-First-Login-Expiry}'), ' ', LEFT(TIME('%{control:Hotspot-First-Login-Expiry}'), 5)) WHERE a.username = '%{User-Name}' AND a.service_type = 'HOTSPOT' AND a.hotspot_pending_validity IS NOT NULL AND a.deleted_at IS NULL}"
+		}
+		#  An empty result is a database error (a missing grant, a lost connection): without the stamp every
+		#  login would start the validity again, so the login is refused.
+		if (&control:Isp-Query-Result !~ /^[0-9]+$/) {
+			update control {
+				&Isp-Reject-Reason := "Error: could not start the Hotspot validity (database error)"
+			}
+			update reply {
+				&Reply-Message := "%{control:Isp-Reject-Reason}"
+			}
+			reject
 		}
 	}
 

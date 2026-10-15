@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\SlotMode;
+use App\Enums\ValidityUnit;
 use App\Models\Plan;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -26,6 +27,19 @@ class PlanFactory extends Factory
             'upload' => "{$speed}M",
             'download' => "{$speed}M",
         ];
+    }
+
+    public function hours(int $hours): static
+    {
+        return $this->state(['validity' => $hours, 'validity_unit' => ValidityUnit::Hours]);
+    }
+
+    /**
+     * A Hotspot plan whose validity starts at the first login.
+     */
+    public function firstLogin(): static
+    {
+        return $this->state(['hotspot_starts_at_first_login' => true]);
     }
 
     /**

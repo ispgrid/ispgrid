@@ -54,7 +54,7 @@ new #[Title('Plan')] class extends Component
             __('General') => [
                 __('Slug') => $plan->slug,
                 __('Speed (up/down)') => $plan->upload.'/'.$plan->download,
-                __('Validity') => trans_choice(':count day|:count days', $plan->validity),
+                __('Validity') => $plan->validityLabel(),
                 __('Price') => Money::fromSettings()->format((string) $plan->price),
                 __('Pool') => $plan->pool?->name,
                 __('Address lists') => $plan->addressLists->sortBy('name')->map(fn (AddressList $list): string => $list->name)->implode(', '),
@@ -117,7 +117,7 @@ new #[Title('Plan')] class extends Component
     }
 
     /**
-     * @return list<array{id: int, username: string, fullname: string, type: string, status: string, color: string, expiry: ?string, expired: bool}>
+     * @return list<array{id: int, username: string, fullname: string, type: string, status: string, color: string, expiry: ?string, pending: bool, expired: bool}>
      */
     #[Computed]
     public function rows(): array
@@ -132,6 +132,7 @@ new #[Title('Plan')] class extends Component
             'status' => $account->status_id->label(),
             'color' => $account->status_id->color(),
             'expiry' => $account->expiry?->format($format),
+            'pending' => $account->hotspot_pending_validity !== null,
             'expired' => $account->expiry?->isPast() ?? false,
         ])->all();
     }

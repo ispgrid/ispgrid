@@ -6,7 +6,9 @@ use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
+use App\Enums\ValidityUnit;
 use App\Exceptions\ExpiryChangedMeanwhile;
+use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
@@ -24,6 +26,7 @@ use App\Models\User;
 use App\Support\ActivityFormatter;
 use App\Support\CustomerDefaults;
 use App\Support\ExpiryCalculator;
+use App\Support\Hotspot;
 use App\Support\Ipv4Cidr;
 use App\Support\Money;
 use App\Support\Units;
@@ -150,7 +153,10 @@ new #[Title('Customer')] class extends Component
         $rows = [
             __('Type') => $account->service_type->label(),
             __('Plan') => $account->plan?->name ?? __('None'),
-            __('Expiry') => $account->expiry?->format($this->dateFormat()) ?? __('Never'),
+            __('Expiry') => match (true) {
+                $account->hotspot_pending_validity !== null => __('Starts at first login (:validity)', ['validity' => ValidityUnit::describeMinutes($account->hotspot_pending_validity)]),
+                default => $account->expiry?->format($this->dateFormat()) ?? __('Never'),
+            },
             __('Device limit') => match (true) {
                 $isIpoe => '1',
                 $account->mac_type === 0 => __('No limit'),
@@ -163,6 +169,14 @@ new #[Title('Customer')] class extends Component
                 ? __('From the plan')
                 : $account->addressLists->sortBy('name')->pluck('name')->implode(', '),
         ];
+
+        if ($account->hotspot_first_login_at !== null && $account->expiry !== null) {
+            $rows = array_merge(
+                array_slice($rows, 0, 3, true),
+                [__('First login') => $account->hotspot_first_login_at->format($this->dateFormat())],
+                array_slice($rows, 3, null, true),
+            );
+        }
 
         if (! $isIpoe) {
             $rows[__('Pool')] = $account->pool?->name ?? __('From the plan');
@@ -376,7 +390,9 @@ new #[Title('Customer')] class extends Component
                 'id' => $recharge->id,
                 'when' => $recharge->created_at->format($format),
                 'plan' => $recharge->plan?->name ?? __('None'),
-                'expiry' => $recharge->new_expiry->format($format),
+                'expiry' => $recharge->new_pending_validity !== null
+                    ? ValidityUnit::firstLoginLabel($recharge->new_pending_validity)
+                    : $recharge->new_expiry?->format($format) ?? '',
                 'amount' => $money->format((string) $recharge->amount),
                 'note' => (string) $recharge->note,
                 'staff' => $recharge->user?->name ?? __('System'),
@@ -572,7 +588,8 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * Plans a customer can be recharged with, with their validity and price.
+     * Plans a customer can be recharged with, with their validity and price. First-login plans only for Hotspot
+     * customers: nobody else logs in on the Hotspot page, so the validity would never start.
      *
      * @return array<int, string>
      */
@@ -581,13 +598,27 @@ new #[Title('Customer')] class extends Component
     {
         $money = Money::fromSettings();
 
-        return Plan::query()->orderBy('name')->get(['id', 'name', 'validity', 'price'])
-            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => __(':name (:days days, :price)', [
+        return Plan::query()->orderBy('name')
+            ->when($this->account->service_type !== ServiceType::Hotspot, fn (Builder $query) => $query->where('hotspot_starts_at_first_login', false))
+            ->get()
+            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => __(':name (:validity, :price)', [
                 'name' => $plan->name,
-                'days' => $plan->validity,
+                'validity' => $plan->validityLabel(),
                 'price' => $money->format((string) $plan->price),
             ])])
             ->all();
+    }
+
+    /**
+     * What the chosen plan leaves waiting for the first login ("3 hours"), or null when it sets an expiry.
+     */
+    #[Computed]
+    public function rechargePending(): ?string
+    {
+        $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
+        $minutes = $plan === null ? null : RechargeAccount::pendingValidity($this->account, $plan);
+
+        return $minutes === null ? null : ValidityUnit::describeMinutes($minutes);
     }
 
     /**
@@ -630,9 +661,17 @@ new #[Title('Customer')] class extends Component
         $this->authorize('recharge', $this->account);
         $this->recharge_note = trim($this->recharge_note);
 
+        if (RechargeAccount::expiryKey($this->account) !== $this->recharge_base_expiry) {
+            $this->refillAfterExpiryChange();
+
+            return;
+        }
+
+        $waits = $this->rechargePending !== null;
+
         $this->validate([
             'recharge_plan_id' => ['required', Rule::exists('plans', 'id')->withoutTrashed()],
-            'recharge_expiry' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
+            'recharge_expiry' => $waits ? [] : ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
             'recharge_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'recharge_note' => ['nullable', 'string', 'max:255'],
         ], [
@@ -650,15 +689,17 @@ new #[Title('Customer')] class extends Component
             $done = $recharge->handle(
                 $this->accountId,
                 (int) $this->recharge_plan_id,
-                Carbon::createFromFormat('!Y-m-d\TH:i', $this->recharge_expiry),
+                $waits ? null : Carbon::createFromFormat('!Y-m-d\TH:i', $this->recharge_expiry),
                 $this->recharge_amount,
                 $this->recharge_note === '' ? null : $this->recharge_note,
                 $this->recharge_base_expiry,
             );
         } catch (ExpiryChangedMeanwhile) {
-            unset($this->account);
-            $this->fillRechargeDefaults();
-            $this->addError('recharge_expiry', __('The expiry changed meanwhile (another recharge or an edit). The new expiry is filled in from it: check it and save again.'));
+            $this->refillAfterExpiryChange();
+
+            return;
+        } catch (FirstLoginPlanNeedsHotspot) {
+            $this->addError('recharge_plan_id', __('This plan starts at the first Hotspot login. Choose another plan.'));
 
             return;
         } catch (ModelNotFoundException $exception) {
@@ -679,7 +720,9 @@ new #[Title('Customer')] class extends Component
         $this->status = (string) $this->account->status_id->value;
         $this->dispatch('modal-close', name: 'recharge');
 
-        $message = __('Recharged until :date.', ['date' => $done->new_expiry->format($this->dateFormat())]);
+        $message = $done->new_pending_validity !== null
+            ? __('Recharged: :validity from the first login.', ['validity' => ValidityUnit::describeMinutes($done->new_pending_validity)])
+            : __('Recharged until :date.', ['date' => $done->new_expiry->format($this->dateFormat())]);
 
         if ($disconnected) {
             $message .= ' '.__('They are disconnected so the change applies now.');
@@ -691,10 +734,22 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * The dialog was filled from another expiry: a recharge or an edit meanwhile, or FreeRADIUS starting a
+     * first-login validity. Fill it again from the current one and let staff check it.
+     */
+    private function refillAfterExpiryChange(): void
+    {
+        unset($this->account);
+        $this->fillRechargeDefaults();
+        $this->addError('recharge_expiry', __('The expiry changed meanwhile (another recharge or an edit). The new expiry is filled in from it: check it and save again.'));
+    }
+
+    /**
      * The expiry and amount the chosen plan gives. Staff can change both before saving.
      */
     private function fillRechargeDefaults(): void
     {
+        unset($this->rechargePending);
         $this->recharge_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
 
@@ -705,9 +760,12 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        $this->recharge_expiry = ExpiryCalculator::fromSettings()
-            ->next($this->account->expiry, $plan->validity, now())
-            ->format('Y-m-d\TH:i');
+        unset($this->rechargePending);
+        $this->recharge_expiry = RechargeAccount::pendingValidity($this->account, $plan) !== null
+            ? ''
+            : ExpiryCalculator::fromSettings()
+                ->next($this->account->expiry, $plan->validity, $plan->validity_unit, now())
+                ->format('Y-m-d\TH:i');
         $this->recharge_amount = (string) $plan->price;
     }
 
@@ -846,6 +904,10 @@ new #[Title('Customer')] class extends Component
 
         foreach ($account->addressLists->filter(fn (AddressList $list): bool => $list->trashed()) as $list) {
             $blockers[] = __('the address list :name', ['name' => $list->name]);
+        }
+
+        if ($account->service_type === ServiceType::Hotspot && ! Hotspot::enabled()) {
+            $blockers[] = __('Hotspot (turn it on in App settings)');
         }
 
         return $blockers;

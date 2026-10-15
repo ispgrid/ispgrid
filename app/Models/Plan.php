@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SlotMode;
+use App\Enums\ValidityUnit;
 use Database\Factories\PlanFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,7 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * A service plan. Its slug is the FreeRADIUS group name and never changes.
  */
-#[Fillable(['slug', 'name', 'validity', 'description', 'price',
+#[Fillable(['slug', 'name', 'validity', 'validity_unit', 'hotspot_starts_at_first_login', 'description', 'price',
     'upload', 'download', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
     'burst_time', 'priority', 'min_upload', 'min_download',
     'is_fup', 'limit_after', 'fup_upload', 'fup_download',
@@ -35,6 +36,8 @@ class Plan extends Model
      * @var array<string, mixed>
      */
     protected $attributes = [
+        'validity_unit' => 'days',
+        'hotspot_starts_at_first_login' => false,
         'is_fup' => false,
         'slot_full_days' => false,
     ];
@@ -46,7 +49,7 @@ class Plan extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logOnly([
-            'slug', 'name', 'validity', 'description', 'price',
+            'slug', 'name', 'validity', 'validity_unit', 'hotspot_starts_at_first_login', 'description', 'price',
             'upload', 'download', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
             'burst_time', 'priority', 'min_upload', 'min_download',
             'is_fup', 'limit_after', 'fup_upload', 'fup_download',
@@ -63,6 +66,8 @@ class Plan extends Model
     {
         return [
             'validity' => 'integer',
+            'validity_unit' => ValidityUnit::class,
+            'hotspot_starts_at_first_login' => 'boolean',
             'price' => 'decimal:2',
             'burst_time' => 'integer',
             'priority' => 'integer',
@@ -79,6 +84,24 @@ class Plan extends Model
             'slot_full_days' => 'boolean',
             'pool_id' => 'integer',
         ];
+    }
+
+    /**
+     * The validity in minutes.
+     */
+    public function validityMinutes(): int
+    {
+        return $this->validity * $this->validity_unit->minutes();
+    }
+
+    /**
+     * "30 days", "3 hours", or "3 hours from first login" for a first-login plan.
+     */
+    public function validityLabel(): string
+    {
+        $validity = $this->validity_unit->count($this->validity);
+
+        return $this->hotspot_starts_at_first_login ? __(':validity from first login', ['validity' => $validity]) : $validity;
     }
 
     /**

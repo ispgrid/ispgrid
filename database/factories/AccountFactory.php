@@ -36,6 +36,19 @@ class AccountFactory extends Factory
         return $this->state(['service_type' => ServiceType::Ipoe, 'password' => null, 'mac_type' => 1]);
     }
 
+    public function hotspot(): static
+    {
+        return $this->state(['service_type' => ServiceType::Hotspot]);
+    }
+
+    /**
+     * A Hotspot customer recharged with a first-login plan who has not logged in yet.
+     */
+    public function hotspotPending(int $minutes = 180): static
+    {
+        return $this->state(['service_type' => ServiceType::Hotspot, 'expiry' => null, 'hotspot_pending_validity' => $minutes]);
+    }
+
     /**
      * A STATIC leased line, managed on the router and not written to FreeRADIUS.
      */

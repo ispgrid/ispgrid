@@ -3,11 +3,13 @@
 use App\Models\AppSetting;
 use App\Models\User;
 use Database\Seeders\AppSettingSeeder;
+use Database\Seeders\RadiusSettingSeeder;
 use Illuminate\Support\Facades\App;
 use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(AppSettingSeeder::class);
+    $this->seed(RadiusSettingSeeder::class);
 });
 
 it('starts in English on a new install', function () {
