@@ -21,7 +21,7 @@ final class Placeholders
         'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number'];
 
     /** Values only a recharge has. */
-    public const RECHARGE = ['amount_paid', 'recharge_reference'];
+    public const RECHARGE = ['amount_paid', 'recharge_reference', 'recharge_note', 'recharge_date', 'recharge_datetime'];
 
     /** @var array<string, string> */
     private array $settings = [];
@@ -40,6 +40,9 @@ final class Placeholders
             'plan_price' => __('Plan price'),
             'amount_paid' => __('Amount paid'),
             'recharge_reference' => __('Recharge reference'),
+            'recharge_note' => __('Recharge note'),
+            'recharge_date' => __('Recharge date'),
+            'recharge_datetime' => __('Recharge date and time'),
             'expiry_date' => __('Expiry date'),
             'expiry_datetime' => __('Expiry date and time'),
             'days_left' => __('Days left'),
@@ -95,6 +98,7 @@ final class Placeholders
     {
         $plan = $account->plan;
         $expiry = $account->expiry;
+        $rechargedAt = $recharge?->created_at;
 
         return match ($key) {
             'customer_name' => (string) ($account->fullname ?: $account->username),
@@ -105,8 +109,11 @@ final class Placeholders
             'plan_price' => $plan === null ? '' : $this->amount((string) $plan->price),
             'amount_paid' => $recharge === null ? '' : $this->amount((string) $recharge->amount),
             'recharge_reference' => $recharge === null ? '' : (string) $recharge->id,
-            'expiry_date' => $expiry === null ? '' : $expiry->format($this->setting('notify_date_format', 'd-M-Y')),
-            'expiry_datetime' => $expiry === null ? '' : $expiry->format($this->setting('notify_date_format', 'd-M-Y').' '.$this->setting('notify_time_format', 'h:iA')),
+            'recharge_note' => (string) $recharge?->note,
+            'recharge_date' => $rechargedAt === null ? '' : $rechargedAt->format($this->dateFormat()),
+            'recharge_datetime' => $rechargedAt === null ? '' : $rechargedAt->format($this->dateTimeFormat()),
+            'expiry_date' => $expiry === null ? '' : $expiry->format($this->dateFormat()),
+            'expiry_datetime' => $expiry === null ? '' : $expiry->format($this->dateTimeFormat()),
             'days_left' => $expiry === null ? '' : (string) $this->daysLeft($now, $expiry),
             'isp_name' => $this->setting('notice_isp_name', ''),
             'support_number' => $this->setting('notice_phone', ''),
@@ -120,6 +127,16 @@ final class Placeholders
     private function daysLeft(CarbonImmutable $now, CarbonInterface $expiry): int
     {
         return max(0, (int) $now->startOfDay()->diffInDays(CarbonImmutable::instance($expiry)->startOfDay(), false));
+    }
+
+    private function dateFormat(): string
+    {
+        return $this->setting('notify_date_format', 'd-M-Y');
+    }
+
+    private function dateTimeFormat(): string
+    {
+        return $this->dateFormat().' '.$this->setting('notify_time_format', 'h:iA');
     }
 
     private function amount(string $amount): string

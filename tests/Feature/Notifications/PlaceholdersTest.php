@@ -21,7 +21,8 @@ it('fills every value a rule can use', function () {
         'username' => 'asha01', 'fullname' => 'Asha Rao', 'mobile' => '9876543210', 'plan_id' => $plan->id,
         'expiry' => '2026-08-22 23:33:00',
     ]);
-    $recharge = Recharge::query()->create(['account_id' => $account->id, 'plan_id' => $plan->id, 'new_expiry' => $account->expiry, 'amount' => '2000']);
+    $recharge = Recharge::query()->create(['account_id' => $account->id, 'plan_id' => $plan->id, 'new_expiry' => $account->expiry, 'amount' => '2000', 'note' => 'UPI 412345678901']);
+    $recharge->forceFill(['created_at' => '2026-08-19 09:45:00'])->save();
 
     $keys = array_keys(Placeholders::labels());
     $result = (new Placeholders)->values($keys, $account, $recharge, $now);
@@ -35,6 +36,9 @@ it('fills every value a rule can use', function () {
         'plan_price' => '2000.00',
         'amount_paid' => '2000.00',
         'recharge_reference' => (string) $recharge->id,
+        'recharge_note' => 'UPI 412345678901',
+        'recharge_date' => '19-Aug-2026',
+        'recharge_datetime' => '19-Aug-2026 09:45AM',
         'expiry_date' => '22-Aug-2026',
         'expiry_datetime' => '22-Aug-2026 11:33PM',
         'days_left' => '3',
