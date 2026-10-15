@@ -7,6 +7,8 @@ use App\Models\AppSetting;
 use App\Models\IpRange;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
+use App\Support\Addons\Addon;
+use App\Support\Addons\AddonManifest;
 use App\Support\Hotspot;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
@@ -250,6 +252,27 @@ new #[Title('App settings')] class extends Component
             'exact' => __('At the recharge time on the last day'),
             'midnight' => __('At midnight at the end of the last day'),
         ];
+    }
+
+    /**
+     * The installed add-ons and whether each is loaded (read-only: add-ons are installed with the installer).
+     *
+     * @return list<array{name: string, package: string, version: string, status: string, color: string}>
+     */
+    #[Computed]
+    public function addons(): array
+    {
+        $manifest = app(AddonManifest::class);
+
+        return array_map(fn (Addon $addon): array => [
+            'name' => $addon->name,
+            'package' => $addon->package,
+            'version' => $addon->version,
+            'color' => $addon->compatible ? 'green' : 'amber',
+            'status' => $addon->compatible
+                ? __('Active')
+                : __('Not loaded: built for core :supports, this is :core', ['supports' => implode(', ', $addon->supports), 'core' => (string) $manifest->coreSeries()]),
+        ], $manifest->all());
     }
 
     #[Computed]

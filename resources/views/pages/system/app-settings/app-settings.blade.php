@@ -81,6 +81,21 @@
                 <x-ui.heading>{{ __('Services') }}</x-ui.heading>
                 <x-ui.switch wire:model.live="hotspot_enabled" :label="__('Hotspot')" :description="__('Customers who log in on the Hotspot login page. While it is off, FreeRADIUS refuses those logins. IPoE is not affected.')" />
             </x-ui.card>
+
+            <x-ui.card class="grid content-start gap-3">
+                <x-ui.heading>{{ __('Add-ons') }}</x-ui.heading>
+                @forelse ($this->addons as $addon)
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <div>
+                            <div class="font-medium">{{ $addon['name'] }}</div>
+                            <x-ui.text muted class="font-mono text-xs">{{ $addon['package'] }} {{ $addon['version'] }}</x-ui.text>
+                        </div>
+                        <x-ui.badge :color="$addon['color']">{{ $addon['status'] }}</x-ui.badge>
+                    </div>
+                @empty
+                    <x-ui.text muted>{{ __('No add-ons installed.') }}</x-ui.text>
+                @endforelse
+            </x-ui.card>
         </div>
 
         <x-ui.form-actions>

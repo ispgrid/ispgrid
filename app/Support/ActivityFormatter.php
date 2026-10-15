@@ -17,6 +17,7 @@ use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\NotificationRegistry;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -25,6 +26,13 @@ use Spatie\Activitylog\Models\Activity;
  */
 final class ActivityFormatter
 {
+    /**
+     * Labels add-ons give their own events.
+     *
+     * @var array<string, Closure(): string>
+     */
+    private static array $eventLabels = [];
+
     /**
      * @var array<class-string<Model>, string>
      */
@@ -86,6 +94,14 @@ final class ActivityFormatter
         return $activity->causer instanceof User ? $activity->causer->name : __('System');
     }
 
+    /**
+     * @param  Closure(): string  $label
+     */
+    public static function addEventLabel(string $event, Closure $label): void
+    {
+        self::$eventLabels[$event] = $label;
+    }
+
     public static function eventLabel(Activity $activity): string
     {
         return match ($activity->event) {
@@ -102,7 +118,7 @@ final class ActivityFormatter
             'disconnect-failed' => __('Disconnect failed'),
             'imported' => __('Imported'),
             'role-changed' => __('Role changed'),
-            default => (string) $activity->event,
+            default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }
 
