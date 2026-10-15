@@ -72,3 +72,6 @@ yarn-error.log
 
 # Superpowers plan workspaces (agent scratch)
 /.superpowers/
+
+# Add-ons installed on this server (deploy/install/05-app.sh)
+/addons.json

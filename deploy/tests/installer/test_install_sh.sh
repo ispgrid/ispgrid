@@ -308,6 +308,27 @@ check "no 404 left" "$(grep -c 'return 404' "$tmp/certbot-site")" 0
 https_redirect_all "$tmp/certbot-site" panel.example.com
 check "redirect added once" "$(grep -c 'return 301' "$tmp/certbot-site")" 2
 
+#  Add-ons
+check "addon spec" "$(yes_no addon_valid ispgrid/ipdr)" yes
+check "addon spec with version" "$(yes_no addon_valid ispgrid/ipdr@^0.1)" yes
+check "addon spec without vendor" "$(yes_no addon_valid ipdr)" no
+check "addon spec with shell" "$(yes_no addon_valid 'ispgrid/ipdr;rm')" no
+check "addon spec with quote" "$(yes_no addon_valid "ispgrid/ipdr@1'")" no
+check "addon name" "$(addon_name ispgrid/ipdr@^0.1)" ispgrid/ipdr
+check "addon constraint" "$(addon_constraint ispgrid/ipdr@^0.1)" "^0.1"
+check "addon default constraint" "$(addon_constraint ispgrid/ipdr)" "*"
+check "core series of a release" "$(core_series v0.1.0)" 0.1
+check "core series of an rc" "$(core_series v0.1.0-rc6)" 0.1
+check "core series of a branch" "$(core_series plan-10-installer)" ""
+check "addon supports core" "$(yes_no addon_supports '["0.1","0.2"]' 0.1)" yes
+check "addon built for another core" "$(yes_no addon_supports '["0.2"]' 0.1)" no
+check "addon series is not a prefix match" "$(yes_no addon_supports '["0.10"]' 0.1)" no
+check "branch install takes any addon" "$(yes_no addon_supports '["0.2"]' '')" yes
+parse_args --addon=ispgrid/ipdr --addon=acme/other@^1.0 --remove-addon=acme/old
+check "addons parsed" "${OPT_ADDONS[*]}" "ispgrid/ipdr acme/other@^1.0"
+check "removed addons parsed" "${OPT_REMOVE_ADDONS[*]}" "acme/old"
+check "bad addon refused" "$(yes_no parse_args --addon=ipdr)" no
+
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)
 check "piped into bash runs" "$piped" "Usage: sudo bash install.sh [options]"

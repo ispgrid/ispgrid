@@ -29,6 +29,7 @@ CREATE DATABASE IF NOT EXISTS radius CHARACTER SET utf8mb4 COLLATE utf8mb4_unico
 CREATE USER IF NOT EXISTS 'ispgrid'@'localhost' IDENTIFIED BY '${DB_APP_PASSWORD}';
 ALTER USER 'ispgrid'@'localhost' IDENTIFIED BY '${DB_APP_PASSWORD}';
 GRANT ALL PRIVILEGES ON radius.* TO 'ispgrid'@'localhost';
+GRANT ALL PRIVILEGES ON \`ispgrid\_%\`.* TO 'ispgrid'@'localhost';
 CREATE USER IF NOT EXISTS 'freeradius'@'localhost' IDENTIFIED BY '${DB_RADIUS_PASSWORD}';
 ALTER USER 'freeradius'@'localhost' IDENTIFIED BY '${DB_RADIUS_PASSWORD}';
 GRANT SELECT ON radius.* TO 'freeradius'@'localhost';

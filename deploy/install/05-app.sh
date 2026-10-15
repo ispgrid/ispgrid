@@ -10,6 +10,55 @@ chown -R root:root "$ISPGRID_HOME"
 #  are removed and Composer runs without its scripts; package:discover runs as the app user.
 rm -f bootstrap/cache/*.php
 COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+
+#  Add-ons: listed in addons.json (git-ignored, so upgrades keep it). Each is required from its GitHub repository,
+#  then one composer update for all of them, without -W: a conflict with the core's lock stops the install.
+#  composer.json and composer.lock show as changed while an add-on is installed; the next upgrade resets and re-adds
+#  them. With --token the token reaches Composer in the environment only (COMPOSER_AUTH), never auth.json.
+addons_file="$ISPGRID_HOME/addons.json"
+if (( ${#OPT_ADDONS[@]} + ${#OPT_REMOVE_ADDONS[@]} > 0 )) && [[ ! -f "$addons_file" ]]; then
+  printf '{}\n' > "$addons_file"
+fi
+for spec in "${OPT_ADDONS[@]}"; do
+  ADDON_NAME=$(addon_name "$spec") ADDON_CONSTRAINT=$(addon_constraint "$spec") php -r '
+    $file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
+    $name = getenv("ADDON_NAME");
+    $addons[$name] = ["constraint" => getenv("ADDON_CONSTRAINT"), "url" => "https://github.com/".$name];
+    file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
+done
+for name in "${OPT_REMOVE_ADDONS[@]}"; do
+  ADDON_NAME=$(addon_name "$name") php -r '
+    $file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
+    unset($addons[getenv("ADDON_NAME")]);
+    file_put_contents($file, json_encode((object) $addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
+  say "Add-on $name removed from addons.json (its data is kept)"
+done
+addons=()
+if [[ -f "$addons_file" ]]; then
+  mapfile -t addons < <(php -r 'foreach (json_decode(file_get_contents($argv[1]), true) ?: [] as $name => $addon) { echo $name, " ", $addon["constraint"], " ", $addon["url"], "\n"; }' "$addons_file")
+fi
+if (( ${#addons[@]} > 0 )); then
+  addon_names=()
+  for line in "${addons[@]}"; do
+    read -r name constraint url <<<"$line"
+    addon_valid "$name@$constraint" || die "addons.json has an add-on entry that is not valid: $line"
+    COMPOSER_ALLOW_SUPERUSER=1 composer config "repositories.${name//\//-}" vcs "$url"
+    COMPOSER_ALLOW_SUPERUSER=1 composer require "$name:$constraint" --no-update --no-interaction
+    addon_names+=("$name")
+  done
+  composer_auth=""
+  if [[ -n "${OPT_TOKEN:-}" ]]; then
+    composer_auth="{\"github-oauth\":{\"github.com\":\"$OPT_TOKEN\"}}"
+  fi
+  COMPOSER_AUTH=$composer_auth COMPOSER_ALLOW_SUPERUSER=1 composer update "${addon_names[@]}" --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+  series=$(core_series "$ISPGRID_TARGET")
+  for name in "${addon_names[@]}"; do
+    supports=$(php -r '$c = json_decode(file_get_contents($argv[1]), true); echo json_encode($c["extra"]["ispgrid"]["core"] ?? []);' "vendor/$name/composer.json")
+    addon_supports "$supports" "$series" ||
+      die "Add-on $name supports core $supports, this is $series: install a matching version (--addon=$name@VERSION) or remove it (--remove-addon=$name)."
+  done
+  say "Add-ons: ${addon_names[*]}"
+fi
 npm ci --no-audit --no-fund --loglevel=error
 npm run build
 rm -rf node_modules
@@ -42,6 +91,8 @@ env_set .env QUEUE_CONNECTION database
 #  encryption on logs staff out once.
 env_set .env SESSION_DRIVER database
 env_set .env SESSION_ENCRYPT true
+#  The installed tag: add-ons are loaded only when they support this version.
+env_set .env ISPGRID_VERSION "$ISPGRID_TARGET"
 
 artisan migrate --force
 artisan db:seed --force
