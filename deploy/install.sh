@@ -342,8 +342,9 @@ newest_release() {
 }
 
 #  ---- Add-ons ----
-#  addon_valid <spec>: vendor/package, optionally @constraint (no quotes, semicolons or other shell characters)
-addon_valid() { [[ "$1" =~ ^[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*(@[A-Za-z0-9.^~*|,\<\>=\ -]+)?$ ]]; }
+#  addon_valid <spec>: vendor/package, optionally @constraint (no quotes, semicolons or other shell characters, and
+#  no spaces: addons.json is read back split on spaces; write ">=0.1,<0.2" for "and")
+addon_valid() { [[ "$1" =~ ^[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*(@[A-Za-z0-9.^~*|,\<\>=-]+)?$ ]]; }
 addon_name() { printf '%s\n' "${1%%@*}"; }
 addon_constraint() { if [[ "$1" == *@* ]]; then printf '%s\n' "${1#*@}"; else printf '*\n'; fi; }
 #  core_series <tag>: "0.1" for v0.1.0 or v0.1.0-rc6; nothing for a branch

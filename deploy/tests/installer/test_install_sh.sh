@@ -324,6 +324,8 @@ check "addon default constraint" "$(addon_constraint ispgrid/ipdr)" "*"
 check "core series of a release" "$(core_series v0.1.0)" 0.1
 check "core series of an rc" "$(core_series v0.1.0-rc6)" 0.1
 check "core series of a branch" "$(core_series plan-10-installer)" ""
+check "addon constraint with a space refused (step 5 splits on spaces)" "$(yes_no addon_valid 'acme/x@>=0.1 <0.2')" no
+check "addon constraint with a comma" "$(yes_no addon_valid 'acme/x@>=0.1,<0.2')" yes
 check "addon supports core" "$(yes_no addon_supports '["0.1","0.2"]' 0.1)" yes
 check "addon built for another core" "$(yes_no addon_supports '["0.2"]' 0.1)" no
 check "addon series is not a prefix match" "$(yes_no addon_supports '["0.10"]' 0.1)" no
