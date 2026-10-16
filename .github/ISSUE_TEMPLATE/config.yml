@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Question or idea to talk over
+    url: https://github.com/ispgrid/ispgrid/discussions
+    about: How to set something up, or an idea that is not a feature request yet. Ask in Discussions.
   - name: Security problem
     url: https://github.com/ispgrid/ispgrid/security/advisories/new
     about: Report it privately, not in a public issue (see SECURITY.md).
