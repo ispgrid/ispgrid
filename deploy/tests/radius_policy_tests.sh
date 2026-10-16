@@ -28,6 +28,7 @@ FIXTURE_USERS=(t_ppp t_ppp2 t_static t_disabled t_exp_hard t_exp_soft t_hs t_hs_
   t_ipoe_q t_q_fup t_q_day t_q_big t_q_month t_q_hs t_slot_full t_slot_out t_slot_in t_slot_hs
   t_boost_out t_boost_in t_lists_plan t_lists_own t_lists_off t_nobody t_probe
   t_fl t_fl_off t_fl_sus t_fl_lim t_fl_ppp t_fl_ipoe t_fl_both t_fl_week
+  t_race t_race1 t_race2 t_race3 t_race4 t_race5 t_race6
   "$IPOE_USER" DE:AD:00:00:00:01 DE:AD:00:00:00:02 DE:AD:00:00:00:03 DE:AD:00:00:00:20 DE:AD:00:00:00:21
   DE:AD:00:00:00:22 DE:AD:00:00:00:23 DE:AD:00:00:00:24 DE:AD:00:00:00:25 DE:AD:00:00:00:26)
 FIXTURE_LIST="$(printf "'%s'," "${FIXTURE_USERS[@]}")"
@@ -67,6 +68,8 @@ seed() {
   # user  type  status  mac_limit (PPP: bound devices, HOTSPOT: online at once)  expiration  [expire_type]
   add_user t_ppp       PPP     1 1 "01 Jan 2030 00:00"
   add_user t_ppp2      PPP     1 2 "01 Jan 2030 00:00"
+  add_user t_race      PPP     1 1 "01 Jan 2030 00:00"
+  for u in t_race1 t_race2 t_race3 t_race4 t_race5 t_race6; do add_user "$u" PPP 1 2 "01 Jan 2030 00:00"; done
   add_user t_static    PPP     1 0 "01 Jan 2030 00:00"
   add_user t_disabled  PPP     2 0 "01 Jan 2030 00:00"
   add_user t_exp_hard  PPP     1 0 "01 Jan 2020 00:00" 0
@@ -401,6 +404,22 @@ logged "  reason logged"                         t_ppp 'Device limit reached (1)
 check "New MAC at device limit, wrong pass"      Reject "$(ppp t_ppp wrong $M2)" 'Login not allowed from this device'
 check "MAC bound to another account"             Reject "$(ppp t_ppp2 pass $M1)" 'Login not allowed from this device'
 logged "  reason logged"                         t_ppp2 'bound to another account'
+#  Logins sent at the same moment: each passes the device checks before any of them is bound, so the binding
+#  itself must enforce the limit (and that a MAC has one owner).
+packets=""
+for i in 01 02 03 04 05 06 07 08 09 10 11 12; do packets+="$(ppp t_race pass DE:AD:00:00:01:$i)
+"; done
+out="$(printf '%b' "$packets" | radclient -x -p 12 -r 1 -t 5 "$SERVER:1812" auth "$SECRET" 2>&1)"
+accepted=$(grep -c "Received Access-Accept" <<<"$out")
+bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_race'")
+result "$([[ "$accepted" -eq 1 && "$bound" -eq 1 ]] && echo 1 || echo 0)" "12 new devices at once, limit 1: one accepted and bound" "($accepted accepted, $bound bound)"
+packets=""
+for u in t_race1 t_race2 t_race3 t_race4 t_race5 t_race6; do packets+="$(ppp "$u" pass DE:AD:00:00:02:01)
+"; done
+out="$(printf '%b' "$packets" | radclient -x -p 6 -r 1 -t 5 "$SERVER:1812" auth "$SECRET" 2>&1)"
+accepted=$(grep -c "Received Access-Accept" <<<"$out")
+owners=$(sql "SELECT COUNT(*) FROM account_macs WHERE mac_norm = 'DEAD00000201'")
+result "$([[ "$accepted" -eq 1 && "$owners" -eq 1 ]] && echo 1 || echo 0)" "One new MAC on 6 accounts at once: one accepted and bound" "($accepted accepted, $owners bound)"
 check "Static IP + per-user rate override"       Accept "$(ppp t_static pass $M2)" \
       'Framed-IP-Address = 10.10.10.123' 'Mikrotik-Rate-Limit = "100M/100M"'
 check "Custom attributes (2x Framed-Route, Idle-Timeout)" Accept "$(ppp t_static pass $M2)" \

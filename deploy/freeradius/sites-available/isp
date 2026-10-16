@@ -1009,14 +1009,32 @@ post-auth {
 	}
 
 	#
-	#  10. Accepted: bind or refresh the PPPoE MAC, clear the reject counter, cap the session.
+	#  10. Accepted: bind or refresh the PPPoE/IPoE MAC, clear the reject counter, cap the session.
+	#      Step 5 checked the device slots and the MAC's owner with separate queries, so logins sent at the same
+	#      moment all pass it. The binding is therefore one statement that adds the MAC only while the account is
+	#      under its limit (IPoE: one device); the unique mac_norm keeps a MAC to one account, and IGNORE turns
+	#      that into 0 rows. 0 rows, or an error (such logins can deadlock each other), means another login took
+	#      the slot first: reject, uncounted, like step 5. Isp-Query-Result is reused for the row count.
 	#
-	if ((&control:Isp-Mac-Known == 1) || ((&control:Isp-Learn-Mac == 1) && (&control:Isp-Disabled-Pool == 0))) {
-		"%{sql:INSERT INTO account_macs (username, mac_norm, learned_at, last_seen) VALUES ('%{User-Name}', '%{control:Isp-Mac}', NOW(), NOW()) ON DUPLICATE KEY UPDATE last_seen = NOW()}"
-		if (&control:Isp-Learn-Mac == 1) {
+	if (&control:Isp-Mac-Known == 1) {
+		"%{sql:UPDATE account_macs SET last_seen = NOW() WHERE username = '%{User-Name}' AND mac_norm = '%{control:Isp-Mac}'}"
+	}
+	elsif ((&control:Isp-Learn-Mac == 1) && (&control:Isp-Disabled-Pool == 0)) {
+		update control {
+			&Isp-Query-Result := "%{sql:INSERT IGNORE INTO account_macs (username, mac_norm, learned_at, last_seen) SELECT '%{User-Name}', '%{control:Isp-Mac}', NOW(), NOW() FROM DUAL WHERE (SELECT COUNT(*) FROM account_macs WHERE username = '%{User-Name}') < IF('%{control:Acct-Service-Type}' = 'IPOE', 1, %{%{control:Acct-Mac-Type}:-1})}"
+		}
+		if ("%{control:Isp-Query-Result}" != "1") {
 			update reply {
-				&Reply-Message := "New device %{Calling-Station-Id} registered"
+				&Reply-Message := "Login not allowed from this device"
 			}
+			update control {
+				&Isp-Reject-Reason := "MAC %{Calling-Station-Id} not bound: another login took the device slot or the MAC at the same moment"
+				&Isp-Count-Reject := 0
+			}
+			reject
+		}
+		update reply {
+			&Reply-Message := "New device %{Calling-Station-Id} registered"
 		}
 	}
 
