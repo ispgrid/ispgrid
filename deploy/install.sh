@@ -208,6 +208,18 @@ progress_watch() {
   fi
 }
 
+#  note <text>: a line under the running step, on the console and in the log
+note() {
+  log_only "$*"
+  if [[ -n "${UI_SPIN:-}" ]]; then
+    spinner_stop
+    printf '  %s\n' "$(paint 2 "$*")" >&3
+    spinner_start
+  else
+    printf '    %s\n' "$*" >&3
+  fi
+}
+
 #  show_box <rows function>: the box on the console (coloured, with the password) and in the log (without)
 show_box() {
   local unicode=no colour=no columns=104 size
@@ -357,6 +369,11 @@ addon_constraint() { if [[ "$1" == *@* ]]; then printf '%s\n' "${1#*@}"; else pr
 core_series() { if [[ "$1" =~ ^v?([0-9]+)\.([0-9]+)\. ]]; then printf '%s.%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"; fi; }
 #  addon_supports <json list> <series>: the add-on lists the series (an empty series, a branch install, takes any)
 addon_supports() { [[ -z "$2" ]] || grep -qF "\"$2\"" <<<"$1"; }
+#  addon_version <vendor/composer/installed.json> <vendor/package>: the installed version, nothing when it is not installed
+addon_version() {
+  php -r '$i = json_decode(file_get_contents($argv[1]), true);
+    foreach ($i["packages"] ?? [] as $p) { if ($p["name"] === $argv[2]) { echo $p["version"], "\n"; } }' "$1" "$2"
+}
 
 valid_cidr() {
   [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$ ]] || return 1
@@ -966,7 +983,27 @@ on_error() {
   exit "$code"
 }
 
-#  failure_notes: what a person needs after a failed run: the log, the panel's state, the backup, what to do next
+#  trap_interrupts: Ctrl-C, kill and a closed SSH session stop the run with the same notes as a failed step
+trap_interrupts() {
+  trap 'on_interrupt Ctrl-C 130' INT
+  trap 'on_interrupt "terminated" 143' TERM
+  trap 'on_interrupt "the terminal closed" 129' HUP
+}
+
+#  on_interrupt <reason> <exit code>: the run stops where it is; the panel stays in maintenance until the next run.
+#  After a closed SSH session the console is gone, so nothing here may stop on a failed write.
+on_interrupt() {
+  set +e
+  trap - ERR INT TERM HUP
+  log_only "ERROR: stopped during step \"${CURRENT_STEP:-start}\" ($1)."
+  step_close failed
+  printf '\n%s stopped during step "%s" (%s).\n' "$(paint 31 ERROR:)" "${CURRENT_STEP:-start}" "$1" >&3
+  failure_notes "When you are ready, run the installer again"
+  exit "$2"
+}
+
+#  failure_notes [last line]: what a person needs after a failed run: the log, the panel's state, the backup, what
+#  to do next
 failure_notes() {
   console "Full log: $ISPGRID_LOG"
   if [[ -f "$ISPGRID_HOME/storage/framework/down" ]]; then
@@ -975,7 +1012,7 @@ failure_notes() {
   if [[ -n "${ISPGRID_RUN_BACKUP:-}" ]]; then
     console "Backup taken at the start of this run: $ISPGRID_RUN_BACKUP"
   fi
-  console "Fix the problem and run the installer again: it continues safely."
+  console "${1:-Fix the problem and run the installer again}: it continues safely."
   #  The admin exists now, so the rerun will not show this login again.
   if [[ -n "${ADMIN_CREATED:-}" ]]; then
     show_box failure_rows
@@ -1106,6 +1143,7 @@ main() {
   fi
   [[ $EUID -eq 0 ]] || die "Run as root: sudo bash install.sh"
   trap on_error ERR
+  trap_interrupts
   REPORT_FAILURES=1
   if [[ "${ISPGRID_STAGE:-}" != run ]]; then
     bootstrap "$@"

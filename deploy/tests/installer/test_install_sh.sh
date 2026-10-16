@@ -180,6 +180,14 @@ check "die: backup note" "$(grep -c 'Backup taken at the start of this run: /b.s
 check "die: run again" "$(grep -c 'run the installer again' <<<"$notes")" 1
 notes=$(REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; value=$(die "boom"); echo "$value"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
 check "die in a subshell: no notes" "$(grep -c 'run the installer again' <<<"$notes")" 0
+
+#  Ctrl-C (or a closed SSH session): where the run stopped, the panel's state, run again; exit 130
+notes=$(bash -c 'source "$1"; ISPGRID_HOME=$2; CURRENT_STEP=Packages; trap_interrupts; kill -INT $$; echo "kept running"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
+check "ctrl-c exit code" "$?" 130
+check "ctrl-c: where it stopped" "$(grep -c 'stopped during step "Packages" (Ctrl-C)' <<<"$notes")" 1
+check "ctrl-c: maintenance note" "$(grep -c 'still in maintenance mode' <<<"$notes")" 1
+check "ctrl-c: run again" "$(grep -c 'run the installer again' <<<"$notes")" 1
+check "ctrl-c: stops the run" "$(grep -c 'kept running' <<<"$notes")" 0
 rm -f "$tmp/storage/framework/down"
 
 #  The re-exec gets no admin password on its command line
@@ -346,6 +354,13 @@ parse_args --addon=ispgrid/ipdr --addon=acme/other@^1.0 --remove-addon=acme/old
 check "addons parsed" "${OPT_ADDONS[*]}" "ispgrid/ipdr acme/other@^1.0"
 check "removed addons parsed" "${OPT_REMOVE_ADDONS[*]}" "acme/old"
 check "bad addon refused" "$(yes_no parse_args --addon=ipdr)" no
+printf '{"packages": [{"name": "acme/other", "version": "1.2.0"}, {"name": "ispgrid/ipdr", "version": "v0.1.1"}]}\n' > "$tmp/installed.json"
+check "addon version from installed.json" "$(addon_version "$tmp/installed.json" ispgrid/ipdr)" v0.1.1
+check "addon not installed: no version" "$(addon_version "$tmp/installed.json" acme/missing)" ""
+
+#  note: a line under the running step, on the console (fd 3) as well as in the log
+shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)
+check "note on the console" "$shown" "    Add-on ispgrid/ipdr v0.1.1 installed"
 
 #  Questions: asked on a terminal, skipped with --yes or without one
 has_terminal() { return 0; }
