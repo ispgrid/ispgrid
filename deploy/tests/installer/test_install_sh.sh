@@ -182,13 +182,7 @@ notes=$(REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; value=$(die "bo
 check "die in a subshell: no notes" "$(grep -c 'run the installer again' <<<"$notes")" 0
 rm -f "$tmp/storage/framework/down"
 
-#  Token: a bare --token is asked for (hidden), so it never reaches sudo's log or the shell history;
-#  the re-exec gets no token arguments
-OPT_TOKEN_ASK=""
-parse_args --token --yes
-check "bare --token asks" "${OPT_TOKEN_ASK:-}" 1
-check "re-exec args without the token" "$(without_secret_args --version=v1 --token --token=abc --yes | tr '
-' ' ')" "--version=v1 --yes "
+#  The re-exec gets no admin password on its command line
 check "re-exec args without the admin password" "$(without_secret_args --admin-email=a@b.c --admin-password='S3cret!pass' --yes | tr '
 ' ' ')" "--admin-email=a@b.c --yes "
 OPT_YES=""
@@ -353,14 +347,14 @@ check "addons parsed" "${OPT_ADDONS[*]}" "ispgrid/ipdr acme/other@^1.0"
 check "removed addons parsed" "${OPT_REMOVE_ADDONS[*]}" "acme/old"
 check "bad addon refused" "$(yes_no parse_args --addon=ipdr)" no
 
-#  Questions: --yes skips them, but not one an option asked for (--token asks with --yes too)
+#  Questions: asked on a terminal, skipped with --yes or without one
 has_terminal() { return 0; }
+check "terminal asks" "$(yes_no can_ask)" yes
 OPT_YES=1
 check "--yes skips questions" "$(yes_no can_ask)" no
-check "--yes still asks for the token" "$(yes_no can_ask always)" yes
-has_terminal() { return 1; }
-check "no terminal, no token question" "$(yes_no can_ask always)" no
 unset OPT_YES
+has_terminal() { return 1; }
+check "no terminal, no questions" "$(yes_no can_ask)" no
 
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)
