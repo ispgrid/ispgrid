@@ -59,6 +59,8 @@ yarn-error.log
 /.gemini
 /.github/*
 !/.github/workflows/
+!/.github/ISSUE_TEMPLATE/
+!/.github/dependabot.yml
 /.grok
 /.junie
 /.kiro

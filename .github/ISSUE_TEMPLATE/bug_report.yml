@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in ISPGrid or its installer does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. A security problem goes to private reporting instead (see SECURITY.md), not here.
+
+        Issues are public: leave out passwords, RADIUS secrets, public IPs and customer data (names, mobiles, usernames).
+  - type: input
+    id: version
+    attributes:
+      label: ISPGrid version
+      description: "The first line of `sudo ispgrid-info`, for example: ISPGrid v0.1.0 (2a3788d)"
+    validations:
+      required: true
+  - type: dropdown
+    id: ubuntu
+    attributes:
+      label: Ubuntu version
+      options:
+        - "24.04"
+        - "26.04"
+        - Other (say which below)
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Install command
+      description: The installer command and options you ran. Leave out --admin-password.
+      placeholder: curl -fsSL ... | sudo bash -s -- --domain=panel.example.com
+  - type: input
+    id: addons
+    attributes:
+      label: Add-ons
+      description: The "Add-ons" row of `sudo ispgrid-info`, or "none".
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw (the error, a screenshot), and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Customers, then ...
+        2. ...
+  - type: textarea
+    id: log
+    attributes:
+      label: Install log
+      description: "For installer problems: the last 50 lines of the log (`sudo tail -n 50 /var/log/ispgrid-install.log`)."
+      render: text
+  - type: input
+    id: nas
+    attributes:
+      label: NAS
+      description: For login, speed or disconnect problems, the NAS model and its RouterOS version.
+      placeholder: MikroTik hAP ax2, RouterOS 7.16
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before you send it
+      options:
+        - label: I removed passwords, RADIUS secrets, public IPs and customer data.
+          required: true

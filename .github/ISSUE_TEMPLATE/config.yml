@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/ispgrid/ispgrid/security/advisories/new
+    about: Report it privately, not in a public issue (see SECURITY.md).
+  - name: Session records (IPDR) add-on
+    url: https://github.com/ispgrid/ipdr/issues
+    about: Problems with the Session records page, its archive or its search go to the add-on's repository.
