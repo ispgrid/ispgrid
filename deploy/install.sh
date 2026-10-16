@@ -374,6 +374,38 @@ addon_version() {
   php -r '$i = json_decode(file_get_contents($argv[1]), true);
     foreach ($i["packages"] ?? [] as $p) { if ($p["name"] === $argv[2]) { echo $p["version"], "\n"; } }' "$1" "$2"
 }
+#  Add-on databases: an add-on lists the databases it creates in extra.ispgrid.databases; the installer saves the
+#  list in addons.json, so after a removal (when the add-on's code is gone) it can say how to delete them.
+#  addon_db_valid <name>: ispgrid_ plus lowercase letters, digits and _ (the panel's user may create only those)
+addon_db_valid() { [[ "$1" =~ ^ispgrid_[a-z0-9_]{1,56}$ ]]; }
+#  addon_databases <add-on composer.json>: the databases it lists, one per line
+addon_databases() {
+  php -r '$c = json_decode(file_get_contents($argv[1]), true);
+    foreach ((array) ($c["extra"]["ispgrid"]["databases"] ?? []) as $db) { echo $db, "\n"; }' "$1"
+}
+#  addon_save_databases <addons.json> <vendor/package> [database...]: saves the list with the add-on's entry
+addon_save_databases() {
+  local file=$1 name=$2
+  shift 2
+  php -r '$file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
+    $addons[$argv[2]]["databases"] = array_slice($argv, 3);
+    file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$file" "$name" "$@"
+}
+#  addon_saved_databases <addons.json> <vendor/package>: the saved list, valid names only (the file can be edited)
+addon_saved_databases() {
+  local db
+  while IFS= read -r db; do
+    if addon_db_valid "$db"; then printf '%s\n' "$db"; fi
+  done < <(php -r '$a = json_decode(file_get_contents($argv[1]), true) ?: [];
+    foreach ((array) ($a[$argv[2]]["databases"] ?? []) as $db) { echo $db, "\n"; }' "$1" "$2")
+}
+#  addon_db_owner <addons.json> <database> <vendor/package>: another add-on that already lists this database
+addon_db_owner() {
+  php -r '$a = json_decode(file_get_contents($argv[1]), true) ?: [];
+    foreach ($a as $name => $addon) {
+      if ($name !== $argv[3] && in_array($argv[2], (array) ($addon["databases"] ?? []), true)) { echo $name, "\n"; }
+    }' "$1" "$2" "$3"
+}
 
 valid_cidr() {
   [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$ ]] || return 1

@@ -74,6 +74,11 @@ example to copy.
   change in any release.
 - **What it must not do:** write `radcheck`, `radreply`, `radusergroup`, `radacct` or any other `rad*` table.
   Anything FreeRADIUS must do differently is a core change.
+- **Its own database:** name it `ispgrid_` and then lowercase letters, digits or `_` (the panel's database user can
+  create only those, and the nightly backup dumps every one), create it in a migration, and list it in
+  `extra.ispgrid.databases`, e.g. `"databases": ["ispgrid_ipdr"]`. The installer refuses a database that another
+  add-on lists. When the add-on is removed, its data is kept and the installer shows how to delete each listed
+  database.
 - **Permissions:** register the box in the provider and insert its `permissions` row (guard `web`) in a migration.
 - **Strings:** `__()` everywhere, and a `lang/hi.json` loaded with `loadJsonTranslationsFrom()`.
 - **Develop locally:** in the core checkout, `composer config repositories.my-addon path ../path/to/addon` and
