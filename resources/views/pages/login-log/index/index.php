@@ -1,7 +1,7 @@
 <?php
 
-use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\LoginResult;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Nas;

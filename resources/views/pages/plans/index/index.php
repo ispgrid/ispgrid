@@ -1,7 +1,7 @@
 <?php
 
 use App\Actions\Radius\SyncPlanToRadius;
-use App\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Plan;
 use App\Support\Money;

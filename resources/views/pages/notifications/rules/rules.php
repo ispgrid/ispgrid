@@ -1,7 +1,7 @@
 <?php
 
-use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\NotificationStatus;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\NotificationProvider;
 use App\Models\NotificationRule;

@@ -1,9 +1,9 @@
 <?php
 
-use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\AccountStatus;
 use App\Enums\NotificationStatus;
 use App\Enums\ServiceType;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\NotificationProvider;
 use App\Models\NotificationRule;

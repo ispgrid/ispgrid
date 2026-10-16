@@ -21,5 +21,7 @@ parameters:
         -
             identifier: trait.unused
             paths:
+                - app/Livewire/Concerns/AuthorizesEveryRequest.php
+                - app/Livewire/Concerns/ConfirmsPasswordAgain.php
                 - app/Livewire/Concerns/RestartsFreeRadius.php
                 - app/Livewire/Concerns/ShowsToasts.php

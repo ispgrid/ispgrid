@@ -1,6 +1,6 @@
 <?php
 
-use App\Concerns\ConfirmsPasswordAgain;
+use App\Livewire\Concerns\ConfirmsPasswordAgain;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use Livewire\Attributes\Computed;

@@ -2,11 +2,11 @@
 
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
-use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\Address;

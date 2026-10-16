@@ -1,7 +1,7 @@
 <?php
 
 use App\Actions\Radius\ReplaceRadiusValue;
-use App\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\RestartsFreeRadius;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Nas;

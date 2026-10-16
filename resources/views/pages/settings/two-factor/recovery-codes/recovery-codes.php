@@ -1,6 +1,6 @@
 <?php
 
-use App\Concerns\ConfirmsPasswordAgain;
+use App\Livewire\Concerns\ConfirmsPasswordAgain;
 use Laravel\Fortify\Actions\GenerateNewRecoveryCodes;
 use Livewire\Attributes\Locked;
 use Livewire\Component;

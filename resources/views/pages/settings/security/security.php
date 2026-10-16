@@ -1,7 +1,7 @@
 <?php
 
-use App\Concerns\ConfirmsPasswordAgain;
 use App\Concerns\PasswordValidationRules;
+use App\Livewire\Concerns\ConfirmsPasswordAgain;
 use App\Livewire\Concerns\ShowsToasts;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;

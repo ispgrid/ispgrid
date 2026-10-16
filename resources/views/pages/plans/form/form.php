@@ -1,11 +1,11 @@
 <?php
 
 use App\Actions\Radius\SyncPlanToRadius;
-use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\ServiceType;
 use App\Enums\SlotMode;
 use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
 use App\Models\AddressList;

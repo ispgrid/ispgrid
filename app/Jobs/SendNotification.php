@@ -54,7 +54,7 @@ class SendNotification implements ShouldQueue
         // Checked again at send time: the customer may have been deleted, or switched reminders off, since it was queued.
         if ($log->once_key !== null && $log->account_id !== null) {
             $account = Account::withTrashed()->find($log->account_id);
-            $trigger = $log->rule === null ? null : $registry->trigger($log->rule->trigger);
+            $trigger = $registry->trigger($log->rule->trigger);
 
             if ($account === null || $account->trashed()) {
                 $log->update(['status' => NotificationStatus::Failed, 'error' => __('The customer was deleted.')]);

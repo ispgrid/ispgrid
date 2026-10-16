@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Concerns;
+namespace App\Livewire\Concerns;
 
 /**
  * For pages behind a permission. Livewire runs mount() only when the page opens, so the page's access check runs
