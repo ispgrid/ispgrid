@@ -1,0 +1,24 @@
+name: Feature request
+description: Something ISPGrid should do that it does not do yet.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What you want
+      description: What ISPGrid should do, in a few sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The problem it solves for your ISP, and how you handle it today.
+    validations:
+      required: true
+  - type: input
+    id: size
+    attributes:
+      label: Your network
+      description: Optional. Roughly how many customers and which NAS, so we know where it matters.
+      placeholder: 400 customers, 3 MikroTik NAS, PPPoE and hotspot
