@@ -35,7 +35,7 @@ a customer who is online is changed, their session is disconnected so the change
 - **Import:** customers from CSV, checked by the same rules as the form.
 - **Languages:** English and Hindi; each staff member picks their own. More can be added (see `CONTRIBUTING.md`).
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for NAS that
-  are not on your network, and a FreeRADIUS self-test (161 checks) at the end of every install and upgrade.
+  are not on your network, and a FreeRADIUS self-test (163 checks) at the end of every install and upgrade.
 
 ## Requirements
 
