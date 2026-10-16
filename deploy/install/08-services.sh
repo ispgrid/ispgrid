@@ -8,6 +8,10 @@ install -m 644 "$deploy/php/ispgrid-fpm.conf" /etc/php/8.5/fpm/pool.d/ispgrid.co
 systemctl enable -q php8.5-fpm
 systemctl restart php8.5-fpm
 
+#  server_tokens off for all of nginx, unless nginx.conf or another conf.d file sets it already (a second one fails).
+if ! grep -rqsE '^[[:space:]]*server_tokens[[:space:]]' /etc/nginx/nginx.conf /etc/nginx/conf.d --exclude=ispgrid.conf; then
+  install -m 644 "$deploy/nginx/ispgrid-http.conf" /etc/nginx/conf.d/ispgrid.conf
+fi
 sed "s/__SERVER_NAME__/${DOMAIN:-_}/" "$deploy/nginx/ispgrid.conf" > /etc/nginx/sites-available/ispgrid
 install -m 644 "$deploy/nginx/ispgrid-notice.conf" /etc/nginx/sites-available/ispgrid-notice
 ln -sfn ../sites-available/ispgrid /etc/nginx/sites-enabled/ispgrid
