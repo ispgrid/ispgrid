@@ -80,6 +80,22 @@ class PasswordResetTest extends TestCase
         });
     }
 
+    public function test_the_reset_link_points_at_the_panel_address_not_the_host_the_request_named(): void
+    {
+        Notification::fake();
+        config(['app.url' => 'https://panel.example.com']);
+        $user = User::factory()->create();
+
+        $this->post('http://attacker.example/forgot-password', ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+            $url = $notification->toMail($user)->actionUrl;
+            $this->assertStringStartsWith('https://panel.example.com/reset-password/', $url);
+
+            return true;
+        });
+    }
+
     public function test_resetting_a_forgotten_password_logs_the_user_out_everywhere(): void
     {
         Notification::fake();

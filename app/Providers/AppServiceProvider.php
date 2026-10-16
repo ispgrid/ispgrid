@@ -20,6 +20,7 @@ use App\Support\Permissions;
 use App\Support\SessionKeepers;
 use Carbon\CarbonImmutable;
 use Closure;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -74,6 +75,11 @@ class AppServiceProvider extends ServiceProvider
         View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->user(), request())));
 
         Passkeys::usePasskeyModel(Passkey::class);
+
+        // The reset link goes to the panel's own address: the Host header is the visitor's to choose, and a link
+        // built from it would send the reset token to their server.
+        ResetPassword::createUrlUsing(fn (User $user, string $token): string => rtrim((string) config('app.url'), '/')
+            .route('password.reset', ['token' => $token, 'email' => $user->getEmailForPasswordReset()], false));
     }
 
     /**
