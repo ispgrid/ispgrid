@@ -764,8 +764,10 @@ parse_args() {
   done
 }
 
-#  can_ask: there is a terminal to ask on (also when the script itself comes from a pipe) and no --yes
-can_ask() { [[ -z "${OPT_YES:-}" ]] && { : </dev/tty; } 2>/dev/null; }
+#  has_terminal: there is a terminal to ask on (also when the script itself comes from a pipe)
+has_terminal() { { : </dev/tty; } 2>/dev/null; }
+#  can_ask [always]: a terminal and no --yes; "always" for a question an option asked for (--token), which --yes keeps
+can_ask() { has_terminal && [[ -z "${OPT_YES:-}" || "${1:-}" == always ]]; }
 
 #  ask_pause: stops the spinner so the question stays readable (also from inside $( ))
 ask_pause() {
@@ -787,10 +789,10 @@ ask() {
   printf '%s\n' "${reply:-$2}"
 }
 
-#  ask_secret <question>: like ask, hidden, no default
+#  ask_secret <question> [always]: like ask, hidden, no default
 ask_secret() {
   local reply=""
-  if can_ask; then
+  if can_ask "${2:-}"; then
     ask_pause
     read -r -s -p "$1: " reply </dev/tty 2>&3
     printf '\n' >&3
@@ -1108,8 +1110,9 @@ main() {
   fi
   [[ $EUID -eq 0 ]] || die "Run as root: sudo bash install.sh"
   if [[ -n "${OPT_TOKEN_ASK:-}" && -z "${OPT_TOKEN:-}" ]]; then
-    OPT_TOKEN=$(ask_secret "GitHub token")
-    [[ -n "$OPT_TOKEN" ]] || die "--token asks for the token on the terminal; there is none (use --token=TOKEN)."
+    has_terminal || die "--token asks for the token, but there is no terminal to ask on (use --token=TOKEN)."
+    OPT_TOKEN=$(ask_secret "GitHub token" always)
+    [[ -n "$OPT_TOKEN" ]] || die "No GitHub token entered."
   fi
   trap on_error ERR
   REPORT_FAILURES=1
