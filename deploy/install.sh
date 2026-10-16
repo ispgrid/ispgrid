@@ -43,8 +43,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --admin-name=NAME         first install: the admin's name (default: Admin)
   --admin-email=EMAIL       first install: the admin's login email (required)
   --admin-password=PASS     first install: at least 12 characters with upper and lower case, a digit and a
-                            symbol (default: asked, hidden; with --yes generated and shown once). Like
-                            --token=TOKEN, sudo's log and the shell history keep the command line
+                            symbol (default: asked, hidden; with --yes generated and shown once). sudo's
+                            log and the shell history keep the command line
   --timezone=AREA/CITY      the server's timezone, used by FreeRADIUS, MariaDB and the panel (default: the
                             server's own; when that is UTC, the one ipapi.co gives for this server's public IP)
   --wg-subnet=CIDR          wireguard only: the tunnel network (default: 10.250.0.0/24)
@@ -52,8 +52,6 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --wg-endpoint=ADDRESS     wireguard only: the public address the routers/NAS connect to (default: public IP)
   --l2tp-subnet=CIDR        l2tp only: the tunnel network (default: 10.251.0.0/24)
   --version=vX.Y.Z          the version to install or upgrade to (default: the newest release)
-  --token                   asks (hidden) for a GitHub token with read access, while the repository is private.
-                            --token=TOKEN also works, but sudo's log and the shell history keep the command line
   --yes                     ask nothing
   --verbose                 show every command's output (it always goes to /var/log/ispgrid-install.log)
   --skip-selftest           skip the FreeRADIUS self-test at the end (163 checks, about 3 minutes)
@@ -762,8 +760,6 @@ parse_args() {
       --wg-subnet=*) OPT_WG_SUBNET=${arg#*=} ;;
       --wg-port=*) OPT_WG_PORT=${arg#*=} ;;
       --version=*) OPT_VERSION=${arg#*=} ;;
-      --token=*) OPT_TOKEN=${arg#*=} ;;
-      --token) OPT_TOKEN_ASK=1 ;;
       --repo=*) OPT_REPO=${arg#*=} ;;
       --steps=*) OPT_STEPS=${arg#*=} ;;
       --yes) OPT_YES=1 ;;
@@ -782,8 +778,8 @@ parse_args() {
 
 #  has_terminal: there is a terminal to ask on (also when the script itself comes from a pipe)
 has_terminal() { { : </dev/tty; } 2>/dev/null; }
-#  can_ask [always]: a terminal and no --yes; "always" for a question an option asked for (--token), which --yes keeps
-can_ask() { has_terminal && [[ -z "${OPT_YES:-}" || "${1:-}" == always ]]; }
+#  can_ask: a terminal and no --yes
+can_ask() { has_terminal && [[ -z "${OPT_YES:-}" ]]; }
 
 #  ask_pause: stops the spinner so the question stays readable (also from inside $( ))
 ask_pause() {
@@ -805,10 +801,10 @@ ask() {
   printf '%s\n' "${reply:-$2}"
 }
 
-#  ask_secret <question> [always]: like ask, hidden, no default
+#  ask_secret <question>: like ask, hidden, no default
 ask_secret() {
   local reply=""
-  if can_ask "${2:-}"; then
+  if can_ask; then
     ask_pause
     read -r -s -p "$1: " reply </dev/tty 2>&3
     printf '\n' >&3
@@ -888,25 +884,16 @@ ip_info() {
 #  primary_ip: the address this server uses to reach the internet
 primary_ip() { ip -4 route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }'; }
 
-#  git_auth <git args...>: git with the token as an HTTP header for this command only, passed in the environment
-#  (not stored, not in ps); git never prompts
-git_auth() {
-  if [[ -n "${OPT_TOKEN:-}" ]]; then
-    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader \
-      GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'x-access-token:%s' "$OPT_TOKEN" | base64 -w0)" \
-      GIT_TERMINAL_PROMPT=0 git "$@"
-  else
-    GIT_TERMINAL_PROMPT=0 git "$@"
-  fi
-}
+#  git_remote <git args...>: git that never asks for a login (an unreadable repository fails instead)
+git_remote() { GIT_TERMINAL_PROMPT=0 git "$@"; }
 
-#  without_secret_args <args...>: the arguments, one per line, minus --token and --admin-password (both handed over
-#  in the environment instead): a command line is readable by every user (ps)
+#  without_secret_args <args...>: the arguments, one per line, minus --admin-password (handed over in the
+#  environment instead): a command line is readable by every user (ps)
 without_secret_args() {
   local arg
   for arg in "$@"; do
     case "$arg" in
-      --token | --token=* | --admin-password=*) ;;
+      --admin-password=*) ;;
       *) printf '%s\n' "$arg" ;;
     esac
   done
@@ -1057,18 +1044,15 @@ bootstrap() {
   repo=${repo:-$ISPGRID_REPO_DEFAULT}
   [[ "$repo" == http* ]] && depth=(--depth 1)
   installed=$(conf_get version || true)
-  if [[ "$repo" == http* ]] && ! git_auth ls-remote -q "$repo" HEAD >/dev/null 2>&1; then
-    if [[ -n "${OPT_TOKEN:-}" ]]; then
-      die "Can't read $repo with this token. It needs read access to the repository's contents."
-    fi
-    die "Can't read $repo. While the repository is private, run the installer with --token."
+  if [[ "$repo" == http* ]] && ! git_remote ls-remote -q "$repo" HEAD >/dev/null 2>&1; then
+    die "Can't read $repo (no internet, or a wrong --repo address)."
   fi
   if [[ -n "${OPT_VERSION:-}" ]]; then
     target=$OPT_VERSION
   else
-    mapfile -t tags < <(git_auth ls-remote --tags --refs "$repo" | awk '{ sub("refs/tags/", "", $2); print $2 }')
+    mapfile -t tags < <(git_remote ls-remote --tags --refs "$repo" | awk '{ sub("refs/tags/", "", $2); print $2 }')
     target=$(newest_release "${tags[@]}")
-    [[ -n "$target" ]] || die "No release found in $repo. Give --version (and --token while the repository is private)."
+    [[ -n "$target" ]] || die "No release found in $repo. Give --version."
   fi
   if [[ -n "$installed" ]] && is_release_tag "$installed" && is_release_tag "$target" && version_gt "$installed" "$target"; then
     die "ISPGrid $installed is installed; $target is older. Downgrades are not supported."
@@ -1089,14 +1073,14 @@ bootstrap() {
   CURRENT_STEP="Code"
   if [[ -d "$ISPGRID_HOME/.git" ]]; then
     if is_release_tag "$target"; then
-      git_auth -C "$ISPGRID_HOME" fetch -q "${depth[@]}" --force "$repo" "+refs/tags/$target:refs/tags/$target"
+      git_remote -C "$ISPGRID_HOME" fetch -q "${depth[@]}" --force "$repo" "+refs/tags/$target:refs/tags/$target"
       git -C "$ISPGRID_HOME" checkout -q --force "refs/tags/$target"
     else
-      git_auth -C "$ISPGRID_HOME" fetch -q "${depth[@]}" "$repo" "$target"
+      git_remote -C "$ISPGRID_HOME" fetch -q "${depth[@]}" "$repo" "$target"
       git -C "$ISPGRID_HOME" checkout -q --force FETCH_HEAD
     fi
   else
-    git_auth clone -q "${depth[@]}" --branch "$target" "$repo" "$ISPGRID_HOME"
+    git_remote clone -q "${depth[@]}" --branch "$target" "$repo" "$ISPGRID_HOME"
   fi
 
   export ISPGRID_STAGE=run ISPGRID_TARGET=$target ISPGRID_INSTALLED=$installed ISPGRID_RUN_BACKUP=${ISPGRID_RUN_BACKUP:-}
@@ -1106,10 +1090,6 @@ bootstrap() {
   mapfile -t args < <(without_secret_args "$@")
   if [[ -n "${OPT_ADMIN_PASSWORD:-}" ]]; then
     export OPT_ADMIN_PASSWORD
-  fi
-  #  The token too, for add-ons in private repositories (step 5): the environment, never the command line or a file
-  if [[ -n "${OPT_TOKEN:-}" ]]; then
-    export OPT_TOKEN
   fi
   step_close ok
   exec bash "$ISPGRID_HOME/deploy/install.sh" "${args[@]}"
@@ -1125,11 +1105,6 @@ main() {
     exit 0
   fi
   [[ $EUID -eq 0 ]] || die "Run as root: sudo bash install.sh"
-  if [[ -n "${OPT_TOKEN_ASK:-}" && -z "${OPT_TOKEN:-}" ]]; then
-    has_terminal || die "--token asks for the token, but there is no terminal to ask on (use --token=TOKEN)."
-    OPT_TOKEN=$(ask_secret "GitHub token" always)
-    [[ -n "$OPT_TOKEN" ]] || die "No GitHub token entered."
-  fi
   trap on_error ERR
   REPORT_FAILURES=1
   if [[ "${ISPGRID_STAGE:-}" != run ]]; then

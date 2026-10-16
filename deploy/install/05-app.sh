@@ -11,10 +11,10 @@ chown -R root:root "$ISPGRID_HOME"
 rm -f bootstrap/cache/*.php
 COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
-#  Add-ons: listed in addons.json (git-ignored, so upgrades keep it). Each is required from its GitHub repository,
-#  then one composer update for all of them, without -W: a conflict with the core's lock stops the install.
-#  composer.json and composer.lock show as changed while an add-on is installed; the next upgrade resets and re-adds
-#  them. With --token the token reaches Composer in the environment only (COMPOSER_AUTH), never auth.json.
+#  Add-ons: listed in addons.json (git-ignored, so upgrades keep it). Each is required from its GitHub repository
+#  (cloned with git: no GitHub API, so no hourly limit and no token), then one composer update for all of them,
+#  without -W: a conflict with the core's lock stops the install. composer.json and composer.lock show as changed
+#  while an add-on is installed; the next upgrade resets and re-adds them.
 addons_file="$ISPGRID_HOME/addons.json"
 if (( ${#OPT_ADDONS[@]} + ${#OPT_REMOVE_ADDONS[@]} > 0 )) && [[ ! -f "$addons_file" ]]; then
   printf '{}\n' > "$addons_file"
@@ -42,15 +42,11 @@ if (( ${#addons[@]} > 0 )); then
   for line in "${addons[@]}"; do
     read -r name constraint url <<<"$line"
     addon_valid "$name@$constraint" || die "addons.json has an add-on entry that is not valid: $line"
-    COMPOSER_ALLOW_SUPERUSER=1 composer config "repositories.${name//\//-}" vcs "$url"
+    COMPOSER_ALLOW_SUPERUSER=1 composer config "repositories.${name//\//-}" "{\"type\": \"vcs\", \"url\": \"$url\", \"no-api\": true}"
     COMPOSER_ALLOW_SUPERUSER=1 composer require "$name:$constraint" --no-update --no-interaction
     addon_names+=("$name")
   done
-  composer_auth=""
-  if [[ -n "${OPT_TOKEN:-}" ]]; then
-    composer_auth="{\"github-oauth\":{\"github.com\":\"$OPT_TOKEN\"}}"
-  fi
-  COMPOSER_AUTH=$composer_auth COMPOSER_ALLOW_SUPERUSER=1 composer update "${addon_names[@]}" --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+  COMPOSER_ALLOW_SUPERUSER=1 composer update "${addon_names[@]}" --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
   series=$(core_series "$ISPGRID_TARGET")
   for name in "${addon_names[@]}"; do
     supports=$(php -r '$c = json_decode(file_get_contents($argv[1]), true); echo json_encode($c["extra"]["ispgrid"]["core"] ?? []);' "vendor/$name/composer.json")
