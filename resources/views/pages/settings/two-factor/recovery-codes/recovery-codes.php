@@ -1,11 +1,14 @@
 <?php
 
+use App\Concerns\ConfirmsPasswordAgain;
 use Laravel\Fortify\Actions\GenerateNewRecoveryCodes;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 new class extends Component
 {
+    use ConfirmsPasswordAgain;
+
     #[Locked]
     public array $recoveryCodes = [];
 
@@ -22,6 +25,10 @@ new class extends Component
      */
     public function regenerateRecoveryCodes(GenerateNewRecoveryCodes $generateNewRecoveryCodes): void
     {
+        if (! $this->passwordStillConfirmed()) {
+            return;
+        }
+
         $generateNewRecoveryCodes(auth()->user());
 
         $this->loadRecoveryCodes();
