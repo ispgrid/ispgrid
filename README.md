@@ -82,6 +82,7 @@ Common options (all of them: `sudo bash install.sh --help`):
 | `--version=vX.Y.Z` | The version to install. Default: the newest release. |
 | `--addon=ispgrid/ipdr` | Install an add-on, such as Session records (IPDR) for Indian ISPs. Upgrades keep it. |
 | `--remove-addon=ispgrid/ipdr` | Remove an add-on. Its data, such as its database, is kept. |
+| `--remove-addon=ispgrid/ipdr --delete-data` | Remove an add-on and delete its data (also for one removed earlier). The backup taken at the start of the run keeps a copy. |
 | `--yes` | Ask nothing and use the defaults. |
 
 Passkeys need the panel on HTTPS with a domain name (`--access=domain`); browsers do not offer them over plain HTTP.
@@ -161,6 +162,12 @@ sudo /opt/ispgrid/deploy/install.sh --yes
 
 The last step sets the database passwords to the restored ones, installs the add-ons again, restarts the services
 and the tunnels, and brings the panel back up.
+
+## Uninstall
+
+There is no uninstaller. ISPGrid sets up the whole server (MariaDB, FreeRADIUS, nginx, PHP, the firewall and the
+tunnels), which is why it needs a fresh one. To stop using it, copy `/var/backups/ispgrid` to another machine and
+rebuild the server.
 
 ## Where things are
 
