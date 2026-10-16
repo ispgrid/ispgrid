@@ -198,6 +198,28 @@ Releases are tags (`v0.1.0`), and the installer installs tags.
 
 Please report security problems privately, not in a public issue: see [`SECURITY.md`](SECURITY.md).
 
+How the installer locks the server down:
+
+- **The panel runs as its own user, `ispgrid`, not root.** PHP-FPM, the queue worker and the scheduler all run as
+  that user. It has no login shell.
+- **That user cannot change the panel's code.** `/opt/ispgrid` belongs to root; `ispgrid` can write only `storage/`
+  and `bootstrap/cache`. If someone broke into the panel, they could not rewrite its code or plant anything in
+  `vendor/`.
+- **`.env` is readable by the panel, not writable** (`root:ispgrid`, mode 640), and other users cannot read it.
+- **One root command.** The panel's only sudo rule is `systemctl restart freeradius`, for RADIUS settings changes.
+- **Root never runs the panel's code.** The installer runs Composer as root without its scripts and every
+  `artisan` command as `ispgrid`.
+- **The database login is limited** to the `radius` database and add-on databases named `ispgrid_...`; FreeRADIUS
+  only reads `radius`.
+- **Secrets stay off command lines**, which every user can read with `ps`: the admin password is handed over in the
+  environment.
+- **ufw opens only what is needed:** SSH, the panel (with `--access=local`, only to private networks), and RADIUS,
+  the notice page and the WireGuard or L2TP tunnel for your NAS.
+
+So installing an add-on or upgrading needs root: use the installer (`--addon=...`, or run it again), not
+`composer` as the `ispgrid` user. Don't give `ispgrid` ownership of `/opt/ispgrid` to get around that: it removes the
+protection, and a package added with Composer by hand is removed at the next upgrade anyway.
+
 ## Contributing
 
 Pull requests are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) explains how to add a language, a notification
