@@ -12,6 +12,11 @@
 
 ---
 
+> [!WARNING]
+> **Preview: not ready for production yet.** Until v1.0.0, a release can bring breaking changes. Try it on a test
+> server or with a few customers, and read the release notes before you upgrade (the installer takes a backup before
+> it changes anything).
+
 ISPGrid installs FreeRADIUS, MariaDB and a web panel on one Ubuntu server. Your MikroTik NAS send their logins to it,
 and your staff manage customers in the panel. Every change in the panel is written to FreeRADIUS at once; when
 a customer who is online is changed, their session is disconnected so the change applies now.
