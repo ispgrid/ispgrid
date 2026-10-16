@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
 use App\Models\NotificationProvider;
@@ -15,7 +16,7 @@ use Livewire\Component;
 
 new #[Title('Notification providers')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     private const DATE_FORMATS = ['d-M-Y', 'd/m/Y', 'd-m-Y', 'Y-m-d', 'M j, Y'];
 
@@ -41,7 +42,7 @@ new #[Title('Notification providers')] class extends Component
 
     public function mount(): void
     {
-        $this->authorize('manage-notification-providers');
+        $this->authorizeAccess();
 
         foreach ($this->registry()->providers() as $key => $class) {
             $this->load($key, $class::settingFields());
@@ -51,6 +52,14 @@ new #[Title('Notification providers')] class extends Component
         $this->notify_hours_to = (string) AppSetting::valueOf('notify_hours_to', '21:00');
         $this->notify_date_format = (string) AppSetting::valueOf('notify_date_format', 'd-M-Y');
         $this->notify_time_format = (string) AppSetting::valueOf('notify_time_format', 'h:iA');
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        $this->authorize('manage-notification-providers');
     }
 
     /**

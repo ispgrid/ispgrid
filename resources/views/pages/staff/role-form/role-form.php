@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Models\Role;
 use App\Support\Permissions;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,8 @@ use Livewire\Component;
 
 new #[Title('Role')] class extends Component
 {
+    use AuthorizesEveryRequest;
+
     #[Locked]
     public ?int $roleId = null;
 
@@ -26,7 +29,7 @@ new #[Title('Role')] class extends Component
      */
     public function mount(?int $role = null): void
     {
-        $this->authorize('manage-staff');
+        $this->authorizeAccess();
 
         if ($role === null) {
             return;
@@ -38,6 +41,14 @@ new #[Title('Role')] class extends Component
         $this->roleId = $model->id;
         $this->name = $model->name;
         $this->permissions = $model->permissions->pluck('name')->all();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        $this->authorize('manage-staff');
     }
 
     /**

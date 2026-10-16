@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\LoginResult;
 use App\Models\Account;
 use App\Models\AppSetting;
@@ -15,7 +16,7 @@ use Livewire\WithPagination;
 
 new #[Title('Login log')] class extends Component
 {
-    use WithPagination;
+    use AuthorizesEveryRequest, WithPagination;
 
     private const FILTERS = ['username', 'result', 'reason', 'router'];
 
@@ -35,6 +36,14 @@ new #[Title('Login log')] class extends Component
     public string $router = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('view-login-log');
     }

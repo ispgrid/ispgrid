@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\AccountStatus;
 use App\Enums\NotificationStatus;
 use App\Enums\ServiceType;
@@ -21,7 +22,7 @@ use Livewire\Component;
 
 new #[Title('Notification rule')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     #[Locked]
     public ?int $ruleId = null;
@@ -56,7 +57,7 @@ new #[Title('Notification rule')] class extends Component
 
     public function mount(?int $rule = null): void
     {
-        $this->authorize('manage-notification-rules');
+        $this->authorizeAccess();
         if ($rule === null) {
             $this->provider = NotificationProvider::enabledKeys()[0] ?? '';
             $this->resetTemplate();
@@ -76,6 +77,14 @@ new #[Title('Notification rule')] class extends Component
         $this->plans = array_map('strval', $model->filters['plans'] ?? []);
         $this->serviceTypes = $model->filters['service_types'] ?? [];
         $this->statuses = array_map('strval', $model->filters['statuses'] ?? []);
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        $this->authorize('manage-notification-rules');
     }
 
     public function updatedTrigger(): void

@@ -69,7 +69,7 @@ Common options (all of them: `sudo bash install.sh --help`):
 | Option | What it does |
 |---|---|
 | `--routers=lan\|wireguard\|l2tp\|public` | Where your NAS are (see below). Default: `lan`. |
-| `--access=local\|public\|domain` | How you open the panel: on your network, on a public IP, or on a domain with HTTPS. |
+| `--access=local\|public\|domain` | How you open the panel: on your network (the firewall lets only private networks reach it), on a public IP, or on a domain with HTTPS. |
 | `--domain=panel.example.com` | With `--access=domain`: the name pointing at this server, for a Let's Encrypt certificate. |
 | `--le-email=EMAIL` | With `--access=domain`: where Let's Encrypt sends certificate expiry notices. Default: the admin's email. |
 | `--admin-email=EMAIL` | The first admin's login. The password is asked (hidden); with `--yes` it is generated and shown once. |

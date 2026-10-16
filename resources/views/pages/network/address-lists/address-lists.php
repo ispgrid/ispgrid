@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Radius\ReplaceRadiusValue;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AddressList;
 use App\Rules\NotUsedByTrashed;
@@ -13,7 +14,7 @@ use Livewire\Component;
 
 new #[Title('Address lists')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     public ?int $editingId = null;
 
@@ -22,6 +23,14 @@ new #[Title('Address lists')] class extends Component
     public string $description = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', AddressList::class);
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
@@ -16,7 +17,7 @@ use Livewire\WithPagination;
 
 new #[Title('Online')] class extends Component
 {
-    use ShowsToasts, WithPagination;
+    use AuthorizesEveryRequest, ShowsToasts, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -28,6 +29,14 @@ new #[Title('Online')] class extends Component
     public string $router = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('view-online-sessions');
     }

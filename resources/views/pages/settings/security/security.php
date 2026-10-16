@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\ConfirmsPasswordAgain;
 use App\Concerns\PasswordValidationRules;
 use App\Livewire\Concerns\ShowsToasts;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,7 @@ use Livewire\Component;
 
 new #[Title('Security settings')] class extends Component
 {
-    use PasswordValidationRules, ShowsToasts;
+    use ConfirmsPasswordAgain, PasswordValidationRules, ShowsToasts;
 
     public string $current_password = '';
 
@@ -83,6 +84,8 @@ new #[Title('Security settings')] class extends Component
         Auth::user()->update([
             'password' => $validated['password'],
         ]);
+        // Other devices are logged out; this one stays.
+        Auth::user()->endSessions(session()->getId());
 
         $this->reset('current_password', 'password', 'password_confirmation');
 
@@ -125,7 +128,7 @@ new #[Title('Security settings')] class extends Component
      */
     public function deletePasskey(DeletePasskey $deletePasskey): void
     {
-        if (! $this->deletingPasskeyId) {
+        if (! $this->deletingPasskeyId || ! $this->passwordStillConfirmed()) {
             return;
         }
 
@@ -161,6 +164,10 @@ new #[Title('Security settings')] class extends Component
      */
     public function disable(DisableTwoFactorAuthentication $disableTwoFactorAuthentication): void
     {
+        if (! $this->passwordStillConfirmed()) {
+            return;
+        }
+
         $disableTwoFactorAuthentication(auth()->user());
 
         $this->twoFactorEnabled = false;

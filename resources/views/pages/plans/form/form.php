@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Radius\SyncPlanToRadius;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\ServiceType;
 use App\Enums\SlotMode;
 use App\Enums\ValidityUnit;
@@ -29,7 +30,7 @@ use Livewire\Component;
 
 new #[Title('Plan')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     /**
      * Weekdays in the order FreeRADIUS reads them (Isp-Slot-Days).
@@ -185,6 +186,20 @@ new #[Title('Plan')] class extends Component
             ->map(fn (PlanAttribute $attribute): array => ['attribute' => $attribute->attribute, 'value' => $attribute->value])
             ->values()
             ->all();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        if ($this->planId === null) {
+            $this->authorize('create', Plan::class);
+
+            return;
+        }
+
+        $this->authorize('update', Plan::query()->findOrFail($this->planId));
     }
 
     /**

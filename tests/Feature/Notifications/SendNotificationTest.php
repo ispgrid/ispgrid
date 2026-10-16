@@ -2,6 +2,7 @@
 
 use App\Enums\NotificationStatus;
 use App\Jobs\SendNotification;
+use App\Models\Account;
 use App\Models\NotificationLog;
 use App\Models\NotificationProvider;
 use App\Models\NotificationRule;
@@ -135,4 +136,39 @@ it('fails a test message the provider asks to retry, since a test is not tried a
     $log = app(Notifier::class)->sendTest(NotificationRule::factory()->create(), '+919876543210');
 
     expect($log->status)->toBe(NotificationStatus::Failed)->and($log->error)->toBe('rate_limited');
+});
+
+it('stops a reminder when the customer switched reminders off after it was queued', function () {
+    $rule = NotificationRule::factory()->create(['enabled' => true]);
+    $account = Account::factory()->create(['notifications_off' => true]);
+    $log = NotificationLog::factory()->create(['notification_rule_id' => $rule->id, 'account_id' => $account->id, 'once_key' => 'k1']);
+
+    runJob($log);
+
+    expect($log->fresh()->status)->toBe(NotificationStatus::Failed)
+        ->and($log->fresh()->error)->toBe(__('The customer has reminders switched off.'))
+        ->and(FakeProvider::$sent)->toBe([]);
+});
+
+it('still sends a recharge confirmation to a customer with reminders off', function () {
+    $rule = NotificationRule::factory()->create(['enabled' => true, 'trigger' => 'recharge_done', 'trigger_settings' => []]);
+    $account = Account::factory()->create(['notifications_off' => true]);
+    $log = NotificationLog::factory()->create(['notification_rule_id' => $rule->id, 'account_id' => $account->id, 'once_key' => 'k1']);
+
+    runJob($log);
+
+    expect($log->fresh()->status)->toBe(NotificationStatus::Sent);
+});
+
+it('stops a message to a customer deleted after it was queued', function () {
+    $rule = NotificationRule::factory()->create(['enabled' => true, 'trigger' => 'recharge_done', 'trigger_settings' => []]);
+    $account = Account::factory()->create();
+    $log = NotificationLog::factory()->create(['notification_rule_id' => $rule->id, 'account_id' => $account->id, 'once_key' => 'k1']);
+    $account->delete();
+
+    runJob($log);
+
+    expect($log->fresh()->status)->toBe(NotificationStatus::Failed)
+        ->and($log->fresh()->error)->toBe(__('The customer was deleted.'))
+        ->and(FakeProvider::$sent)->toBe([]);
 });

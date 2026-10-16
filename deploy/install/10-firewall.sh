@@ -22,7 +22,7 @@ note_space=" "
 mode=$(firewall_mode "$ufw_active" "$firewalld_active" "$other")
 
 ssh_port=$(sshd -T 2>/dev/null | awk '$1 == "port" && !found { print $2; found = 1 }' || true)
-mapfile -t rules < <(firewall_rules "$ROUTERS" "${ssh_port:-22}" "${L2TP_SUBNET:-$ROUTER_NETWORK}" "$WG_PORT")
+mapfile -t rules < <(firewall_rules "$ROUTERS" "${ssh_port:-22}" "${L2TP_SUBNET:-$ROUTER_NETWORK}" "$WG_PORT" "$ACCESS")
 
 if [[ "$mode" == other ]]; then
   FIREWALL_NOTE="A firewall is already managed on this server ($([[ "$firewalld_active" == yes ]] && echo firewalld || echo nftables/iptables rules)); nothing was changed. Allow these ports in it (shown as ufw rules):"
@@ -70,7 +70,9 @@ else
     public) routers_note="; RADIUS and 8088 from anywhere (FreeRADIUS answers only the routers/NAS added in the panel)" ;;
     *) routers_note="; RADIUS and 8088 from $ROUTER_NETWORK" ;;
   esac
-  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), 80, 443$routers_note."
+  panel_ports="80, 443"
+  [[ "$ACCESS" == local ]] && panel_ports="80 from private networks only"
+  FIREWALL_NOTE="ufw: SSH (${ssh_port:-22}), $panel_ports$routers_note."
   say "$FIREWALL_NOTE"
 fi
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\NotificationStatus;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\NotificationProvider;
@@ -12,9 +13,17 @@ use Livewire\Component;
 
 new #[Title('Notification rules')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('manage-notification-rules');
     }

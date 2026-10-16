@@ -5,6 +5,7 @@ use App\Actions\Import\Importer;
 use App\Actions\Import\ImportPlans;
 use App\Actions\Import\ImportTime;
 use App\Actions\Import\RowError;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Exceptions\ImportFailed;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Support\CsvFile;
@@ -17,7 +18,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Import')] class extends Component
 {
-    use ShowsToasts, WithFileUploads;
+    use AuthorizesEveryRequest, ShowsToasts, WithFileUploads;
 
     /**
      * @var ?TemporaryUploadedFile
@@ -44,6 +45,14 @@ new #[Title('Import')] class extends Component
     public array $ready = ['plans' => null, 'customers' => null];
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('import-data');
     }

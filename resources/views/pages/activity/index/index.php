@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Models\AppSetting;
 use App\Models\User;
 use App\Support\ActivityFormatter;
@@ -14,7 +15,7 @@ use Spatie\Activitylog\Models\Activity;
 
 new #[Title('Activity log')] class extends Component
 {
-    use WithPagination;
+    use AuthorizesEveryRequest, WithPagination;
 
     #[Url]
     public string $staff = '';
@@ -23,6 +24,14 @@ new #[Title('Activity log')] class extends Component
     public string $type = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('view-activity-log');
     }

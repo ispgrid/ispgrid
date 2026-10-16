@@ -4,6 +4,7 @@ use App\Actions\Customers\RechargeAccount;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
@@ -45,7 +46,7 @@ use Spatie\Activitylog\Models\Activity;
 
 new #[Title('Customer')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     #[Locked]
     public int $accountId;
@@ -81,8 +82,16 @@ new #[Title('Customer')] class extends Component
     public function mount(int $account): void
     {
         $this->accountId = $account;
-        $this->authorize('view', $this->account);
+        $this->authorizeAccess();
         $this->status = (string) $this->account->status_id->value;
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        $this->authorize('view', $this->account);
     }
 
     /**

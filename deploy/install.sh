@@ -342,8 +342,9 @@ newest_release() {
 }
 
 #  ---- Add-ons ----
-#  addon_valid <spec>: vendor/package, optionally @constraint (no quotes, semicolons or other shell characters)
-addon_valid() { [[ "$1" =~ ^[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*(@[A-Za-z0-9.^~*|,\<\>=\ -]+)?$ ]]; }
+#  addon_valid <spec>: vendor/package, optionally @constraint (no quotes, semicolons or other shell characters, and
+#  no spaces: addons.json is read back split on spaces; write ">=0.1,<0.2" for "and")
+addon_valid() { [[ "$1" =~ ^[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*(@[A-Za-z0-9.^~*|,\<\>=-]+)?$ ]]; }
 addon_name() { printf '%s\n' "${1%%@*}"; }
 addon_constraint() { if [[ "$1" == *@* ]]; then printf '%s\n' "${1#*@}"; else printf '*\n'; fi; }
 #  core_series <tag>: "0.1" for v0.1.0 or v0.1.0-rc6; nothing for a branch
@@ -484,14 +485,21 @@ foreign_nft_rules() {
   ' <<<"$1"
 }
 
-#  firewall_rules <lan|wireguard|l2tp|public> <ssh port> <router or tunnel network> <wg port>: ufw rules, one per
-#  line (public: RADIUS from anywhere; FreeRADIUS answers only the routers/NAS added in the panel). l2tp also needs
-#  ufw_before_rules_l2tp, as ufw rules cannot ask whether a packet came through IPsec.
+#  firewall_rules <lan|wireguard|l2tp|public> <ssh port> <router or tunnel network> <wg port> [access]: ufw rules,
+#  one per line (public: RADIUS from anywhere; FreeRADIUS answers only the routers/NAS added in the panel). l2tp also
+#  needs ufw_before_rules_l2tp, as ufw rules cannot ask whether a packet came through IPsec. Access local: the panel
+#  (plain HTTP) only from private networks, never from the internet, even on a server with a public interface.
 firewall_rules() {
-  local routers=$1 ssh_port=$2 network=$3 wg_port=$4
+  local routers=$1 ssh_port=$2 network=$3 wg_port=$4 access=${5:-} private
   echo "allow $ssh_port/tcp comment ISPGrid"
-  echo "allow 80/tcp comment ISPGrid"
-  echo "allow 443/tcp comment ISPGrid"
+  if [[ "$access" == local ]]; then
+    for private in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16; do
+      echo "allow from $private to any port 80 proto tcp comment ISPGrid"
+    done
+  else
+    echo "allow 80/tcp comment ISPGrid"
+    echo "allow 443/tcp comment ISPGrid"
+  fi
   [[ "$routers" == public ]] && network=any
   if [[ "$routers" == l2tp ]]; then
     echo "allow to any port 500,4500 proto udp comment ISPGrid"

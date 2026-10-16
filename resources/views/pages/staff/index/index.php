@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Fortify\CreateNewUser;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Role;
 use App\Models\User;
@@ -14,7 +15,7 @@ use Livewire\Component;
 
 new #[Title('Staff')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     public string $name = '';
 
@@ -36,6 +37,14 @@ new #[Title('Staff')] class extends Component
     public ?int $roleStaffId = null;
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', User::class);
     }

@@ -2,6 +2,7 @@
 
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
@@ -40,6 +41,8 @@ use Livewire\Component;
 
 new #[Title('Customer')] class extends Component
 {
+    use AuthorizesEveryRequest;
+
     /**
      * The tab that holds each field, so a tab with an error can be marked.
      *
@@ -213,6 +216,20 @@ new #[Title('Customer')] class extends Component
             ->map(fn (AccountAttribute $attribute): array => ['attribute' => $attribute->attribute, 'value' => $attribute->value])
             ->values()
             ->all();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        if ($this->accountId === null) {
+            $this->authorize('create', Account::class);
+
+            return;
+        }
+
+        $this->authorize('update', Account::query()->findOrFail($this->accountId));
     }
 
     /**

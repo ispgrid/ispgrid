@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Ip;
 use App\Models\IpRange;
@@ -14,7 +15,7 @@ use Livewire\WithPagination;
 
 new #[Title('IP range')] class extends Component
 {
-    use ShowsToasts, WithPagination;
+    use AuthorizesEveryRequest, ShowsToasts, WithPagination;
 
     #[Locked]
     public int $rangeId;
@@ -28,6 +29,14 @@ new #[Title('IP range')] class extends Component
     public function mount(int $ipRange): void
     {
         $this->rangeId = $ipRange;
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
         $this->authorize('view', $this->range);
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\SlotMode;
 use App\Models\Account;
 use App\Models\AddressList;
@@ -17,7 +18,7 @@ use Livewire\WithPagination;
 
 new #[Title('Plan')] class extends Component
 {
-    use WithPagination;
+    use AuthorizesEveryRequest, WithPagination;
 
     private const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -26,9 +27,17 @@ new #[Title('Plan')] class extends Component
 
     public function mount(int $plan): void
     {
-        $this->authorize('viewAny', Plan::class);
+        $this->authorizeAccess();
         abort_unless(Plan::withTrashed()->whereKey($plan)->exists(), 404);
         $this->planId = $plan;
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        $this->authorize('viewAny', Plan::class);
     }
 
     #[Computed]

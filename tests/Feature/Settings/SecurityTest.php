@@ -4,6 +4,7 @@ namespace Tests\Feature\Settings;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Fortify\Features;
 use Livewire\Livewire;
@@ -111,6 +112,102 @@ class SecurityTest extends TestCase
         $response->assertDispatched('toast', message: 'Password updated.');
 
         $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+    }
+
+    public function test_changing_the_password_logs_out_the_other_devices_only(): void
+    {
+        config(['session.driver' => 'database']);
+        $user = User::factory()->create(['password' => Hash::make('password'), 'remember_token' => 'old-remember-token']);
+        $this->actingAs($user);
+        $row = ['user_id' => $user->id, 'ip_address' => '127.0.0.1', 'user_agent' => 'test', 'payload' => '', 'last_activity' => time()];
+        DB::table('sessions')->insert([['id' => 'other-device'] + $row, ['id' => session()->getId()] + $row]);
+
+        Livewire::test('pages::settings.security')
+            ->set('current_password', 'password')
+            ->set('password', 'new-password')
+            ->set('password_confirmation', 'new-password')
+            ->call('updatePassword')
+            ->assertHasNoErrors();
+
+        $this->assertSame([session()->getId()], DB::table('sessions')->where('user_id', $user->id)->pluck('id')->all());
+        $this->assertNotSame('old-remember-token', $user->refresh()->remember_token);
+    }
+
+    /**
+     * A confirmed 2FA user whose password confirmation ran out while the page stayed open.
+     */
+    private function staleConfirmation(): User
+    {
+        $user = User::factory()->create();
+        $user->forceFill([
+            'two_factor_secret' => encrypt('test-secret'),
+            'two_factor_recovery_codes' => encrypt(json_encode(['code1', 'code2'])),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+        $this->actingAs($user);
+        session(['auth.password_confirmed_at' => time() - config('auth.password_timeout') - 1]);
+
+        return $user;
+    }
+
+    public function test_disabling_two_factor_asks_for_the_password_again_once_the_confirmation_ran_out(): void
+    {
+        $user = $this->staleConfirmation();
+
+        Livewire::test('pages::settings.security')->call('disable')->assertRedirect(route('password.confirm'));
+
+        $this->assertNotNull($user->refresh()->two_factor_secret);
+    }
+
+    public function test_two_factor_can_be_disabled_while_the_confirmation_is_fresh(): void
+    {
+        $user = $this->staleConfirmation();
+        session(['auth.password_confirmed_at' => time()]);
+
+        Livewire::test('pages::settings.security')->call('disable')->assertNoRedirect();
+
+        $this->assertNull($user->refresh()->two_factor_secret);
+    }
+
+    public function test_deleting_a_passkey_asks_for_the_password_again_once_the_confirmation_ran_out(): void
+    {
+        $user = $this->staleConfirmation();
+        $passkeyId = DB::table('passkeys')->insertGetId([
+            'user_id' => $user->id, 'name' => 'Laptop', 'credential_id' => 'credential-1', 'credential' => '{}',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        Livewire::test('pages::settings.security')
+            ->call('confirmDelete', $passkeyId)
+            ->call('deletePasskey')
+            ->assertRedirect(route('password.confirm'));
+
+        $this->assertDatabaseHas('passkeys', ['id' => $passkeyId]);
+    }
+
+    public function test_new_recovery_codes_ask_for_the_password_again_once_the_confirmation_ran_out(): void
+    {
+        $user = $this->staleConfirmation();
+        $codes = $user->two_factor_recovery_codes;
+
+        Livewire::test('pages::settings.two-factor.recovery-codes')
+            ->call('regenerateRecoveryCodes')
+            ->assertRedirect(route('password.confirm'));
+
+        $this->assertSame($codes, $user->refresh()->two_factor_recovery_codes);
+    }
+
+    public function test_starting_two_factor_setup_asks_for_the_password_again_once_the_confirmation_ran_out(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        session(['auth.password_confirmed_at' => time() - config('auth.password_timeout') - 1]);
+
+        Livewire::test('pages::settings.two-factor-setup-modal', ['requiresConfirmation' => true])
+            ->call('startTwoFactorSetup')
+            ->assertRedirect(route('password.confirm'));
+
+        $this->assertNull($user->refresh()->two_factor_secret);
     }
 
     public function test_correct_password_must_be_provided_to_update_password(): void

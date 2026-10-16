@@ -142,6 +142,10 @@ check "public rules" "$(firewall_rules public 22 '' '' | tr '\n' ';')" \
   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow from any to any port 1812,1813 proto udp comment ISPGrid;allow from any to any port 8088 proto tcp comment ISPGrid;"
 check "l2tp rules" "$(firewall_rules l2tp 22 10.251.0.0/24 '' | tr '\n' ';')" \
   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;allow to any port 500,4500 proto udp comment ISPGrid;allow proto esp from any to any comment ISPGrid;allow from 10.251.0.0/24 to any port 1812,1813 proto udp comment ISPGrid;allow from 10.251.0.0/24 to any port 8088 proto tcp comment ISPGrid;"
+check "local panel only from private networks" "$(firewall_rules lan 22 192.168.10.0/24 '' local | tr '
+' ';')"   "allow 22/tcp comment ISPGrid;allow from 10.0.0.0/8 to any port 80 proto tcp comment ISPGrid;allow from 172.16.0.0/12 to any port 80 proto tcp comment ISPGrid;allow from 192.168.0.0/16 to any port 80 proto tcp comment ISPGrid;allow from 192.168.10.0/24 to any port 1812,1813 proto udp comment ISPGrid;allow from 192.168.10.0/24 to any port 8088 proto tcp comment ISPGrid;"
+check "domain panel from anywhere" "$(firewall_rules lan 22 192.168.10.0/24 '' domain | head -n 3 | tr '
+' ';')"   "allow 22/tcp comment ISPGrid;allow 80/tcp comment ISPGrid;allow 443/tcp comment ISPGrid;"
 before_rules=$'*filter\n:ufw-before-input - [0:0]\n-A ufw-before-input -i lo -j ACCEPT\n# don\'t delete the \'COMMIT\' line or these rules won\'t be processed\nCOMMIT'
 with_l2tp=$(ufw_before_rules_l2tp "$before_rules")
 check "l2tp inside ipsec only, before COMMIT" "$(tail -n 3 <<<"$with_l2tp")" \
@@ -320,6 +324,8 @@ check "addon default constraint" "$(addon_constraint ispgrid/ipdr)" "*"
 check "core series of a release" "$(core_series v0.1.0)" 0.1
 check "core series of an rc" "$(core_series v0.1.0-rc6)" 0.1
 check "core series of a branch" "$(core_series plan-10-installer)" ""
+check "addon constraint with a space refused (step 5 splits on spaces)" "$(yes_no addon_valid 'acme/x@>=0.1 <0.2')" no
+check "addon constraint with a comma" "$(yes_no addon_valid 'acme/x@>=0.1,<0.2')" yes
 check "addon supports core" "$(yes_no addon_supports '["0.1","0.2"]' 0.1)" yes
 check "addon built for another core" "$(yes_no addon_supports '["0.2"]' 0.1)" no
 check "addon series is not a prefix match" "$(yes_no addon_supports '["0.10"]' 0.1)" no
