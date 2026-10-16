@@ -48,3 +48,19 @@ it('counts add-on permissions on the roles list', function () {
     Livewire::test('pages::staff.roles')
         ->assertSet('permissionCount', count(app(Permissions::class)->names()));
 });
+
+it('still saves a role that holds the box of a removed add-on, and keeps that box for a reinstall', function () {
+    PermissionRow::findOrCreate('removed-addon-box', 'web');
+    $role = Role::create(['name' => 'Auditor', 'guard_name' => 'web']);
+    $role->givePermissionTo(['removed-addon-box', 'view-login-log']);
+    $this->actingAs(User::factory()->create());
+
+    Livewire::test('pages::staff.role-form', ['role' => $role->id])
+        ->assertSet('permissions', ['view-login-log'])
+        ->set('permissions', ['view-login-log', 'view-plans'])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($role->fresh()->permissions->pluck('name')->sort()->values()->all())
+        ->toBe(['removed-addon-box', 'view-login-log', 'view-plans']);
+});
