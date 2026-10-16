@@ -8,10 +8,8 @@ install -m 644 "$deploy/php/ispgrid-fpm.conf" /etc/php/8.5/fpm/pool.d/ispgrid.co
 systemctl enable -q php8.5-fpm
 systemctl restart php8.5-fpm
 
-#  server_tokens off for all of nginx, unless nginx.conf or another conf.d file sets it already (a second one fails).
-if ! grep -rqsE '^[[:space:]]*server_tokens[[:space:]]' /etc/nginx/nginx.conf /etc/nginx/conf.d --exclude=ispgrid.conf; then
-  install -m 644 "$deploy/nginx/ispgrid-http.conf" /etc/nginx/conf.d/ispgrid.conf
-fi
+#  No nginx version in headers: server_tokens is set in each server block (v0.1.0-rc8 used conf.d instead).
+rm -f /etc/nginx/conf.d/ispgrid.conf
 sed "s/__SERVER_NAME__/${DOMAIN:-_}/" "$deploy/nginx/ispgrid.conf" > /etc/nginx/sites-available/ispgrid
 install -m 644 "$deploy/nginx/ispgrid-notice.conf" /etc/nginx/sites-available/ispgrid-notice
 ln -sfn ../sites-available/ispgrid /etc/nginx/sites-enabled/ispgrid
@@ -46,6 +44,7 @@ if [[ -n "$DOMAIN" ]]; then
   fi
   if [[ -n "$HTTPS_OK" ]]; then
     https_redirect_all /etc/nginx/sites-available/ispgrid "$DOMAIN"
+    server_tokens_off /etc/nginx/sites-available/ispgrid
     nginx -t -q
     systemctl reload nginx
     env_set "$ISPGRID_HOME/.env" APP_URL "https://$DOMAIN"
