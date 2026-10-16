@@ -329,6 +329,15 @@ check "addons parsed" "${OPT_ADDONS[*]}" "ispgrid/ipdr acme/other@^1.0"
 check "removed addons parsed" "${OPT_REMOVE_ADDONS[*]}" "acme/old"
 check "bad addon refused" "$(yes_no parse_args --addon=ipdr)" no
 
+#  Questions: --yes skips them, but not one an option asked for (--token asks with --yes too)
+has_terminal() { return 0; }
+OPT_YES=1
+check "--yes skips questions" "$(yes_no can_ask)" no
+check "--yes still asks for the token" "$(yes_no can_ask always)" yes
+has_terminal() { return 1; }
+check "no terminal, no token question" "$(yes_no can_ask always)" no
+unset OPT_YES
+
 #  Entry: piped into bash (curl ... | sudo bash) the installer runs; sourced (as above) it only defines functions
 piped=$(bash -s -- --help < "$here/../../install.sh" 2>&1 | head -n 1)
 check "piped into bash runs" "$piped" "Usage: sudo bash install.sh [options]"
