@@ -128,6 +128,7 @@ die() {
 STEP_LABEL=""
 STEP_START=0
 SPIN_PID=""
+STEP_NOTES=()
 
 #  step <name>: closes the previous step (its mark and time) and starts this one, with a spinner on a terminal
 step() {
@@ -147,7 +148,7 @@ step() {
 #  step_close <ok|failed>: the open step's result line
 step_close() {
   [[ -n "$STEP_LABEL" ]] || return 0
-  local took mark
+  local took mark line
   spinner_stop
   took=$(format_duration $((SECONDS - STEP_START)))
   if [[ -n "${UI_SPIN:-}" ]]; then
@@ -157,6 +158,10 @@ step_close() {
       mark=$(paint 31 "$([[ -n "${UI_UNICODE:-}" ]] && echo '✗' || echo 'x')")
     fi
     printf '  %s %-14s %s\n' "$mark" "$STEP_LABEL" "$(paint 2 "$took")" >&3
+    for line in ${STEP_NOTES[@]+"${STEP_NOTES[@]}"}; do
+      printf '    %s\n' "$(paint 2 "$line")" >&3
+    done
+    STEP_NOTES=()
   else
     printf '    %s (%s)\n' "${1/ok/done}" "$took" >&3
   fi
@@ -208,13 +213,12 @@ progress_watch() {
   fi
 }
 
-#  note <text>: a line under the running step, on the console and in the log
+#  note <text>: a line under the running step, on the console and in the log. With the spinner the step's line is
+#  printed when the step ends, so its notes wait for it and follow it.
 note() {
   log_only "$*"
   if [[ -n "${UI_SPIN:-}" ]]; then
-    spinner_stop
-    printf '  %s\n' "$(paint 2 "$*")" >&3
-    spinner_start
+    STEP_NOTES+=("$*")
   else
     printf '    %s\n' "$*" >&3
   fi
@@ -827,6 +831,8 @@ parse_args() {
 
 #  has_terminal: there is a terminal to ask on (also when the script itself comes from a pipe)
 has_terminal() { { : </dev/tty; } 2>/dev/null; }
+#  piped_sudo_rs: the script came on a pipe into sudo-rs (Ubuntu 26.04's sudo), which stops it at its second question
+piped_sudo_rs() { [[ -n "${SUDO_USER:-}" && ! -t 0 ]] && sudo --version 2>/dev/null | grep -q '^sudo-rs'; }
 #  can_ask: a terminal and no --yes
 can_ask() { has_terminal && [[ -z "${OPT_YES:-}" ]]; }
 
@@ -1174,6 +1180,11 @@ main() {
     exit 0
   fi
   [[ $EUID -eq 0 ]] || die "Run as root: sudo bash install.sh"
+  if [[ "${ISPGRID_STAGE:-}" != run ]] && piped_sudo_rs && can_ask; then
+    die "This server's sudo (sudo-rs) stops a piped installer at its questions. Download it first, then run the file:
+  curl -fsSL https://raw.githubusercontent.com/ispgrid/ispgrid/master/deploy/install.sh -o install.sh
+  sudo bash install.sh $(without_secret_args "$@" | paste -sd ' ' -)"
+  fi
   trap on_error ERR
   trap_interrupts
   REPORT_FAILURES=1

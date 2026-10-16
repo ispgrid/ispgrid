@@ -382,6 +382,18 @@ check "hand-edited invalid name not offered for DROP" "$(addon_saved_databases "
 #  note: a line under the running step, on the console (fd 3) as well as in the log
 shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)
 check "note on the console" "$shown" "    Add-on ispgrid/ipdr v0.1.1 installed"
+#  With the spinner, a step's line is printed when it ends: its notes follow that line, not precede it
+shown=$(bash -c 'source "$1"; UI_SPIN=1; STEP_LABEL=App; STEP_START=$SECONDS; note "Add-on ispgrid/ipdr v0.1.1 installed"; step_close ok' _ "$here/../../install.sh" 3>&1 >/dev/null)
+check "step's mark first" "$(head -n 1 <<<"$shown" | awk '{ print $1, $2 }')" "ok App"
+check "its note under it" "$(sed -n 2p <<<"$shown")" "    Add-on ispgrid/ipdr v0.1.1 installed"
+
+#  Piped into sudo-rs (Ubuntu 26.04's sudo), the installer would be stopped at its second question
+sudo() { echo "sudo-rs 0.2.13-0ubuntu1.2"; }
+check "piped into sudo-rs" "$(SUDO_USER=root yes_no piped_sudo_rs </dev/null)" yes
+check "piped without sudo" "$(SUDO_USER='' yes_no piped_sudo_rs </dev/null)" no
+sudo() { echo "Sudo version 1.9.15p5"; }
+check "piped into classic sudo" "$(SUDO_USER=root yes_no piped_sudo_rs </dev/null)" no
+unset -f sudo
 
 #  Questions: asked on a terminal, skipped with --yes or without one
 has_terminal() { return 0; }
