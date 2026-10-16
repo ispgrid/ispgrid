@@ -312,6 +312,24 @@ check "no 404 left" "$(grep -c 'return 404' "$tmp/certbot-site")" 0
 https_redirect_all "$tmp/certbot-site" panel.example.com
 check "redirect added once" "$(grep -c 'return 301' "$tmp/certbot-site")" 2
 
+#  server_tokens off in every server block, certbot's port-80 block too (Ubuntu 26.04's nginx.conf sets
+#  "server_tokens build", which only a server-level setting can override)
+cat > "$tmp/tokens-site" <<'NGINX'
+server {
+    server_tokens off;
+    listen 443 ssl; # managed by Certbot
+}
+server {
+    listen 80 default_server;
+    return 404; # managed by Certbot
+}
+NGINX
+server_tokens_off "$tmp/tokens-site"
+check "server_tokens in every server block" "$(grep -c '^    server_tokens off;$' "$tmp/tokens-site")" 2
+check "server_tokens right after each server {" "$(grep -A1 '^server {$' "$tmp/tokens-site" | grep -c 'server_tokens off;')" 2
+server_tokens_off "$tmp/tokens-site"
+check "server_tokens added once" "$(grep -c 'server_tokens' "$tmp/tokens-site")" 2
+
 #  Add-ons
 check "addon spec" "$(yes_no addon_valid ispgrid/ipdr)" yes
 check "addon spec with version" "$(yes_no addon_valid ispgrid/ipdr@^0.1)" yes

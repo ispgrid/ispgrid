@@ -299,6 +299,14 @@ https_redirect_all() {
   sed -i "s|return 404; # managed by Certbot|return 301 https://$2\$request_uri; # ISPGrid: the IP and other names too|" "$1"
 }
 
+#  server_tokens_off <nginx site file>: no nginx version in the headers of any server block, the one certbot adds
+#  too. Set per server because Ubuntu 26.04's nginx.conf already sets it for http (a second one there fails).
+server_tokens_off() {
+  local out
+  out=$(awk '$0 == "    server_tokens off;" { next } { print } $0 == "server {" { print "    server_tokens off;" }' "$1") &&
+    printf '%s\n' "$out" > "$1"
+}
+
 #  os_supported <ID> <VERSION_ID>
 os_supported() { [[ "$1" == "ubuntu" && ( "$2" == "24.04" || "$2" == "26.04" ) ]]; }
 
