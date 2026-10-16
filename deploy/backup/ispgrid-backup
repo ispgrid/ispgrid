@@ -36,6 +36,7 @@ done
 paths=(etc/freeradius)
 [[ -f /opt/ispgrid/.env ]] && paths+=(opt/ispgrid/.env)
 [[ -f /opt/ispgrid/addons.json ]] && paths+=(opt/ispgrid/addons.json)
+[[ -f /etc/ispgrid/addon-data.json ]] && paths+=(etc/ispgrid/addon-data.json)
 [[ -d /etc/wireguard ]] && paths+=(etc/wireguard)
 [[ -f /etc/swanctl/conf.d/ispgrid-l2tp-secret.conf ]] && paths+=(etc/swanctl/conf.d/ispgrid-l2tp-secret.conf etc/ppp/chap-secrets)
 tar -czf "$dir/config-$stamp.tgz" -C / "${paths[@]}"

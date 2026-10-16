@@ -57,14 +57,11 @@ summary_rows() {
     fi
   done <<<"${FIREWALL_NOTE:-unchanged}"
   echo "row|Database|radius (users ispgrid and freeradius; their passwords: $ISPGRID_HOME/.env, /etc/freeradius/mods-available/sql)"
-  if [[ -n "${ADDONS_INSTALLED:-}${ADDONS_REMOVED:-}" ]]; then
+  if [[ -n "${ADDONS_INSTALLED:-}${ADDONS_REMOVED:-}${ADDONS_SUMMARY[*]+x}" ]]; then
     echo "row|Add-ons|${ADDONS_INSTALLED:-none}"
   fi
-  if [[ -n "${ADDONS_REMOVED:-}" ]]; then
-    echo "text|Removed $ADDONS_REMOVED: its data, such as its database, is kept"
-  fi
-  for line in ${ADDONS_DROP_HINTS[@]+"${ADDONS_DROP_HINTS[@]}"}; do
-    echo "text|To delete that data too: $line"
+  for line in ${ADDONS_SUMMARY[@]+"${ADDONS_SUMMARY[@]}"}; do
+    echo "text|$line"
   done
   echo "row|Timezone|$TIMEZONE"
   if is_utc_zone "$TIMEZONE"; then

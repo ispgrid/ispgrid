@@ -354,6 +354,10 @@ parse_args --addon=ispgrid/ipdr --addon=acme/other@^1.0 --remove-addon=acme/old
 check "addons parsed" "${OPT_ADDONS[*]}" "ispgrid/ipdr acme/other@^1.0"
 check "removed addons parsed" "${OPT_REMOVE_ADDONS[*]}" "acme/old"
 check "bad addon refused" "$(yes_no parse_args --addon=ipdr)" no
+check "--delete-data alone refused" "$(yes_no parse_args --delete-data 2>/dev/null)" no
+parse_args --remove-addon=ispgrid/ipdr --delete-data
+check "--delete-data with a removal" "${OPT_DELETE_DATA:-}" 1
+unset OPT_DELETE_DATA
 printf '{"packages": [{"name": "acme/other", "version": "1.2.0"}, {"name": "ispgrid/ipdr", "version": "v0.1.1"}]}\n' > "$tmp/installed.json"
 check "addon version from installed.json" "$(addon_version "$tmp/installed.json" ispgrid/ipdr)" v0.1.1
 check "addon not installed: no version" "$(addon_version "$tmp/installed.json" acme/missing)" ""
@@ -378,6 +382,23 @@ check "database used by another addon" "$(addon_db_owner "$tmp/addons.json" ispg
 check "own database is no conflict" "$(addon_db_owner "$tmp/addons.json" ispgrid_a acme/a)" ""
 printf '{"acme/x": {"databases": ["radius", "ispgrid_x"]}}\n' > "$tmp/addons.json"
 check "hand-edited invalid name not offered for DROP" "$(addon_saved_databases "$tmp/addons.json" acme/x)" ispgrid_x
+
+#  Add-on migrations: saved at install, so --delete-data can make Laravel forget them and a reinstall runs them again
+check "migration name" "$(yes_no addon_migration_valid 2026_10_16_000000_create_ipdr_tables)" yes
+check "migration name no sql" "$(yes_no addon_migration_valid "2026_10_16_000000_x'); DELETE FROM migrations; --")" no
+check "migration name needs the date" "$(yes_no addon_migration_valid create_ipdr_tables)" no
+mkdir -p "$tmp/pkg/database/migrations"
+touch "$tmp/pkg/database/migrations/2026_10_16_000000_create_ipdr_tables.php" "$tmp/pkg/database/migrations/README.md"
+check "addon migrations listed" "$(addon_migrations "$tmp/pkg")" 2026_10_16_000000_create_ipdr_tables
+check "addon without migrations" "$(addon_migrations "$tmp/none")" ""
+printf '{"acme/a": {"databases": ["ispgrid_a"]}}\n' > "$tmp/data.json"
+addon_save_migrations "$tmp/data.json" ispgrid/ipdr 2026_10_16_000000_create_ipdr_tables "bad'name"
+check "saved migrations, valid names only" "$(addon_saved_migrations "$tmp/data.json" ispgrid/ipdr)" 2026_10_16_000000_create_ipdr_tables
+check "forget migrations sql" "$(addon_forget_migrations_sql 2026_10_16_000000_a 2026_10_16_000001_b)" \
+  "DELETE FROM migrations WHERE migration IN ('2026_10_16_000000_a', '2026_10_16_000001_b')"
+addon_data_forget "$tmp/data.json" ispgrid/ipdr
+check "data forgotten" "$(addon_saved_migrations "$tmp/data.json" ispgrid/ipdr)" ""
+check "other add-on's data kept" "$(addon_saved_databases "$tmp/data.json" acme/a)" ispgrid_a
 
 #  note: a line under the running step, on the console (fd 3) as well as in the log
 shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)

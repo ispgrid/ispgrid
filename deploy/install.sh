@@ -57,6 +57,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --skip-selftest           skip the FreeRADIUS self-test at the end (163 checks, about 3 minutes)
   --addon=PACKAGE[@VERSION] install an add-on (repeatable), e.g. --addon=ispgrid/ipdr; later upgrades keep it
   --remove-addon=PACKAGE    stop installing an add-on (repeatable); its data, such as its database, is kept
+  --delete-data             with --remove-addon: also delete the add-on's databases (after the run's backup), also
+                            for an add-on removed earlier
   --help                    this text
 
 Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --steps=NN,NN (run only these steps),
@@ -378,32 +380,57 @@ addon_version() {
   php -r '$i = json_decode(file_get_contents($argv[1]), true);
     foreach ($i["packages"] ?? [] as $p) { if ($p["name"] === $argv[2]) { echo $p["version"], "\n"; } }' "$1" "$2"
 }
-#  Add-on databases: an add-on lists the databases it creates in extra.ispgrid.databases; the installer saves the
-#  list in addons.json, so after a removal (when the add-on's code is gone) it can say how to delete them.
+#  Add-on data: an add-on lists the databases it creates in extra.ispgrid.databases, and its migrations live in
+#  database/migrations. At install the installer saves both in the data file (/etc/ispgrid/addon-data.json), which
+#  outlives the add-on: after a removal its code is gone, and --delete-data still knows what to delete.
 #  addon_db_valid <name>: ispgrid_ plus lowercase letters, digits and _ (the panel's user may create only those)
 addon_db_valid() { [[ "$1" =~ ^ispgrid_[a-z0-9_]{1,56}$ ]]; }
+#  addon_migration_valid <name>: a Laravel migration name (it goes into SQL)
+addon_migration_valid() { [[ "$1" =~ ^[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{6}_[a-z0-9_]{1,150}$ ]]; }
 #  addon_databases <add-on composer.json>: the databases it lists, one per line
 addon_databases() {
   php -r '$c = json_decode(file_get_contents($argv[1]), true);
     foreach ((array) ($c["extra"]["ispgrid"]["databases"] ?? []) as $db) { echo $db, "\n"; }' "$1"
 }
-#  addon_save_databases <addons.json> <vendor/package> [database...]: saves the list with the add-on's entry
-addon_save_databases() {
-  local file=$1 name=$2
-  shift 2
-  php -r '$file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
-    $addons[$argv[2]]["databases"] = array_slice($argv, 3);
-    file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$file" "$name" "$@"
+#  addon_migrations <add-on directory>: its migration names, one per line
+addon_migrations() {
+  local file
+  for file in "$1"/database/migrations/*.php; do
+    if [[ -f "$file" ]]; then basename "$file" .php; fi
+  done
 }
-#  addon_saved_databases <addons.json> <vendor/package>: the saved list, valid names only (the file can be edited)
-addon_saved_databases() {
-  local db
-  while IFS= read -r db; do
-    if addon_db_valid "$db"; then printf '%s\n' "$db"; fi
+#  addon_data_set <data file> <vendor/package> <key> [value...]: saves a list in the add-on's entry
+addon_data_set() {
+  php -r '$file = $argv[1]; $data = json_decode(file_get_contents($file), true) ?: [];
+    $data[$argv[2]][$argv[3]] = array_slice($argv, 4);
+    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$@"
+}
+#  addon_data_get <data file> <vendor/package> <key> <validator>: a saved list, valid values only (the file can be
+#  edited)
+addon_data_get() {
+  local value
+  while IFS= read -r value; do
+    if "$4" "$value"; then printf '%s\n' "$value"; fi
   done < <(php -r '$a = json_decode(file_get_contents($argv[1]), true) ?: [];
-    foreach ((array) ($a[$argv[2]]["databases"] ?? []) as $db) { echo $db, "\n"; }' "$1" "$2")
+    foreach ((array) ($a[$argv[2]][$argv[3]] ?? []) as $v) { echo $v, "\n"; }' "$1" "$2" "$3")
 }
-#  addon_db_owner <addons.json> <database> <vendor/package>: another add-on that already lists this database
+addon_save_databases() { addon_data_set "$1" "$2" databases "${@:3}"; }
+addon_saved_databases() { addon_data_get "$1" "$2" databases addon_db_valid; }
+addon_save_migrations() { addon_data_set "$1" "$2" migrations "${@:3}"; }
+addon_saved_migrations() { addon_data_get "$1" "$2" migrations addon_migration_valid; }
+#  addon_data_forget <data file> <vendor/package>: drops the add-on's entry once its data is deleted
+addon_data_forget() {
+  php -r '$file = $argv[1]; $data = json_decode(file_get_contents($file), true) ?: [];
+    unset($data[$argv[2]]);
+    file_put_contents($file, json_encode((object) $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$1" "$2"
+}
+#  addon_forget_migrations_sql <migration...>: the statement that makes Laravel forget them (valid names only)
+addon_forget_migrations_sql() {
+  local list
+  list=$(printf "'%s', " "$@")
+  printf 'DELETE FROM migrations WHERE migration IN (%s)\n' "${list%, }"
+}
+#  addon_db_owner <data file> <database> <vendor/package>: another add-on that already lists this database
 addon_db_owner() {
   php -r '$a = json_decode(file_get_contents($argv[1]), true) ?: [];
     foreach ($a as $name => $addon) {
@@ -820,10 +847,15 @@ parse_args() {
       --skip-selftest) OPT_SKIP_SELFTEST=1 ;;
       --addon=*) OPT_ADDONS+=("${arg#*=}") ;;
       --remove-addon=*) OPT_REMOVE_ADDONS+=("${arg#*=}") ;;
+      --delete-data) OPT_DELETE_DATA=1 ;;
       -h|--help) OPT_HELP=1 ;;
       *) echo "Unknown option: $arg (see --help)" >&2; return 1 ;;
     esac
   done
+  if [[ -n "${OPT_DELETE_DATA:-}" && ${#OPT_REMOVE_ADDONS[@]} -eq 0 ]]; then
+    echo "--delete-data goes with --remove-addon=PACKAGE" >&2
+    return 1
+  fi
   for spec in "${OPT_ADDONS[@]}" "${OPT_REMOVE_ADDONS[@]}"; do
     addon_valid "$spec" || { echo "--addon and --remove-addon need vendor/package or vendor/package@version, e.g. ispgrid/ipdr (got $spec)" >&2; return 1; }
   done
