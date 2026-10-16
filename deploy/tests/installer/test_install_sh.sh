@@ -358,6 +358,27 @@ printf '{"packages": [{"name": "acme/other", "version": "1.2.0"}, {"name": "ispg
 check "addon version from installed.json" "$(addon_version "$tmp/installed.json" ispgrid/ipdr)" v0.1.1
 check "addon not installed: no version" "$(addon_version "$tmp/installed.json" acme/missing)" ""
 
+#  Add-on databases: listed in the add-on's composer.json, saved in addons.json, named ispgrid_..., one owner each
+check "addon db name" "$(yes_no addon_db_valid ispgrid_ipdr)" yes
+check "addon db must start with ispgrid_" "$(yes_no addon_db_valid radius)" no
+check "addon db needs more than the prefix" "$(yes_no addon_db_valid ispgrid_)" no
+check "addon db lowercase only" "$(yes_no addon_db_valid ispgrid_IPDR)" no
+check "addon db no sql" "$(yes_no addon_db_valid "ispgrid_x'; DROP DATABASE radius; --")" no
+check "addon db 64 characters at most" "$(yes_no addon_db_valid "ispgrid_$(printf 'a%.0s' {1..57})")" no
+printf '{"extra": {"ispgrid": {"core": ["0.1"], "databases": ["ispgrid_ipdr", "ispgrid_ipdr_old"]}}}\n' > "$tmp/addon.json"
+check "addon databases listed" "$(addon_databases "$tmp/addon.json" | tr '\n' ' ')" "ispgrid_ipdr ispgrid_ipdr_old "
+printf '{"extra": {"ispgrid": {"core": ["0.1"]}}}\n' > "$tmp/addon.json"
+check "addon lists no databases" "$(addon_databases "$tmp/addon.json")" ""
+printf '{"acme/a": {"constraint": "*", "url": "u"}, "ispgrid/ipdr": {"constraint": "*", "url": "u"}}\n' > "$tmp/addons.json"
+addon_save_databases "$tmp/addons.json" acme/a ispgrid_a
+addon_save_databases "$tmp/addons.json" ispgrid/ipdr ispgrid_ipdr
+check "saved databases" "$(addon_saved_databases "$tmp/addons.json" ispgrid/ipdr)" ispgrid_ipdr
+check "save keeps the entry" "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["ispgrid/ipdr"]["constraint"];' "$tmp/addons.json")" "*"
+check "database used by another addon" "$(addon_db_owner "$tmp/addons.json" ispgrid_a acme/b)" acme/a
+check "own database is no conflict" "$(addon_db_owner "$tmp/addons.json" ispgrid_a acme/a)" ""
+printf '{"acme/x": {"databases": ["radius", "ispgrid_x"]}}\n' > "$tmp/addons.json"
+check "hand-edited invalid name not offered for DROP" "$(addon_saved_databases "$tmp/addons.json" acme/x)" ispgrid_x
+
 #  note: a line under the running step, on the console (fd 3) as well as in the log
 shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)
 check "note on the console" "$shown" "    Add-on ispgrid/ipdr v0.1.1 installed"

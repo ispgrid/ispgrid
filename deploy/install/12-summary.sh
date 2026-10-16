@@ -63,6 +63,9 @@ summary_rows() {
   if [[ -n "${ADDONS_REMOVED:-}" ]]; then
     echo "text|Removed $ADDONS_REMOVED: its data, such as its database, is kept"
   fi
+  for line in ${ADDONS_DROP_HINTS[@]+"${ADDONS_DROP_HINTS[@]}"}; do
+    echo "text|To delete that data too: $line"
+  done
   echo "row|Timezone|$TIMEZONE"
   if is_utc_zone "$TIMEZONE"; then
     echo "text|UTC: for local times in the panel and the logs, run the installer again with --timezone=Area/City"

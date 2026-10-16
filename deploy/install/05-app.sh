@@ -27,7 +27,9 @@ for spec in "${OPT_ADDONS[@]}"; do
     file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
 done
 ADDONS_REMOVED=""
+ADDONS_DROP_HINTS=()
 for name in "${OPT_REMOVE_ADDONS[@]}"; do
+  mapfile -t dbs < <(addon_saved_databases "$addons_file" "$(addon_name "$name")")
   removed=$(ADDON_NAME=$(addon_name "$name") php -r '
     $file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
     if (isset($addons[getenv("ADDON_NAME")])) { echo "yes"; }
@@ -36,6 +38,12 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
   if [[ "$removed" == yes ]]; then
     note "Removing add-on $name (its data, such as its database, is kept)"
     ADDONS_REMOVED+="${ADDONS_REMOVED:+, }$name"
+    for db in "${dbs[@]}"; do
+      if [[ -n "$(mysql -N -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '$db'")" ]]; then
+        ADDONS_DROP_HINTS+=("sudo mysql -e 'DROP DATABASE $db'")
+        note "To delete its data too: sudo mysql -e 'DROP DATABASE $db'"
+      fi
+    done
   else
     note "Add-on $name is not installed, nothing to remove"
   fi
@@ -60,6 +68,14 @@ if (( ${#addons[@]} > 0 )); then
     supports=$(php -r '$c = json_decode(file_get_contents($argv[1]), true); echo json_encode($c["extra"]["ispgrid"]["core"] ?? []);' "vendor/$name/composer.json")
     addon_supports "$supports" "$series" ||
       die "Add-on $name supports core $supports, this is $series: install a matching version (--addon=$name@VERSION) or remove it (--remove-addon=$name)."
+    mapfile -t dbs < <(addon_databases "vendor/$name/composer.json")
+    for db in "${dbs[@]}"; do
+      addon_db_valid "$db" ||
+        die "Add-on $name lists the database \"$db\": add-on databases are named ispgrid_ and then lowercase letters, digits or _."
+      owner=$(addon_db_owner "$addons_file" "$db" "$name")
+      [[ -z "$owner" ]] || die "Add-on $name lists the database $db, which add-on $owner already uses."
+    done
+    addon_save_databases "$addons_file" "$name" "${dbs[@]}"
   done
   for name in "${addon_names[@]}"; do
     version=$(addon_version vendor/composer/installed.json "$name")
