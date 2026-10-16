@@ -141,6 +141,9 @@ class AppServiceProvider extends ServiceProvider
         $menu->add(new NavItem('notifications', fn (): string => __('Message log'), 'notification-log.index', 'chat-bubble-left-right', ['notification-log.*'], $can('view-notification-log'), 20));
         $menu->add(new NavItem('notifications', fn (): string => __('Providers'), 'notifications.providers', 'paper-airplane', ['notifications.*'], $can('manage-notification-providers'), 30));
 
+        // Add-ons put their pages here; the group stays hidden until one does.
+        $menu->group('addons', fn (): string => __('Add-ons'), true, 35);
+
         $menu->group('system', fn (): string => __('System'), true, 40);
         $menu->add(new NavItem('system', fn (): string => __('Staff'), 'staff.index', 'users', ['staff.*'], $can('manage-staff'), 10));
         $menu->add(new NavItem('system', fn (): string => __('Roles'), 'roles.index', 'key', ['roles.*'], $can('manage-staff'), 20));
