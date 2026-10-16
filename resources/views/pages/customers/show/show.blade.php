@@ -88,6 +88,10 @@
         </x-ui.card>
     </div>
 
+    @foreach ($this->addonCards as $card)
+        <livewire:dynamic-component :is="$card" :account-id="$this->account->id" :key="'addon-card-'.$card" />
+    @endforeach
+
     @if ($this->technician)
         <x-ui.card>
             <x-ui.heading>{{ __('For the technician') }}</x-ui.heading>
