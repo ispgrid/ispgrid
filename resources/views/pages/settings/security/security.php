@@ -83,6 +83,8 @@ new #[Title('Security settings')] class extends Component
         Auth::user()->update([
             'password' => $validated['password'],
         ]);
+        // Other devices are logged out; this one stays.
+        Auth::user()->endSessions(session()->getId());
 
         $this->reset('current_password', 'password', 'password_confirmation');
 

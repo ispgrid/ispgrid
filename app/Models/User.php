@@ -78,14 +78,17 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
-     * Log this staff member out on every device: a new remember token, and their database sessions removed.
+     * Log this staff member out on every device: a new remember token, and their database sessions removed
+     * (except $keepSessionId: the browser that changed the password stays logged in).
      */
-    public function endSessions(): void
+    public function endSessions(?string $keepSessionId = null): void
     {
         $this->forceFill(['remember_token' => Str::random(60)])->saveQuietly();
 
         if (config('session.driver') === 'database') {
-            DB::table(config('session.table', 'sessions'))->where('user_id', $this->getKey())->delete();
+            DB::table(config('session.table', 'sessions'))->where('user_id', $this->getKey())
+                ->when($keepSessionId !== null, fn ($query) => $query->where('id', '!=', $keepSessionId))
+                ->delete();
         }
     }
 

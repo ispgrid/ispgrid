@@ -12,7 +12,8 @@ class ResetUserPassword implements ResetsUserPasswords
     use PasswordValidationRules;
 
     /**
-     * Validate and reset the user's forgotten password.
+     * Validate and reset the user's forgotten password, and log them out everywhere: whoever had a session keeps
+     * none.
      *
      * @param  array<string, string>  $input
      */
@@ -25,5 +26,7 @@ class ResetUserPassword implements ResetsUserPasswords
         $user->forceFill([
             'password' => $input['password'],
         ])->save();
+
+        $user->endSessions();
     }
 }
