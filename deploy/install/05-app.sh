@@ -26,24 +26,65 @@ for spec in "${OPT_ADDONS[@]}"; do
     $addons[$name] = ["constraint" => getenv("ADDON_CONSTRAINT"), "url" => "https://github.com/".$name];
     file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
 done
+#  What each add-on created (databases, migrations), saved at install; kept after a removal until --delete-data
+addon_data="$(dirname "$ISPGRID_CONF")/addon-data.json"
+[[ -f "$addon_data" ]] || printf '{}\n' > "$addon_data"
 ADDONS_REMOVED=""
-ADDONS_DROP_HINTS=()
+ADDONS_SUMMARY=()
 for name in "${OPT_REMOVE_ADDONS[@]}"; do
-  mapfile -t dbs < <(addon_saved_databases "$addons_file" "$(addon_name "$name")")
-  removed=$(ADDON_NAME=$(addon_name "$name") php -r '
+  name=$(addon_name "$name")
+  removed=$(ADDON_NAME=$name php -r '
     $file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
     if (isset($addons[getenv("ADDON_NAME")])) { echo "yes"; }
     unset($addons[getenv("ADDON_NAME")]);
     file_put_contents($file, json_encode((object) $addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file")
+  dbs=()
+  while IFS= read -r db; do
+    if [[ -n "$(mysql -N -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '$db'")" ]]; then
+      dbs+=("$db")
+    fi
+  done < <(addon_saved_databases "$addon_data" "$name")
+  mapfile -t migrations < <(addon_saved_migrations "$addon_data" "$name")
   if [[ "$removed" == yes ]]; then
-    note "Removing add-on $name (its data, such as its database, is kept)"
     ADDONS_REMOVED+="${ADDONS_REMOVED:+, }$name"
-    for db in "${dbs[@]}"; do
-      if [[ -n "$(mysql -N -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '$db'")" ]]; then
-        ADDONS_DROP_HINTS+=("sudo mysql -e 'DROP DATABASE $db'")
-        note "To delete its data too: sudo mysql -e 'DROP DATABASE $db'"
+  fi
+  if [[ -n "${OPT_DELETE_DATA:-}" ]]; then
+    if (( ${#dbs[@]} + ${#migrations[@]} == 0 )); then
+      if [[ "$removed" == yes ]]; then
+        note "Removing add-on $name (it has no data to delete)"
+        ADDONS_SUMMARY+=("Removed $name")
+      else
+        note "Add-on $name is not installed and has no data, nothing to remove"
       fi
+      continue
+    fi
+    [[ -n "${ISPGRID_RUN_BACKUP:-}" ]] || die "--delete-data needs the backup taken at the start of the run, and there is none."
+    #  The run's backup dumped every ispgrid_ database next to radius-STAMP.sql.gz, as DB-STAMP.sql.gz
+    stamp=$(basename "$ISPGRID_RUN_BACKUP" .sql.gz)
+    stamp=${stamp#radius-}
+    if [[ "$removed" == yes ]]; then
+      note "Removing add-on $name and deleting its data"
+      ADDONS_SUMMARY+=("Removed $name and deleted its data")
+    else
+      note "Deleting the data of add-on $name"
+      ADDONS_SUMMARY+=("Deleted the data of $name")
+    fi
+    for db in "${dbs[@]}"; do
+      mysql -e "DROP DATABASE \`$db\`"
+      note "Deleted its database $db (a copy: $(dirname "$ISPGRID_RUN_BACKUP")/$db-$stamp.sql.gz)"
+      ADDONS_SUMMARY+=("Database $db deleted, a copy: $(dirname "$ISPGRID_RUN_BACKUP")/$db-$stamp.sql.gz")
     done
+    if (( ${#migrations[@]} > 0 )); then
+      mysql radius -e "$(addon_forget_migrations_sql "${migrations[@]}")"
+    fi
+    addon_data_forget "$addon_data" "$name"
+  elif [[ "$removed" == yes ]]; then
+    note "Removing add-on $name (its data, such as its database, is kept)"
+    ADDONS_SUMMARY+=("Removed $name: its data, such as its database, is kept")
+    if (( ${#dbs[@]} > 0 )); then
+      note "To delete its data too: sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data"
+      ADDONS_SUMMARY+=("To delete that data too: sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data")
+    fi
   else
     note "Add-on $name is not installed, nothing to remove"
   fi
@@ -72,10 +113,16 @@ if (( ${#addons[@]} > 0 )); then
     for db in "${dbs[@]}"; do
       addon_db_valid "$db" ||
         die "Add-on $name lists the database \"$db\": add-on databases are named ispgrid_ and then lowercase letters, digits or _."
-      owner=$(addon_db_owner "$addons_file" "$db" "$name")
+      owner=$(addon_db_owner "$addon_data" "$db" "$name")
       [[ -z "$owner" ]] || die "Add-on $name lists the database $db, which add-on $owner already uses."
     done
-    addon_save_databases "$addons_file" "$name" "${dbs[@]}"
+    mapfile -t migrations < <(addon_migrations "vendor/$name")
+    for migration in "${migrations[@]}"; do
+      addon_migration_valid "$migration" ||
+        die "Add-on $name has the migration \"$migration\": migrations are named like 2026_01_31_000000_create_things."
+    done
+    addon_save_databases "$addon_data" "$name" "${dbs[@]}"
+    addon_save_migrations "$addon_data" "$name" "${migrations[@]}"
   done
   for name in "${addon_names[@]}"; do
     version=$(addon_version vendor/composer/installed.json "$name")

@@ -76,9 +76,10 @@ example to copy.
   Anything FreeRADIUS must do differently is a core change.
 - **Its own database:** name it `ispgrid_` and then lowercase letters, digits or `_` (the panel's database user can
   create only those, and the nightly backup dumps every one), create it in a migration, and list it in
-  `extra.ispgrid.databases`, e.g. `"databases": ["ispgrid_ipdr"]`. The installer refuses a database that another
-  add-on lists. When the add-on is removed, its data is kept and the installer shows how to delete each listed
-  database.
+  `extra.ispgrid.databases`, e.g. `"databases": ["ispgrid_ipdr"]`. Keep the migrations in `database/migrations`.
+  The installer refuses a database that another add-on lists. When the add-on is removed, its data is kept;
+  `--remove-addon=vendor/pkg --delete-data` drops the listed databases and removes its migrations from core's
+  `migrations` table, so installing it again starts fresh.
 - **Permissions:** register the box in the provider and insert its `permissions` row (guard `web`) in a migration.
 - **Strings:** `__()` everywhere, and a `lang/hi.json` loaded with `loadJsonTranslationsFrom()`.
 - **Develop locally:** in the core checkout, `composer config repositories.my-addon path ../path/to/addon` and
