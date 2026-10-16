@@ -26,14 +26,22 @@ for spec in "${OPT_ADDONS[@]}"; do
     $addons[$name] = ["constraint" => getenv("ADDON_CONSTRAINT"), "url" => "https://github.com/".$name];
     file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
 done
+ADDONS_REMOVED=""
 for name in "${OPT_REMOVE_ADDONS[@]}"; do
-  ADDON_NAME=$(addon_name "$name") php -r '
+  removed=$(ADDON_NAME=$(addon_name "$name") php -r '
     $file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
+    if (isset($addons[getenv("ADDON_NAME")])) { echo "yes"; }
     unset($addons[getenv("ADDON_NAME")]);
-    file_put_contents($file, json_encode((object) $addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
-  say "Add-on $name removed from addons.json (its data is kept)"
+    file_put_contents($file, json_encode((object) $addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file")
+  if [[ "$removed" == yes ]]; then
+    note "Removing add-on $name (its data, such as its database, is kept)"
+    ADDONS_REMOVED+="${ADDONS_REMOVED:+, }$name"
+  else
+    note "Add-on $name is not installed, nothing to remove"
+  fi
 done
 addons=()
+ADDONS_INSTALLED=""
 if [[ -f "$addons_file" ]]; then
   mapfile -t addons < <(php -r 'foreach (json_decode(file_get_contents($argv[1]), true) ?: [] as $name => $addon) { echo $name, " ", $addon["constraint"], " ", $addon["url"], "\n"; }' "$addons_file")
 fi
@@ -53,7 +61,15 @@ if (( ${#addons[@]} > 0 )); then
     addon_supports "$supports" "$series" ||
       die "Add-on $name supports core $supports, this is $series: install a matching version (--addon=$name@VERSION) or remove it (--remove-addon=$name)."
   done
-  say "Add-ons: ${addon_names[*]}"
+  for name in "${addon_names[@]}"; do
+    version=$(addon_version vendor/composer/installed.json "$name")
+    if [[ " ${OPT_ADDONS[*]%%@*} " == *" $name "* ]]; then
+      note "Add-on $name $version installed"
+    else
+      note "Add-on $name $version kept"
+    fi
+    ADDONS_INSTALLED+="${ADDONS_INSTALLED:+, }$name $version"
+  done
 fi
 npm ci --no-audit --no-fund --loglevel=error
 npm run build

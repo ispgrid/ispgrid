@@ -81,6 +81,7 @@ Common options (all of them: `sudo bash install.sh --help`):
 | `--timezone=Asia/Kolkata` | The timezone for FreeRADIUS, MariaDB and the panel. |
 | `--version=vX.Y.Z` | The version to install. Default: the newest release. |
 | `--addon=ispgrid/ipdr` | Install an add-on, such as Session records (IPDR) for Indian ISPs. Upgrades keep it. |
+| `--remove-addon=ispgrid/ipdr` | Remove an add-on. Its data, such as its database, is kept. |
 | `--yes` | Ask nothing and use the defaults. |
 
 Passkeys need the panel on HTTPS with a domain name (`--access=domain`); browsers do not offer them over plain HTTP.

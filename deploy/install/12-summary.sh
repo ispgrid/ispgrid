@@ -57,6 +57,12 @@ summary_rows() {
     fi
   done <<<"${FIREWALL_NOTE:-unchanged}"
   echo "row|Database|radius (users ispgrid and freeradius; their passwords: $ISPGRID_HOME/.env, /etc/freeradius/mods-available/sql)"
+  if [[ -n "${ADDONS_INSTALLED:-}${ADDONS_REMOVED:-}" ]]; then
+    echo "row|Add-ons|${ADDONS_INSTALLED:-none}"
+  fi
+  if [[ -n "${ADDONS_REMOVED:-}" ]]; then
+    echo "text|Removed $ADDONS_REMOVED: its data, such as its database, is kept"
+  fi
   echo "row|Timezone|$TIMEZONE"
   if is_utc_zone "$TIMEZONE"; then
     echo "text|UTC: for local times in the panel and the logs, run the installer again with --timezone=Area/City"

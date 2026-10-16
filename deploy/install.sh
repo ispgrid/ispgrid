@@ -208,6 +208,18 @@ progress_watch() {
   fi
 }
 
+#  note <text>: a line under the running step, on the console and in the log
+note() {
+  log_only "$*"
+  if [[ -n "${UI_SPIN:-}" ]]; then
+    spinner_stop
+    printf '  %s\n' "$(paint 2 "$*")" >&3
+    spinner_start
+  else
+    printf '    %s\n' "$*" >&3
+  fi
+}
+
 #  show_box <rows function>: the box on the console (coloured, with the password) and in the log (without)
 show_box() {
   local unicode=no colour=no columns=104 size
@@ -357,6 +369,11 @@ addon_constraint() { if [[ "$1" == *@* ]]; then printf '%s\n' "${1#*@}"; else pr
 core_series() { if [[ "$1" =~ ^v?([0-9]+)\.([0-9]+)\. ]]; then printf '%s.%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"; fi; }
 #  addon_supports <json list> <series>: the add-on lists the series (an empty series, a branch install, takes any)
 addon_supports() { [[ -z "$2" ]] || grep -qF "\"$2\"" <<<"$1"; }
+#  addon_version <vendor/composer/installed.json> <vendor/package>: the installed version, nothing when it is not installed
+addon_version() {
+  php -r '$i = json_decode(file_get_contents($argv[1]), true);
+    foreach ($i["packages"] ?? [] as $p) { if ($p["name"] === $argv[2]) { echo $p["version"], "\n"; } }' "$1" "$2"
+}
 
 valid_cidr() {
   [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$ ]] || return 1

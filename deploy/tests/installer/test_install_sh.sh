@@ -346,6 +346,13 @@ parse_args --addon=ispgrid/ipdr --addon=acme/other@^1.0 --remove-addon=acme/old
 check "addons parsed" "${OPT_ADDONS[*]}" "ispgrid/ipdr acme/other@^1.0"
 check "removed addons parsed" "${OPT_REMOVE_ADDONS[*]}" "acme/old"
 check "bad addon refused" "$(yes_no parse_args --addon=ipdr)" no
+printf '{"packages": [{"name": "acme/other", "version": "1.2.0"}, {"name": "ispgrid/ipdr", "version": "v0.1.1"}]}\n' > "$tmp/installed.json"
+check "addon version from installed.json" "$(addon_version "$tmp/installed.json" ispgrid/ipdr)" v0.1.1
+check "addon not installed: no version" "$(addon_version "$tmp/installed.json" acme/missing)" ""
+
+#  note: a line under the running step, on the console (fd 3) as well as in the log
+shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)
+check "note on the console" "$shown" "    Add-on ispgrid/ipdr v0.1.1 installed"
 
 #  Questions: asked on a terminal, skipped with --yes or without one
 has_terminal() { return 0; }
