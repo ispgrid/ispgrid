@@ -7,8 +7,10 @@ use App\Models\User;
 use App\Support\Addons\CustomerFormTabs;
 use App\Support\Permissions;
 use Database\Seeders\RadiusAttributeSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission as PermissionRow;
@@ -123,3 +125,25 @@ it('ignores state sent for a tab the staff member cannot see', function () {
 it('refuses a second tab with the same key', function () {
     app(CustomerFormTabs::class)->register(FixtureCustomerTab::class);
 })->throws(InvalidArgumentException::class);
+
+it('takes a file upload in an add-on tab and hands it over after the save', function () {
+    tabbedCustomerForm()
+        ->set('addonTabs.fixture.note', 'With a file')
+        ->set('addonTabs.fixture.file', UploadedFile::fake()->create('id-proof.pdf', 100, 'application/pdf'))
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $file = FixtureCustomerTab::$finished[0]['state']['file'];
+
+    expect($file)->toBeInstanceOf(TemporaryUploadedFile::class)
+        ->and($file->getClientOriginalName())->toBe('id-proof.pdf');
+});
+
+it('refuses an add-on upload over the tab\'s own limit', function () {
+    tabbedCustomerForm()
+        ->set('addonTabs.fixture.file', UploadedFile::fake()->create('scan.pdf', 3000, 'application/pdf'))
+        ->call('save')
+        ->assertHasErrors(['addonTabs.fixture.file']);
+
+    expect(Account::query()->count())->toBe(0);
+});

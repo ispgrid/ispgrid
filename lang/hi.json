@@ -913,5 +913,7 @@
     "Add-ons are installed and removed with the installer. Each one keeps its settings here.": "ऐड-ऑन इंस्टॉलर से इंस्टॉल और हटाए जाते हैं। हर ऐड-ऑन की सेटिंग यहाँ रहती है।",
     "(needs attention)": "(ध्यान दें)",
     ":tab could not be saved, so nothing was saved. Try again.": ":tab सेव नहीं हो सका, इसलिए कुछ भी सेव नहीं हुआ। फिर से कोशिश करें।",
-    ":tabs could not finish. Open the customer and save again.": ":tabs पूरा नहीं हो सका। ग्राहक को खोलें और फिर से सेव करें।"
+    ":tabs could not finish. Open the customer and save again.": ":tabs पूरा नहीं हो सका। ग्राहक को खोलें और फिर से सेव करें।",
+    "Uploading": "अपलोड हो रहा है",
+    "The file could not be uploaded. It may be larger than 10 MB. Choose it again.": "फ़ाइल अपलोड नहीं हो सकी। हो सकता है वह 10 MB से बड़ी हो। उसे फिर से चुनें।"
 }
