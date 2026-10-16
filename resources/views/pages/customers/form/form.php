@@ -2,6 +2,7 @@
 
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Contracts\CustomerFormTab;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
@@ -20,6 +21,7 @@ use App\Models\Pool;
 use App\Models\RadiusAttribute;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\CustomerCreated;
+use App\Support\Addons\CustomerFormTabs;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\Hotspot;
@@ -27,6 +29,7 @@ use App\Support\IpAddress;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -38,10 +41,11 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 new #[Title('Customer')] class extends Component
 {
-    use AuthorizesEveryRequest;
+    use AuthorizesEveryRequest, WithFileUploads;
 
     /**
      * The tab that holds each field, so a tab with an error can be marked.
@@ -174,12 +178,20 @@ new #[Title('Customer')] class extends Component
      */
     public array $custom_attributes = [];
 
+    /**
+     * The fields of the add-on tabs this staff member sees, by tab key (CustomerFormTab::state()).
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    public array $addonTabs = [];
+
     public function mount(?int $account = null): void
     {
         if ($account === null) {
             $this->authorize('create', Account::class);
             $this->pool_id = (string) (CustomerDefaults::poolId(ServiceType::Ppp) ?? '');
             $this->free_ip_range = (string) (CustomerDefaults::ipRangeId() ?? '');
+            $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state(null), $this->formAddonTabs);
 
             return;
         }
@@ -216,6 +228,7 @@ new #[Title('Customer')] class extends Component
             ->map(fn (AccountAttribute $attribute): array => ['attribute' => $attribute->attribute, 'value' => $attribute->value])
             ->values()
             ->all();
+        $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state($model), $this->formAddonTabs);
     }
 
     /**
@@ -243,7 +256,32 @@ new #[Title('Customer')] class extends Component
             'service' => __('Service'),
             'network' => __('Network'),
             'attributes' => __('Attributes'),
+            ...array_map(fn (CustomerFormTab $tab): string => $tab->label(), $this->formAddonTabs),
         ];
+    }
+
+    /**
+     * The add-on tabs this staff member sees for this customer, by key.
+     *
+     * @return array<string, CustomerFormTab>
+     */
+    #[Computed]
+    public function formAddonTabs(): array
+    {
+        $account = $this->accountId === null ? null : Account::query()->find($this->accountId);
+
+        return array_filter(app(CustomerFormTabs::class)->all(), fn (CustomerFormTab $tab): bool => $tab->visible(auth()->user(), $account));
+    }
+
+    /**
+     * The partial of each add-on tab, by key.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function addonTabViews(): array
+    {
+        return array_map(fn (CustomerFormTab $tab): string => $tab->view(), $this->formAddonTabs);
     }
 
     #[Computed]
@@ -393,12 +431,31 @@ new #[Title('Customer')] class extends Component
      */
     public function invalidTabs(): array
     {
-        $fields = collect($this->getErrorBag()->keys())->map(fn (string $key): string => Str::before($key, '.'));
+        $keys = collect($this->getErrorBag()->keys());
+        $fields = $keys->map(fn (string $key): string => Str::before($key, '.'));
+        $addonTabs = $keys->filter(fn (string $key): bool => str_starts_with($key, 'addonTabs.'))
+            ->map(fn (string $key): string => Str::of($key)->after('addonTabs.')->before('.')->toString());
 
         return collect(self::TABS)
             ->filter(fn (array $tabFields): bool => $fields->intersect($tabFields)->isNotEmpty())
             ->keys()
+            ->merge($addonTabs)
+            ->unique()
+            ->values()
             ->all();
+    }
+
+    /**
+     * Add-on tabs with a warning for what is filled in now (an amber dot; the save still goes ahead).
+     *
+     * @return list<string>
+     */
+    public function warningTabs(): array
+    {
+        $account = $this->accountId === null ? null : Account::query()->find($this->accountId);
+        $warned = array_filter($this->formAddonTabs, fn (CustomerFormTab $tab, string $key): bool => $tab->warnings((array) ($this->addonTabs[$key] ?? []), $account) !== [], ARRAY_FILTER_USE_BOTH);
+
+        return array_keys($warned);
     }
 
     /**
@@ -474,6 +531,8 @@ new #[Title('Customer')] class extends Component
         $this->authorize($account === null ? 'create' : 'update', $account ?? Account::class);
 
         $this->trimInput();
+        $tabs = $this->formAddonTabs;
+        $this->keepVisibleAddonTabs($tabs, $account);
         $this->withValidator(function (Validator $validator): void {
             $validator->after(function (Validator $validator): void {
                 foreach ([...$this->speedErrors(), ...$this->ipErrors(), ...$this->attributeErrors()] as $field => $message) {
@@ -483,7 +542,8 @@ new #[Title('Customer')] class extends Component
                 }
             });
         });
-        $this->validate($this->rules(), $this->messages());
+        $validated = $this->validate([...$this->rules(), ...$this->addonTabRules($tabs, $account)], $this->messages(), $this->addonTabAttributes($tabs, $account));
+        $addonState = $validated['addonTabs'] ?? [];
 
         $ipId = $this->ip_address === '' ? null : Ip::query()->where('address', IpAddress::normalize($this->ip_address))->value('id');
         $columns = $this->columns($ipId);
@@ -493,7 +553,7 @@ new #[Title('Customer')] class extends Component
         try {
             // The account is fetched inside the transaction: on a deadlock retry, a model updated by the
             // rolled-back attempt looks unchanged and would skip its UPDATE while the sync writes the new values.
-            $saved = DB::transaction(function () use ($columns, $customRows, $listIds, $sync): array {
+            $saved = DB::transaction(function () use ($columns, $customRows, $listIds, $sync, $tabs, $addonState): array {
                 $account = $this->accountId === null
                     ? null
                     : Account::query()->with('address')->lockForUpdate()->findOrFail($this->accountId);
@@ -524,6 +584,10 @@ new #[Title('Customer')] class extends Component
                 $account->radiusAttributes()->createMany($customRows);
                 $radiusChanged = $sync->handle($account, $previousIpId);
 
+                foreach ($tabs as $key => $tab) {
+                    $this->saveAddonTab($tab, $account, (array) ($addonState[$key] ?? []));
+                }
+
                 if ($previousType !== null && $previousType !== $account->service_type) {
                     $this->resetDevicesAfterTypeChange($account);
                 }
@@ -547,11 +611,128 @@ new #[Title('Customer')] class extends Component
         }
 
         $disconnected = $saved['radius_changed'] && DisconnectAccount::dispatchIfOnline($saved['username']);
-
-        session()->flash('toast', $disconnected
+        $saidSaved = $disconnected
             ? __('Customer saved. They are disconnected so the change applies now.')
-            : __('Customer saved.'));
+            : __('Customer saved.');
+
+        session()->flash('toast', implode(' ', [$saidSaved, ...$this->finishAddonTabs($tabs, $saved['id'], $addonState)]));
         $this->redirectRoute('customers.show', ['account' => $saved['id']], navigate: true);
+    }
+
+    /**
+     * Drops what the browser sent for add-on tabs this staff member cannot see, and starts a visible tab whose state
+     * went missing from scratch.
+     *
+     * @param  array<string, CustomerFormTab>  $tabs
+     */
+    private function keepVisibleAddonTabs(array $tabs, ?Account $account): void
+    {
+        $state = [];
+
+        foreach ($tabs as $key => $tab) {
+            $state[$key] = is_array($this->addonTabs[$key] ?? null) ? $this->addonTabs[$key] : $tab->state($account);
+        }
+
+        $this->addonTabs = $state;
+    }
+
+    /**
+     * @param  array<string, CustomerFormTab>  $tabs
+     * @return array<string, mixed>
+     */
+    private function addonTabRules(array $tabs, ?Account $account): array
+    {
+        $rules = [];
+
+        foreach ($tabs as $key => $tab) {
+            foreach ($tab->rules($account) as $field => $fieldRules) {
+                $rules["addonTabs.{$key}.{$field}"] = $fieldRules;
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Error messages name an add-on field by its own name ("note"), not by its place in the form.
+     *
+     * @param  array<string, CustomerFormTab>  $tabs
+     * @return array<string, string>
+     */
+    private function addonTabAttributes(array $tabs, ?Account $account): array
+    {
+        $attributes = [];
+
+        foreach ($tabs as $key => $tab) {
+            foreach (array_keys($tab->rules($account)) as $field) {
+                $attributes["addonTabs.{$key}.{$field}"] = str_replace('_', ' ', Str::afterLast($field, '.'));
+            }
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Runs inside the save transaction. A failing tab rolls the whole save back and is marked on the form; a
+     * database error other than a duplicate (e.g. a deadlock, which the transaction retries) is left as it is.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private function saveAddonTab(CustomerFormTab $tab, Account $account, array $state): void
+    {
+        try {
+            $tab->save($account, $state);
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            if ($exception instanceof QueryException && ! $exception instanceof UniqueConstraintViolationException) {
+                throw $exception;
+            }
+
+            report($exception);
+
+            throw ValidationException::withMessages([
+                "addonTabs.{$tab->key()}" => __(':tab could not be saved, so nothing was saved. Try again.', ['tab' => $tab->label()]),
+            ]);
+        }
+    }
+
+    /**
+     * After the save has committed: each add-on tab's after-save step, then what the message should add (the tabs'
+     * warnings, and the tabs that could not finish).
+     *
+     * @param  array<string, CustomerFormTab>  $tabs
+     * @param  array<string, mixed>  $addonState
+     * @return list<string>
+     */
+    private function finishAddonTabs(array $tabs, int $accountId, array $addonState): array
+    {
+        if ($tabs === []) {
+            return [];
+        }
+
+        $account = Account::query()->findOrFail($accountId);
+        $messages = [];
+        $failed = [];
+
+        foreach ($tabs as $key => $tab) {
+            $state = (array) ($addonState[$key] ?? []);
+
+            try {
+                $tab->saved($account, $state);
+            } catch (Throwable $exception) {
+                report($exception);
+                $failed[] = $tab->label();
+            }
+
+            array_push($messages, ...$tab->warnings($state, $account));
+        }
+
+        if ($failed !== []) {
+            $messages[] = __(':tabs could not finish. Open the customer and save again.', ['tabs' => implode(', ', $failed)]);
+        }
+
+        return $messages;
     }
 
     private function trimInput(): void

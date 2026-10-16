@@ -12,7 +12,7 @@
 
     <form wire:submit="save" novalidate class="grid gap-6">
         <x-ui.card>
-            <x-ui.tabs :tabs="$this->tabs" :invalid="$this->invalidTabs()">
+            <x-ui.tabs :tabs="$this->tabs" :invalid="$this->invalidTabs()" :warning="$this->warningTabs()">
                 {{-- Every tab lays its fields on the same four-column grid, so rows line up across the form. --}}
                 <x-ui.tab-panel name="profile" class="grid gap-8">
                     <section class="grid gap-4" aria-labelledby="customer-contact">
@@ -148,6 +148,15 @@
                         <x-ui.button variant="secondary" icon="plus" wire:click="addAttribute">{{ __('Add attribute') }}</x-ui.button>
                     </div>
                 </x-ui.tab-panel>
+
+                @foreach ($this->addonTabViews as $key => $view)
+                    <x-ui.tab-panel :name="$key" class="grid gap-6" wire:key="addon-tab-{{ $key }}">
+                        @error('addonTabs.'.$key)
+                            <x-ui.alert variant="danger">{{ $message }}</x-ui.alert>
+                        @enderror
+                        @include($view)
+                    </x-ui.tab-panel>
+                @endforeach
             </x-ui.tabs>
         </x-ui.card>
 
