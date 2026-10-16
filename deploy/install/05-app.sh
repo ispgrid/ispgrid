@@ -72,7 +72,7 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
     for db in "${dbs[@]}"; do
       mysql -e "DROP DATABASE \`$db\`"
       note "Deleted its database $db (a copy: $(dirname "$ISPGRID_RUN_BACKUP")/$db-$stamp.sql.gz)"
-      ADDONS_SUMMARY+=("Database $db deleted, a copy: $(dirname "$ISPGRID_RUN_BACKUP")/$db-$stamp.sql.gz")
+      ADDONS_SUMMARY+=("Database $db deleted, a copy is in:" "$(dirname "$ISPGRID_RUN_BACKUP")/$db-$stamp.sql.gz")
     done
     if (( ${#migrations[@]} > 0 )); then
       mysql radius -e "$(addon_forget_migrations_sql "${migrations[@]}")"
@@ -83,7 +83,7 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
     ADDONS_SUMMARY+=("Removed $name: its data, such as its database, is kept")
     if (( ${#dbs[@]} > 0 )); then
       note "To delete its data too: sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data"
-      ADDONS_SUMMARY+=("To delete that data too: sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data")
+      ADDONS_SUMMARY+=("To delete that data too, run:" "sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data")
     fi
   else
     note "Add-on $name is not installed, nothing to remove"
