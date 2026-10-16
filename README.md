@@ -50,6 +50,11 @@ a customer who is online is changed, their session is disconnected so the change
 
 ## Install
 
+On a cloud server, open the ports first in your provider's firewall (security group); the installer sets up the
+firewall on the server itself but cannot reach the provider's. SSH (TCP 22), and as needed: TCP 80 and 443 for the
+panel (80 also for the Let's Encrypt check), UDP 51820 for WireGuard, UDP 500 and 4500 for L2TP/IPsec, UDP 1812 and
+1813 for `--routers=public`. For `--access=domain`, point the domain's DNS at the server before you start.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ispgrid/ispgrid/master/deploy/install.sh -o install.sh
 sudo bash install.sh --admin-email=you@example.com
@@ -66,7 +71,8 @@ Common options (all of them: `sudo bash install.sh --help`):
 | `--routers=lan\|wireguard\|l2tp\|public` | Where your NAS are (see below). Default: `lan`. |
 | `--access=local\|public\|domain` | How you open the panel: on your network, on a public IP, or on a domain with HTTPS. |
 | `--domain=panel.example.com` | With `--access=domain`: the name pointing at this server, for a Let's Encrypt certificate. |
-| `--admin-email=EMAIL` | The first admin's login. The password is generated and shown once unless you pass `--admin-password`. |
+| `--le-email=EMAIL` | With `--access=domain`: where Let's Encrypt sends certificate expiry notices. Default: the admin's email. |
+| `--admin-email=EMAIL` | The first admin's login. The password is asked (hidden); with `--yes` it is generated and shown once. |
 | `--timezone=Asia/Kolkata` | The timezone for FreeRADIUS, MariaDB and the panel. |
 | `--version=vX.Y.Z` | The version to install. Default: the newest release. |
 | `--addon=ispgrid/ipdr` | Install an add-on, such as Session records (IPDR) for Indian ISPs. Upgrades keep it. |
@@ -109,6 +115,15 @@ For each NAS:
 
    If the NAS firewall drops input it does not know, accept UDP 3799 from the server (or from the tunnel
    interface), or Disconnect from the panel will not reach it.
+
+## First steps in the panel
+
+1. **System, App settings:** currency, phone format, language, the Hotspot switch, and how long the login log and
+   session history are kept.
+2. **Network, Pools:** add the IP pools your NAS hand out, with the same names as on the NAS.
+3. **Plans:** create a plan with its speed, validity and pool.
+4. **Customers:** add a customer, then **Recharge** on their page to give them the plan. They can log in now; you
+   see them in **Online**, and a refused login in **Login log** with the reason.
 
 ## Upgrade
 
@@ -173,6 +188,10 @@ bash deploy/tests/installer/test_install_sh.sh   # installer helpers
 
 Branches follow GitHub flow: one branch per feature from `master`, merged back when it is done and tested.
 Releases are tags (`v0.1.0`), and the installer installs tags.
+
+## Security
+
+Please report security problems privately, not in a public issue: see [`SECURITY.md`](SECURITY.md).
 
 ## Contributing
 
