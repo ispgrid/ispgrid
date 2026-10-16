@@ -59,3 +59,12 @@ it('reads the series of a version', function (string $version, ?string $series) 
 it('has no add-ons without an installed.json', function () {
     expect((new AddonManifest(sys_get_temp_dir().'/missing-installed.json', 'v0.1.0'))->all())->toBe([]);
 });
+
+it('reads the package description, empty when there is none', function () {
+    $manifest = new AddonManifest(installedJson([
+        ['description' => 'Keeps things.'] + addonPackage('acme/one', ['0.1']),
+        addonPackage('acme/two', ['0.1']),
+    ]), 'v0.1.0');
+
+    expect(array_map(fn ($addon) => $addon->description, $manifest->all()))->toBe(['Keeps things.', '']);
+});

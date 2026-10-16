@@ -15,6 +15,7 @@ final readonly class Addon
         public string $package,
         public string $name,
         public string $version,
+        public string $description,
         public array $supports,
         public array $providers,
         public bool $compatible,

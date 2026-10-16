@@ -71,6 +71,7 @@ final class AddonManifest
                 package: (string) $package['name'],
                 name: (string) ($extra['name'] ?? $package['name']),
                 version: (string) ($package['version'] ?? ''),
+                description: (string) ($package['description'] ?? ''),
                 supports: $supports,
                 providers: array_values(array_map(fn (mixed $provider): string => (string) $provider, (array) ($extra['providers'] ?? []))),
                 compatible: $series === null || in_array($series, $supports, true),

@@ -909,5 +909,6 @@
     "Not loaded: built for core :supports, this is :core": "लोड नहीं हुआ: कोर :supports के लिए बना है, यह :core है",
     "Not started": "शुरू नहीं हुआ",
     "The customer was deleted.": "ग्राहक हटा दिया गया था।",
-    "The customer has reminders switched off.": "ग्राहक ने रिमाइंडर बंद कर रखे हैं।"
+    "The customer has reminders switched off.": "ग्राहक ने रिमाइंडर बंद कर रखे हैं।",
+    "Add-ons are installed and removed with the installer. Each one keeps its settings here.": "ऐड-ऑन इंस्टॉलर से इंस्टॉल और हटाए जाते हैं। हर ऐड-ऑन की सेटिंग यहाँ रहती है।"
 }
