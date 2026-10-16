@@ -79,8 +79,9 @@ example to copy.
 - **What it may use:** `App\Contracts` (`SessionKeeper`, `CustomerFormTab`), the registries `App\Support\Permissions`,
   `App\Support\Navigation\Navigation`, `App\Support\SessionKeepers` and those in `App\Support\Addons`
   (`AddonSettings`, `CustomerFormTabs`, `CustomerCards`), `App\Support\Addons\PrivateFile`, `AppSetting::valueOf()` and
-  `AppSetting::put()`, `ActivityFormatter::addEventLabel()`, the `x-ui.*` Blade components, and core actions such as
-  `RechargeAccount`. Everything else in core is internal and may change in any release.
+  `AppSetting::put()`, `ActivityFormatter::addEventLabel()`, the Livewire concerns `AuthorizesEveryRequest` and
+  `ShowsToasts`, the `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core
+  is internal and may change in any release.
 - **Menu:** put your pages in the `addons` group ("Add-ons", between Notifications and System; hidden while empty):
   `new NavItem('addons', ...)`. A big add-on may register its own group with an order between 35 and 40.
 - **Settings:** register one Livewire component, `app(AddonSettings::class)->register('vendor/pkg', 'pkg::settings',
