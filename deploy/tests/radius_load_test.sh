@@ -94,6 +94,8 @@ trap 'echo; echo "Stopped; removing lt_ rows."; sleep 2; exit 130' INT TERM
 username() { printf 'lt_%05d' "$1"; }
 
 #  Customers: PPPoE, active, one bound device (the first login binds the MAC), plan $PLAN, expiring in a year.
+#  Bound to this server (Isp-Nas 127.0.0.1, checked against the packet's source address): while the test runs, a
+#  real router/NAS can't log anyone in with these well-known names and password.
 EXPIRES="$(LC_ALL=C date -d '+1 year' '+%d %b %Y 00:00')"
 {
   echo "INSERT INTO radgroupreply (groupname, attribute, op, value) VALUES
@@ -103,7 +105,7 @@ EXPIRES="$(LC_ALL=C date -d '+1 year' '+%d %b %Y 00:00')"
     echo "INSERT INTO radcheck (username, attribute, op, value) VALUES
             ('$u', 'Cleartext-Password', ':=', 'pass'), ('$u', 'Acct-Service-Type', ':=', 'PPP'),
             ('$u', 'Acct-Status-Id', ':=', '1'), ('$u', 'Acct-Mac-Type', ':=', '1'),
-            ('$u', 'Expiration', ':=', '$EXPIRES');
+            ('$u', 'Expiration', ':=', '$EXPIRES'), ('$u', 'Isp-Nas', ':=', '127.0.0.1');
           INSERT INTO radusergroup (username, groupname, priority) VALUES ('$u', '$PLAN', 1);"
   done
 } > "$WORK/seed.sql"
