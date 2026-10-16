@@ -87,7 +87,7 @@ it('renders the file upload with its label, accepted types and the field error',
 });
 
 it('takes uploads no larger than the server accepts and never previews SVG', function () {
-    expect(config('livewire.temporary_file_upload.rules'))->toBe(['required', 'file', 'max:10240'])
+    expect(config('livewire.temporary_file_upload.rules'))->toBe(['required', 'file', 'max:10000'])
         ->and(config('livewire.temporary_file_upload.preview_mimes'))->not->toContain('svg');
 });
 

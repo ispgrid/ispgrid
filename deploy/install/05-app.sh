@@ -73,7 +73,7 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
     #  then nothing is deleted)
     for path in "${paths[@]}"; do
       [[ -f "$(dirname "$ISPGRID_RUN_BACKUP")/files-$path-$stamp.tgz" ]] ||
-        die "The backup taken at the start of this run has no copy of $addon_files/$path, so nothing was deleted. Run the same command again: this run installed the backup script that copies it."
+        die "The backup taken at the start of this run has no copy of $addon_files/$path, so nothing was deleted. Run the installer once without --delete-data (it installs the backup script that copies add-on files), then run this command again."
     done
     if [[ "$removed" == yes ]]; then
       note "Removing add-on $name and deleting its data"

@@ -40,7 +40,8 @@ if [[ -d "$addon_files" ]]; then
   for path in "$addon_files"/*/; do
     [[ -d "$path" ]] || continue
     name=$(basename "$path")
-    tar -czf "$dir/files-$name-$stamp.tgz.part" -C / "${addon_files#/}/$name"
+    #  Files may change while they are read (an upload): GNU tar then exits 1 with a complete archive; only worse fails.
+    tar -czf "$dir/files-$name-$stamp.tgz.part" -C / --warning=no-file-changed "${addon_files#/}/$name" || [[ $? -eq 1 ]]
     mv "$dir/files-$name-$stamp.tgz.part" "$dir/files-$name-$stamp.tgz"
   done
 fi

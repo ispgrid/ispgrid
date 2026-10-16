@@ -130,9 +130,9 @@ return [
 
     'temporary_file_upload' => [
         'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK'), // Example: 'local', 's3'             | Default: 'default'
-        // 10 MB, as nginx (client_max_body_size) and PHP (upload_max_filesize) on the box: a bigger file gets a
-        // validation message instead of a bare error from nginx.
-        'rules' => ['required', 'file', 'max:10240'],
+        // Just under the box's 10 MB request limit (nginx client_max_body_size, PHP post_max_size), which also counts
+        // the form around the file: a bigger file gets a validation message instead of a bare error from nginx.
+        'rules' => ['required', 'file', 'max:10000'],
         'directory' => null,                                  // Example: 'tmp'                     | Default: 'livewire-tmp'
         'middleware' => null,                                 // Example: 'throttle:5,1'            | Default: 'throttle:60,1'
         'preview_mimes' => [                                  // Supported file types for temporary pre-signed file URLs (no SVG: it can carry script)...
