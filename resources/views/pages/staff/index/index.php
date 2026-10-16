@@ -1,7 +1,7 @@
 <?php
 
 use App\Actions\Fortify\CreateNewUser;
-use App\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Role;
 use App\Models\User;

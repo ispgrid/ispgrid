@@ -1,6 +1,6 @@
 <?php
 
-use App\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Models\Role;
 use App\Support\Permissions;
 use Illuminate\Support\Facades\DB;

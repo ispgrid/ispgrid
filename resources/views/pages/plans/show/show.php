@@ -1,7 +1,7 @@
 <?php
 
-use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\SlotMode;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;

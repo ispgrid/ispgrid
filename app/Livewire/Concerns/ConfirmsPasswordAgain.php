@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Concerns;
+namespace App\Livewire\Concerns;
 
 /**
  * For actions on a page behind password.confirm: the route checks the confirmation only when the page opens, so

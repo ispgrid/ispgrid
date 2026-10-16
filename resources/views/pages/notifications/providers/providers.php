@@ -1,6 +1,6 @@
 <?php
 
-use App\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
 use App\Models\NotificationProvider;

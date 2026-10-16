@@ -1,8 +1,8 @@
 <?php
 
-use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
+use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
