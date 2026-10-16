@@ -73,7 +73,7 @@ Common options (all of them: `sudo bash install.sh --help`):
 
 | Option | What it does |
 |---|---|
-| `--routers=lan\|wireguard\|l2tp\|public` | Where your NAS are (see below). Default: `lan`. |
+| `--routers=MODE` | Where your NAS are: `lan`, `wireguard`, `l2tp` or `public` (see below). Default: `lan`. |
 | `--access=local\|public\|domain` | How you open the panel: on your network (the firewall lets only private networks reach it), on a public IP, or on a domain with HTTPS. |
 | `--domain=panel.example.com` | With `--access=domain`: the name pointing at this server, for a Let's Encrypt certificate. |
 | `--le-email=EMAIL` | With `--access=domain`: where Let's Encrypt sends certificate expiry notices. Default: the admin's email. |
@@ -87,7 +87,7 @@ Passkeys need the panel on HTTPS with a domain name (`--access=domain`); browser
 
 ## Connecting your NAS
 
-| `--routers=` | Use it when | What the installer sets up |
+| Mode | Use it when | What the installer sets up |
 |---|---|---|
 | `lan` | The NAS reach the server on a private network. | RADIUS (UDP 1812, 1813) allowed from that network. |
 | `wireguard` | The NAS are elsewhere and run RouterOS 7. | A WireGuard server (UDP 51820); NAS connect through the tunnel. |
