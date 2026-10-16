@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\NotificationStatus;
+use App\Models\Account;
 use App\Models\NotificationLog;
 use App\Models\NotificationProvider;
 use App\Notifications\NotificationRegistry;
@@ -48,6 +49,24 @@ class SendNotification implements ShouldQueue
             $log->update(['status' => NotificationStatus::Failed, 'error' => __('The rule is switched off or deleted.')]);
 
             return;
+        }
+
+        // Checked again at send time: the customer may have been deleted, or switched reminders off, since it was queued.
+        if ($log->once_key !== null && $log->account_id !== null) {
+            $account = Account::withTrashed()->find($log->account_id);
+            $trigger = $log->rule === null ? null : $registry->trigger($log->rule->trigger);
+
+            if ($account === null || $account->trashed()) {
+                $log->update(['status' => NotificationStatus::Failed, 'error' => __('The customer was deleted.')]);
+
+                return;
+            }
+
+            if ($account->notifications_off && $trigger !== null && $trigger::scheduled()) {
+                $log->update(['status' => NotificationStatus::Failed, 'error' => __('The customer has reminders switched off.')]);
+
+                return;
+            }
         }
 
         $config = NotificationProvider::query()->where('provider', $log->provider)->first();

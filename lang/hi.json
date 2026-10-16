@@ -907,5 +907,7 @@
     "Logs": "लॉग",
     "No add-ons installed.": "कोई ऐड-ऑन इंस्टॉल नहीं है।",
     "Not loaded: built for core :supports, this is :core": "लोड नहीं हुआ: कोर :supports के लिए बना है, यह :core है",
-    "Not started": "शुरू नहीं हुआ"
+    "Not started": "शुरू नहीं हुआ",
+    "The customer was deleted.": "ग्राहक हटा दिया गया था।",
+    "The customer has reminders switched off.": "ग्राहक ने रिमाइंडर बंद कर रखे हैं।"
 }
