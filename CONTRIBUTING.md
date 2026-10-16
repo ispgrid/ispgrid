@@ -4,6 +4,10 @@ Thanks for helping. Work on a branch from `master` (no `/` in branch names), kee
 imperative subject, and run `php artisan test --compact` and `vendor/bin/pint --dirty` before opening a pull request.
 Every UI string goes through `__()` and needs a Hindi entry in `lang/hi.json`.
 
+Questions go to [Discussions](https://github.com/ispgrid/ispgrid/discussions), bugs and feature requests to Issues,
+and security problems to private reporting (see `SECURITY.md`). Everyone taking part follows the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Add a language
 
 The panel is written in English; every other language is a translation file. Hindi (`hi`) is the example to copy.
