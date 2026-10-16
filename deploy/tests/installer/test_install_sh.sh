@@ -180,6 +180,14 @@ check "die: backup note" "$(grep -c 'Backup taken at the start of this run: /b.s
 check "die: run again" "$(grep -c 'run the installer again' <<<"$notes")" 1
 notes=$(REPORT_FAILURES=1 bash -c 'source "$1"; ISPGRID_HOME=$2; value=$(die "boom"); echo "$value"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
 check "die in a subshell: no notes" "$(grep -c 'run the installer again' <<<"$notes")" 0
+
+#  Ctrl-C (or a closed SSH session): where the run stopped, the panel's state, run again; exit 130
+notes=$(bash -c 'source "$1"; ISPGRID_HOME=$2; CURRENT_STEP=Packages; trap_interrupts; kill -INT $$; echo "kept running"' _ "$here/../../install.sh" "$tmp" 2>&1 3>&1)
+check "ctrl-c exit code" "$?" 130
+check "ctrl-c: where it stopped" "$(grep -c 'stopped during step "Packages" (Ctrl-C)' <<<"$notes")" 1
+check "ctrl-c: maintenance note" "$(grep -c 'still in maintenance mode' <<<"$notes")" 1
+check "ctrl-c: run again" "$(grep -c 'run the installer again' <<<"$notes")" 1
+check "ctrl-c: stops the run" "$(grep -c 'kept running' <<<"$notes")" 0
 rm -f "$tmp/storage/framework/down"
 
 #  The re-exec gets no admin password on its command line
