@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\RestartsFreeRadius;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Pool;
@@ -11,7 +12,7 @@ use Livewire\Component;
 
 new #[Title('FreeRADIUS settings')] class extends Component
 {
-    use RestartsFreeRadius, ShowsToasts;
+    use AuthorizesEveryRequest, RestartsFreeRadius, ShowsToasts;
 
     public string $expire_type = '';
 
@@ -29,7 +30,7 @@ new #[Title('FreeRADIUS settings')] class extends Component
 
     public function mount(): void
     {
-        $this->authorize('manage-radius-settings');
+        $this->authorizeAccess();
 
         $settings = RadiusSetting::current();
 
@@ -40,6 +41,14 @@ new #[Title('FreeRADIUS settings')] class extends Component
         $this->count_and_reject = (bool) $settings->count_and_reject;
         $this->reject_requests = (string) $settings->reject_requests;
         $this->reject_packet_interval = (string) $settings->reject_packet_interval;
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        $this->authorize('manage-radius-settings');
     }
 
     /**

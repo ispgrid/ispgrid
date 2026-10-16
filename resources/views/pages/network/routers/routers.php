@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Radius\ReplaceRadiusValue;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\RestartsFreeRadius;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Nas;
@@ -18,7 +19,7 @@ use Livewire\Component;
 
 new #[Title('NAS')] class extends Component
 {
-    use RestartsFreeRadius, ShowsToasts;
+    use AuthorizesEveryRequest, RestartsFreeRadius, ShowsToasts;
 
     public ?int $editingId = null;
 
@@ -33,6 +34,14 @@ new #[Title('NAS')] class extends Component
     public string $description = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', Nas::class);
     }

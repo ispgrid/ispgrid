@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Models\Account;
@@ -18,7 +19,7 @@ use Livewire\WithPagination;
 
 new #[Title('Customers')] class extends Component
 {
-    use WithPagination;
+    use AuthorizesEveryRequest, WithPagination;
 
     private const FILTERS = ['search', 'status', 'plan', 'type', 'router', 'connection', 'expiring', 'expired'];
 
@@ -50,6 +51,14 @@ new #[Title('Customers')] class extends Component
     public bool $expired = false;
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', Account::class);
     }

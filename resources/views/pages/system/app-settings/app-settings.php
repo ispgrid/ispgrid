@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Console\Commands\PruneRadiusLogs;
 use App\Http\Middleware\SetLocale;
 use App\Livewire\Concerns\ShowsToasts;
@@ -22,7 +23,7 @@ use Livewire\Component;
 
 new #[Title('App settings')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     private const DATE_FORMATS = ['d/m/Y', 'm/d/Y', 'Y-m-d', 'd.m.Y', 'd-m-Y'];
 
@@ -68,7 +69,7 @@ new #[Title('App settings')] class extends Component
 
     public function mount(): void
     {
-        $this->authorize('manage-app-settings');
+        $this->authorizeAccess();
 
         foreach (array_keys(Arr::except($this->rules(), Hotspot::SETTING)) as $key) {
             $this->{$key} = (string) AppSetting::valueOf($key, '');
@@ -84,6 +85,14 @@ new #[Title('App settings')] class extends Component
 
         // Installs from before session cleanup have no row until the next upgrade seeds it: the job keeps 365 days.
         $this->session_history_days = $this->session_history_days !== '' ? $this->session_history_days : (string) PruneRadiusLogs::DEFAULT_SESSION_HISTORY_DAYS;
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
+    {
+        $this->authorize('manage-app-settings');
     }
 
     /**

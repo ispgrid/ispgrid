@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\ConnectionType;
 use App\Rules\NotUsedByTrashed;
@@ -11,7 +12,7 @@ use Livewire\Component;
 
 new #[Title('Connection types')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     public string $name = '';
 
@@ -20,6 +21,14 @@ new #[Title('Connection types')] class extends Component
     public string $editingName = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', ConnectionType::class);
     }

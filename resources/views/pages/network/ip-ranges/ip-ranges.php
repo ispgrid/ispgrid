@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Ip;
 use App\Models\IpRange;
@@ -15,7 +16,7 @@ use Livewire\Component;
 
 new #[Title('IP ranges')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     /**
      * The biggest range added at once: a /20 is 4,094 addresses.
@@ -35,6 +36,14 @@ new #[Title('IP ranges')] class extends Component
     public string $dns2 = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', IpRange::class);
     }

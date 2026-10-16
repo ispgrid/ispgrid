@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Radius\SyncPlanToRadius;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Plan;
 use App\Support\Money;
@@ -12,9 +13,17 @@ use Livewire\Component;
 
 new #[Title('Plans')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', Plan::class);
     }

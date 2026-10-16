@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Radius\ReplaceRadiusValue;
+use App\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
@@ -14,7 +15,7 @@ use Livewire\Component;
 
 new #[Title('Pools')] class extends Component
 {
-    use ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts;
 
     public ?int $editingId = null;
 
@@ -23,6 +24,14 @@ new #[Title('Pools')] class extends Component
     public string $description = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', Pool::class);
     }

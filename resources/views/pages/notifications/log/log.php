@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesEveryRequest;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
 use App\Livewire\Concerns\ShowsToasts;
@@ -17,7 +18,7 @@ use Livewire\WithPagination;
 
 new #[Title('Message log')] class extends Component
 {
-    use ShowsToasts, WithPagination;
+    use AuthorizesEveryRequest, ShowsToasts, WithPagination;
 
     #[Url(as: 'customer')]
     public string $customer = '';
@@ -32,6 +33,14 @@ new #[Title('Message log')] class extends Component
     public string $ruleId = '';
 
     public function mount(): void
+    {
+        $this->authorizeAccess();
+    }
+
+    /**
+     * Who may use this page: checked when it opens and on every later request (AuthorizesEveryRequest).
+     */
+    protected function authorizeAccess(): void
     {
         $this->authorize('view-notification-log');
     }
