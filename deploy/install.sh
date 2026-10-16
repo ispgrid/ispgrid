@@ -57,8 +57,8 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --skip-selftest           skip the FreeRADIUS self-test at the end (163 checks, about 3 minutes)
   --addon=PACKAGE[@VERSION] install an add-on (repeatable), e.g. --addon=ispgrid/ipdr; later upgrades keep it
   --remove-addon=PACKAGE    stop installing an add-on (repeatable); its data, such as its database, is kept
-  --delete-data             with --remove-addon: also delete the add-on's databases (after the run's backup), also
-                            for an add-on removed earlier
+  --delete-data             with --remove-addon: also delete the add-on's databases and files (after the run's
+                            backup), also for an add-on removed earlier
   --help                    this text
 
 Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --steps=NN,NN (run only these steps),
@@ -416,6 +416,17 @@ addon_data_get() {
 }
 addon_save_databases() { addon_data_set "$1" "$2" databases "${@:3}"; }
 addon_saved_databases() { addon_data_get "$1" "$2" databases addon_db_valid; }
+#  Add-on files: an add-on lists its directories under storage/app/private/addons in extra.ispgrid.paths. The nightly
+#  backup tars each one, and --delete-data removes them like the databases.
+#  addon_path_valid <name>: one directory name, lowercase letters, digits, _ and -, starting with a letter or digit
+addon_path_valid() { [[ "$1" =~ ^[a-z0-9][a-z0-9_-]{0,55}$ ]]; }
+#  addon_paths <add-on composer.json>: the directories it lists, one per line
+addon_paths() {
+  php -r '$c = json_decode(file_get_contents($argv[1]), true);
+    foreach ((array) ($c["extra"]["ispgrid"]["paths"] ?? []) as $path) { echo $path, "\n"; }' "$1"
+}
+addon_save_paths() { addon_data_set "$1" "$2" paths "${@:3}"; }
+addon_saved_paths() { addon_data_get "$1" "$2" paths addon_path_valid; }
 addon_save_migrations() { addon_data_set "$1" "$2" migrations "${@:3}"; }
 addon_saved_migrations() { addon_data_get "$1" "$2" migrations addon_migration_valid; }
 #  addon_data_forget <data file> <vendor/package>: drops the add-on's entry once its data is deleted
@@ -423,6 +434,13 @@ addon_data_forget() {
   php -r '$file = $argv[1]; $data = json_decode(file_get_contents($file), true) ?: [];
     unset($data[$argv[2]]);
     file_put_contents($file, json_encode((object) $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$1" "$2"
+}
+#  addon_path_owner <data file> <path> <vendor/package>: another add-on that already lists this directory
+addon_path_owner() {
+  php -r '$a = json_decode(file_get_contents($argv[1]), true) ?: [];
+    foreach ($a as $name => $addon) {
+      if ($name !== $argv[3] && in_array($argv[2], (array) ($addon["paths"] ?? []), true)) { echo $name, "\n"; }
+    }' "$1" "$2" "$3"
 }
 #  addon_forget_migrations_sql <migration...>: the statement that makes Laravel forget them (valid names only)
 addon_forget_migrations_sql() {

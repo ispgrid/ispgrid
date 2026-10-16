@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-#  ISPGrid backup: the radius database, the add-on databases (ispgrid_*, e.g. the session records archive), and the
-#  config that belongs to them (FreeRADIUS, the panel's .env with its APP_KEY, the add-on list, the WireGuard keys, the
+#  ISPGrid backup: the radius database, the add-on databases (ispgrid_*, e.g. the session records archive), the add-on
+#  files (each directory under /opt/ispgrid/storage/app/private/addons), and the config that belongs to them (FreeRADIUS, the panel's .env with its APP_KEY, the add-on list, the WireGuard keys, the
 #  L2TP/IPsec key and logins), in /var/backups/ispgrid, kept 14 days. Prints the radius dump's path last.
 #  Copy /var/backups/ispgrid to another machine: a backup on the same disk does not survive the disk.
 #
@@ -12,6 +12,7 @@
 #       and each add-on dump, e.g.: mysql -e 'CREATE DATABASE IF NOT EXISTS ispgrid_ipdr'
 #       gunzip < /var/backups/ispgrid/ispgrid_ipdr-YYYYMMDD-HHMM.sql.gz | mysql ispgrid_ipdr
 #    3. tar -xzf /var/backups/ispgrid/config-YYYYMMDD-HHMM.tgz -C /
+#       and each add-on's files, e.g.: tar -xzf /var/backups/ispgrid/files-documents-YYYYMMDD-HHMM.tgz -C /
 #    4. sudo /opt/ispgrid/deploy/install.sh --yes
 #       The dump holds no MariaDB users: the installer sets their passwords to the restored ones (.env and the
 #       FreeRADIUS sql module), restarts the services (and the tunnels) and brings the panel back up.
@@ -33,6 +34,17 @@ for db in "${addon_dbs[@]}"; do
   mv "$dir/$db-$stamp.sql.gz.part" "$dir/$db-$stamp.sql.gz"
 done
 
+#  Add-on files (extra.ispgrid.paths), one archive per directory, so one add-on's files can be restored or deleted alone.
+addon_files=/opt/ispgrid/storage/app/private/addons
+if [[ -d "$addon_files" ]]; then
+  for path in "$addon_files"/*/; do
+    [[ -d "$path" ]] || continue
+    name=$(basename "$path")
+    tar -czf "$dir/files-$name-$stamp.tgz.part" -C / "${addon_files#/}/$name"
+    mv "$dir/files-$name-$stamp.tgz.part" "$dir/files-$name-$stamp.tgz"
+  done
+fi
+
 paths=(etc/freeradius)
 [[ -f /opt/ispgrid/.env ]] && paths+=(opt/ispgrid/.env)
 [[ -f /opt/ispgrid/addons.json ]] && paths+=(opt/ispgrid/addons.json)
@@ -41,5 +53,5 @@ paths=(etc/freeradius)
 [[ -f /etc/swanctl/conf.d/ispgrid-l2tp-secret.conf ]] && paths+=(etc/swanctl/conf.d/ispgrid-l2tp-secret.conf etc/ppp/chap-secrets)
 tar -czf "$dir/config-$stamp.tgz" -C / "${paths[@]}"
 
-find "$dir" -maxdepth 1 -type f \( -name '*.sql.gz' -o -name 'config-*.tgz' \) -mtime +"$((keep_days - 1))" -delete
+find "$dir" -maxdepth 1 -type f \( -name '*.sql.gz' -o -name 'config-*.tgz' -o -name 'files-*.tgz' \) -mtime +"$((keep_days - 1))" -delete
 echo "$dir/radius-$stamp.sql.gz"

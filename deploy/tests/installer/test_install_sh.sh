@@ -400,6 +400,28 @@ addon_data_forget "$tmp/data.json" ispgrid/ipdr
 check "data forgotten" "$(addon_saved_migrations "$tmp/data.json" ispgrid/ipdr)" ""
 check "other add-on's data kept" "$(addon_saved_databases "$tmp/data.json" acme/a)" ispgrid_a
 
+#  Add-on paths: directories under storage/app/private/addons, listed in extra.ispgrid.paths, one owner each
+check "addon path name" "$(yes_no addon_path_valid documents)" yes
+check "addon path with digits, - and _" "$(yes_no addon_path_valid id-proofs_2)" yes
+check "addon path no parent" "$(yes_no addon_path_valid ..)" no
+check "addon path no slash" "$(yes_no addon_path_valid ../../etc)" no
+check "addon path no nesting" "$(yes_no addon_path_valid documents/scans)" no
+check "addon path lowercase only" "$(yes_no addon_path_valid Documents)" no
+check "addon path starts with a letter or digit" "$(yes_no addon_path_valid -documents)" no
+check "addon path not empty" "$(yes_no addon_path_valid "")" no
+check "addon path 56 characters at most" "$(yes_no addon_path_valid "$(printf 'a%.0s' {1..57})")" no
+printf '{"extra": {"ispgrid": {"core": ["0.1"], "paths": ["documents", "scans"]}}}\n' > "$tmp/addon.json"
+check "addon paths listed" "$(addon_paths "$tmp/addon.json" | tr '\n' ' ')" "documents scans "
+printf '{"extra": {"ispgrid": {"core": ["0.1"]}}}\n' > "$tmp/addon.json"
+check "addon lists no paths" "$(addon_paths "$tmp/addon.json")" ""
+printf '{"acme/a": {"paths": ["files"]}}\n' > "$tmp/data.json"
+addon_save_paths "$tmp/data.json" ispgrid/documents documents
+check "saved paths" "$(addon_saved_paths "$tmp/data.json" ispgrid/documents)" documents
+check "path used by another addon" "$(addon_path_owner "$tmp/data.json" files acme/b)" acme/a
+check "own path is no conflict" "$(addon_path_owner "$tmp/data.json" files acme/a)" ""
+printf '{"acme/x": {"paths": ["../../etc", "x"]}}\n' > "$tmp/data.json"
+check "hand-edited invalid path not offered for deletion" "$(addon_saved_paths "$tmp/data.json" acme/x)" x
+
 #  note: a line under the running step, on the console (fd 3) as well as in the log
 shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)
 check "note on the console" "$shown" "    Add-on ispgrid/ipdr v0.1.1 installed"
