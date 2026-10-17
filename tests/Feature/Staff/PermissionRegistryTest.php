@@ -64,3 +64,41 @@ it('still saves a role that holds the box of a removed add-on, and keeps that bo
     expect($role->fresh()->permissions->pluck('name')->sort()->values()->all())
         ->toBe(['removed-addon-box', 'view-login-log', 'view-plans']);
 });
+
+it('follows implied boxes to the end of the chain', function () {
+    $permissions = app(Permissions::class);
+    $permissions->register('erase-x', fn (): string => 'Erase x', fn (): string => __('Customers'), 'restore-x');
+    $permissions->register('restore-x', fn (): string => 'Restore x', fn (): string => __('Customers'), 'view-x');
+    $permissions->register('view-x', fn (): string => 'View x', fn (): string => __('Customers'), 'view-customers');
+
+    expect($permissions->withImplied(['erase-x']))->toEqualCanonicalizing(['erase-x', 'restore-x', 'view-x', 'view-customers']);
+});
+
+it('stops on an implied loop', function () {
+    $permissions = app(Permissions::class);
+    $permissions->register('loop-a', fn (): string => 'Loop a', fn (): string => __('Customers'), 'loop-b');
+    $permissions->register('loop-b', fn (): string => 'Loop b', fn (): string => __('Customers'), 'loop-a');
+
+    expect($permissions->withImplied(['loop-a']))->toEqualCanonicalizing(['loop-a', 'loop-b']);
+});
+
+it('ticks and saves every box down an implied chain', function () {
+    $permissions = app(Permissions::class);
+    $permissions->register('erase-x', fn (): string => 'Erase x', fn (): string => __('Customers'), 'restore-x');
+    $permissions->register('restore-x', fn (): string => 'Restore x', fn (): string => __('Customers'), 'view-x');
+    $permissions->register('view-x', fn (): string => 'View x', fn (): string => __('Customers'), 'view-customers');
+    foreach (['erase-x', 'restore-x', 'view-x'] as $name) {
+        PermissionRow::findOrCreate($name, 'web');
+    }
+    $this->actingAs(User::factory()->create());
+
+    Livewire::test('pages::staff.role-form')
+        ->set('name', 'Records desk')
+        ->set('permissions', ['erase-x'])
+        ->assertSet('permissions', fn (array $ticked): bool => in_array('view-customers', $ticked, true))
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Role::findByName('Records desk')->permissions->pluck('name')->all())
+        ->toEqualCanonicalizing(['erase-x', 'restore-x', 'view-x', 'view-customers']);
+});

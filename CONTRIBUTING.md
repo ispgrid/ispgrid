@@ -117,6 +117,8 @@ example to copy.
   `--remove-addon=vendor/pkg --delete-data` drops the listed databases, deletes the listed paths and removes its
   migrations from core's `migrations` table, so installing it again starts fresh.
 - **Permissions:** register the box in the provider and insert its `permissions` row (guard `web`) in a migration.
+  Its `implies` names the box it needs to be useful (usually a view box); ticking it on Roles ticks that box too,
+  down the whole chain from core 0.1.2 (one step on older cores).
 - **Strings:** `__()` everywhere, and a `lang/hi.json` loaded with `loadJsonTranslationsFrom()`.
 - **Develop locally:** in the core checkout, `composer config repositories.my-addon path ../path/to/addon` and
   `composer require vendor/pkg:@dev`. Do not commit the changed `composer.json` and `composer.lock`.
