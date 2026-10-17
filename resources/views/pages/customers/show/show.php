@@ -25,6 +25,7 @@ use App\Models\Radpostauth;
 use App\Models\Recharge;
 use App\Models\User;
 use App\Support\ActivityFormatter;
+use App\Support\Addons\CustomerCards;
 use App\Support\CustomerDefaults;
 use App\Support\ExpiryCalculator;
 use App\Support\Hotspot;
@@ -111,6 +112,17 @@ new #[Title('Customer')] class extends Component
             'address',
             'radiusAttributes',
         ])->findOrFail($this->accountId);
+    }
+
+    /**
+     * The add-on cards this staff member sees on this customer's page (Livewire component names).
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function addonCards(): array
+    {
+        return app(CustomerCards::class)->for(auth()->user(), $this->account);
     }
 
     /**

@@ -70,20 +70,50 @@ An add-on is a Composer package that adds a feature without changing core. `ispg
 example to copy.
 
 - **composer.json:** `"extra": {"ispgrid": {"name": "Shown name", "core": ["0.1"], "providers": ["Vendor\Pkg\PkgServiceProvider"]}}`.
+  Its `description` is shown on System, then Add-ons.
+  The settings page, customer tabs and cards, `PrivateFile`, the `addons` disk and `paths` arrived in core 0.1.1. The
+  installer picks the newest add-on version that lists the running series, so a 0.1.0 server can receive yours: check
+  for what you use (`class_exists(AddonSettings::class)`) and keep working without it, above all keep any data safe.
   `core` lists the core minor series it supports; core loads only add-ons that list the running series. Do not use
   `extra.laravel`: core registers the providers itself.
-- **What it may use:** `App\Contracts` (such as `SessionKeeper`), the registries `App\Support\Permissions`,
-  `App\Support\Navigation\Navigation` and `App\Support\SessionKeepers`, `ActivityFormatter::addEventLabel()`, the
-  `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core is internal and may
-  change in any release.
+- **What it may use:** `App\Contracts` (`SessionKeeper`, `CustomerFormTab`), the registries `App\Support\Permissions`,
+  `App\Support\Navigation\Navigation`, `App\Support\SessionKeepers` and those in `App\Support\Addons`
+  (`AddonSettings`, `CustomerFormTabs`, `CustomerCards`), `App\Support\Addons\PrivateFile`, `AppSetting::valueOf()` and
+  `AppSetting::put()`, `ActivityFormatter::addEventLabel()`, the Livewire concerns `AuthorizesEveryRequest` and
+  `ShowsToasts`, the `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core
+  is internal and may change in any release.
+- **Menu:** put your pages in the `addons` group ("Add-ons", between Notifications and System; hidden while empty):
+  `new NavItem('addons', ...)`. A big add-on may register its own group with an order between 35 and 40.
+- **Settings:** register one Livewire component, `app(AddonSettings::class)->register('vendor/pkg', 'pkg::settings',
+  'your-permission')`. It shows under your add-on on System, then Add-ons, to staff with that permission (bring your
+  own box on Roles; don't reuse "App settings"). Store values with `AppSetting::put()` under keys named for your
+  add-on, `<prefix>.<name>` (e.g. `ipdr.keep_days`, at most 100 characters), and check the permission again in every
+  action that saves.
+- **A tab in the customer form:** implement `App\Contracts\CustomerFormTab` and register it,
+  `app(CustomerFormTabs::class)->register(YourTab::class)`. Core saves it with its own Save button: your partial binds
+  `wire:model="addonTabs.<key>.<field>"`, your `rules()` are checked with the rest of the form (that state comes from
+  the browser, so validate every value), `save()` writes your rows inside core's transaction (it may run again on a
+  deadlock retry, so keep it repeatable) and `saved()` runs once after the commit, for work a rollback cannot undo,
+  such as storing files. `warnings()` puts an amber dot on the tab and its sentences in the message after saving; the
+  save still happens. `visible()` is asked again when saving, and state for a tab the staff member cannot see is
+  dropped.
+- **A card on the customer page:** a Livewire component that takes `accountId`, registered with
+  `app(CustomerCards::class)->register('pkg::customer-card', fn (User $user, Account $account): bool => ..., 50)`.
+- **Files:** `<x-ui.file-upload wire:model="..." />` for uploads (Livewire; at most 10 MB, the server's limit). Keep
+  files on the `addons` disk under your own directory (`Storage::disk('addons')->put('documents/...')`), list that
+  directory in `extra.ispgrid.paths` (e.g. `"paths": ["documents"]`: lowercase letters, digits, `_` or `-`), and
+  send a file only from your own route, after your permission check, with
+  `PrivateFile::response($path, $downloadName, inline: true)`: pictures and PDFs open in the browser, anything else
+  downloads. The nightly backup keeps each listed directory (`files-<path>-<stamp>.tgz`), and `--delete-data`
+  removes it.
 - **What it must not do:** write `radcheck`, `radreply`, `radusergroup`, `radacct` or any other `rad*` table.
   Anything FreeRADIUS must do differently is a core change.
 - **Its own database:** name it `ispgrid_` and then lowercase letters, digits or `_` (the panel's database user can
   create only those, and the nightly backup dumps every one), create it in a migration, and list it in
   `extra.ispgrid.databases`, e.g. `"databases": ["ispgrid_ipdr"]`. Keep the migrations in `database/migrations`.
-  The installer refuses a database that another add-on lists. When the add-on is removed, its data is kept;
-  `--remove-addon=vendor/pkg --delete-data` drops the listed databases and removes its migrations from core's
-  `migrations` table, so installing it again starts fresh.
+  The installer refuses a database or path that another add-on lists. When the add-on is removed, its data is kept;
+  `--remove-addon=vendor/pkg --delete-data` drops the listed databases, deletes the listed paths and removes its
+  migrations from core's `migrations` table, so installing it again starts fresh.
 - **Permissions:** register the box in the provider and insert its `permissions` row (guard `web`) in a migration.
 - **Strings:** `__()` everywhere, and a `lang/hi.json` loaded with `loadJsonTranslationsFrom()`.
 - **Develop locally:** in the core checkout, `composer config repositories.my-addon path ../path/to/addon` and

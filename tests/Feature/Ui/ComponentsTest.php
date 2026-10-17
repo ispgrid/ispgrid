@@ -63,6 +63,34 @@ it('marks only the tabs that hold an error', function () {
     expect(substr_count((string) $view, '(has errors)'))->toBe(1);
 });
 
+it('marks a tab that needs attention, unless it also holds an error', function () {
+    $view = $this->blade(
+        '<x-ui.tabs :tabs="$tabs" :invalid="[\'speed\']" :warning="[\'speed\', \'documents\']">Body</x-ui.tabs>',
+        ['tabs' => ['general' => 'General', 'speed' => 'Speed', 'documents' => 'Documents']],
+    );
+
+    $view->assertSeeInOrder(['Speed', '(has errors)', 'Documents', '(needs attention)']);
+    expect(substr_count((string) $view, '(needs attention)'))->toBe(1);
+});
+
+it('renders the file upload with its label, accepted types and the field error', function () {
+    $this->withViewErrors(['addonTabs.documents.file' => 'The file may not be greater than 10240 kilobytes.'])
+        ->blade('<x-ui.file-upload wire:model="addonTabs.documents.file" label="Aadhaar" accept="image/*,.pdf" description="A photo or a PDF" />')
+        ->assertSee('<label for="field-addonTabs-documents-file"', false)
+        ->assertSee('type="file"', false)
+        ->assertSee('accept="image/*,.pdf"', false)
+        ->assertSee('wire:model="addonTabs.documents.file"', false)
+        ->assertSee('A photo or a PDF')
+        ->assertSee('aria-invalid="true"', false)
+        ->assertSee('The file may not be greater than 10240 kilobytes.')
+        ->assertSee('livewire-upload-progress', false);
+});
+
+it('takes uploads no larger than the server accepts and never previews SVG', function () {
+    expect(config('livewire.temporary_file_upload.rules'))->toBe(['required', 'file', 'max:10000'])
+        ->and(config('livewire.temporary_file_upload.preview_mimes'))->not->toContain('svg');
+});
+
 it('folds a menu group away unless one of its pages is open', function () {
     $this->blade('<x-ui.nav-group name="network" heading="Network" collapsible>Links</x-ui.nav-group>')
         ->assertSee("x-data=\"navGroup('network', false)\"", false)

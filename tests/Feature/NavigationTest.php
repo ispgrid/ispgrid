@@ -85,3 +85,30 @@ it('hides a menu group with nothing visible in it', function () {
         ->get(route('dashboard'))
         ->assertDontSee("navGroup('system'", false);
 });
+
+it('hides the Add-ons group while no add-on adds to it', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('dashboard'))
+        ->assertDontSee("navGroup('addons'", false);
+});
+
+it('shows an add-on item in the Add-ons group, between Notifications and System', function () {
+    app(Navigation::class)->add(new NavItem(
+        group: 'addons',
+        label: fn (): string => 'Fixture add-on',
+        route: 'dashboard',
+        icon: 'puzzle-piece',
+        active: ['nothing.*'],
+        visible: fn (User $user): bool => true,
+        order: 10,
+    ));
+    $admin = User::factory()->create();
+
+    $this->actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertSee("navGroup('addons', false)", false)
+        ->assertSee('Fixture add-on');
+
+    expect(array_column(app(Navigation::class)->forUser($admin, request()), 'name'))
+        ->toBe(['main', 'network', 'notifications', 'addons', 'system']);
+});

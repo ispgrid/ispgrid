@@ -26,9 +26,10 @@ for spec in "${OPT_ADDONS[@]}"; do
     $addons[$name] = ["constraint" => getenv("ADDON_CONSTRAINT"), "url" => "https://github.com/".$name];
     file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
 done
-#  What each add-on created (databases, migrations), saved at install; kept after a removal until --delete-data
+#  What each add-on created (databases, files, migrations), saved at install; kept after a removal until --delete-data
 addon_data="$(dirname "$ISPGRID_CONF")/addon-data.json"
 [[ -f "$addon_data" ]] || printf '{}\n' > "$addon_data"
+addon_files="$ISPGRID_HOME/storage/app/private/addons"
 ADDONS_REMOVED=""
 ADDONS_SUMMARY=()
 for name in "${OPT_REMOVE_ADDONS[@]}"; do
@@ -44,12 +45,18 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
       dbs+=("$db")
     fi
   done < <(addon_saved_databases "$addon_data" "$name")
+  paths=()
+  while IFS= read -r path; do
+    if [[ -d "$addon_files/$path" ]]; then
+      paths+=("$path")
+    fi
+  done < <(addon_saved_paths "$addon_data" "$name")
   mapfile -t migrations < <(addon_saved_migrations "$addon_data" "$name")
   if [[ "$removed" == yes ]]; then
     ADDONS_REMOVED+="${ADDONS_REMOVED:+, }$name"
   fi
   if [[ -n "${OPT_DELETE_DATA:-}" ]]; then
-    if (( ${#dbs[@]} + ${#migrations[@]} == 0 )); then
+    if (( ${#dbs[@]} + ${#paths[@]} + ${#migrations[@]} == 0 )); then
       if [[ "$removed" == yes ]]; then
         note "Removing add-on $name (it has no data to delete)"
         ADDONS_SUMMARY+=("Removed $name")
@@ -62,6 +69,12 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
     #  The run's backup dumped every ispgrid_ database next to radius-STAMP.sql.gz, as DB-STAMP.sql.gz
     stamp=$(basename "$ISPGRID_RUN_BACKUP" .sql.gz)
     stamp=${stamp#radius-}
+    #  ... and tarred every add-on directory as files-PATH-STAMP.tgz (a backup script from before add-on files did not:
+    #  then nothing is deleted)
+    for path in "${paths[@]}"; do
+      [[ -f "$(dirname "$ISPGRID_RUN_BACKUP")/files-$path-$stamp.tgz" ]] ||
+        die "The backup taken at the start of this run has no copy of $addon_files/$path, so nothing was deleted. Run the installer once without --delete-data (it installs the backup script that copies add-on files), then run this command again."
+    done
     if [[ "$removed" == yes ]]; then
       note "Removing add-on $name and deleting its data"
       ADDONS_SUMMARY+=("Removed $name and deleted its data")
@@ -74,6 +87,11 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
       note "Deleted its database $db (a copy: $(dirname "$ISPGRID_RUN_BACKUP")/$db-$stamp.sql.gz)"
       ADDONS_SUMMARY+=("Database $db deleted, a copy is in:" "$(dirname "$ISPGRID_RUN_BACKUP")/$db-$stamp.sql.gz")
     done
+    for path in "${paths[@]}"; do
+      rm -rf -- "${addon_files:?}/$path"
+      note "Deleted its files $addon_files/$path (a copy: $(dirname "$ISPGRID_RUN_BACKUP")/files-$path-$stamp.tgz)"
+      ADDONS_SUMMARY+=("Files in $addon_files/$path deleted, a copy is in:" "$(dirname "$ISPGRID_RUN_BACKUP")/files-$path-$stamp.tgz")
+    done
     if (( ${#migrations[@]} > 0 )); then
       mysql radius -e "$(addon_forget_migrations_sql "${migrations[@]}")"
     fi
@@ -81,7 +99,7 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
   elif [[ "$removed" == yes ]]; then
     note "Removing add-on $name (its data, such as its database, is kept)"
     ADDONS_SUMMARY+=("Removed $name: its data, such as its database, is kept")
-    if (( ${#dbs[@]} > 0 )); then
+    if (( ${#dbs[@]} + ${#paths[@]} > 0 )); then
       note "To delete its data too: sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data"
       ADDONS_SUMMARY+=("To delete that data too, run:" "sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data")
     fi
@@ -116,12 +134,20 @@ if (( ${#addons[@]} > 0 )); then
       owner=$(addon_db_owner "$addon_data" "$db" "$name")
       [[ -z "$owner" ]] || die "Add-on $name lists the database $db, which add-on $owner already uses."
     done
+    mapfile -t paths < <(addon_paths "vendor/$name/composer.json")
+    for path in "${paths[@]}"; do
+      addon_path_valid "$path" ||
+        die "Add-on $name lists the path \"$path\": add-on paths are one directory name of lowercase letters, digits, _ or -."
+      owner=$(addon_path_owner "$addon_data" "$path" "$name")
+      [[ -z "$owner" ]] || die "Add-on $name lists the path $path, which add-on $owner already uses."
+    done
     mapfile -t migrations < <(addon_migrations "vendor/$name")
     for migration in "${migrations[@]}"; do
       addon_migration_valid "$migration" ||
         die "Add-on $name has the migration \"$migration\": migrations are named like 2026_01_31_000000_create_things."
     done
     addon_save_databases "$addon_data" "$name" "${dbs[@]}"
+    addon_save_paths "$addon_data" "$name" "${paths[@]}"
     addon_save_migrations "$addon_data" "$name" "${migrations[@]}"
   done
   for name in "${addon_names[@]}"; do

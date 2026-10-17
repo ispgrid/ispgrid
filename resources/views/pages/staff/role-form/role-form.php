@@ -40,7 +40,8 @@ new #[Title('Role')] class extends Component
 
         $this->roleId = $model->id;
         $this->name = $model->name;
-        $this->permissions = $model->permissions->pluck('name')->all();
+        // Boxes of an add-on that is no longer installed are not on the page; saving keeps them (see save()).
+        $this->permissions = array_values(array_filter($model->permissions->pluck('name')->all(), app(Permissions::class)->has(...)));
     }
 
     /**
@@ -94,9 +95,14 @@ new #[Title('Role')] class extends Component
                 ? ['name' => $role->name, 'permissions' => Role::permissionLabels($role->permissions->pluck('name')->all())]
                 : [];
 
+            // A removed add-on's boxes stay with the role, so installing the add-on again gives the same access.
+            $unlisted = $role->exists
+                ? array_values(array_filter($role->permissions->pluck('name')->all(), fn (string $name): bool => ! app(Permissions::class)->has($name)))
+                : [];
+
             $role->name = $this->name;
             $role->save();
-            $role->syncPermissions($permissions);
+            $role->syncPermissions([...$permissions, ...$unlisted]);
 
             $new = ['name' => $role->name, 'permissions' => Role::permissionLabels($permissions)];
             $changed = array_keys(array_diff_assoc($new, $old));

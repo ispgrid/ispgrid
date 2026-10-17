@@ -1,4 +1,4 @@
-@props(['tabs', 'default' => null, 'invalid' => []])
+@props(['tabs', 'default' => null, 'invalid' => [], 'warning' => []])
 
 <div x-data="{ active: @js($default ?? array_key_first($tabs)) }" {{ $attributes }}>
     <div role="tablist" class="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-zinc-200)] contain-inline-size dark:shadow-[inset_0_-1px_0_var(--color-zinc-700)]">
@@ -17,6 +17,9 @@
                 @if (in_array($key, $invalid, true))
                     <span class="size-1.5 rounded-full bg-red-500" aria-hidden="true"></span>
                     <span class="sr-only">{{ __('(has errors)') }}</span>
+                @elseif (in_array($key, $warning, true))
+                    <span class="size-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>
+                    <span class="sr-only">{{ __('(needs attention)') }}</span>
                 @endif
             </button>
         @endforeach

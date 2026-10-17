@@ -14,6 +14,9 @@ use App\Notifications\Triggers\AfterExpiry;
 use App\Notifications\Triggers\BeforeExpiry;
 use App\Notifications\Triggers\CustomerCreated;
 use App\Notifications\Triggers\RechargeDone;
+use App\Support\Addons\AddonSettings;
+use App\Support\Addons\CustomerCards;
+use App\Support\Addons\CustomerFormTabs;
 use App\Support\Navigation\Navigation;
 use App\Support\Navigation\NavItem;
 use App\Support\Permissions;
@@ -38,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SessionKeepers::class);
+        $this->app->singleton(AddonSettings::class);
+        $this->app->singleton(CustomerFormTabs::class);
+        $this->app->singleton(CustomerCards::class);
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
 
         $this->app->singleton(Permissions::class, function (): Permissions {
@@ -141,10 +147,14 @@ class AppServiceProvider extends ServiceProvider
         $menu->add(new NavItem('notifications', fn (): string => __('Message log'), 'notification-log.index', 'chat-bubble-left-right', ['notification-log.*'], $can('view-notification-log'), 20));
         $menu->add(new NavItem('notifications', fn (): string => __('Providers'), 'notifications.providers', 'paper-airplane', ['notifications.*'], $can('manage-notification-providers'), 30));
 
+        // Add-ons put their pages here; the group stays hidden until one does.
+        $menu->group('addons', fn (): string => __('Add-ons'), true, 35);
+
         $menu->group('system', fn (): string => __('System'), true, 40);
         $menu->add(new NavItem('system', fn (): string => __('Staff'), 'staff.index', 'users', ['staff.*'], $can('manage-staff'), 10));
         $menu->add(new NavItem('system', fn (): string => __('Roles'), 'roles.index', 'key', ['roles.*'], $can('manage-staff'), 20));
         $menu->add(new NavItem('system', fn (): string => __('App settings'), 'app-settings.edit', 'cog-6-tooth', ['app-settings.*'], $can('manage-app-settings'), 30));
+        $menu->add(new NavItem('system', fn (): string => __('Add-ons'), 'addons.index', 'puzzle-piece', ['addons.*'], fn (User $user): bool => app(AddonSettings::class)->canOpenPage($user), 35));
         $menu->add(new NavItem('system', fn (): string => __('FreeRADIUS'), 'radius-settings.edit', 'adjustments-horizontal', ['radius-settings.*'], $can('manage-radius-settings'), 40));
         $menu->add(new NavItem('system', fn (): string => __('Connection types'), 'connection-types.index', 'wifi', ['connection-types.*'], $can('manage-connection-types'), 50));
         $menu->add(new NavItem('system', fn (): string => __('Activity log'), 'activity.index', 'clipboard-document-list', ['activity.*'], $can('view-activity-log'), 60));

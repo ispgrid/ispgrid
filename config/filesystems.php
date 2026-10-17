@@ -38,6 +38,16 @@ return [
             'report' => false,
         ],
 
+        // Add-on files (each add-on's own directory, listed in its extra.ispgrid.paths). Never served directly:
+        // add-ons send them with App\Support\Addons\PrivateFile after a permission check.
+        'addons' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/addons'),
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
