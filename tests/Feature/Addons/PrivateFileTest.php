@@ -123,6 +123,15 @@ it('downloads given HTML bytes even when asked to show them', function () {
     expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;');
 });
 
+it('accepts a download name with a slash', function () {
+    Route::get('/test-private-slash', fn () => PrivateFile::contentResponse(pngBytes(), 'ID/Address proof.png'));
+
+    $response = $this->get('/test-private-slash');
+
+    $response->assertOk();
+    expect($response->headers->get('Content-Disposition'))->toContain('ID-Address proof.png');
+});
+
 it('sends the given bytes unchanged', function () {
     expect($this->get('/test-private-content/png')->getContent())->toBe(pngBytes());
 });

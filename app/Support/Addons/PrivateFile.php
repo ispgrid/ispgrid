@@ -43,7 +43,7 @@ final class PrivateFile
 
         [$headers, $shown] = self::headers((string) $storage->mimeType($path), $inline);
 
-        return $storage->response($path, $downloadName, $headers, $shown ? 'inline' : 'attachment');
+        return $storage->response($path, self::safeName($downloadName), $headers, $shown ? 'inline' : 'attachment');
     }
 
     /**
@@ -57,6 +57,7 @@ final class PrivateFile
     public static function contentResponse(string $contents, string $downloadName, bool $inline = false): Response
     {
         [$headers, $shown] = self::headers((string) (new finfo(FILEINFO_MIME_TYPE))->buffer($contents), $inline);
+        $downloadName = self::safeName($downloadName);
         $headers['Content-Disposition'] = HeaderUtils::makeDisposition(
             $shown ? HeaderUtils::DISPOSITION_INLINE : HeaderUtils::DISPOSITION_ATTACHMENT,
             $downloadName,
@@ -64,6 +65,15 @@ final class PrivateFile
         );
 
         return response($contents, 200, $headers);
+    }
+
+    /**
+     * A file name cannot hold a slash, and the browser refuses the header if it does: "ID/Address proof.pdf" becomes
+     * "ID-Address proof.pdf".
+     */
+    private static function safeName(string $downloadName): string
+    {
+        return str_replace(['/', '\\'], '-', $downloadName);
     }
 
     /**
