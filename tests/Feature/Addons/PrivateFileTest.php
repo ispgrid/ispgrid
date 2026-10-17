@@ -11,6 +11,15 @@ beforeEach(function () {
         'Customer file '.$path,
         inline: $inline === 'inline',
     ))->where('path', '[a-z0-9.-]+');
+    Route::get('/test-private-content/{name}/{inline?}', fn (string $name, ?string $inline = null) => PrivateFile::contentResponse(
+        match ($name) {
+            'png' => pngBytes(),
+            'pdf' => pdfBytes(),
+            default => '<html><script>alert(1)</script></html>',
+        },
+        'Customer file '.$name,
+        inline: $inline === 'inline',
+    ));
 });
 
 /**
@@ -79,4 +88,41 @@ it('never shows HTML or SVG inline, whatever the file is called', function (stri
 
 it('answers 404 for a missing file', function () {
     $this->get('/test-private-file/missing.png')->assertNotFound();
+});
+
+it('sends given bytes as an attachment by default', function () {
+    $response = $this->get('/test-private-content/png');
+
+    $response->assertOk()
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('Cache-Control', 'no-store, private');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;')
+        ->toContain('Customer file png');
+});
+
+it('shows given picture bytes inline in a sandbox', function () {
+    $response = $this->get('/test-private-content/png/inline');
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'image/png')
+        ->assertHeader('Content-Security-Policy', 'sandbox');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('inline;');
+});
+
+it('shows given PDF bytes inline without the sandbox', function () {
+    $response = $this->get('/test-private-content/pdf/inline');
+
+    $response->assertOk()->assertHeader('Content-Type', 'application/pdf')->assertHeaderMissing('Content-Security-Policy');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('inline;');
+});
+
+it('downloads given HTML bytes even when asked to show them', function () {
+    $response = $this->get('/test-private-content/html/inline');
+
+    $response->assertOk()->assertHeader('Content-Type', 'application/octet-stream');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;');
+});
+
+it('sends the given bytes unchanged', function () {
+    expect($this->get('/test-private-content/png')->getContent())->toBe(pngBytes());
 });

@@ -104,7 +104,9 @@ example to copy.
   directory in `extra.ispgrid.paths` (e.g. `"paths": ["documents"]`: lowercase letters, digits, `_` or `-`), and
   send a file only from your own route, after your permission check, with
   `PrivateFile::response($path, $downloadName, inline: true)`: pictures and PDFs open in the browser, anything else
-  downloads. The nightly backup keeps each listed directory (`files-<path>-<stamp>.tgz`), and `--delete-data`
+  downloads. A file you keep encrypted: decrypt it and send the bytes with
+  `PrivateFile::contentResponse($contents, $downloadName, inline: true)`, same rules (core 0.1.2: check with
+  `method_exists(PrivateFile::class, 'contentResponse')`). The nightly backup keeps each listed directory (`files-<path>-<stamp>.tgz`), and `--delete-data`
   removes it.
 - **What it must not do:** write `radcheck`, `radreply`, `radusergroup`, `radacct` or any other `rad*` table.
   Anything FreeRADIUS must do differently is a core change.
