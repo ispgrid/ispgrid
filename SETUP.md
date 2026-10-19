@@ -40,7 +40,8 @@ These four make the panel usable. Do them before the first customer.
    new PPPoE customers get it.
 3. **Network, IP ranges** (can wait until you need it): add a range for IPoE customers and for PPPoE customers with
    a static IP, for example `10.60.1.0/24` with gateway `10.60.1.1`. In App settings, **IP range for IPoE
-   customers** gives each new IPoE customer the next free address.
+   customers** gives each new IPoE customer the next free address. A range only for PPPoE static IPs needs no
+   gateway: leave it empty, so that address is not lost.
 4. **Plans:** add a plan with its speed and validity.
 
 Then add a customer and **Recharge** them with the plan. The router still has to be set up (steps 2 to 4) before
