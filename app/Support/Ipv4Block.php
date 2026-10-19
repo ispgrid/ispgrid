@@ -31,16 +31,10 @@ final class Ipv4Block implements Stringable
             return null;
         }
 
-        foreach ([$matches[1], $matches[2]] as $address) {
-            if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
-                return null;
-            }
-        }
+        $first = filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false ? false : ip2long($matches[1]);
+        $last = filter_var($matches[2], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false ? false : ip2long($matches[2]);
 
-        $first = ip2long($matches[1]);
-        $last = ip2long($matches[2]);
-
-        return $first > $last ? null : new self($first, $last, null);
+        return $first === false || $last === false || $first > $last ? null : new self($first, $last, null);
     }
 
     public function isSubnet(): bool
