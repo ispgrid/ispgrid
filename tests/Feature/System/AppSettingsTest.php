@@ -8,6 +8,7 @@ use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Models\User;
 use App\Support\Hotspot;
+use App\Support\NoticePage;
 use Database\Seeders\AppSettingSeeder;
 use Database\Seeders\RadiusSettingSeeder;
 use Livewire\Livewire;
@@ -244,4 +245,15 @@ it('shows 365 days on an install whose settings predate the session history sett
 
 it('leaves the add-on list to the Add-ons page', function () {
     Livewire::test('pages::system.app-settings')->assertDontSee(__('No add-ons installed.'));
+});
+
+it('downloads the IPoE login page from the saved notice settings', function () {
+    AppSetting::put('notice_isp_name', 'Linkio Broadband');
+
+    Livewire::test('pages::system.app-settings')
+        ->set('notice_isp_name', 'Not saved yet')
+        ->call('downloadIpoeLoginPage')
+        ->assertFileDownloaded('login.html', NoticePage::ipoeLoginPage(), 'text/html; charset=utf-8');
+
+    expect(NoticePage::ipoeLoginPage())->toContain('Linkio Broadband')->not->toContain('Not saved yet');
 });
