@@ -4,6 +4,7 @@ use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Contracts\CustomerFormTab;
 use App\Enums\AccountStatus;
+use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
@@ -383,12 +384,14 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * The ranges offered for "next free IP": IPoE customers only get addresses of IPoE ranges.
+     *
      * @return array<int, string>
      */
     #[Computed]
     public function ipRanges(): array
     {
-        return IpRange::query()->orderBy('name')->get()
+        return IpRange::query()->when($this->isIpoe, fn ($query) => $query->where('kind', IpRangeKind::Ipoe))->orderBy('name')->get()
             ->mapWithKeys(fn (IpRange $range): array => [$range->id => "{$range->name} ({$range->network})"])
             ->all();
     }
@@ -849,7 +852,7 @@ new #[Title('Customer')] class extends Component
      */
     private function ipErrors(): array
     {
-        $error = CustomerRules::ipError($this->ip_address, $this->accountId);
+        $error = CustomerRules::ipError($this->ip_address, $this->accountId, $this->isIpoe);
 
         return $error === null ? [] : ['ip_address' => $error];
     }

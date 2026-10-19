@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\ConnectionType;
@@ -77,7 +78,7 @@ final class CustomerRules
     /**
      * The address must be in the inventory (a live range, not taken out) and held by no other customer.
      */
-    public static function ipError(string $address, ?int $accountId): ?string
+    public static function ipError(string $address, ?int $accountId, bool $isIpoe = false): ?string
     {
         if ($address === '' || filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
             return null;
@@ -87,6 +88,10 @@ final class CustomerRules
 
         if ($ip === null || $ip->range === null) {
             return __('This address is not in the IP inventory, or it was taken out. Add its range under Network, IP ranges.');
+        }
+
+        if ($isIpoe && $ip->range->kind !== IpRangeKind::Ipoe) {
+            return __('IPoE customers need an address from an IPoE range.');
         }
 
         $holder = $ip->account;

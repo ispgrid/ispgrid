@@ -47,3 +47,9 @@ it('has no IPoE address when no default range is set', function () {
 
     expect(CustomerDefaults::nextIpoeIp())->toBeNull();
 });
+
+it('has no IPoE range when the default range became a PPPoE range', function () {
+    AppSetting::put('default_ip_range_ipoe', (string) IpRange::factory()->pppoe()->create()->id);
+
+    expect(CustomerDefaults::ipRangeId())->toBeNull();
+});

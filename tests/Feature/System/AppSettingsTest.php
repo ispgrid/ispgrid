@@ -112,6 +112,16 @@ it('refuses a deleted pool or range as a default', function () {
         ->assertHasErrors(['default_pool_ppp', 'default_ip_range_ipoe']);
 });
 
+it('offers and takes only IPoE ranges as the IPoE default', function () {
+    $ipoe = IpRange::factory()->create();
+    $pppoe = IpRange::factory()->pppoe()->create();
+
+    $page = Livewire::test('pages::system.app-settings');
+    expect(array_keys($page->instance()->ipRanges))->toBe([$ipoe->id]);
+
+    $page->set('default_ip_range_ipoe', (string) $pppoe->id)->call('save')->assertHasErrors(['default_ip_range_ipoe']);
+});
+
 it('saves how many days the login log is kept', function () {
     Livewire::test('pages::system.app-settings')
         ->assertSet('login_log_days', '90')

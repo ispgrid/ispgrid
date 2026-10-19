@@ -197,7 +197,7 @@ final class ImportCustomers implements Importer
         }
 
         $ip = IpAddress::normalize($values['ip']) ?? '';
-        $ipError = isset($errors['ip']) ? null : CustomerRules::ipError($ip, null);
+        $ipError = isset($errors['ip']) ? null : CustomerRules::ipError($ip, null, $isIpoe);
 
         if ($ipError !== null) {
             $errors['ip'] = $ipError;

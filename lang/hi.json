@@ -107,7 +107,7 @@
     "Back": "वापस",
     "Blast-RADIUS": "Blast-RADIUS",
     "Block repeated failed logins": "बार-बार असफल लॉगिन रोकें",
-    "Blocks of addresses for static and IPoE customers. Adding a range puts each of its addresses, except the gateway, in the inventory.": "स्टैटिक और IPoE ग्राहकों के लिए पतों के ब्लॉक। रेंज जोड़ने पर गेटवे को छोड़कर उसका हर पता इन्वेंटरी में आ जाता है।",
+    "Blocks of addresses for IPoE customers and PPPoE static IPs. Adding a range puts its usable addresses in the inventory.": "IPoE ग्राहकों और PPPoE स्टैटिक IP के लिए पतों के ब्लॉक। रेंज जोड़ने पर उसके इस्तेमाल लायक पते इन्वेंटरी में आ जाते हैं।",
     "Bound": "जुड़ा",
     "Bound devices": "जुड़े डिवाइस",
     "Burst": "बर्स्ट",
@@ -915,5 +915,16 @@
     ":tab could not be saved, so nothing was saved. Try again.": ":tab सेव नहीं हो सका, इसलिए कुछ भी सेव नहीं हुआ। फिर से कोशिश करें।",
     ":tabs could not finish. Open the customer and save again.": ":tabs पूरा नहीं हो सका। ग्राहक को खोलें और फिर से सेव करें।",
     "Uploading": "अपलोड हो रहा है",
-    "The file could not be uploaded. It may be larger than 10 MB. Choose it again.": "फ़ाइल अपलोड नहीं हो सकी। हो सकता है वह 10 MB से बड़ी हो। उसे फिर से चुनें।"
+    "The file could not be uploaded. It may be larger than 10 MB. Choose it again.": "फ़ाइल अपलोड नहीं हो सकी। हो सकता है वह 10 MB से बड़ी हो। उसे फिर से चुनें।",
+    "IPoE customers need an address from an IPoE range.": "IPoE ग्राहकों को IPoE रेंज का पता चाहिए।",
+    "Kind": "प्रकार",
+    "Used for": "किसके लिए",
+    "A subnet, e.g. 10.20.0.0/24, or a first and last address, e.g. 10.20.0.100-10.20.0.200 (at most 4,096 addresses).": "एक सबनेट, जैसे 10.20.0.0/24, या पहला और आखिरी पता, जैसे 10.20.0.100-10.20.0.200 (ज़्यादा से ज़्यादा 4,096 पते)।",
+    "Leave out the first and last address": "पहला और आखिरी पता छोड़ दें",
+    "Only for a subnet: some old customer routers refuse the network and broadcast address (.0 and .255 of a /24). Without the tick every address can be given out.": "सिर्फ़ सबनेट के लिए: कुछ पुराने ग्राहक राउटर नेटवर्क और ब्रॉडकास्ट पता (/24 का .0 और .255) नहीं लेते। टिक के बिना हर पता दिया जा सकता है।",
+    "IPoE (a subnet on a router port)": "IPoE (राउटर पोर्ट पर एक सबनेट)",
+    "PPPoE (routed to the sessions)": "PPPoE (सेशन तक रूट किया गया)",
+    ":address is given to a customer, so it cannot leave the inventory.": ":address किसी ग्राहक को दिया गया है, इसलिए यह इन्वेंटरी से बाहर नहीं जा सकता।",
+    "A first-to-last range can only be PPPoE.": "पहले से आखिरी पते वाली रेंज सिर्फ़ PPPoE हो सकती है।",
+    "Enter an IPv4 network with its prefix, e.g. 10.20.0.0/24, or a first and last address, e.g. 10.20.0.100-10.20.0.200.": "प्रीफ़िक्स के साथ IPv4 नेटवर्क डालें, जैसे 10.20.0.0/24, या पहला और आखिरी पता, जैसे 10.20.0.100-10.20.0.200।"
 }
