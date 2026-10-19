@@ -10,6 +10,15 @@
   PPPoE, Hotspot and IPoE customers, plans, recharges and live sessions, set up on a fresh server with one command.
 </p>
 
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="SETUP.md">MikroTik setup</a> ·
+  <a href="#upgrade">Upgrade</a> ·
+  <a href="#backups-and-restore">Backups</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="SECURITY.md">Security</a>
+</p>
+
 ---
 
 > [!WARNING]
@@ -89,6 +98,9 @@ Passkeys need the panel on HTTPS with a domain name (`--access=domain`); browser
 
 ## Connecting your NAS
 
+**[SETUP.md](SETUP.md)** walks through the whole MikroTik setup: RADIUS, PPPoE (pools, profile, server), NAT, the
+notice page for expired customers, IPoE, Hotspot and protecting the router. In short:
+
 | Mode | Use it when | What the installer sets up |
 |---|---|---|
 | `lan` | The NAS reach the server on a private network. | RADIUS (UDP 1812, 1813) allowed from that network. |
@@ -124,6 +136,8 @@ For each NAS:
    interface), or Disconnect from the panel will not reach it.
 
 ## First steps in the panel
+
+The full order, with the MikroTik side, is in [SETUP.md](SETUP.md).
 
 1. **System, App settings:** currency, phone format, language, the Hotspot switch, and how long the login log and
    session history are kept.
