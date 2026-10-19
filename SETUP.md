@@ -298,27 +298,12 @@ the commands above:
 A device whose IP is not given to any customer is refused, and the Hotspot then shows its own login page. Replace
 that page with a message that asks the customer to call you:
 
-1. In Winbox, open **Files**. After the Hotspot is set up there is a folder named `hotspot`. Copy it to a folder
+1. In the panel, go to **System, App settings**. Fill in your ISP name and phone number under **Notice page** and
+   save, then click **Download login.html**. The page asks the customer to call you, in the panel language.
+2. In Winbox, open **Files**. After the Hotspot is set up there is a folder named `hotspot`. Copy it to a folder
    named `hotspot-ipoe` (the profile above uses that folder).
-2. Make a file named `login.html` with your message, for example:
-
-   ```html
-   <!doctype html>
-   <html>
-   <head>
-     <meta charset="utf-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1">
-     <title>Connection not set up</title>
-   </head>
-   <body style="font-family: sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem;">
-     <h1>This connection is not set up correctly</h1>
-     <p>Please call YOUR ISP NAME on YOUR PHONE NUMBER.</p>
-   </body>
-   </html>
-   ```
-
-   **Change:** `YOUR ISP NAME` and `YOUR PHONE NUMBER`.
-3. Drag the file onto the `hotspot-ipoe` folder in **Files**, replacing the `login.html` that is there.
+3. Drag the downloaded `login.html` onto the `hotspot-ipoe` folder, replacing the `login.html` that is there. Do
+   this on every NAS with IPoE customers, and again after you change the ISP name or phone number.
 
 In the panel, the **Login log** shows these devices as "Not an IPoE device".
 
