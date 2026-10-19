@@ -69,6 +69,12 @@
                     <x-ui.input wire:model="notice_phone" :label="__('Phone number')" />
                 </div>
                 <x-ui.textarea wire:model="notice_message" :label="__('Message')" rows="3" />
+                <div class="grid gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-700">
+                    <x-ui.text muted>{{ __('IPoE devices on an IP that no customer has get the Hotspot login page. Replace it on each NAS with this page, which asks them to call you (the setup guide shows how). It uses the saved ISP name and phone number.') }}</x-ui.text>
+                    <div>
+                        <x-ui.button variant="secondary" size="sm" icon="arrow-down-tray" wire:click="downloadIpoeLoginPage">{{ __('Download login.html') }}</x-ui.button>
+                    </div>
+                </div>
             </x-ui.card>
 
             <x-ui.card class="grid content-start gap-5">
