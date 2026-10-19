@@ -394,6 +394,8 @@ section "PPPoE"
 check "PPP accept, plan replies, new MAC bound"  Accept "$(ppp t_ppp pass $M1)" \
       'Mikrotik-Rate-Limit = "40M/40M"' 'Framed-Pool = "pppoe"' '!Mikrotik-Address-List' '!Mikrotik-Total-Limit' 'New device' 'Session-Timeout = 64800'
 check "PPP accept again, known MAC"              Accept "$(ppp t_ppp pass $M1)"
+check "PPP accept without Called-Station-Id (blank service name)" Accept \
+      "User-Name=t_ppp\nUser-Password=pass\nService-Type=Framed-User\nFramed-Protocol=PPP\nCalling-Station-Id=$M1\nNAS-IP-Address=127.0.0.1\n"
 check "PPP CHAP, known MAC"                      Accept "$(pppc t_ppp pass $M1)" 'Mikrotik-Rate-Limit = "40M/40M"'
 check "PPP MS-CHAP, known MAC"                   Accept "$(pppm t_ppp pass $M1)" 'Mikrotik-Rate-Limit = "40M/40M"'
 check "PPP CHAP wrong password"                  Reject "$(pppc t_ppp wrong $M1)" 'Wrong Password'
