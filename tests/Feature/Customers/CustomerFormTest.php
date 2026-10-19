@@ -208,6 +208,28 @@ it('asks for the IP of an IPoE customer', function () {
     newCustomerForm()->set('service_type', 'IPOE')->call('save')->assertHasErrors(['ip_address']);
 });
 
+it('offers IPoE customers only IPoE ranges', function () {
+    $ipoe = IpRange::factory()->create(['name' => 'Fibre']);
+    $pppoe = IpRange::factory()->pppoe()->create(['name' => 'Public']);
+
+    $form = newCustomerForm();
+    expect(array_keys($form->instance()->ipRanges))->toBe([$ipoe->id, $pppoe->id]);
+
+    $form->set('service_type', 'IPOE');
+    expect(array_keys($form->instance()->ipRanges))->toBe([$ipoe->id]);
+});
+
+it('gives an address of a PPPoE range only to a PPPoE customer', function () {
+    $range = IpRange::factory()->pppoe()->create();
+    Ip::factory()->create(['ip_range_id' => $range->id, 'address' => '203.0.113.0']);
+
+    newCustomerForm()->set('service_type', 'IPOE')->set('ip_address', '203.0.113.0')->call('save')
+        ->assertHasErrors(['ip_address'])
+        ->assertSee('IPoE customers need an address from an IPoE range.');
+
+    newCustomerForm()->set('ip_address', '203.0.113.0')->call('save')->assertHasNoErrors();
+});
+
 it('refuses an IP the inventory does not offer', function (string $case, string $message) {
     match ($case) {
         'missing' => null,

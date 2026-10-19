@@ -5,6 +5,7 @@ use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
 use App\Enums\AccountStatus;
+use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Exceptions\ExpiryChangedMeanwhile;
@@ -26,6 +27,7 @@ use App\Models\Recharge;
 use App\Models\User;
 use App\Support\ActivityFormatter;
 use App\Support\Addons\CustomerCards;
+use App\Support\Addons\CustomerTabs;
 use App\Support\CustomerDefaults;
 use App\Support\ExpiryCalculator;
 use App\Support\Hotspot;
@@ -42,6 +44,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;
 
@@ -51,6 +54,12 @@ new #[Title('Customer')] class extends Component
 
     #[Locked]
     public int $accountId;
+
+    /**
+     * The open tab, kept in the page address. Only that tab is rendered (see activeTab()).
+     */
+    #[Url(except: 'details')]
+    public string $tab = 'details';
 
     /**
      * The status chosen in the Change status dialog.
@@ -112,6 +121,59 @@ new #[Title('Customer')] class extends Component
             'address',
             'radiusAttributes',
         ])->findOrFail($this->accountId);
+    }
+
+    /**
+     * The tabs this staff member sees, core's and the add-ons', in order: key => title.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function tabs(): array
+    {
+        $core = [
+            'details' => __('Details'),
+            'connection' => __('Connection'),
+            'recharges' => __('Recharges'),
+            'messages' => Gate::allows('view-notification-log') ? __('Messages') : null,
+            'activity' => __('Activity'),
+        ];
+
+        $tabs = [];
+        foreach (array_filter($core) as $key => $label) {
+            $tabs[$key] = ['label' => $label, 'order' => CustomerTabs::CORE_ORDERS[$key]];
+        }
+        $tabs += $this->addonTabs;
+        uasort($tabs, fn (array $a, array $b): int => $a['order'] <=> $b['order']);
+
+        return array_map(fn (array $tab): string => $tab['label'], $tabs);
+    }
+
+    /**
+     * The open tab: Details when the address names a tab this staff member cannot see.
+     */
+    #[Computed]
+    public function activeTab(): string
+    {
+        return array_key_exists($this->tab, $this->tabs) ? $this->tab : 'details';
+    }
+
+    /**
+     * The Livewire component of the open tab when an add-on owns it.
+     */
+    #[Computed]
+    public function addonTab(): ?string
+    {
+        return $this->addonTabs[$this->activeTab]['component'] ?? null;
+    }
+
+    /**
+     * @return array<string, array{label: string, component: string, order: int}>
+     */
+    #[Computed]
+    public function addonTabs(): array
+    {
+        return app(CustomerTabs::class)->for(auth()->user(), $this->account);
     }
 
     /**
@@ -246,7 +308,8 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * What a technician needs to set up the customer's device, when the customer has an IP.
+     * What a technician needs to set up the customer's device, when the customer has an IP of an IPoE range (a
+     * PPPoE router gets everything from its session).
      *
      * @return ?array{ip: string, mask: string, gateway: string, dns: string}
      */
@@ -255,7 +318,7 @@ new #[Title('Customer')] class extends Component
     {
         $ip = $this->account->ip;
 
-        if ($ip === null || $ip->range === null) {
+        if ($ip === null || $ip->range === null || $ip->range->kind !== IpRangeKind::Ipoe) {
             return null;
         }
 

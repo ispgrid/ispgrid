@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\PruneRadiusLogs;
+use App\Enums\IpRangeKind;
 use App\Http\Middleware\SetLocale;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
@@ -9,6 +10,7 @@ use App\Models\IpRange;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Support\Hotspot;
+use App\Support\NoticePage;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\App;
@@ -18,6 +20,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('App settings')] class extends Component
 {
@@ -111,7 +114,7 @@ new #[Title('App settings')] class extends Component
             'expiry_mode' => ['required', Rule::in(array_keys($this->expiryModes()))],
             'default_pool_ppp' => ['nullable', 'integer', Rule::exists(Pool::class, 'id')->withoutTrashed()],
             'default_pool_hotspot' => ['nullable', 'integer', Rule::exists(Pool::class, 'id')->withoutTrashed()],
-            'default_ip_range_ipoe' => ['nullable', 'integer', Rule::exists(IpRange::class, 'id')->withoutTrashed()],
+            'default_ip_range_ipoe' => ['nullable', 'integer', Rule::exists(IpRange::class, 'id')->withoutTrashed()->where('kind', IpRangeKind::Ipoe->value)],
             'notice_isp_name' => ['nullable', 'string', 'max:100'],
             'notice_phone' => ['nullable', 'string', 'max:30'],
             'notice_message' => ['required', 'string', 'max:500'],
@@ -149,7 +152,7 @@ new #[Title('App settings')] class extends Component
     #[Computed]
     public function ipRanges(): array
     {
-        return IpRange::query()->orderBy('name')->get()
+        return IpRange::query()->where('kind', IpRangeKind::Ipoe)->orderBy('name')->get()
             ->mapWithKeys(fn (IpRange $range): array => [$range->id => "{$range->name} ({$range->network})"])
             ->all();
     }
@@ -183,6 +186,19 @@ new #[Title('App settings')] class extends Component
         App::setLocale(SetLocale::resolve(auth()->user()->locale));
         session()->flash('toast', __('Settings saved.'));
         $this->redirectRoute('app-settings.edit');
+    }
+
+    /**
+     * The Hotspot login.html for IPoE devices whose IP no customer has, from the saved notice settings.
+     */
+    public function downloadIpoeLoginPage(): StreamedResponse
+    {
+        $this->authorize('manage-app-settings');
+        $html = NoticePage::ipoeLoginPage();
+
+        return response()->streamDownload(function () use ($html): void {
+            echo $html;
+        }, 'login.html', ['Content-Type' => 'text/html; charset=utf-8']);
     }
 
     /**

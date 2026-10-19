@@ -2,7 +2,7 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('IP ranges') }}</x-ui.heading>
-            <x-ui.text muted class="mt-1">{{ __('Blocks of addresses for static and IPoE customers. Adding a range puts each of its addresses, except the gateway, in the inventory.') }}</x-ui.text>
+            <x-ui.text muted class="mt-1">{{ __('Blocks of addresses for IPoE customers and PPPoE static IPs. Adding a range puts its usable addresses in the inventory.') }}</x-ui.text>
         </div>
 
         @can('create', \App\Models\IpRange::class)
@@ -14,6 +14,7 @@
         <x-slot:head>
             <x-ui.th>{{ __('Name') }}</x-ui.th>
             <x-ui.th>{{ __('Network') }}</x-ui.th>
+            <x-ui.th>{{ __('Kind') }}</x-ui.th>
             <x-ui.th>{{ __('Gateway') }}</x-ui.th>
             <x-ui.th>{{ __('Addresses') }}</x-ui.th>
             <x-ui.th><span class="sr-only">{{ __('Actions') }}</span></x-ui.th>
@@ -28,6 +29,7 @@
                     @endif
                 </x-ui.td>
                 <x-ui.td class="tabular-nums">{{ $range->network }}</x-ui.td>
+                <x-ui.td>{{ $range->kind->label() }}</x-ui.td>
                 <x-ui.td class="tabular-nums">{{ $range->gateway }}</x-ui.td>
                 <x-ui.td class="tabular-nums">{{ __(':given of :total given out', ['given' => $range->given_out_count, 'total' => $range->ips_count]) }}</x-ui.td>
                 <x-ui.td class="text-end whitespace-nowrap">
@@ -54,7 +56,7 @@
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="5" class="text-center text-zinc-500">{{ __('No IP ranges yet.') }}</x-ui.td>
+                <x-ui.td colspan="6" class="text-center text-zinc-500">{{ __('No IP ranges yet.') }}</x-ui.td>
             </tr>
         @endforelse
     </x-ui.table>
@@ -64,19 +66,32 @@
             <x-ui.heading size="lg">{{ $editingId ? __('Edit IP range') : __('Add IP range') }}</x-ui.heading>
 
             <x-ui.input wire:model="name" :label="__('Name')" maxlength="100" required autocomplete="off" />
+            <x-ui.select wire:model.live="kind" :label="__('Used for')" :options="$this->kinds" />
             <x-ui.input
                 wire:model="network" english
                 :label="__('Network')"
-                :description="$editingId ? __('The network of a range cannot change.') : __('IPv4 with its prefix, e.g. 10.20.0.0/24 (at most /20).')"
+                :description="match (true) {
+                    $editingId !== null => __('The network of a range cannot change.'),
+                    $this->isPppoe => __('A subnet, e.g. 10.20.0.0/24, or a first and last address, e.g. 10.20.0.100-10.20.0.200 (at most 4,096 addresses).'),
+                    default => __('IPv4 with its prefix, e.g. 10.20.0.0/24 (at most /20).'),
+                }"
                 :readonly="$editingId !== null"
                 required
                 autocomplete="off"
             />
-            <x-ui.input wire:model="gateway" :label="__('Gateway')" :description="__('Left out of the inventory, so no customer gets it.')" autocomplete="off" />
-            <div class="grid gap-5 sm:grid-cols-2">
-                <x-ui.input wire:model="dns1" :label="__('DNS 1')" autocomplete="off" />
-                <x-ui.input wire:model="dns2" :label="__('DNS 2')" autocomplete="off" />
-            </div>
+            @if ($this->isPppoe)
+                <x-ui.checkbox
+                    wire:model="leave_out_edges"
+                    :label="__('Leave out the first and last address')"
+                    :description="__('Only for a subnet: some old customer routers refuse the network and broadcast address (.0 and .255 of a /24). Without the tick every address can be given out.')"
+                />
+            @else
+                <x-ui.input wire:model="gateway" :label="__('Gateway')" :description="__('Left out of the inventory, so no customer gets it.')" autocomplete="off" />
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <x-ui.input wire:model="dns1" :label="__('DNS 1')" autocomplete="off" />
+                    <x-ui.input wire:model="dns2" :label="__('DNS 2')" autocomplete="off" />
+                </div>
+            @endif
 
             <div class="flex justify-end gap-2">
                 <x-ui.button variant="secondary" x-on:click="open = false">{{ __('Cancel') }}</x-ui.button>

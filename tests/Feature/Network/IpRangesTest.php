@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\IpRangeKind;
 use App\Models\Account;
 use App\Models\Ip;
 use App\Models\IpRange;
@@ -205,4 +206,136 @@ it('will not put the gateway back into the inventory', function () {
         ->assertDispatched('toast', variant: 'danger');
 
     expect($gateway->fresh()->trashed())->toBeTrue();
+});
+
+it('adds a PPPoE subnet with every address and no gateway or DNS', function () {
+    addRange(['kind' => 'pppoe', 'network' => '10.51.0.0/29', 'gateway' => '10.51.0.1', 'dns1' => '1.1.1.1'])->assertHasNoErrors();
+
+    $range = IpRange::query()->sole();
+
+    expect($range->kind)->toBe(IpRangeKind::Pppoe)
+        ->and($range->only(['gateway', 'dns1', 'dns2']))->toBe(['gateway' => null, 'dns1' => null, 'dns2' => null])
+        ->and($range->ips()->orderBy('id')->pluck('address')->all())
+        ->toBe(['10.51.0.0', '10.51.0.1', '10.51.0.2', '10.51.0.3', '10.51.0.4', '10.51.0.5', '10.51.0.6', '10.51.0.7']);
+});
+
+it('leaves out the first and last address of a PPPoE subnet when ticked', function () {
+    addRange(['kind' => 'pppoe', 'network' => '10.52.0.0/29', 'leave_out_edges' => true])->assertHasNoErrors();
+
+    expect(IpRange::query()->sole()->leave_out_edges)->toBeTrue()
+        ->and(Ip::query()->orderBy('id')->pluck('address')->all())
+        ->toBe(['10.52.0.1', '10.52.0.2', '10.52.0.3', '10.52.0.4', '10.52.0.5', '10.52.0.6']);
+});
+
+it('adds a PPPoE range from a first to a last address', function () {
+    addRange(['kind' => 'pppoe', 'network' => ' 10.53.0.254 - 10.53.1.1 ', 'leave_out_edges' => true])->assertHasNoErrors();
+
+    $range = IpRange::query()->sole();
+
+    expect($range->network)->toBe('10.53.0.254-10.53.1.1')
+        ->and($range->leave_out_edges)->toBeFalse()
+        ->and($range->ips()->orderBy('id')->pluck('address')->all())->toBe(['10.53.0.254', '10.53.0.255', '10.53.1.0', '10.53.1.1']);
+});
+
+it('refuses a first-to-last range that is not a usable PPPoE range', function (array $fields) {
+    addRange($fields)->assertHasErrors(['network']);
+
+    expect(IpRange::query()->count())->toBe(0);
+})->with([
+    'IPoE' => [['kind' => 'ipoe', 'network' => '10.54.0.10-10.54.0.20']],
+    'last before first' => [['kind' => 'pppoe', 'network' => '10.54.0.20-10.54.0.10']],
+    'more than 4,096' => [['kind' => 'pppoe', 'network' => '10.54.0.0-10.54.16.0']],
+    'not an address' => [['kind' => 'pppoe', 'network' => '10.54.0.10-10.54.0.300']],
+]);
+
+it('refuses a range that overlaps a range of the other form', function () {
+    IpRange::factory()->create(['name' => 'Tower B', 'network' => '10.55.0.0/24']);
+
+    addRange(['kind' => 'pppoe', 'network' => '10.54.255.250-10.55.0.3'])
+        ->assertHasErrors(['network'])
+        ->assertSee('Overlaps the range Tower B (10.55.0.0/24).');
+});
+
+it('switches an IPoE range to PPPoE and adds its missing addresses', function () {
+    addRange(['network' => '10.56.0.0/29', 'gateway' => '10.56.0.1', 'dns1' => '1.1.1.1']);
+    $range = IpRange::query()->sole();
+
+    Livewire::test('pages::network.ip-ranges')
+        ->call('edit', $range->id)
+        ->set('kind', 'pppoe')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($range->fresh()->only(['gateway', 'dns1']))->toBe(['gateway' => null, 'dns1' => null])
+        ->and(Ip::query()->orderByRaw('INET_ATON(address)')->pluck('address')->all())
+        ->toBe(['10.56.0.0', '10.56.0.1', '10.56.0.2', '10.56.0.3', '10.56.0.4', '10.56.0.5', '10.56.0.6', '10.56.0.7']);
+});
+
+it('switches a PPPoE subnet to IPoE and takes out its first and last address', function () {
+    addRange(['kind' => 'pppoe', 'network' => '10.57.0.0/29']);
+    $range = IpRange::query()->sole();
+
+    Livewire::test('pages::network.ip-ranges')
+        ->call('edit', $range->id)
+        ->assertSet('kind', 'pppoe')
+        ->set('kind', 'ipoe')
+        ->set('gateway', '10.57.0.1')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($range->fresh()->kind)->toBe(IpRangeKind::Ipoe)
+        ->and(Ip::query()->orderByRaw('INET_ATON(address)')->pluck('address')->all())
+        ->toBe(['10.57.0.2', '10.57.0.3', '10.57.0.4', '10.57.0.5', '10.57.0.6'])
+        ->and(Ip::onlyTrashed()->orderByRaw('INET_ATON(address)')->pluck('address')->all())
+        ->toBe(['10.57.0.0', '10.57.0.1', '10.57.0.7']);
+});
+
+it('will not take out the first or last address while a customer has it', function (array $change, string $field) {
+    addRange(['kind' => 'pppoe', 'network' => '10.58.0.0/29']);
+    $range = IpRange::query()->sole();
+    Account::factory()->create(['ip_id' => Ip::query()->where('address', '10.58.0.7')->value('id')]);
+
+    $page = Livewire::test('pages::network.ip-ranges')->call('edit', $range->id);
+
+    foreach ($change as $property => $value) {
+        $page->set($property, $value);
+    }
+
+    $page->call('save')->assertHasErrors([$field])->assertSee('10.58.0.7 is given to a customer');
+
+    expect($range->fresh()->kind)->toBe(IpRangeKind::Pppoe)
+        ->and(Ip::query()->count())->toBe(8);
+})->with([
+    'to IPoE' => [['kind' => 'ipoe'], 'kind'],
+    'tick on' => [['leave_out_edges' => true], 'leave_out_edges'],
+]);
+
+it('takes the first and last address out when the tick is turned on, and back when off', function () {
+    addRange(['kind' => 'pppoe', 'network' => '10.59.0.0/30']);
+    $range = IpRange::query()->sole();
+
+    Livewire::test('pages::network.ip-ranges')->call('edit', $range->id)->set('leave_out_edges', true)->call('save')->assertHasNoErrors();
+    expect(Ip::query()->orderBy('id')->pluck('address')->all())->toBe(['10.59.0.1', '10.59.0.2']);
+
+    Livewire::test('pages::network.ip-ranges')->call('edit', $range->id)->set('leave_out_edges', false)->call('save')->assertHasNoErrors();
+    expect(Ip::query()->count())->toBe(4)->and(Ip::onlyTrashed()->count())->toBe(0);
+});
+
+it('will not switch a first-to-last range to IPoE', function () {
+    addRange(['kind' => 'pppoe', 'network' => '10.61.0.10-10.61.0.20']);
+
+    Livewire::test('pages::network.ip-ranges')
+        ->call('edit', IpRange::query()->value('id'))
+        ->set('kind', 'ipoe')
+        ->call('save')
+        ->assertHasErrors(['kind']);
+
+    expect(IpRange::query()->sole()->kind)->toBe(IpRangeKind::Pppoe);
+});
+
+it('shows the kind of each range', function () {
+    IpRange::factory()->create(['name' => 'Fibre', 'network' => '10.62.0.0/24']);
+    IpRange::factory()->pppoe()->create(['name' => 'Public', 'network' => '203.0.113.0/29']);
+
+    Livewire::test('pages::network.ip-ranges')->assertSeeInOrder(['Fibre', 'IPoE', 'Public', 'PPPoE']);
 });

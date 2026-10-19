@@ -52,10 +52,12 @@ it('shows the last messages on the customer page to roles with the log box', fun
     $account = Account::factory()->create();
     NotificationLog::factory()->sent()->create(['account_id' => $account->id, 'values' => ['Asha'], 'preview' => 'Dear Asha, renew soon.']);
 
-    Livewire::test('pages::customers.show', ['account' => $account->id])
+    Livewire::withQueryParams(['tab' => 'messages'])->test('pages::customers.show', ['account' => $account->id])
         ->assertSee(__('Messages'))
         ->assertSee('Dear Asha, renew soon.');
 
     $this->actingAs(staffHolding(Permission::ViewCustomers));
-    Livewire::test('pages::customers.show', ['account' => $account->id])->assertDontSee('Dear Asha, renew soon.');
+    Livewire::withQueryParams(['tab' => 'messages'])->test('pages::customers.show', ['account' => $account->id])
+        ->assertDontSee(__('Messages'))
+        ->assertDontSee('Dear Asha, renew soon.');
 });

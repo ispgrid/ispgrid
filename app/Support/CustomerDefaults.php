@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
 use App\Models\AppSetting;
 use App\Models\Ip;
@@ -37,13 +38,13 @@ final class CustomerDefaults
     }
 
     /**
-     * The default IPoE range, or null when nothing is set or the range was deleted.
+     * The default IPoE range, or null when nothing is set, or the range was deleted or became a PPPoE range.
      */
     public static function ipRangeId(): ?int
     {
         $id = (string) AppSetting::valueOf(self::IPOE_RANGE_KEY, '');
 
-        return $id === '' ? null : IpRange::query()->whereKey((int) $id)->value('id');
+        return $id === '' ? null : IpRange::query()->whereKey((int) $id)->where('kind', IpRangeKind::Ipoe)->value('id');
     }
 
     /**

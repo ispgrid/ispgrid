@@ -8,6 +8,7 @@ use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Models\User;
 use App\Support\Hotspot;
+use App\Support\NoticePage;
 use Database\Seeders\AppSettingSeeder;
 use Database\Seeders\RadiusSettingSeeder;
 use Livewire\Livewire;
@@ -110,6 +111,16 @@ it('refuses a deleted pool or range as a default', function () {
         ->set('default_ip_range_ipoe', (string) IpRange::factory()->trashed()->create()->id)
         ->call('save')
         ->assertHasErrors(['default_pool_ppp', 'default_ip_range_ipoe']);
+});
+
+it('offers and takes only IPoE ranges as the IPoE default', function () {
+    $ipoe = IpRange::factory()->create();
+    $pppoe = IpRange::factory()->pppoe()->create();
+
+    $page = Livewire::test('pages::system.app-settings');
+    expect(array_keys($page->instance()->ipRanges))->toBe([$ipoe->id]);
+
+    $page->set('default_ip_range_ipoe', (string) $pppoe->id)->call('save')->assertHasErrors(['default_ip_range_ipoe']);
 });
 
 it('saves how many days the login log is kept', function () {
@@ -234,4 +245,15 @@ it('shows 365 days on an install whose settings predate the session history sett
 
 it('leaves the add-on list to the Add-ons page', function () {
     Livewire::test('pages::system.app-settings')->assertDontSee(__('No add-ons installed.'));
+});
+
+it('downloads the IPoE login page from the saved notice settings', function () {
+    AppSetting::put('notice_isp_name', 'Linkio Broadband');
+
+    Livewire::test('pages::system.app-settings')
+        ->set('notice_isp_name', 'Not saved yet')
+        ->call('downloadIpoeLoginPage')
+        ->assertFileDownloaded('login.html', NoticePage::ipoeLoginPage(), 'text/html; charset=utf-8');
+
+    expect(NoticePage::ipoeLoginPage())->toContain('Linkio Broadband')->not->toContain('Not saved yet');
 });
