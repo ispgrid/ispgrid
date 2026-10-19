@@ -1,15 +1,17 @@
 <?php
 
+use App\Enums\IpRangeKind;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Ip;
 use App\Models\IpRange;
 use App\Support\IpAddress;
-use App\Support\Ipv4Cidr;
+use App\Support\Ipv4Block;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -19,15 +21,19 @@ new #[Title('IP ranges')] class extends Component
     use AuthorizesEveryRequest, ShowsToasts;
 
     /**
-     * The biggest range added at once: a /20 is 4,094 addresses.
+     * The most addresses added at once: a /20.
      */
-    private const LARGEST_PREFIX = 20;
+    private const LARGEST_SIZE = 4096;
 
     public ?int $editingId = null;
 
     public string $name = '';
 
+    public string $kind = 'ipoe';
+
     public string $network = '';
+
+    public bool $leave_out_edges = false;
 
     public string $gateway = '';
 
@@ -46,6 +52,24 @@ new #[Title('IP ranges')] class extends Component
     protected function authorizeAccess(): void
     {
         $this->authorize('viewAny', IpRange::class);
+    }
+
+    #[Computed]
+    public function isPppoe(): bool
+    {
+        return $this->kind === IpRangeKind::Pppoe->value;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function kinds(): array
+    {
+        return [
+            IpRangeKind::Ipoe->value => __('IPoE (a subnet on a router port)'),
+            IpRangeKind::Pppoe->value => __('PPPoE (routed to the sessions)'),
+        ];
     }
 
     /**
@@ -77,7 +101,9 @@ new #[Title('IP ranges')] class extends Component
         $this->resetForm();
         $this->editingId = $range->id;
         $this->name = $range->name;
+        $this->kind = $range->kind->value;
         $this->network = $range->network;
+        $this->leave_out_edges = $range->leave_out_edges;
         $this->gateway = (string) $range->gateway;
         $this->dns1 = (string) $range->dns1;
         $this->dns2 = (string) $range->dns2;
@@ -94,19 +120,23 @@ new #[Title('IP ranges')] class extends Component
         }
 
         if ($range === null) {
-            $this->network = (string) (Ipv4Cidr::parse($this->network) ?? trim($this->network));
+            $this->network = (string) (Ipv4Block::parse($this->network) ?? trim($this->network));
         }
 
         $validated = $this->validate($this->rules($range));
+        $kind = IpRangeKind::from($validated['kind']);
+        $isIpoe = $kind === IpRangeKind::Ipoe;
         $details = [
             'name' => $validated['name'],
-            'gateway' => $validated['gateway'] ?: null,
-            'dns1' => $validated['dns1'] ?: null,
-            'dns2' => $validated['dns2'] ?: null,
+            'kind' => $kind,
+            'leave_out_edges' => ! $isIpoe && $validated['leave_out_edges'] && Ipv4Block::parse($range?->network ?? $validated['network'])->isSubnet(),
+            'gateway' => $isIpoe ? ($validated['gateway'] ?: null) : null,
+            'dns1' => $isIpoe ? ($validated['dns1'] ?: null) : null,
+            'dns2' => $isIpoe ? ($validated['dns2'] ?: null) : null,
         ];
 
         if ($range === null) {
-            $this->addRange(Ipv4Cidr::parse($validated['network']), $details);
+            $this->addRange($validated['network'], $details);
             $this->toast(__('IP range added.'));
         } elseif ($this->updateRange($range, $details)) {
             $this->toast(__('IP range saved.'));
@@ -165,15 +195,15 @@ new #[Title('IP ranges')] class extends Component
     }
 
     /**
-     * @param  array{name: string, gateway: ?string, dns1: ?string, dns2: ?string}  $details
+     * @param  array{name: string, kind: IpRangeKind, leave_out_edges: bool, gateway: ?string, dns1: ?string, dns2: ?string}  $details
      */
-    private function addRange(Ipv4Cidr $cidr, array $details): void
+    private function addRange(string $network, array $details): void
     {
-        DB::transaction(function () use ($cidr, $details): void {
-            $range = IpRange::query()->create($details + ['network' => (string) $cidr]);
+        DB::transaction(function () use ($network, $details): void {
+            $range = IpRange::query()->create($details + ['network' => $network]);
             $now = now();
 
-            collect($cidr->hosts())
+            collect($range->usableAddresses())
                 ->reject(fn (string $address): bool => $address === $range->gateway)
                 ->chunk(500)
                 ->each(fn (SupportCollection $chunk) => Ip::query()->insert($chunk->map(fn (string $address): array => [
@@ -187,10 +217,11 @@ new #[Title('IP ranges')] class extends Component
     }
 
     /**
-     * Saves name, gateway and DNS. A new gateway leaves the inventory and the old one comes back.
+     * Saves the range. A new kind or tick adds or takes out the first and last address of a subnet; a new gateway
+     * leaves the inventory and the old one comes back.
      *
-     * @param  array{name: string, gateway: ?string, dns1: ?string, dns2: ?string}  $details
-     * @return bool false when the new gateway is given to a customer (nothing saved)
+     * @param  array{name: string, kind: IpRangeKind, leave_out_edges: bool, gateway: ?string, dns1: ?string, dns2: ?string}  $details
+     * @return bool false when an address that would leave the inventory is given to a customer (nothing saved)
      */
     private function updateRange(IpRange $range, array $details): bool
     {
@@ -204,8 +235,26 @@ new #[Title('IP ranges')] class extends Component
             return false;
         }
 
-        DB::transaction(function () use ($range, $details, $oldGateway, $newGateway): void {
+        $before = $range->usableAddresses();
+        $after = (clone $range)->fill(['kind' => $details['kind'], 'leave_out_edges' => $details['leave_out_edges']])->usableAddresses();
+        $leaving = array_values(array_diff($before, $after));
+        $coming = array_values(array_diff($after, $before));
+        $givenOut = $leaving === [] ? null : Ip::query()->whereIn('address', $leaving)->givenOut()->value('address');
+
+        if ($givenOut !== null) {
+            $this->addError($range->kind === $details['kind'] ? 'leave_out_edges' : 'kind', __(':address is given to a customer, so it cannot leave the inventory.', ['address' => $givenOut]));
+
+            return false;
+        }
+
+        DB::transaction(function () use ($range, $details, $oldGateway, $newGateway, $leaving, $coming): void {
             $range->update($details);
+
+            Ip::query()->whereIn('address', $leaving)->get()->each->delete();
+
+            foreach ($coming as $address) {
+                $this->putBack($range, $address);
+            }
 
             if (! $range->wasChanged('gateway')) {
                 return;
@@ -216,22 +265,30 @@ new #[Title('IP ranges')] class extends Component
             }
 
             if ($oldGateway !== null) {
-                $old = Ip::withTrashed()->where('address', $oldGateway)->first();
-
-                if ($old === null) {
-                    Ip::query()->create(['ip_range_id' => $range->id, 'address' => $oldGateway]);
-                } elseif ($old->trashed()) {
-                    $old->restore();
-                }
+                $this->putBack($range, $oldGateway);
             }
         }, attempts: 3);
 
         return true;
     }
 
+    /**
+     * Puts an address of the range (back) into the inventory.
+     */
+    private function putBack(IpRange $range, string $address): void
+    {
+        $ip = Ip::withTrashed()->where('address', $address)->first();
+
+        if ($ip === null) {
+            Ip::query()->create(['ip_range_id' => $range->id, 'address' => $address]);
+        } elseif ($ip->trashed()) {
+            $ip->restore();
+        }
+    }
+
     private function resetForm(): void
     {
-        $this->reset('editingId', 'name', 'network', 'gateway', 'dns1', 'dns2');
+        $this->reset('editingId', 'name', 'kind', 'network', 'leave_out_edges', 'gateway', 'dns1', 'dns2');
         $this->resetErrorBag();
     }
 
@@ -240,18 +297,31 @@ new #[Title('IP ranges')] class extends Component
      */
     private function rules(?IpRange $range): array
     {
-        $cidr = Ipv4Cidr::parse($range?->network ?? $this->network);
+        $block = Ipv4Block::parse($range?->network ?? $this->network);
+        $cidr = $block?->cidr;
 
         $rules = [
             'name' => ['required', 'string', 'max:100'],
-            'gateway' => ['nullable', 'ipv4', function (string $attribute, string $value, Closure $fail) use ($cidr): void {
+            'kind' => ['required', Rule::enum(IpRangeKind::class), function (string $attribute, string $value, Closure $fail) use ($range, $block): void {
+                if ($range !== null && $value === IpRangeKind::Ipoe->value && $block !== null && ! $block->isSubnet()) {
+                    $fail(__('A first-to-last range can only be PPPoE.'));
+                }
+            }],
+            'leave_out_edges' => ['boolean'],
+            'gateway' => ['nullable'],
+            'dns1' => ['nullable'],
+            'dns2' => ['nullable'],
+        ];
+
+        if (! $this->isPppoe) {
+            $rules['gateway'] = ['nullable', 'ipv4', function (string $attribute, string $value, Closure $fail) use ($cidr): void {
                 if ($cidr !== null && ! $cidr->isHost($value)) {
                     $fail(__('The gateway must be a host address inside :network.', ['network' => (string) $cidr]));
                 }
-            }],
-            'dns1' => ['nullable', 'ip'],
-            'dns2' => ['nullable', 'ip'],
-        ];
+            }];
+            $rules['dns1'] = ['nullable', 'ip'];
+            $rules['dns2'] = ['nullable', 'ip'];
+        }
 
         if ($range === null) {
             $rules['network'] = ['required', 'string', function (string $attribute, string $value, Closure $fail): void {
@@ -264,24 +334,26 @@ new #[Title('IP ranges')] class extends Component
 
     private function checkNetwork(string $value, Closure $fail): void
     {
-        $cidr = Ipv4Cidr::parse($value);
+        $block = Ipv4Block::parse($value);
 
-        if ($cidr === null) {
-            $fail(__('Enter an IPv4 network with its prefix, e.g. 10.20.0.0/24.'));
+        if ($block === null || (! $this->isPppoe && ! $block->isSubnet())) {
+            $fail($this->isPppoe
+                ? __('Enter an IPv4 network with its prefix, e.g. 10.20.0.0/24, or a first and last address, e.g. 10.20.0.100-10.20.0.200.')
+                : __('Enter an IPv4 network with its prefix, e.g. 10.20.0.0/24.'));
 
             return;
         }
 
-        if ($cidr->prefix < self::LARGEST_PREFIX) {
+        if ($block->size() > self::LARGEST_SIZE) {
             $fail(__('Add at most a /20 (4,096 addresses) at a time.'));
 
             return;
         }
 
         foreach (IpRange::withTrashed()->get(['id', 'name', 'network', 'deleted_at']) as $other) {
-            $otherCidr = Ipv4Cidr::parse($other->network);
+            $otherBlock = Ipv4Block::parse($other->network);
 
-            if ($otherCidr === null || ! $cidr->overlaps($otherCidr)) {
+            if ($otherBlock === null || ! $block->overlaps($otherBlock)) {
                 continue;
             }
 

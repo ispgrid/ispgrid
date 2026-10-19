@@ -62,6 +62,12 @@ it('gives the technician the IP, mask, gateway and DNS', function () {
         ->assertSee('1.1.1.1, 8.8.8.8');
 });
 
+it('has nothing for the technician when the address is from a PPPoE range', function () {
+    $ip = Ip::factory()->create(['ip_range_id' => IpRange::factory()->pppoe()->create()->id, 'address' => '203.0.113.5']);
+
+    showCustomer(Account::factory()->create(['ip_id' => $ip->id]))->assertDontSee('For the technician');
+});
+
 it('lists the bound devices and resets them', function () {
     $account = Account::factory()->create(['username' => 'alice']);
     DB::table('account_macs')->insert(['username' => 'alice', 'mac_norm' => 'BC2411003020', 'learned_at' => '2026-10-01 10:00:00']);

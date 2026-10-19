@@ -5,6 +5,7 @@ use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
 use App\Enums\AccountStatus;
+use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Exceptions\ExpiryChangedMeanwhile;
@@ -246,7 +247,8 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * What a technician needs to set up the customer's device, when the customer has an IP.
+     * What a technician needs to set up the customer's device, when the customer has an IP of an IPoE range (a
+     * PPPoE router gets everything from its session).
      *
      * @return ?array{ip: string, mask: string, gateway: string, dns: string}
      */
@@ -255,7 +257,7 @@ new #[Title('Customer')] class extends Component
     {
         $ip = $this->account->ip;
 
-        if ($ip === null || $ip->range === null) {
+        if ($ip === null || $ip->range === null || $ip->range->kind !== IpRangeKind::Ipoe) {
             return null;
         }
 
