@@ -38,10 +38,14 @@ These four make the panel usable. Do them before the first customer.
 2. **Network, Pools:** add the pool PPPoE customers get, for example `pppoe`. The name must be exactly the name of
    the pool on the router (step 3). Then in **System, App settings**, choose it as **Pool for PPPoE customers**:
    new PPPoE customers get it.
-3. **Network, IP ranges** (can wait until you need it): add a range for IPoE customers and for PPPoE customers with
-   a static IP, for example `10.60.1.0/24` with gateway `10.60.1.1`. In App settings, **IP range for IPoE
-   customers** gives each new IPoE customer the next free address. A range only for PPPoE static IPs needs no
-   gateway: leave it empty, so that address is not lost.
+3. **Network, IP ranges** (can wait until you need it): choose what each range is used for.
+   - **IPoE:** a subnet on a router port, for example `10.60.1.0/24` with gateway `10.60.1.1`. In App settings,
+     **IP range for IPoE customers** gives each new IPoE customer the next free address.
+   - **PPPoE:** static IPs for PPPoE customers. Nothing of the range sits on a router port (each session gets a
+     /32), so every address can be given out: a subnet such as `203.0.113.0/29` gives 8 customers. You can also
+     enter a first and last address, such as `10.70.0.100-10.70.0.200`. Tick **Leave out the first and last
+     address** if some customer routers refuse addresses ending in `.0` or `.255`. A public block must be routed
+     to the router by your upstream; a private one needs its NAT rule (section 4).
 4. **Plans:** add a plan with its speed and validity.
 
 Then add a customer and **Recharge** them with the plan. The router still has to be set up (steps 2 to 4) before
@@ -132,6 +136,9 @@ fails with "could not determine remote IP address".
 ```
 /interface pppoe-server server add service-name=ispgrid interface=bridge1 default-profile=default authentication=pap,chap,mschap1,mschap2 disabled=no
 ```
+
+The service name may also be left empty (`service-name=""`): some home routers only connect to a server without
+one.
 
 ## 4. Internet for customers (NAT)
 
