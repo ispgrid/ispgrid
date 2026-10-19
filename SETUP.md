@@ -1,100 +1,137 @@
 # Setting up ISPGrid and your MikroTik
 
-After the installer has finished, do these steps in order: first the panel, then each MikroTik. The commands are
-for RouterOS 7 unless a step says otherwise; paste them in a terminal (Winbox, New Terminal) and change the
-addresses and names marked in CAPITALS or shown as examples.
+This guide takes you from a fresh install to your first customer online. You set up the panel first, then your
+MikroTik router, then check that everything works. Follow the sections in order.
 
-- [1. In the panel](#1-in-the-panel)
-- [2. Connect the MikroTik to ISPGrid](#2-connect-the-mikrotik-to-ispgrid)
-- [3. PPPoE](#3-pppoe)
-- [4. Internet for customers (NAT)](#4-internet-for-customers-nat)
-- [5. Expired and disabled customers (notice page)](#5-expired-and-disabled-customers-notice-page)
-- [6. IPoE (customers with a fixed IP)](#6-ipoe-customers-with-a-fixed-ip)
-- [7. Hotspot page logins](#7-hotspot-page-logins)
-- [8. Protect the router](#8-protect-the-router)
-- [9. Check that it works](#9-check-that-it-works)
-- [Common mistakes](#common-mistakes)
+**Before you start**
 
-The examples use these addresses. Use your own, but keep them apart: a pool or range must not overlap another one,
-your LAN, or the router's internet (WAN) network.
+- ISPGrid is installed, and you can log in to the panel.
+- You can open a terminal on the MikroTik: in Winbox, click **New Terminal**.
+- The commands are for RouterOS 7. Where RouterOS 6 needs something different, the guide says so.
 
-| What | Example |
+**About the commands:** each command block is followed by a **Change** line that lists the values you must replace
+with your own. Everything else can be pasted as it is. The examples in this guide use these values:
+
+| What | Example used in this guide |
 |---|---|
-| ISPGrid server, as the router reaches it | `10.250.0.1` (WireGuard tunnel) |
-| Router's internet port | `ether1`, in the interface list `WAN` |
-| Port or bridge the customers are on | `bridge1` |
-| Router's own PPPoE address | `10.255.255.1/32` on `lo` |
-| PPPoE pool `pppoe` | `10.50.1.2-10.50.1.254` |
-| Disabled pool `disabled_pool` | `10.0.0.2-10.0.7.254` (`10.0.0.0/21`) |
-| IPoE network | `10.60.1.0/24`, gateway `10.60.1.1` on `vlan30-ipoe` |
+| The ISPGrid server, as the router reaches it | `10.250.0.1` (the WireGuard tunnel) |
+| The router's internet port | `ether1` |
+| The port or bridge your PPPoE customers are on | `bridge1` |
+| The port your IPoE customers are on | `ether10` |
+| The router's own address for PPPoE | `10.255.255.1` |
+| Pool for PPPoE customers | `pppoe`: `10.50.1.2` to `10.50.1.254` |
+| Pool for expired and disabled customers | `disabled_pool`: `10.0.0.2` to `10.0.7.254` |
+| Network for IPoE customers | `10.60.1.0/24`, gateway `10.60.1.1` |
 
-## 1. In the panel
+Pick your own networks so that none of them overlaps another, your office LAN, or the router's internet network.
 
-These four make the panel usable. Do them before the first customer.
+**Contents**
 
-1. **Network, NAS:** add the router. **IP address** is the address the router sends RADIUS from (its tunnel
-   address in a WireGuard or L2TP install, for example `10.250.0.2`), and **Secret** is a long random secret that
-   you also put in `/radius` on the router (step 2). Enter its **RouterOS version** as shown in System, Resources.
-2. **Network, Pools:** add the pool PPPoE customers get, for example `pppoe`. The name must be exactly the name of
-   the pool on the router (step 3). Then in **System, App settings**, choose it as **Pool for PPPoE customers**:
-   new PPPoE customers get it.
-3. **Network, IP ranges** (can wait until you need it): choose what each range is used for.
-   - **IPoE:** a subnet on a router port, for example `10.60.1.0/24` with gateway `10.60.1.1`. In App settings,
-     **IP range for IPoE customers** gives each new IPoE customer the next free address.
-   - **PPPoE:** static IPs for PPPoE customers. Nothing of the range sits on a router port (each session gets a
-     /32), so every address can be given out: a subnet such as `203.0.113.0/29` gives 8 customers. You can also
-     enter a first and last address, such as `10.70.0.100-10.70.0.200`. Tick **Leave out the first and last
-     address** if some customer routers refuse addresses ending in `.0` or `.255`. A public block must be routed
-     to the router by your upstream; a private one needs its NAT rule (section 4).
-4. **Plans:** add a plan with its speed and validity.
+1. [Set up the panel](#1-set-up-the-panel)
+2. [Connect the router to ISPGrid](#2-connect-the-router-to-ispgrid)
+3. [Set up PPPoE](#3-set-up-pppoe)
+4. [Give customers internet (NAT)](#4-give-customers-internet-nat)
+5. [Show expired customers a notice page](#5-show-expired-customers-a-notice-page)
+6. [Set up IPoE](#6-set-up-ipoe)
+7. [Set up Hotspot logins](#7-set-up-hotspot-logins)
+8. [Protect the router](#8-protect-the-router)
+9. [Check that it works](#9-check-that-it-works)
+10. [If something does not work](#if-something-does-not-work)
 
-Then add a customer and **Recharge** them with the plan. The router still has to be set up (steps 2 to 4) before
-they can log in.
+## 1. Set up the panel
 
-## 2. Connect the MikroTik to ISPGrid
+Do these four steps in the panel before you add your first customer.
 
-**WireGuard or L2TP install:** on the ISPGrid server run the add-peer script for each router. It prints the
-commands to paste on the router: the tunnel, `/radius` (server address, source address, secret placeholder),
-`/radius incoming` and the "ISPGrid: notice page replies" NAT rule.
+**Step 1. Add your router.** Go to **Network, NAS** and add it:
 
-```bash
-sudo /opt/ispgrid/deploy/wireguard/wg-add-peer.sh office-nas   # RouterOS 7
-sudo /opt/ispgrid/deploy/l2tp/l2tp-add-peer.sh office-nas      # RouterOS 6
-```
+- **IP address:** the address the router sends its requests from. With a WireGuard or L2TP install this is the
+  router's tunnel address, for example `10.250.0.2`. With a LAN install it is the router's LAN address.
+- **Secret:** make up a long random password. You will type the same secret on the router in section 2.
+- **RouterOS version:** you find it on the router under **System, Resources**.
 
-Replace `THE-SECRET-OF-THIS-NAS-IN-ISPGRID` in its `/radius` line with the secret you entered in the panel.
+**Step 2. Add the pool for PPPoE customers.** Go to **Network, Pools** and add a pool named `pppoe`. Then go to
+**System, App settings** and choose it as **Pool for PPPoE customers**. Every new PPPoE customer gets it.
 
-**LAN install (router and server on the same network):**
+The name must match the pool on the router exactly (you create it in section 3).
+
+**Step 3. Add IP ranges (you can skip this for now).** You only need IP ranges for IPoE customers and for PPPoE
+customers with a static IP. Go to **Network, IP ranges** and choose what the range is used for:
+
+- **IPoE:** a network on a router port, for example `10.60.1.0/24` with gateway `10.60.1.1`. Then in **System, App
+  settings**, choose it as **IP range for IPoE customers**: each new IPoE customer gets the next free address.
+- **PPPoE:** static IPs for PPPoE customers. Every address of the range can be given to a customer, so a block
+  like `203.0.113.0/29` gives you 8 static IPs. You can also enter a first and last address, for example
+  `10.70.0.100-10.70.0.200`.
+  - If some of your customers' routers do not accept addresses ending in `.0` or `.255`, tick **Leave out the
+    first and last address**.
+  - A public block must be routed to your MikroTik by your upstream provider. A private block needs a NAT rule
+    (section 4).
+
+**Step 4. Add a plan.** Go to **Plans** and add one with its speed and validity.
+
+**Check:** you can now add a customer and **Recharge** them with the plan. They cannot log in yet: the router is
+set up in the next sections.
+
+## 2. Connect the router to ISPGrid
+
+The router asks ISPGrid whether each customer may log in. These steps tell the router where ISPGrid is.
+
+### If you installed with WireGuard or L2TP
+
+1. Log in to the ISPGrid server over SSH and run the script for your router. Use any name you like for the
+   router:
+
+   ```bash
+   sudo /opt/ispgrid/deploy/wireguard/wg-add-peer.sh office-nas   # RouterOS 7
+   sudo /opt/ispgrid/deploy/l2tp/l2tp-add-peer.sh office-nas      # RouterOS 6
+   ```
+
+2. The script prints a set of commands. In them, replace `THE-SECRET-OF-THIS-NAS-IN-ISPGRID` with the secret you
+   entered in the panel (section 1, step 1).
+3. Paste the commands into the router's terminal. They create the tunnel, point the router at ISPGrid and add a
+   NAT rule for the notice page.
+
+### If the router and the server are on the same LAN
 
 ```
 /radius add address=SERVER-LAN-IP secret="THE-SECRET" service=ppp,hotspot timeout=3s comment="ISPGrid"
 /radius incoming set accept=yes
 ```
 
-**Both:**
+**Change:** `SERVER-LAN-IP` to the ISPGrid server's LAN address, `THE-SECRET` to the secret you entered in the
+panel.
+
+### For every router
+
+Turn on RADIUS for PPPoE:
 
 ```
 /ppp aaa set use-radius=yes accounting=yes interim-update=5m
 ```
 
-- Leave **Called ID**, **Domain** and **Realm** in `/radius` empty.
-- Keep **Require Message Auth** at `yes for request resp` (the default on RouterOS 7.15 and later, and 6.49.18
-  and later). On older RouterOS, upgrade, or untick "Require Message-Authenticator" for that NAS in the panel.
-- `interim-update` must be 5 minutes or less: the panel closes a session it has not heard from for 15 minutes.
+Three things to know:
 
-## 3. PPPoE
+- In **RADIUS** on the router, leave **Called ID**, **Domain** and **Realm** empty.
+- Leave **Require Message Auth** at `yes for request resp` (the default on RouterOS 7.15 and later, and 6.49.18
+  and later). On an older RouterOS, upgrade it, or untick **Require Message-Authenticator** for this NAS in the
+  panel.
+- Keep `interim-update` at 5 minutes or less. The panel treats a session it has not heard from for 15 minutes as
+  closed.
 
-### The router's own address for PPPoE sessions
+**Check:** in Winbox, **RADIUS** lists the ISPGrid server.
 
-Every PPPoE session has two ends: the customer's address (from the pool) and the router's address. Give the
-router one address of its own for all sessions, on the loopback interface `lo`, so it never clashes with
-anything:
+## 3. Set up PPPoE
+
+### Give the router its own address for PPPoE
+
+Every PPPoE connection has two ends: the customer's address and the router's address. Give the router one address
+of its own, used for all connections, on its loopback interface `lo`:
 
 ```
 /ip address add address=10.255.255.1/32 interface=lo comment="ISPGrid: PPPoE gateway"
 ```
 
-**RouterOS 6 has no `lo`:** use an empty bridge instead.
+RouterOS 6 has no `lo`. Create an empty bridge and use that instead:
 
 ```
 /interface bridge add name=loopback comment="ISPGrid: PPPoE gateway"
@@ -102,120 +139,163 @@ anything:
 ```
 
 > [!CAUTION]
-> Never use your upstream gateway's IP (the gateway of your default route) as this address. The first customer
-> who connects makes that IP the router's own, the default route then points at the router itself, and nobody,
-> the router included, reaches the internet.
+> Never use your upstream provider's gateway address here (the gateway of your default route). As soon as the
+> first customer connects, the router takes that address as its own, and nobody can reach the internet any more,
+> the router included.
 
-### Pools
-
-The pool names must be exactly as in the panel (Network, Pools) and in ISPGrid's disabled pool setting
-(`disabled_pool` unless you changed it).
+### Create the pools
 
 ```
 /ip pool add name=pppoe ranges=10.50.1.2-10.50.1.254
 /ip pool add name=disabled_pool ranges=10.0.0.2-10.0.7.254
 ```
 
-The pools do not need an address in `/ip address`: each session gets a /32 route of its own. They do need NAT
-(section 4), except the disabled pool.
+**Change:** the address ranges to your own. The names must be exactly the same as in the panel: `pppoe` as in
+**Network, Pools**, and `disabled_pool` as in **System, FreeRADIUS, Disabled pool**.
 
-### Profile
+You do not need to add these networks under **IP, Addresses**: each connection gets its own route. They do need a
+NAT rule (section 4), except the disabled pool.
 
-ISPGrid sends each customer's pool (or static IP) and speed itself; the profile gives the rest. DNS must be in the
-profile, or customers connect but cannot open websites.
+### Set up the PPPoE profile
+
+ISPGrid sends each customer's speed and pool (or static IP). The profile adds the rest: the router's address and
+the DNS servers.
 
 ```
 /ppp profile set default local-address=10.255.255.1 remote-address=pppoe dns-server=8.8.8.8,1.1.1.1 change-tcp-mss=yes
 ```
 
-`remote-address=pppoe` is only used if ISPGrid sends no pool. Do not leave `local-address` empty: the login then
-fails with "could not determine remote IP address".
+**Change:** `dns-server` if you use other DNS servers.
 
-### PPPoE server
+Do not leave out `local-address` (logins then fail with "could not determine remote IP address") or `dns-server`
+(customers then connect but cannot open websites).
+
+### Start the PPPoE server
 
 ```
 /interface pppoe-server server add service-name=ispgrid interface=bridge1 default-profile=default authentication=pap,chap,mschap1,mschap2 disabled=no
 ```
 
-The service name may also be left empty (`service-name=""`): some home routers only connect to a server without
-one.
+**Change:** `bridge1` to the port or bridge your customers are on.
 
-## 4. Internet for customers (NAT)
+You can also leave the service name empty (`service-name=""`): some home routers only connect to a server
+without one.
 
-Customers' addresses are private, so the router must translate them on the way out. Put the internet port in the
-`WAN` list once:
+**Check:** a test customer's router can connect, and the customer shows up in **Online** in the panel.
+
+## 4. Give customers internet (NAT)
+
+Your customers use private addresses, so the router must translate them to its own public address on the way out.
+
+First, mark your internet port. You only do this once:
 
 ```
 /interface list add name=WAN
 /interface list member add list=WAN interface=ether1
 ```
 
-Then one rule per customer network: the PPPoE pool, and every IP range you use for IPoE or static IPs. **Do not NAT
-the disabled pool:** disabled customers must not reach the internet.
+**Change:** `ether1` to your internet port.
+
+Then add one rule for each network your customers use: the PPPoE pool, and each IP range for IPoE or static IPs.
 
 ```
 /ip firewall nat add chain=srcnat src-address=10.50.1.0/24 out-interface-list=WAN action=masquerade comment="ISPGrid: PPPoE customers"
-/ip firewall nat add chain=srcnat src-address=10.60.1.0/24 out-interface-list=WAN action=masquerade comment="ISPGrid: IPoE and static customers"
+/ip firewall nat add chain=srcnat src-address=10.60.1.0/24 out-interface-list=WAN action=masquerade comment="ISPGrid: IPoE customers"
 ```
 
-With a fixed public IP you can use `action=src-nat to-addresses=YOUR-PUBLIC-IP` instead of `masquerade`. Watch the
-subnet: a rule for `10.5.1.0/24` does nothing for customers in `10.50.1.0/24`. The rule's packet counter goes up when
-it works.
+**Change:** the `src-address` networks to your own.
 
-## 5. Expired and disabled customers (notice page)
+- **Do not add a rule for the disabled pool:** expired and disabled customers must not get internet.
+- With a fixed public IP, you can use `action=src-nat to-addresses=YOUR-PUBLIC-IP` instead of `masquerade`.
+- Check each network carefully: a rule for `10.5.1.0/24` does nothing for customers in `10.50.1.0/24`.
 
-ISPGrid puts expired, inactive and suspended PPPoE and IPoE customers in the disabled pool. The router sends their
-web pages to the ISPGrid notice page (port 8088 on the server); https sites cannot be redirected and just fail.
+**Check:** a connected customer can ping `8.8.8.8` and open a website. In **IP, Firewall, NAT** the rule's packet
+counter goes up.
+
+## 5. Show expired customers a notice page
+
+When a customer expires, or you set them to inactive or suspended, ISPGrid moves them to the disabled pool. With
+these rules, any web page they open shows your notice page instead (served by ISPGrid on port 8088). Secure
+`https://` sites cannot be redirected: they just fail to open.
 
 ```
 /ip firewall nat add chain=dstnat src-address=10.0.0.0/21 protocol=tcp dst-port=80 action=dst-nat to-addresses=10.250.0.1 to-ports=8088 comment="ISPGrid: notice page"
 /ip firewall nat add chain=srcnat src-address=10.0.0.0/21 protocol=udp dst-port=53 out-interface-list=WAN action=masquerade comment="ISPGrid: DNS for disabled customers"
 ```
 
-- The first rule uses the ISPGrid server's address as the router reaches it (the tunnel address, or its LAN IP).
-- The second lets disabled customers look up names, so their browser gets as far as the redirect. It lets only
-  DNS out. (This rule has not been checked on a router yet.)
-- In a WireGuard or L2TP install the add-peer script's "ISPGrid: notice page replies" rule brings the answers
-  back. In a LAN install add one yourself:
-  `/ip firewall nat add chain=srcnat dst-address=SERVER-LAN-IP protocol=tcp dst-port=8088 action=masquerade comment="ISPGrid: notice page replies"`
-- Set the ISP name, phone and message of the notice page in the panel, System, App settings.
+**Change:** `10.250.0.1` to the ISPGrid server's address as the router reaches it (its tunnel address, or its
+LAN address). `10.0.0.0/21` to your disabled pool's network.
 
-## 6. IPoE (customers with a fixed IP)
+- The first rule sends their web pages to the notice page.
+- The second lets them look up website names (and nothing else), so their browser gets as far as the notice
+  page.
+- With a WireGuard or L2TP install, the script from section 2 already added the rule that brings the notice page
+  back to them. With a LAN install, add it yourself:
 
-ISPGrid's IPoE uses the MikroTik Hotspot with MAC login. The customer's router has a fixed IP that the panel gave
-it; when it sends traffic, the MikroTik asks ISPGrid with its MAC, ISPGrid finds the customer by the IP and binds
-the MAC on the first login. One device per IPoE customer.
+  ```
+  /ip firewall nat add chain=srcnat dst-address=SERVER-LAN-IP protocol=tcp dst-port=8088 action=masquerade comment="ISPGrid: notice page replies"
+  ```
 
-Use a port or VLAN that has only IPoE customers on it, so your own LAN is not caught by the MAC login:
+  **Change:** `SERVER-LAN-IP` to the ISPGrid server's LAN address.
+
+In the panel, under **System, App settings**, fill in your ISP name, phone number and message for the notice page.
+
+**Check:** set a test customer to **Inactive**. After they reconnect, opening any `http://` website shows your
+notice page.
+
+## 6. Set up IPoE
+
+IPoE customers have no username and password on their router. You give their router a fixed IP address, and
+ISPGrid recognizes them by that address. The first device that connects with it is tied to the customer; to
+change the device later, use **Reset device** on the customer's page.
+
+On the MikroTik, IPoE runs on a Hotspot that logs devices in by their MAC address. Put IPoE customers on a port
+of their own, so your office LAN is not caught by it.
+
+### Set up the port and the Hotspot
 
 ```
-/interface vlan add name=vlan30-ipoe vlan-id=30 interface=bridge1
-/ip address add address=10.60.1.1/24 interface=vlan30-ipoe comment="ISPGrid: IPoE gateway"
+/ip address add address=10.60.1.1/24 interface=ether10 comment="ISPGrid: IPoE gateway"
 /ip hotspot profile add name=ispgrid-ipoe hotspot-address=10.60.1.1 html-directory=hotspot-ipoe login-by=mac mac-auth-mode=mac-as-username-and-password use-radius=yes radius-accounting=yes radius-interim-update=5m
-/ip hotspot add name=ipoe interface=vlan30-ipoe profile=ispgrid-ipoe address-pool=none addresses-per-mac=unlimited idle-timeout=none disabled=no
-/ip route add dst-address=10.0.0.0/21 gateway=vlan30-ipoe comment="ISPGrid: disabled pool for IPoE"
+/ip hotspot add name=ipoe interface=ether10 profile=ispgrid-ipoe address-pool=none addresses-per-mac=unlimited idle-timeout=none disabled=no
+/ip route add dst-address=10.0.0.0/21 gateway=ether10 comment="ISPGrid: disabled pool for IPoE"
 /system scheduler add name=ispgrid-ipoe-retry interval=2m on-event="/ip hotspot host remove [find where server=\"ipoe\" and authorized=no]" comment="ISPGrid: let refused IPoE devices try again"
 ```
 
-- **The route** for the disabled pool's network to the IPoE interface is needed, or disabled IPoE customers get
-  nothing back (their notice page included).
-- **The scheduler** removes devices the Hotspot refused, so they are asked again: after a recharge, a Reset device
-  in the panel, or a fixed IP.
-- **NAT** for `10.60.1.0/24`: section 4.
-- **In the panel:** the IP range `10.60.1.0/24` with gateway `10.60.1.1` (section 1), then a customer with service
-  type IPoE. Set the IP the panel gives them on the customer's router, with gateway `10.60.1.1` and your DNS
-  servers. To change the customer's router later: Reset device on the customer page.
-- **The RADIUS server** in `/radius` must include `hotspot` in its service (step 2 does).
+**Change:** `ether10` (in three places) to your IPoE port, `10.60.1.1/24` to your IPoE gateway and network,
+`10.0.0.0/21` to your disabled pool's network.
 
-### A device on the wrong IP
+What these do:
 
-A device whose IP is not a customer's in ISPGrid is refused (the Login log says "Not an IPoE device (IP ... not
-assigned, login page shown)"), and the Hotspot then shows its login page. On an IPoE-only Hotspot that page should
-tell the customer to call you instead. The profile above uses its own folder, `hotspot-ipoe`:
+- The first three lines give the port its address and start the Hotspot on it.
+- **The route** lets expired IPoE customers get answers back, including the notice page.
+- **The scheduler** clears devices the Hotspot refused every 2 minutes, so they are asked again: after a recharge,
+  a **Reset device**, or a corrected IP.
 
-1. In Winbox, Files: once the Hotspot is set up there is a folder `hotspot`. Download its files, or copy the folder
-   to `hotspot-ipoe` (drag and drop in Files).
-2. Replace `hotspot-ipoe/login.html` with your notice, for example:
+**IPoE customers on a VLAN instead of a port:** create the VLAN first, then use its name instead of `ether10` in
+the commands above:
+
+```
+/interface vlan add name=vlan30-ipoe vlan-id=30 interface=bridge1
+```
+
+### Add the customer
+
+1. In the panel, make sure there is an **IPoE** range for this network (section 1, step 3).
+2. Add a customer with service type **IPoE**. The panel gives them an IP address.
+3. On the customer's router, set that IP address, with gateway `10.60.1.1` and your DNS servers.
+4. Add a NAT rule for the IPoE network (section 4).
+
+**Check:** the customer's router gets internet, and the customer shows up in **Online**.
+
+### Show a message to devices with the wrong IP
+
+A device whose IP is not given to any customer is refused, and the Hotspot then shows its own login page. Replace
+that page with a message that asks the customer to call you:
+
+1. In Winbox, open **Files**. After the Hotspot is set up there is a folder named `hotspot`. Copy it to a folder
+   named `hotspot-ipoe` (the profile above uses that folder).
+2. Make a file named `login.html` with your message, for example:
 
    ```html
    <!doctype html>
@@ -232,26 +312,47 @@ tell the customer to call you instead. The profile above uses its own folder, `h
    </html>
    ```
 
-3. Upload it into `hotspot-ipoe` (drag it onto the folder in Files).
+   **Change:** `YOUR ISP NAME` and `YOUR PHONE NUMBER`.
+3. Drag the file onto the `hotspot-ipoe` folder in **Files**, replacing the `login.html` that is there.
 
-There is no username or password form, so nobody tries to log in there.
+In the panel, the **Login log** shows these devices as "Not an IPoE device".
 
-## 7. Hotspot page logins
+## 7. Set up Hotspot logins
 
-Only if you sell Hotspot logins (vouchers, a username and password on a login page):
+Skip this section unless you sell Hotspot access: customers who log in on a web page with a username and password
+or a voucher.
 
-- In the panel, System, App settings: turn the **Hotspot** switch on. While it is off, ISPGrid refuses Hotspot
-  page logins (IPoE MAC logins still work).
-- On the router, a Hotspot server profile with `use-radius=yes`, `login-by=http-chap,http-pap` (plus `mac` if IPoE
-  shares the interface), accounting on and interim update 5 minutes.
-- `/ip hotspot user profile set default shared-users=unlimited`, or the router allows one device per username
-  before ISPGrid is asked. ISPGrid's own device limit then applies.
-- Give Hotspot plans a speed and no pool: the Hotspot would use a PPPoE pool for its own NAT address and take
-  PPPoE addresses.
+1. In the panel, go to **System, App settings** and turn on **Hotspot**. While it is off, ISPGrid refuses Hotspot
+   page logins (IPoE still works).
+2. On the router, run the Hotspot setup wizard and answer its questions (the port, its address, the address pool
+   and DNS):
+
+   ```
+   /ip hotspot setup
+   ```
+
+3. Point the Hotspot at ISPGrid. The wizard names its profile `hsprof1`:
+
+   ```
+   /ip hotspot profile set hsprof1 use-radius=yes login-by=http-chap,http-pap radius-accounting=yes radius-interim-update=5m
+   /ip hotspot user profile set default shared-users=unlimited
+   ```
+
+   **Change:** `hsprof1` if your profile has another name. If IPoE customers share this port, add `mac` to
+   `login-by`.
+
+   The second line lets ISPGrid decide how many devices a customer may use. Without it, the router allows only one
+   device per username.
+4. Make sure the Hotspot's network has a NAT rule. The wizard usually adds one; if **IP, Firewall, NAT** has none
+   for it, add it as in section 4.
+5. In the panel, give Hotspot plans a speed but no pool.
+
+**Check:** log in on the Hotspot page with a test customer, and they show up in **Online**.
 
 ## 8. Protect the router
 
-A router on a public IP is attacked within minutes (telnet and SSH password guessing). At least:
+A router with a public IP is attacked within minutes, mostly by password guessing. At the very least, switch off
+what you do not use and allow management only from your office:
 
 ```
 /ip service disable telnet,ftp
@@ -262,8 +363,10 @@ A router on a public IP is attacked within minutes (telnet and SSH password gues
 /ip service set api-ssl address=YOUR-OFFICE-IP/32
 ```
 
-And an input firewall that drops what comes from the internet. Add the rule for your own address first, or you lock
-yourself out:
+**Change:** `YOUR-OFFICE-IP` to the public IP you manage the router from.
+
+Then add a firewall that drops everything else coming from the internet. The first rule keeps you in, so add the
+rules in this order:
 
 ```
 /ip firewall filter add chain=input src-address=YOUR-OFFICE-IP/32 action=accept comment="Admin access"
@@ -274,28 +377,35 @@ yourself out:
 /ip firewall filter add chain=input in-interface-list=WAN action=drop comment="Drop the rest from the internet"
 ```
 
-- In an L2TP install use `in-interface=l2tp-ispgrid`; in a LAN install `src-address=SERVER-LAN-IP`. Without that
-  rule, Disconnect from the panel (UDP 3799) does not reach the router.
-- Turn RADIUS debug logging off when you are done testing: it writes PAP passwords to the log.
+**Change:** `YOUR-OFFICE-IP`. With an L2TP install use `in-interface=l2tp-ispgrid`; with a LAN install
+`src-address=SERVER-LAN-IP` instead of `in-interface=wg-ispgrid`.
+
+The ISPGrid rule matters: without it, **Disconnect** in the panel cannot reach the router.
+
+If you turned on RADIUS debug logging while testing, turn it off again: it writes customers' passwords to the
+log.
 
 ## 9. Check that it works
 
-1. A customer logs in: the panel shows them in **Online**; a refused login is in **Login log** with the reason.
-2. From the customer, ping `8.8.8.8` and open a website. If the ping fails, check the NAT rule's counter (section
-   4) and the PPP profile's local address (section 3).
-3. **Disconnect** them in the panel: the session drops and comes back within seconds.
-4. Set a test customer **Inactive**: after they reconnect, an `http://` site shows the notice page.
+1. **Log in:** a test customer connects and shows up in **Online**. If a login is refused, the **Login log** says
+   why.
+2. **Internet:** from the customer, ping `8.8.8.8` and open a website. If it fails, check the NAT rule (section 4)
+   and the PPPoE profile (section 3).
+3. **Disconnect:** click **Disconnect** on the customer in the panel. The connection drops and comes back within
+   seconds.
+4. **Notice page:** set the test customer to **Inactive**. After they reconnect, an `http://` website shows your
+   notice page.
 
-## Common mistakes
+## If something does not work
 
-| What you see | Why | Fix |
+| What you see | Why | What to do |
 |---|---|---|
-| Internet stops for everyone when the first customer connects | The PPP profile's local address is the upstream gateway's IP | A /32 of its own on `lo` (section 3) |
-| Login fails, log says "could not determine remote IP address" | The PPP profile has no local address | Section 3 |
-| Customers connect but nothing opens | No NAT for their network, or a mistyped subnet in the rule | Section 4 |
-| Customers connect, ping works by IP, names do not | No DNS in the PPP profile | Section 3 |
-| A customer gets "address pool not found" | A pool in the panel or the disabled pool is missing on the router | Same name in both (sections 1 and 3) |
-| Disabled customers get nothing, not even the notice page | IPoE: no route for the disabled pool; all: no notice page rule | Sections 5 and 6 |
-| An IPoE device sees the Hotspot login page | Its IP is not the one the panel gave the customer | Fix the IP; set up the notice page (section 6) |
-| Disconnect in the panel does nothing | `/radius incoming` is off, or the firewall drops UDP 3799 | Sections 2 and 8 |
-| Hotspot refuses the second device of a user | Hotspot user profile `shared-users=1` | Section 7 |
+| The internet stops for everyone when the first customer connects | The PPPoE profile's local address is your upstream gateway's address | Give the router its own address on `lo` (section 3) |
+| Logins fail with "could not determine remote IP address" | The PPPoE profile has no local address | Section 3 |
+| Customers connect but nothing opens | No NAT rule for their network, or a typo in its address | Section 4 |
+| Customers can ping `8.8.8.8` but websites do not open | No DNS servers in the PPPoE profile | Section 3 |
+| A customer gets "address pool not found" | A pool in the panel, or the disabled pool, is missing on the router | Create it with the same name (sections 1 and 3) |
+| Expired customers get nothing, not even the notice page | No notice page rule, or for IPoE no route for the disabled pool | Sections 5 and 6 |
+| An IPoE device sees a Hotspot login page | Its IP is not the one the panel gave the customer | Fix the IP; set up the message page (section 6) |
+| **Disconnect** in the panel does nothing | `/radius incoming` is off, or the firewall drops it | Sections 2 and 8 |
+| A Hotspot customer cannot log in on a second device | The Hotspot user profile allows one device | Section 7, step 3 |
