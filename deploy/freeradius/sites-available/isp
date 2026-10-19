@@ -139,10 +139,11 @@ authorize {
 	#
 	#  1. Request sanity: required attributes and a valid device MAC.
 	#     Runs before preprocess, which would fill in a missing NAS-IP-Address from the source IP.
+	#     Called-Station-Id is not required: a PPPoE server with a blank service name sends none.
 	#
-	if (!&Service-Type || !&Called-Station-Id || !&Calling-Station-Id || !&NAS-IP-Address) {
+	if (!&Service-Type || !&Calling-Station-Id || !&NAS-IP-Address) {
 		update reply {
-			&Reply-Message := "Error: request is missing Service-Type, Called-Station-Id, Calling-Station-Id or NAS-IP-Address"
+			&Reply-Message := "Error: request is missing Service-Type, Calling-Station-Id or NAS-IP-Address"
 		}
 		reject
 	}
