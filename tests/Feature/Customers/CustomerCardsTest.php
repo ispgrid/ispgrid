@@ -18,7 +18,7 @@ it('shows an add-on card on the customer page, after the service and profile', f
 
     $this->get(route('customers.show', $account))
         ->assertOk()
-        ->assertSeeInOrder([__('Service'), __('Profile'), 'Fixture card for alice', __('Online')]);
+        ->assertSeeInOrder([__('Service'), __('Profile'), 'Fixture card for alice']);
 });
 
 it('leaves a card out for staff it does not allow', function () {

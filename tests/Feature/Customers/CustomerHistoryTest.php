@@ -23,9 +23,9 @@ beforeEach(function () {
     Nas::factory()->create(['nasname' => '10.0.0.1', 'shortname' => 'core']);
 });
 
-function customerPage(Account $account): Testable
+function customerPage(Account $account, string $tab = 'details'): Testable
 {
-    return Livewire::test('pages::customers.show', ['account' => $account->id]);
+    return Livewire::withQueryParams(['tab' => $tab])->test('pages::customers.show', ['account' => $account->id]);
 }
 
 it('shows the open sessions and disconnects one of them', function () {
@@ -33,7 +33,7 @@ it('shows the open sessions and disconnects one of them', function () {
     $account = Account::factory()->create(['username' => 'alice']);
     $session = Radacct::factory()->create(['username' => 'alice', 'nasipaddress' => '10.0.0.1', 'framedipaddress' => '10.10.10.5']);
 
-    customerPage($account)
+    customerPage($account, 'connection')
         ->assertSee('10.10.10.5')
         ->assertSee('core')
         ->call('disconnect', $session->radacctid)
@@ -56,7 +56,7 @@ it('disconnects every session at once', function () {
 it('says when the customer is not online', function () {
     Queue::fake();
 
-    customerPage(Account::factory()->create())
+    customerPage(Account::factory()->create(), 'connection')
         ->assertSee('Not online.')
         ->call('disconnect')
         ->assertDispatched('toast', message: 'The customer is not online.', variant: 'success');
@@ -70,7 +70,7 @@ it('shows the usage since the last recharge, today and this month, against the p
     Radacct::factory()->closed()->create(['username' => 'alice', 'acctstarttime' => '2026-10-01 08:00:00', 'acctinputoctets' => 5_368_709_120, 'acctsessiontime' => 3600]);
     Radacct::factory()->closed()->create(['username' => 'alice', 'acctstarttime' => '2026-10-06 08:00:00', 'acctoutputoctets' => 1_073_741_824, 'acctsessiontime' => 3900]);
 
-    customerPage($account)
+    customerPage($account, 'connection')
         ->assertSeeInOrder(['Since the last recharge', '1.00 GB / 100.0 GB', '1 h 05 min'])
         ->assertSeeInOrder(['This month', '6.00 GB', '2 h 05 min']);
 });
@@ -79,7 +79,7 @@ it('lists the latest login attempts with a link to the full log', function () {
     $account = Account::factory()->create(['username' => 'alice']);
     Radpostauth::factory()->rejected('Account is suspended')->create(['username' => 'alice']);
 
-    customerPage($account)
+    customerPage($account, 'connection')
         ->assertSee('Account is suspended')
         ->assertSee(route('login-log.index', ['username' => 'alice']), false);
 });
@@ -93,14 +93,14 @@ it('lists the recharges with their amounts', function () {
         'new_expiry' => '2026-11-09 14:30:00', 'amount' => 123456, 'note' => 'Paid cash', 'user_id' => auth()->id(),
     ]);
 
-    customerPage($account)->assertSeeInOrder(['Home 25', '09/11/2026 14:30', '₹1,23,456.00', 'Paid cash', 'Asha Rao']);
+    customerPage($account, 'recharges')->assertSeeInOrder(['Home 25', '09/11/2026 14:30', '₹1,23,456.00', 'Paid cash', 'Asha Rao']);
 });
 
 it('shows the customer\'s own activity', function () {
     $account = Account::factory()->create(['status_id' => AccountStatus::Active]);
     Account::factory()->create(['fullname' => 'Someone Else']);
 
-    customerPage($account)
+    customerPage($account, 'activity')
         ->set('status', '3')
         ->set('remark', 'Unpaid since September')
         ->call('changeStatus')

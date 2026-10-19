@@ -21,9 +21,6 @@
                 @can('recharge', $this->account)
                     <x-ui.button wire:click="openRecharge">{{ __('Recharge') }}</x-ui.button>
                 @endcan
-                @can('update', $this->account)
-                    <x-ui.button variant="secondary" :href="route('customers.edit', $this->account->id)" wire:navigate>{{ __('Edit') }}</x-ui.button>
-                @endcan
                 @can('changeStatus', $this->account)
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
                 @endcan
@@ -62,270 +59,294 @@
         </x-ui.alert>
     @endif
 
-    <div class="grid gap-6 md:grid-cols-2">
-        <x-ui.card>
-            <x-ui.heading>{{ __('Service') }}</x-ui.heading>
-            <dl class="mt-4 grid gap-3 text-sm">
-                @foreach ($this->service as $label => $value)
-                    <div class="grid grid-cols-[9rem_1fr] gap-3">
-                        <dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
-                        <dd class="break-words">{{ $value }}</dd>
-                    </div>
-                @endforeach
-            </dl>
-        </x-ui.card>
+    <x-ui.nav-tabs :tabs="$this->tabs" :active="$this->activeTab">
+        <x-slot:actions>
+            @unless ($this->account->trashed())
+                @can('update', $this->account)
+                    <x-ui.button variant="secondary" size="sm" :href="route('customers.edit', $this->account->id)" wire:navigate>{{ __('Edit') }}</x-ui.button>
+                @endcan
+            @endunless
+        </x-slot:actions>
+    </x-ui.nav-tabs>
 
-        <x-ui.card>
-            <x-ui.heading>{{ __('Profile') }}</x-ui.heading>
-            <dl class="mt-4 grid gap-3 text-sm">
-                @foreach ($this->profile as $label => $value)
-                    <div class="grid grid-cols-[9rem_1fr] gap-3">
-                        <dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
-                        <dd class="break-words whitespace-pre-line">{{ $value }}</dd>
-                    </div>
-                @endforeach
-            </dl>
-        </x-ui.card>
-    </div>
+    @if ($this->activeTab === 'details')
+        <div class="grid gap-6 md:grid-cols-2">
+            <x-ui.card>
+                <x-ui.heading>{{ __('Service') }}</x-ui.heading>
+                <dl class="mt-4 grid gap-3 text-sm">
+                    @foreach ($this->service as $label => $value)
+                        <div class="grid grid-cols-[9rem_1fr] gap-3">
+                            <dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
+                            <dd class="break-words">{{ $value }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </x-ui.card>
 
-    @foreach ($this->addonCards as $card)
-        <livewire:dynamic-component :is="$card" :account-id="$this->account->id" :key="'addon-card-'.$card" />
-    @endforeach
+            <x-ui.card>
+                <x-ui.heading>{{ __('Profile') }}</x-ui.heading>
+                <dl class="mt-4 grid gap-3 text-sm">
+                    @foreach ($this->profile as $label => $value)
+                        <div class="grid grid-cols-[9rem_1fr] gap-3">
+                            <dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
+                            <dd class="break-words whitespace-pre-line">{{ $value }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </x-ui.card>
+        </div>
 
-    @if ($this->technician)
-        <x-ui.card>
-            <x-ui.heading>{{ __('For the technician') }}</x-ui.heading>
-            <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-4">
-                <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('IP address') }}</dt><dd class="font-mono">{{ $this->technician['ip'] }}</dd></div>
-                <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Mask') }}</dt><dd class="font-mono">{{ $this->technician['mask'] }}</dd></div>
-                <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Gateway') }}</dt><dd class="font-mono">{{ $this->technician['gateway'] }}</dd></div>
-                <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('DNS') }}</dt><dd class="font-mono">{{ $this->technician['dns'] }}</dd></div>
-            </dl>
-        </x-ui.card>
+        @if ($this->technician)
+            <x-ui.card>
+                <x-ui.heading>{{ __('For the technician') }}</x-ui.heading>
+                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('IP address') }}</dt><dd class="font-mono">{{ $this->technician['ip'] }}</dd></div>
+                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Mask') }}</dt><dd class="font-mono">{{ $this->technician['mask'] }}</dd></div>
+                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Gateway') }}</dt><dd class="font-mono">{{ $this->technician['gateway'] }}</dd></div>
+                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('DNS') }}</dt><dd class="font-mono">{{ $this->technician['dns'] }}</dd></div>
+                </dl>
+            </x-ui.card>
+        @endif
+
+        @foreach ($this->addonCards as $card)
+            <livewire:dynamic-component :is="$card" :account-id="$this->account->id" :key="'addon-card-'.$card" />
+        @endforeach
     @endif
 
-    <x-ui.card>
-        <x-ui.heading>{{ __('Online') }}</x-ui.heading>
-        @if ($this->sessions === [])
-            <x-ui.text muted class="mt-4">{{ __('Not online.') }}</x-ui.text>
-        @else
-            <x-ui.table class="mt-4">
-                <x-slot:head>
-                    <x-ui.th>{{ __('NAS') }}</x-ui.th>
-                    <x-ui.th>{{ __('IP address') }}</x-ui.th>
-                    <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
-                    <x-ui.th>{{ __('Started') }}</x-ui.th>
-                    <x-ui.th>{{ __('Duration') }}</x-ui.th>
-                    <x-ui.th>{{ __('Download') }}</x-ui.th>
-                    <x-ui.th>{{ __('Upload') }}</x-ui.th>
-                    <x-ui.th><span class="sr-only">{{ __('Actions') }}</span></x-ui.th>
-                </x-slot:head>
-                @foreach ($this->sessions as $session)
-                    <tr wire:key="session-{{ $session['id'] }}">
-                        <x-ui.td>{{ $session['router'] }}</x-ui.td>
-                        <x-ui.td class="font-mono">{{ $session['ip'] }}</x-ui.td>
-                        <x-ui.td class="font-mono">{{ $session['mac'] }}</x-ui.td>
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['started'] }}</x-ui.td>
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['duration'] }}</x-ui.td>
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['download'] }}</x-ui.td>
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['upload'] }}</x-ui.td>
-                        <x-ui.td class="text-end">
-                            @can('disconnect-sessions')
-                                <x-ui.button variant="ghost" icon="x-circle" wire:click="disconnect({{ $session['id'] }})">{{ __('Disconnect') }}</x-ui.button>
-                            @endcan
-                        </x-ui.td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
-        @endif
-    </x-ui.card>
-
-    <x-ui.card>
-        <x-ui.heading>{{ __('Usage') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ __('Sessions that started in each period, as FreeRADIUS counts them for the limits.') }}</x-ui.text>
-        <x-ui.table class="mt-4">
-            <x-slot:head>
-                <x-ui.th>{{ __('Period') }}</x-ui.th>
-                <x-ui.th>{{ __('Data') }}</x-ui.th>
-                <x-ui.th>{{ __('Time') }}</x-ui.th>
-            </x-slot:head>
-            @foreach ($this->usage as $period)
-                <tr wire:key="usage-{{ $loop->index }}">
-                    <x-ui.td>{{ $period['period'] }}</x-ui.td>
-                    <x-ui.td class="tabular-nums">{{ $period['data'] }}</x-ui.td>
-                    <x-ui.td class="tabular-nums">{{ $period['time'] }}</x-ui.td>
-                </tr>
-            @endforeach
-        </x-ui.table>
-    </x-ui.card>
-
-    @can('view-notification-log')
+    @if ($this->activeTab === 'connection')
         <x-ui.card>
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <x-ui.heading>{{ __('Messages') }}</x-ui.heading>
-                <x-ui.link href="{{ route('notification-log.index', ['customer' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('All messages') }}</x-ui.link>
-            </div>
-            @if ($this->messages === [])
-                <x-ui.text muted class="mt-4">{{ __('No messages yet.') }}</x-ui.text>
-            @else
-                <ul class="mt-4 grid gap-3 text-sm">
-                    @foreach ($this->messages as $message)
-                        <li class="flex flex-wrap items-start gap-2" wire:key="message-{{ $loop->index }}">
-                            <span class="tabular-nums text-zinc-500 dark:text-zinc-400">{{ $message['when'] }}</span>
-                            <x-ui.badge :color="$message['color']">{{ $message['status'] }}</x-ui.badge>
-                            <span class="font-medium">{{ $message['rule'] }}</span>
-                            <span class="basis-full break-words">{{ $message['text'] }}</span>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
-        </x-ui.card>
-    @endcan
-
-    @unless ($this->account->trashed())
-        <x-ui.card>
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <x-ui.heading>{{ __('Bound devices') }}</x-ui.heading>
-                    <x-ui.text muted class="mt-1">{{ __('FreeRADIUS binds the devices a customer logs in from. Reset them when the customer changes router or device.') }}</x-ui.text>
-                </div>
-                @can('resetDevices', $this->account)
-                    <x-ui.button variant="secondary" icon="arrow-path" wire:click="resetDevices" wire:confirm="{{ __('Forget every device bound to this customer?') }}">{{ __('Reset devices') }}</x-ui.button>
-                @endcan
-            </div>
-
-            @if ($this->devices === [])
-                <x-ui.text muted class="mt-4">{{ __('No device is bound yet. The next one to log in is bound.') }}</x-ui.text>
+            <x-ui.heading>{{ __('Online') }}</x-ui.heading>
+            @if ($this->sessions === [])
+                <x-ui.text muted class="mt-4">{{ __('Not online.') }}</x-ui.text>
             @else
                 <x-ui.table class="mt-4">
                     <x-slot:head>
+                        <x-ui.th>{{ __('NAS') }}</x-ui.th>
+                        <x-ui.th>{{ __('IP address') }}</x-ui.th>
                         <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
-                        <x-ui.th>{{ __('Bound') }}</x-ui.th>
-                        <x-ui.th>{{ __('Last seen') }}</x-ui.th>
+                        <x-ui.th>{{ __('Started') }}</x-ui.th>
+                        <x-ui.th>{{ __('Duration') }}</x-ui.th>
+                        <x-ui.th>{{ __('Download') }}</x-ui.th>
+                        <x-ui.th>{{ __('Upload') }}</x-ui.th>
+                        <x-ui.th><span class="sr-only">{{ __('Actions') }}</span></x-ui.th>
                     </x-slot:head>
-                    @foreach ($this->devices as $device)
-                        <tr wire:key="device-{{ $device['mac'] }}">
-                            <x-ui.td class="font-mono">{{ $device['mac'] }}</x-ui.td>
-                            <x-ui.td class="tabular-nums">{{ $device['learned'] }}</x-ui.td>
-                            <x-ui.td class="tabular-nums">{{ $device['seen'] ?? __('Not yet') }}</x-ui.td>
+                    @foreach ($this->sessions as $session)
+                        <tr wire:key="session-{{ $session['id'] }}">
+                            <x-ui.td>{{ $session['router'] }}</x-ui.td>
+                            <x-ui.td class="font-mono">{{ $session['ip'] }}</x-ui.td>
+                            <x-ui.td class="font-mono">{{ $session['mac'] }}</x-ui.td>
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['started'] }}</x-ui.td>
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['duration'] }}</x-ui.td>
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['download'] }}</x-ui.td>
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $session['upload'] }}</x-ui.td>
+                            <x-ui.td class="text-end">
+                                @can('disconnect-sessions')
+                                    <x-ui.button variant="ghost" icon="x-circle" wire:click="disconnect({{ $session['id'] }})">{{ __('Disconnect') }}</x-ui.button>
+                                @endcan
+                            </x-ui.td>
                         </tr>
                     @endforeach
                 </x-ui.table>
             @endif
         </x-ui.card>
 
-        @if ($this->failedLogins)
+        <x-ui.card>
+            <x-ui.heading>{{ __('Usage') }}</x-ui.heading>
+            <x-ui.text muted class="mt-1">{{ __('Sessions that started in each period, as FreeRADIUS counts them for the limits.') }}</x-ui.text>
+            <x-ui.table class="mt-4">
+                <x-slot:head>
+                    <x-ui.th>{{ __('Period') }}</x-ui.th>
+                    <x-ui.th>{{ __('Data') }}</x-ui.th>
+                    <x-ui.th>{{ __('Time') }}</x-ui.th>
+                </x-slot:head>
+                @foreach ($this->usage as $period)
+                    <tr wire:key="usage-{{ $loop->index }}">
+                        <x-ui.td>{{ $period['period'] }}</x-ui.td>
+                        <x-ui.td class="tabular-nums">{{ $period['data'] }}</x-ui.td>
+                        <x-ui.td class="tabular-nums">{{ $period['time'] }}</x-ui.td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        </x-ui.card>
+
+        @unless ($this->account->trashed())
             <x-ui.card>
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <x-ui.heading>{{ __('Failed logins') }}</x-ui.heading>
-                        <x-ui.text muted class="mt-1">{{ trans_choice(':count failed login counted, the last at :time. Too many lock the customer out for a while.|:count failed logins counted, the last at :time. Too many lock the customer out for a while.', $this->failedLogins['count'], ['time' => $this->failedLogins['last']]) }}</x-ui.text>
+                        <x-ui.heading>{{ __('Bound devices') }}</x-ui.heading>
+                        <x-ui.text muted class="mt-1">{{ __('FreeRADIUS binds the devices a customer logs in from. Reset them when the customer changes router or device.') }}</x-ui.text>
                     </div>
                     @can('resetDevices', $this->account)
-                        <x-ui.button variant="secondary" icon="lock-closed" wire:click="unlock">{{ __('Unlock') }}</x-ui.button>
+                        <x-ui.button variant="secondary" icon="arrow-path" wire:click="resetDevices" wire:confirm="{{ __('Forget every device bound to this customer?') }}">{{ __('Reset devices') }}</x-ui.button>
                     @endcan
                 </div>
+
+                @if ($this->devices === [])
+                    <x-ui.text muted class="mt-4">{{ __('No device is bound yet. The next one to log in is bound.') }}</x-ui.text>
+                @else
+                    <x-ui.table class="mt-4">
+                        <x-slot:head>
+                            <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
+                            <x-ui.th>{{ __('Bound') }}</x-ui.th>
+                            <x-ui.th>{{ __('Last seen') }}</x-ui.th>
+                        </x-slot:head>
+                        @foreach ($this->devices as $device)
+                            <tr wire:key="device-{{ $device['mac'] }}">
+                                <x-ui.td class="font-mono">{{ $device['mac'] }}</x-ui.td>
+                                <x-ui.td class="tabular-nums">{{ $device['learned'] }}</x-ui.td>
+                                <x-ui.td class="tabular-nums">{{ $device['seen'] ?? __('Not yet') }}</x-ui.td>
+                            </tr>
+                        @endforeach
+                    </x-ui.table>
+                @endif
             </x-ui.card>
-        @endif
-    @endunless
 
-    <x-ui.card>
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <x-ui.heading>{{ __('Login attempts') }}</x-ui.heading>
-            @can('view-login-log')
-                <x-ui.link href="{{ route('login-log.index', ['username' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('Open the login log') }}</x-ui.link>
-            @endcan
-        </div>
-        @if ($this->logins === [])
-            <x-ui.text muted class="mt-4">{{ __('No login attempt yet.') }}</x-ui.text>
-        @else
-            <x-ui.table class="mt-4">
-                <x-slot:head>
-                    <x-ui.th>{{ __('When') }}</x-ui.th>
-                    <x-ui.th>{{ __('Result') }}</x-ui.th>
-                    <x-ui.th>{{ __('Reason') }}</x-ui.th>
-                    <x-ui.th>{{ __('NAS') }}</x-ui.th>
-                    <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
-                </x-slot:head>
-                @foreach ($this->logins as $login)
-                    <tr wire:key="login-{{ $login['id'] }}">
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $login['when'] }}</x-ui.td>
-                        <x-ui.td><x-ui.badge :color="$login['color']">{{ $login['result'] }}</x-ui.badge></x-ui.td>
-                        <x-ui.td class="break-words">{{ $login['reason'] }}</x-ui.td>
-                        <x-ui.td>{{ $login['router'] }}</x-ui.td>
-                        <x-ui.td class="font-mono">{{ $login['mac'] }}</x-ui.td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
-        @endif
-    </x-ui.card>
+            @if ($this->failedLogins)
+                <x-ui.card>
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <x-ui.heading>{{ __('Failed logins') }}</x-ui.heading>
+                            <x-ui.text muted class="mt-1">{{ trans_choice(':count failed login counted, the last at :time. Too many lock the customer out for a while.|:count failed logins counted, the last at :time. Too many lock the customer out for a while.', $this->failedLogins['count'], ['time' => $this->failedLogins['last']]) }}</x-ui.text>
+                        </div>
+                        @can('resetDevices', $this->account)
+                            <x-ui.button variant="secondary" icon="lock-closed" wire:click="unlock">{{ __('Unlock') }}</x-ui.button>
+                        @endcan
+                    </div>
+                </x-ui.card>
+            @endif
+        @endunless
 
-    <x-ui.card>
-        <x-ui.heading>{{ __('Recharges') }}</x-ui.heading>
-        @if ($this->recharges === [])
-            <x-ui.text muted class="mt-4">{{ __('No recharge yet.') }}</x-ui.text>
-        @else
-            <x-ui.table class="mt-4">
-                <x-slot:head>
-                    <x-ui.th>{{ __('When') }}</x-ui.th>
-                    <x-ui.th>{{ __('Plan') }}</x-ui.th>
-                    <x-ui.th>{{ __('Expiry') }}</x-ui.th>
-                    <x-ui.th class="text-end">{{ __('Amount') }}</x-ui.th>
-                    <x-ui.th>{{ __('Note') }}</x-ui.th>
-                    <x-ui.th>{{ __('Staff') }}</x-ui.th>
-                </x-slot:head>
-                @foreach ($this->recharges as $recharge)
-                    <tr wire:key="recharge-{{ $recharge['id'] }}">
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['when'] }}</x-ui.td>
-                        <x-ui.td>{{ $recharge['plan'] }}</x-ui.td>
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['expiry'] }}</x-ui.td>
-                        <x-ui.td class="text-end tabular-nums">{{ $recharge['amount'] }}</x-ui.td>
-                        <x-ui.td>{{ $recharge['note'] }}</x-ui.td>
-                        <x-ui.td>{{ $recharge['staff'] }}</x-ui.td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
-        @endif
-    </x-ui.card>
+        <x-ui.card>
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <x-ui.heading>{{ __('Login attempts') }}</x-ui.heading>
+                @can('view-login-log')
+                    <x-ui.link href="{{ route('login-log.index', ['username' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('Open the login log') }}</x-ui.link>
+                @endcan
+            </div>
+            @if ($this->logins === [])
+                <x-ui.text muted class="mt-4">{{ __('No login attempt yet.') }}</x-ui.text>
+            @else
+                <x-ui.table class="mt-4">
+                    <x-slot:head>
+                        <x-ui.th>{{ __('When') }}</x-ui.th>
+                        <x-ui.th>{{ __('Result') }}</x-ui.th>
+                        <x-ui.th>{{ __('Reason') }}</x-ui.th>
+                        <x-ui.th>{{ __('NAS') }}</x-ui.th>
+                        <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
+                    </x-slot:head>
+                    @foreach ($this->logins as $login)
+                        <tr wire:key="login-{{ $login['id'] }}">
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $login['when'] }}</x-ui.td>
+                            <x-ui.td><x-ui.badge :color="$login['color']">{{ $login['result'] }}</x-ui.badge></x-ui.td>
+                            <x-ui.td class="break-words">{{ $login['reason'] }}</x-ui.td>
+                            <x-ui.td>{{ $login['router'] }}</x-ui.td>
+                            <x-ui.td class="font-mono">{{ $login['mac'] }}</x-ui.td>
+                        </tr>
+                    @endforeach
+                </x-ui.table>
+            @endif
+        </x-ui.card>
+    @endif
 
-    <x-ui.card>
-        <x-ui.heading>{{ __('Activity') }}</x-ui.heading>
-        @if ($this->activities === [])
-            <x-ui.text muted class="mt-4">{{ __('No activity yet.') }}</x-ui.text>
-        @else
-            <x-ui.table class="mt-4 [&_td]:align-top">
-                <x-slot:head>
-                    <x-ui.th>{{ __('When') }}</x-ui.th>
-                    <x-ui.th>{{ __('Staff') }}</x-ui.th>
-                    <x-ui.th>{{ __('Action') }}</x-ui.th>
-                    <x-ui.th>{{ __('Changes') }}</x-ui.th>
-                </x-slot:head>
-                @foreach ($this->activities as $activity)
-                    <tr wire:key="activity-{{ $activity['id'] }}">
-                        <x-ui.td class="tabular-nums whitespace-nowrap">{{ $activity['when'] }}</x-ui.td>
-                        <x-ui.td>{{ $activity['staff'] }}</x-ui.td>
-                        <x-ui.td>{{ $activity['event'] }}</x-ui.td>
-                        <x-ui.td>
-                            <dl class="grid gap-0.5 text-xs">
-                                @foreach ($activity['changes'] as $change)
-                                    <div class="flex flex-wrap gap-1">
-                                        <dt class="text-zinc-500 dark:text-zinc-400">{{ $change['field'] }}:</dt>
-                                        <dd>
-                                            @if ($change['old'] !== null)
-                                                <span class="line-through decoration-zinc-400">{{ $change['old'] }}</span>
-                                                <span aria-hidden="true">&rarr;</span>
-                                            @endif
-                                            <span>{{ $change['new'] ?? __('(empty)') }}</span>
-                                        </dd>
-                                    </div>
-                                @endforeach
-                            </dl>
-                        </x-ui.td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
-        @endif
-    </x-ui.card>
+    @if ($this->activeTab === 'recharges')
+        <x-ui.card>
+            <x-ui.heading>{{ __('Recharges') }}</x-ui.heading>
+            @if ($this->recharges === [])
+                <x-ui.text muted class="mt-4">{{ __('No recharge yet.') }}</x-ui.text>
+            @else
+                <x-ui.table class="mt-4">
+                    <x-slot:head>
+                        <x-ui.th>{{ __('When') }}</x-ui.th>
+                        <x-ui.th>{{ __('Plan') }}</x-ui.th>
+                        <x-ui.th>{{ __('Expiry') }}</x-ui.th>
+                        <x-ui.th class="text-end">{{ __('Amount') }}</x-ui.th>
+                        <x-ui.th>{{ __('Note') }}</x-ui.th>
+                        <x-ui.th>{{ __('Staff') }}</x-ui.th>
+                    </x-slot:head>
+                    @foreach ($this->recharges as $recharge)
+                        <tr wire:key="recharge-{{ $recharge['id'] }}">
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['when'] }}</x-ui.td>
+                            <x-ui.td>{{ $recharge['plan'] }}</x-ui.td>
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['expiry'] }}</x-ui.td>
+                            <x-ui.td class="text-end tabular-nums">{{ $recharge['amount'] }}</x-ui.td>
+                            <x-ui.td>{{ $recharge['note'] }}</x-ui.td>
+                            <x-ui.td>{{ $recharge['staff'] }}</x-ui.td>
+                        </tr>
+                    @endforeach
+                </x-ui.table>
+            @endif
+        </x-ui.card>
+    @endif
+
+    @if ($this->activeTab === 'messages')
+        @can('view-notification-log')
+            <x-ui.card>
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <x-ui.heading>{{ __('Messages') }}</x-ui.heading>
+                    <x-ui.link href="{{ route('notification-log.index', ['customer' => $this->account->username]) }}" wire:navigate class="text-sm">{{ __('All messages') }}</x-ui.link>
+                </div>
+                @if ($this->messages === [])
+                    <x-ui.text muted class="mt-4">{{ __('No messages yet.') }}</x-ui.text>
+                @else
+                    <ul class="mt-4 grid gap-3 text-sm">
+                        @foreach ($this->messages as $message)
+                            <li class="flex flex-wrap items-start gap-2" wire:key="message-{{ $loop->index }}">
+                                <span class="tabular-nums text-zinc-500 dark:text-zinc-400">{{ $message['when'] }}</span>
+                                <x-ui.badge :color="$message['color']">{{ $message['status'] }}</x-ui.badge>
+                                <span class="font-medium">{{ $message['rule'] }}</span>
+                                <span class="basis-full break-words">{{ $message['text'] }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </x-ui.card>
+        @endcan
+    @endif
+
+    @if ($this->activeTab === 'activity')
+        <x-ui.card>
+            <x-ui.heading>{{ __('Activity') }}</x-ui.heading>
+            @if ($this->activities === [])
+                <x-ui.text muted class="mt-4">{{ __('No activity yet.') }}</x-ui.text>
+            @else
+                <x-ui.table class="mt-4 [&_td]:align-top">
+                    <x-slot:head>
+                        <x-ui.th>{{ __('When') }}</x-ui.th>
+                        <x-ui.th>{{ __('Staff') }}</x-ui.th>
+                        <x-ui.th>{{ __('Action') }}</x-ui.th>
+                        <x-ui.th>{{ __('Changes') }}</x-ui.th>
+                    </x-slot:head>
+                    @foreach ($this->activities as $activity)
+                        <tr wire:key="activity-{{ $activity['id'] }}">
+                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $activity['when'] }}</x-ui.td>
+                            <x-ui.td>{{ $activity['staff'] }}</x-ui.td>
+                            <x-ui.td>{{ $activity['event'] }}</x-ui.td>
+                            <x-ui.td>
+                                <dl class="grid gap-0.5 text-xs">
+                                    @foreach ($activity['changes'] as $change)
+                                        <div class="flex flex-wrap gap-1">
+                                            <dt class="text-zinc-500 dark:text-zinc-400">{{ $change['field'] }}:</dt>
+                                            <dd>
+                                                @if ($change['old'] !== null)
+                                                    <span class="line-through decoration-zinc-400">{{ $change['old'] }}</span>
+                                                    <span aria-hidden="true">&rarr;</span>
+                                                @endif
+                                                <span>{{ $change['new'] ?? __('(empty)') }}</span>
+                                            </dd>
+                                        </div>
+                                    @endforeach
+                                </dl>
+                            </x-ui.td>
+                        </tr>
+                    @endforeach
+                </x-ui.table>
+            @endif
+        </x-ui.card>
+    @endif
+
+    @if ($this->addonTab)
+        <livewire:dynamic-component :is="$this->addonTab" :account-id="$this->account->id" :key="'addon-tab-'.$this->activeTab" />
+    @endif
 
     @can('changeStatus', $this->account)
         <x-ui.modal name="change-status" width="sm">

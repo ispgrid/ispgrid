@@ -926,5 +926,7 @@
     "PPPoE (routed to the sessions)": "PPPoE (सेशन तक रूट किया गया)",
     ":address is given to a customer, so it cannot leave the inventory.": ":address किसी ग्राहक को दिया गया है, इसलिए यह इन्वेंटरी से बाहर नहीं जा सकता।",
     "A first-to-last range can only be PPPoE.": "पहले से आखिरी पते वाली रेंज सिर्फ़ PPPoE हो सकती है।",
-    "Enter an IPv4 network with its prefix, e.g. 10.20.0.0/24, or a first and last address, e.g. 10.20.0.100-10.20.0.200.": "प्रीफ़िक्स के साथ IPv4 नेटवर्क डालें, जैसे 10.20.0.0/24, या पहला और आखिरी पता, जैसे 10.20.0.100-10.20.0.200।"
+    "Enter an IPv4 network with its prefix, e.g. 10.20.0.0/24, or a first and last address, e.g. 10.20.0.100-10.20.0.200.": "प्रीफ़िक्स के साथ IPv4 नेटवर्क डालें, जैसे 10.20.0.0/24, या पहला और आखिरी पता, जैसे 10.20.0.100-10.20.0.200।",
+    "Details": "विवरण",
+    "Connection": "कनेक्शन"
 }

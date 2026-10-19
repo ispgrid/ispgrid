@@ -17,6 +17,7 @@ use App\Notifications\Triggers\RechargeDone;
 use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerFormTabs;
+use App\Support\Addons\CustomerTabs;
 use App\Support\Navigation\Navigation;
 use App\Support\Navigation\NavItem;
 use App\Support\Permissions;
@@ -44,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AddonSettings::class);
         $this->app->singleton(CustomerFormTabs::class);
         $this->app->singleton(CustomerCards::class);
+        $this->app->singleton(CustomerTabs::class);
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
 
         $this->app->singleton(Permissions::class, function (): Permissions {
