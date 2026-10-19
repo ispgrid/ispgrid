@@ -78,7 +78,7 @@ example to copy.
   `extra.laravel`: core registers the providers itself.
 - **What it may use:** `App\Contracts` (`SessionKeeper`, `CustomerFormTab`), the registries `App\Support\Permissions`,
   `App\Support\Navigation\Navigation`, `App\Support\SessionKeepers` and those in `App\Support\Addons`
-  (`AddonSettings`, `CustomerFormTabs`, `CustomerCards`), `App\Support\Addons\PrivateFile`, `AppSetting::valueOf()` and
+  (`AddonSettings`, `CustomerFormTabs`, `CustomerTabs`, `CustomerCards`), `App\Support\Addons\PrivateFile`, `AppSetting::valueOf()` and
   `AppSetting::put()`, `ActivityFormatter::addEventLabel()`, the Livewire concerns `AuthorizesEveryRequest` and
   `ShowsToasts`, the `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core
   is internal and may change in any release.
@@ -97,8 +97,15 @@ example to copy.
   such as storing files. `warnings()` puts an amber dot on the tab and its sentences in the message after saving; the
   save still happens. `visible()` is asked again when saving, and state for a tab the staff member cannot see is
   dropped.
+- **A tab on the customer page:** a Livewire component that takes `accountId`, registered with
+  `app(CustomerTabs::class)->register('documents', fn () => __('Documents'), 'pkg::customer-tab', fn (User $user,
+  Account $account): bool => ..., 50)`. The key is the tab's name in the page address (`?tab=documents`): lowercase
+  letters, digits and `-`, not one of core's tabs. Core's tabs have orders 10 (Details), 20 (Connection),
+  70 (Recharges), 80 (Messages) and 90 (Activity); only the open tab is rendered. `CustomerTabs` arrived in core
+  0.1.2: on 0.1.1, check `class_exists(CustomerTabs::class)` and register a card instead.
 - **A card on the customer page:** a Livewire component that takes `accountId`, registered with
   `app(CustomerCards::class)->register('pkg::customer-card', fn (User $user, Account $account): bool => ..., 50)`.
+  Cards show at the end of the Details tab; prefer a tab for anything longer than a few lines.
 - **Files:** `<x-ui.file-upload wire:model="..." />` for uploads (Livewire; at most 10 MB, the server's limit). Keep
   files on the `addons` disk under your own directory (`Storage::disk('addons')->put('documents/...')`), list that
   directory in `extra.ispgrid.paths` (e.g. `"paths": ["documents"]`: lowercase letters, digits, `_` or `-`), and

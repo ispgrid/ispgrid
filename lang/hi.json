@@ -931,5 +931,7 @@
     "Please contact us so we can fix it.": "कृपया हमसे संपर्क करें ताकि हम इसे ठीक कर सकें।",
     "Your device has an IP address that is not given to any customer.": "आपके डिवाइस का IP पता किसी ग्राहक को नहीं दिया गया है।",
     "IPoE devices on an IP that no customer has get the Hotspot login page. Replace it on each NAS with this page, which asks them to call you (the setup guide shows how). It uses the saved ISP name and phone number.": "जिस IPoE डिवाइस का IP किसी ग्राहक के पास नहीं है, उसे Hotspot का लॉगिन पेज दिखता है। हर NAS पर उसकी जगह यह पेज लगाएँ, जो उन्हें आपको कॉल करने को कहता है (सेटअप गाइड में तरीका दिया है)। इसमें सेव किया गया ISP नाम और फ़ोन नंबर इस्तेमाल होता है।",
-    "Download login.html": "login.html डाउनलोड करें"
+    "Download login.html": "login.html डाउनलोड करें",
+    "Details": "विवरण",
+    "Connection": "कनेक्शन"
 }

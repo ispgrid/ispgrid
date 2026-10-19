@@ -27,9 +27,9 @@ beforeEach(function () {
     $this->actingAs(User::factory()->create());
 });
 
-function showCustomer(Account $account): Testable
+function showCustomer(Account $account, string $tab = 'details'): Testable
 {
-    return Livewire::test('pages::customers.show', ['account' => $account->id]);
+    return Livewire::withQueryParams(['tab' => $tab])->test('pages::customers.show', ['account' => $account->id]);
 }
 
 it('shows what the customer has and how to reach them', function () {
@@ -72,7 +72,7 @@ it('lists the bound devices and resets them', function () {
     $account = Account::factory()->create(['username' => 'alice']);
     DB::table('account_macs')->insert(['username' => 'alice', 'mac_norm' => 'BC2411003020', 'learned_at' => '2026-10-01 10:00:00']);
 
-    showCustomer($account)
+    showCustomer($account, 'connection')
         ->assertSee('BC:24:11:00:30:20')
         ->call('resetDevices')
         ->assertDispatched('toast', variant: 'success')
@@ -112,7 +112,7 @@ it('unlocks a customer locked after wrong passwords', function () {
     $account = Account::factory()->create(['username' => 'alice']);
     DB::table('reject_counters')->insert(['username' => 'alice', 'mac' => '', 'counter' => 31, 'last_update' => now()]);
 
-    showCustomer($account)
+    showCustomer($account, 'connection')
         ->assertSee('31 failed logins')
         ->call('unlock')
         ->assertDispatched('toast', variant: 'success');
@@ -353,5 +353,5 @@ it('shows a recharge that left the validity waiting', function () {
     $account = Account::factory()->hotspotPending(360)->create();
     Recharge::factory()->create(['account_id' => $account->id, 'new_expiry' => null, 'new_pending_validity' => 360]);
 
-    Livewire::test('pages::customers.show', ['account' => $account->id])->assertSee('6 hours from first login');
+    showCustomer($account, 'recharges')->assertSee('6 hours from first login');
 });

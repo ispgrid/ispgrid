@@ -8,19 +8,19 @@ use Livewire\Livewire;
  * The customer page shows each action only to roles with its box, and the server refuses it to the others.
  */
 
-it('shows a customer action only with its box', function (string $html, Permission $permission) {
+it('shows a customer action only with its box', function (string $html, Permission $permission, string $tab = 'details') {
     $account = Account::factory()->create();
 
     $this->actingAs(staffHolding(Permission::ViewCustomers));
-    Livewire::test('pages::customers.show', ['account' => $account->id])->assertDontSeeHtml($html);
+    Livewire::withQueryParams(['tab' => $tab])->test('pages::customers.show', ['account' => $account->id])->assertDontSeeHtml($html);
 
     $this->actingAs(staffHolding(Permission::ViewCustomers, $permission));
-    Livewire::test('pages::customers.show', ['account' => $account->id])->assertSeeHtml($html);
+    Livewire::withQueryParams(['tab' => $tab])->test('pages::customers.show', ['account' => $account->id])->assertSeeHtml($html);
 })->with([
     'recharge' => ['wire:click="openRecharge"', Permission::RechargeCustomers],
     'edit' => ['/edit"', Permission::EditCustomers],
     'change status' => ["name: 'change-status'", Permission::ChangeCustomerStatus],
-    'reset devices' => ['wire:click="resetDevices"', Permission::ResetCustomerDevices],
+    'reset devices' => ['wire:click="resetDevices"', Permission::ResetCustomerDevices, 'connection'],
     'delete' => ['wire:click="delete"', Permission::DeleteCustomers],
 ]);
 
