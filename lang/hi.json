@@ -1136,5 +1136,13 @@
     "The logo must be 200 KB or smaller.": "लोगो 200 KB या उससे छोटा होना चाहिए।",
     "Fill in the company name and country first.": "पहले कंपनी का नाम और देश भरें।",
     "Logo removed.": "लोगो हटा दिया गया।",
-    "Payments were made this way, so it stays. Turn it off instead.": "इस तरीके से भुगतान हुए हैं, इसलिए यह रहेगा। इसके बजाय इसे बंद करें।"
+    "Payments were made this way, so it stays. Turn it off instead.": "इस तरीके से भुगतान हुए हैं, इसलिए यह रहेगा। इसके बजाय इसे बंद करें।",
+    "Invoice issued": "इनवॉइस बना",
+    "Invoice cancelled": "इनवॉइस रद्द",
+    "Payment recorded": "भुगतान दर्ज",
+    "Payment removed": "भुगतान हटाया",
+    "Invoice :number issued, :total.": "इनवॉइस :number बना, :total।",
+    "Invoice :number cancelled.": "इनवॉइस :number रद्द किया गया।",
+    "Payment of :amount by :method recorded for invoice :number.": "इनवॉइस :number के लिए :method से :amount का भुगतान दर्ज हुआ।",
+    "Payment of :amount removed from invoice :number.": "इनवॉइस :number से :amount का भुगतान हटाया गया।"
 }

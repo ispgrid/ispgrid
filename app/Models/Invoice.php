@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Billing\Decimal;
 use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
 use Database\Factories\InvoiceFactory;
@@ -90,6 +91,32 @@ class Invoice extends Model
     public function taxLines(): HasMany
     {
         return $this->hasMany(InvoiceTaxLine::class)->orderBy('position');
+    }
+
+    /**
+     * Works out what is paid and owed from the payments not removed, and the status from that. A cancelled
+     * invoice stays cancelled and owes nothing.
+     */
+    public function refreshStatus(): void
+    {
+        if ($this->status === InvoiceStatus::Cancelled) {
+            $this->update(['balance' => '0']);
+
+            return;
+        }
+
+        $paid = Decimal::round((string) $this->payments()->sum('amount'), 2);
+        $balance = Decimal::round(Decimal::sub((string) $this->total, $paid), 2);
+
+        $this->update([
+            'paid_total' => $paid,
+            'balance' => $balance,
+            'status' => match (true) {
+                Decimal::compare($balance, '0') <= 0 => InvoiceStatus::Paid,
+                Decimal::compare($paid, '0') > 0 => InvoiceStatus::PartlyPaid,
+                default => InvoiceStatus::Unpaid,
+            },
+        ]);
     }
 
     /**

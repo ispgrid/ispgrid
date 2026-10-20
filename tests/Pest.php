@@ -1,7 +1,15 @@
 <?php
 
 use App\Actions\Import\RowError;
+use App\Billing\BillingSettings;
+use App\Billing\CustomerSnapshot;
+use App\Billing\InvoiceCalculator;
+use App\Billing\InvoiceDraft;
+use App\Billing\LineInput;
+use App\Billing\Tax\TaxContext;
 use App\Enums\Permission;
+use App\Models\Account;
+use App\Models\AppSetting;
 use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
@@ -106,4 +114,31 @@ function staffLacking(Permission $missing): User
 function turnHotspotOn(): void
 {
     RadiusSetting::query()->updateOrCreate(['id' => 1], ['hotspot_enabled' => true]);
+}
+
+/**
+ * Turns invoicing on for "Example ISP": by default in India (Uttar Pradesh, 09) with GST at 18%.
+ *
+ * @param  array<string, string>  $tax
+ */
+function turnInvoicingOn(string $country = 'IN', string $taxSetup = 'india-gst', array $tax = ['rate' => '18', 'state' => '09']): void
+{
+    AppSetting::put('billing.enabled', '1');
+    AppSetting::put('billing.company', (string) json_encode(['name' => 'Example ISP', 'country' => $country, 'address_lines' => ['1 Example Street'], 'city' => 'Prayagraj', 'tax_number' => '09ABCDE1234F1Z5']));
+    AppSetting::put('billing.tax_setup', $taxSetup);
+    AppSetting::put('billing.tax', (string) json_encode($tax));
+}
+
+/**
+ * An invoice draft for this customer with the saved Billing settings: one taxed line at this price.
+ */
+function billingDraft(Account $account, string $price, string $quantity = '1', string $discount = '0'): InvoiceDraft
+{
+    $settings = BillingSettings::current();
+    $snapshot = CustomerSnapshot::of($account, $settings);
+
+    return (new InvoiceCalculator)->calculate(
+        [new LineInput('Plan', null, null, $quantity, $price, $discount, true)],
+        $settings->tax(), $settings->taxConfig, new TaxContext($snapshot['place_of_supply']), $settings->pricesIncludeTax, false, $settings->decimals,
+    );
 }
