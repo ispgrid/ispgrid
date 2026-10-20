@@ -306,7 +306,7 @@ it('asks for a password when an IPoE customer becomes PPPoE, and stops mapping t
         ->and(customerRows('radreply', 'erin'))->toBe(['Framed-IP-Address' => '172.16.30.20']);
 });
 
-it('writes a custom speed and removes it when switched off', function () {
+it('writes an override speed and removes it when switched off', function () {
     newCustomerForm()->set('override_plan', true)->set('override_upload', '10M')->set('override_download', '50M')
         ->call('save')->assertHasNoErrors();
 
@@ -321,7 +321,7 @@ it('writes a custom speed and removes it when switched off', function () {
         ->and(Account::query()->sole()->override_upload)->toBeNull();
 });
 
-it('refuses a custom burst below the custom speed and names the field', function () {
+it('refuses a custom burst below the override speed and names the field', function () {
     newCustomerForm()
         ->set('override_plan', true)
         ->set('override_upload', '10M')
@@ -696,7 +696,7 @@ it('refuses auto renew for a Hotspot customer whose plan starts at the first log
     expect($account->fresh()->auto_renew)->toBeFalse();
 });
 
-it('saves an end date for a custom speed, and clears it when the custom speed is switched off', function () {
+it('saves an end date for an override speed, and clears it when the override speed is switched off', function () {
     $this->travelTo(now()->setDateTime(2026, 10, 10, 14, 30));
     newCustomerForm()->set('override_plan', true)->set('override_upload', '10M')->set('override_download', '50M')
         ->set('override_until', '2026-11-01T00:00')
@@ -714,7 +714,23 @@ it('saves an end date for a custom speed, and clears it when the custom speed is
     expect($account->fresh()->override_until)->toBeNull();
 });
 
-it('refuses an end date for a custom speed in the past', function () {
+it('fills the end of a new override speed with the plan expiry', function () {
+    $this->travelTo(now()->setDateTime(2026, 10, 10, 14, 30));
+    $account = Account::factory()->create(['expiry' => '2026-10-31 00:00:00']);
+    $ended = Account::factory()->create(['expiry' => '2026-10-01 00:00:00']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('override_plan', true)
+        ->assertSet('override_until', '2026-10-31T00:00')
+        ->set('override_until', '2026-10-20T00:00')
+        ->set('override_plan', false)
+        ->set('override_plan', true)
+        ->assertSet('override_until', '2026-10-20T00:00');
+    Livewire::test('pages::customers.form', ['account' => $ended->id])->set('override_plan', true)->assertSet('override_until', '');
+    newCustomerForm()->set('override_plan', true)->assertSet('override_until', '');
+});
+
+it('refuses an end date for an override speed in the past', function () {
     newCustomerForm()->set('override_plan', true)->set('override_upload', '10M')->set('override_download', '50M')
         ->set('override_until', now()->subDay()->format('Y-m-d\TH:i'))
         ->call('save')

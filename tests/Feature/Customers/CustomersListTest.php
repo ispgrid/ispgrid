@@ -31,7 +31,7 @@ it('lists customers with their type, plan, status and expiry', function () {
 
     // The filter selects also show plan, type and status names, so check the row itself.
     expect($component->instance()->rows[0])->toMatchArray([
-        'username' => 'alice', 'fullname' => 'Alice Rao', 'type' => 'PPPoE', 'plan' => 'Home 25', 'status' => 'Active',
+        'username' => 'alice', 'name' => 'Alice Rao', 'login' => 'alice', 'type' => 'PPPoE', 'plan' => 'Home 25', 'status' => 'Active',
     ]);
 });
 
@@ -202,4 +202,14 @@ it('names a filter that has no control of its own and lets staff clear it', func
         ->call('clearExtraFilters')
         ->assertSet('norenewal', false)
         ->assertDontSee('Without a renewal');
+});
+
+it('shows the full name as the link with the username under it, or the username alone', function () {
+    Account::factory()->create(['username' => 'ramesh_s4', 'fullname' => 'Ramesh Kumar']);
+    Account::factory()->create(['username' => 'voucher1', 'fullname' => '  ']);
+
+    $rows = collect(Livewire::test('pages::customers.index')->instance()->rows)->keyBy('username');
+
+    expect($rows['ramesh_s4'])->name->toBe('Ramesh Kumar')->login->toBe('ramesh_s4')
+        ->and($rows['voucher1'])->name->toBe('voucher1')->login->toBeNull();
 });

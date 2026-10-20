@@ -33,7 +33,7 @@ a customer who is online is changed, their session is disconnected so the change
 ## Features
 
 - **Customers:** PPPoE, Hotspot and IPoE accounts, with profile, address, device limit, NAS binding, static IP,
-  pool, address lists, a custom speed and extra RADIUS attributes.
+  pool, address lists, an override speed (with an optional end date) and extra RADIUS attributes.
 - **Plans and recharges:** speed (with burst), validity in days or hours, data and time limits with an optional fair
   usage speed, time slots; recharge to give a customer a plan and an expiry. Expired and disabled customers get a
   disabled pool and a notice page.

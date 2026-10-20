@@ -31,7 +31,7 @@ function planCard(Account $account): Testable
     return Livewire::test('pages::customers.plan-card', ['accountId' => $account->id]);
 }
 
-it('shows the plan, its dates, auto renew, a waiting renewal, an own speed and whether the customer is online', function () {
+it('shows the plan, its dates, auto renew, a waiting renewal, an override speed and whether the customer is online', function () {
     $next = Plan::factory()->create(['name' => 'Home 100']);
     $this->account->update(['auto_renew' => true, 'override_plan' => true, 'override_upload' => '25M', 'override_download' => '70M', 'override_until' => '2026-10-20 00:00:00']);
     Recharge::factory()->for($this->account)->create(['plan_id' => $this->plan->id, 'created_at' => '2026-10-01 09:00:00', 'old_expiry' => null]);
@@ -40,7 +40,7 @@ it('shows the plan, its dates, auto renew, a waiting renewal, an own speed and w
 
     planCard($this->account)
         ->assertSeeInOrder(['Home 25', 'Online', '01/10/2026 09:00', '31/10/2026 00:00', 'in 21 days', 'On', 'The advance renewal starts instead',
-            'Waiting', 'Home 100', '31/10/2026 00:00', '30/11/2026 00:00', 'Cancel', 'Own speed 25M/70M until 20/10/2026 00:00']);
+            'Waiting', 'Home 100', '31/10/2026 00:00', '30/11/2026 00:00', 'Cancel', 'Override speed 25M/70M until 20/10/2026 00:00']);
 });
 
 it('shows the buttons each permission allows, and refuses the action anyway', function (Permission $missing, array $hidden, string $action) {
@@ -54,7 +54,7 @@ it('shows the buttons each permission allows, and refuses the action anyway', fu
     $card->call($action)->assertForbidden();
 })->with([
     'recharge' => [Permission::RechargeCustomers, ['openChangePlan', 'openAdvance', 'openChangeExpiry'], 'changePlan'],
-    'edit' => [Permission::EditCustomers, ['openOwnSpeed'], 'saveOwnSpeed'],
+    'edit' => [Permission::EditCustomers, ['openOverrideSpeed'], 'saveOverrideSpeed'],
     'status' => [Permission::ChangeCustomerStatus, ['openTerminate'], 'terminate'],
 ]);
 
@@ -64,7 +64,7 @@ it('shows every button to a role that has the boxes', function () {
         ->assertSeeHtml('wire:click="openChangePlan"')
         ->assertSeeHtml('wire:click="openAdvance"')
         ->assertSeeHtml('wire:click="openChangeExpiry"')
-        ->assertSeeHtml('wire:click="openOwnSpeed"')
+        ->assertSeeHtml('wire:click="openOverrideSpeed"')
         ->assertSeeHtml('wire:click="openTerminate"');
 });
 
@@ -146,33 +146,43 @@ it('changes the expiry, and disconnects only for an expiry less than a minute aw
     expect($this->account->fresh()->expiry->format('Y-m-d H:i'))->toBe('2026-10-10 14:30');
 });
 
-it('sets and removes an own speed', function () {
+it('sets and removes an override speed', function () {
     Queue::fake();
 
     planCard($this->account)
-        ->call('openOwnSpeed')
+        ->call('openOverrideSpeed')
         ->set('speed_upload', '25M')
         ->set('speed_download', '70M')
         ->set('speed_until', '2026-11-01T00:00')
-        ->call('saveOwnSpeed')
+        ->call('saveOverrideSpeed')
         ->assertHasNoErrors();
 
     expect($this->account->fresh())
         ->override_upload->toBe('25M')
         ->override_until->format('Y-m-d H:i')->toBe('2026-11-01 00:00');
 
-    planCard($this->account)->call('removeOwnSpeed')->assertHasNoErrors();
+    planCard($this->account)->call('removeOverrideSpeed')->assertHasNoErrors();
 
     expect($this->account->fresh()->override_plan)->toBeFalse();
 });
 
-it('refuses an own speed MikroTik would not read, or one ending in the past', function () {
+it('ends a new override speed at the plan expiry unless one is set or the plan has ended', function () {
+    planCard($this->account)->call('openOverrideSpeed')->assertSet('speed_until', '2026-10-31T00:00');
+
+    $this->account->update(['override_plan' => true, 'override_upload' => '25M', 'override_download' => '70M', 'override_until' => '2026-10-20 00:00:00']);
+    planCard($this->account)->call('openOverrideSpeed')->assertSet('speed_until', '2026-10-20T00:00');
+
+    $ended = Account::factory()->create(['expiry' => '2026-10-01 00:00:00']);
+    planCard($ended)->call('openOverrideSpeed')->assertSet('speed_until', '');
+});
+
+it('refuses an override speed MikroTik would not read, or one ending in the past', function () {
     planCard($this->account)
-        ->call('openOwnSpeed')
+        ->call('openOverrideSpeed')
         ->set('speed_upload', '25 Mbps')
         ->set('speed_download', '70M')
         ->set('speed_until', '2026-10-01T00:00')
-        ->call('saveOwnSpeed')
+        ->call('saveOverrideSpeed')
         ->assertHasErrors(['speed_upload', 'speed_until']);
 });
 

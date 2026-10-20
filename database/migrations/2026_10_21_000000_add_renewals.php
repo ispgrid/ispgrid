@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Renewals: auto renew and an end for an own speed on the account, what kind each recharge was, and the
+     * Renewals: auto renew and an end for an override speed on the account, what kind each recharge was, and the
      * advance renewals waiting for the current period to end.
      */
     public function up(): void

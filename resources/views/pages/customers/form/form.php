@@ -155,7 +155,7 @@ new #[Title('Customer')] class extends Component
     public bool $override_plan = false;
 
     /**
-     * When the custom speed ends by itself ('Y-m-d\TH:i'); empty = until it is switched off.
+     * When the override speed ends by itself ('Y-m-d\TH:i'); empty = until it is switched off.
      */
     public string $override_until = '';
 
@@ -473,6 +473,22 @@ new #[Title('Customer')] class extends Component
         $warned = array_filter($this->formAddonTabs, fn (CustomerFormTab $tab, string $key): bool => $tab->warnings((array) ($this->addonTabs[$key] ?? []), $account) !== [], ARRAY_FILTER_USE_BOTH);
 
         return array_keys($warned);
+    }
+
+    /**
+     * A new override speed ends at the plan expiry by default (staff can change or clear it).
+     */
+    public function updatedOverridePlan(): void
+    {
+        if (! $this->override_plan || $this->override_until !== '' || $this->accountId === null) {
+            return;
+        }
+
+        $expiry = Account::query()->find($this->accountId)?->expiry;
+
+        if ($expiry !== null && $expiry->isFuture()) {
+            $this->override_until = $expiry->format('Y-m-d\TH:i');
+        }
     }
 
     /**
@@ -836,7 +852,7 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * Custom speed problems from RateLimit, keyed by form field.
+     * Override speed problems from RateLimit, keyed by form field.
      *
      * @return array<string, string>
      */
@@ -949,7 +965,7 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * The account's own columns. A custom speed that is switched off is saved empty, so the sync drops it.
+     * The account's own columns. An override speed that is switched off is saved empty, so the sync drops it.
      * IPoE has no device limit (always one device) and no pool. A new customer starts Inactive; the plan, the
      * expiry and the status of an existing one stay as they are (recharge and Change status set them).
      *

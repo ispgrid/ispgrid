@@ -17,12 +17,21 @@ it('shows a customer action only with its box', function (string $html, Permissi
     $this->actingAs(staffHolding(Permission::ViewCustomers, $permission));
     Livewire::withQueryParams(['tab' => $tab])->test('pages::customers.show', ['account' => $account->id])->assertSeeHtml($html);
 })->with([
-    'recharge' => ['wire:click="openRecharge"', Permission::RechargeCustomers],
+    'recharge' => ["\$dispatch('open-recharge')", Permission::RechargeCustomers],
     'edit' => ['/edit"', Permission::EditCustomers],
     'change status' => ["name: 'change-status'", Permission::ChangeCustomerStatus],
     'reset devices' => ['wire:click="resetDevices"', Permission::ResetCustomerDevices, 'connection'],
     'delete' => ['wire:click="delete"', Permission::DeleteCustomers],
 ]);
+
+it('offers Recharge once, on the Plan card', function () {
+    $account = Account::factory()->create();
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::RechargeCustomers));
+
+    Livewire::test('pages::customers.show', ['account' => $account->id])
+        ->assertDontSeeHtml('wire:click="openRecharge"')
+        ->assertSeeHtml("\$dispatch('open-recharge')");
+});
 
 it('refuses a customer action without its box', function (string $method, Permission $permission) {
     $account = Account::factory()->create();

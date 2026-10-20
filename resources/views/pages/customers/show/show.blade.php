@@ -3,13 +3,15 @@
         <div>
             <x-ui.link href="{{ route('customers.index') }}" wire:navigate class="text-sm">{{ __('Customers') }}</x-ui.link>
             <div class="mt-2 flex flex-wrap items-center gap-2">
-                <x-ui.heading level="1" size="xl">{{ $this->account->username }}</x-ui.heading>
+                <x-ui.heading level="1" size="xl">{{ $this->heading['name'] }}</x-ui.heading>
                 <x-ui.badge :color="$this->account->status_id->color()">{{ $this->account->status_id->label() }}</x-ui.badge>
                 @if ($this->account->trashed())
                     <x-ui.badge>{{ __('Deleted') }}</x-ui.badge>
                 @endif
             </div>
-            <x-ui.text muted class="mt-1">{{ $this->account->fullname }}</x-ui.text>
+            @if ($this->heading['login'] !== null)
+                <x-ui.text muted class="mt-1">{{ $this->heading['login'] }}</x-ui.text>
+            @endif
         </div>
 
         <div class="flex flex-wrap gap-2">
@@ -18,9 +20,6 @@
                     <x-ui.button variant="secondary" icon="arrow-uturn-left" wire:click="restore">{{ __('Restore') }}</x-ui.button>
                 @endcan
             @else
-                @can('recharge', $this->account)
-                    <x-ui.button wire:click="openRecharge">{{ __('Recharge') }}</x-ui.button>
-                @endcan
                 @can('changeStatus', $this->account)
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
                 @endcan

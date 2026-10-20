@@ -74,10 +74,10 @@ final class ActivityTimeline
             'expired' => fn (): string => __('Plan expired: :plan ended :expiry.', ['plan' => self::text($new['plan'] ?? null) ?? __('none'), 'expiry' => $date($new['expiry'] ?? null)]),
             'expiry-changed' => fn (): string => __('Expiry changed from :old to :new.', ['old' => $date($old['expiry'] ?? null), 'new' => $date($new['expiry'] ?? null)]),
             'own-speed-set' => fn (): string => ($new['until'] ?? null) === null
-                ? __('Own speed set to :speed with no end date.', ['speed' => self::text($new['speed'] ?? null) ?? ''])
-                : __('Own speed set to :speed until :until.', ['speed' => self::text($new['speed'] ?? null) ?? '', 'until' => $date($new['until'])]),
-            'own-speed-removed' => fn (): string => __('Own speed removed.'),
-            'own-speed-ended' => fn (): string => __('Own speed ended.'),
+                ? __('Override speed set to :speed with no end date.', ['speed' => self::text($new['speed'] ?? null) ?? ''])
+                : __('Override speed set to :speed until :until.', ['speed' => self::text($new['speed'] ?? null) ?? '', 'until' => $date($new['until'])]),
+            'own-speed-removed' => fn (): string => __('Override speed removed.'),
+            'own-speed-ended' => fn (): string => __('Override speed ended.'),
             'terminated' => fn (): string => __('Terminated.'),
             'status-changed' => fn (): string => __('Status changed from :old to :new.', ['old' => self::text($old['status'] ?? null) ?? '', 'new' => self::text($new['status'] ?? null) ?? '']),
             'updated' => fn (): string => __('Details changed.'),

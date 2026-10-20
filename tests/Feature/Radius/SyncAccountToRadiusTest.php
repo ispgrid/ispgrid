@@ -73,7 +73,7 @@ it('writes each status as its number', function (AccountStatus $status) {
     expect(array_column(userRows('radcheck', 'carol'), 2, 0)['Acct-Status-Id'])->toBe((string) $status->value);
 })->with(AccountStatus::cases());
 
-it('writes the static IP, custom speed, pool, address lists and custom attributes', function () {
+it('writes the static IP, override speed, pool, address lists and custom attributes', function () {
     $account = Account::factory()->create([
         'username' => 'dave',
         'ip_id' => Ip::factory()->create(['address' => '10.10.10.123'])->id,

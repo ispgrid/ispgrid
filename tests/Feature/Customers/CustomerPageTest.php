@@ -355,3 +355,10 @@ it('shows a recharge that left the validity waiting', function () {
 
     showCustomer($account, 'recharges')->assertSee('6 hours from first login');
 });
+
+it('heads the page with the full name and the username under it, or the username alone', function () {
+    expect(showCustomer(Account::factory()->create(['username' => 'ramesh_s4', 'fullname' => 'Ramesh Kumar']))->instance()->heading)
+        ->toBe(['name' => 'Ramesh Kumar', 'login' => 'ramesh_s4'])
+        ->and(showCustomer(Account::factory()->create(['username' => 'voucher1', 'fullname' => '']))->instance()->heading)
+        ->toBe(['name' => 'voucher1', 'login' => null]);
+});

@@ -74,18 +74,24 @@ final class NeedsAttention
     }
 
     /**
-     * Live routers that had a session in the last day and sent no authentication or accounting for 30 minutes.
+     * Live routers with a session open now or closed in the last day that sent no authentication or accounting for
+     * 30 minutes. Each lookup uses an indexed column (acctstoptime, authdate), so a large radacct stays cheap.
      *
      * @return list<array{router: string, last_heard: string}>
      */
     public function quietRouters(): array
     {
         $dayAgo = now()->subDay();
-        $sessions = Radacct::query()
-            ->where(fn (Builder $query) => $query->whereNull('acctstoptime')->orWhere('acctstoptime', '>=', $dayAgo)
-                ->orWhere('acctstarttime', '>=', $dayAgo)->orWhere('acctupdatetime', '>=', $dayAgo))
+        $open = Radacct::query()
+            ->whereNull('acctstoptime')
             ->groupBy('nasipaddress')
-            ->selectRaw('nasipaddress, MAX(GREATEST(acctstarttime, COALESCE(acctupdatetime, acctstarttime), COALESCE(acctstoptime, acctstarttime))) AS heard')
+            ->selectRaw('nasipaddress, MAX(COALESCE(acctupdatetime, acctstarttime)) AS heard')
+            ->toBase()
+            ->pluck('heard', 'nasipaddress');
+        $closed = Radacct::query()
+            ->where('acctstoptime', '>=', $dayAgo)
+            ->groupBy('nasipaddress')
+            ->selectRaw('nasipaddress, MAX(acctstoptime) AS heard')
             ->toBase()
             ->pluck('heard', 'nasipaddress');
         $logins = Radpostauth::query()
@@ -98,13 +104,12 @@ final class NeedsAttention
         $quietSince = now()->subMinutes(self::QUIET_MINUTES);
 
         return array_values(Nas::query()->orderBy('shortname')->get()
-            ->filter(fn (Nas $router): bool => $sessions->has($router->nasname))
-            ->map(function (Nas $router) use ($sessions, $logins): array {
-                $heard = Carbon::parse((string) $sessions[$router->nasname]);
-
-                if ($logins->has($router->nasname)) {
-                    $heard = $heard->max(Carbon::parse((string) $logins[$router->nasname]));
-                }
+            ->filter(fn (Nas $router): bool => $open->has($router->nasname) || $closed->has($router->nasname))
+            ->map(function (Nas $router) use ($open, $closed, $logins): array {
+                $heard = collect([$open->get($router->nasname), $closed->get($router->nasname), $logins->get($router->nasname)])
+                    ->filter()
+                    ->map(fn (mixed $time): Carbon => Carbon::parse((string) $time))
+                    ->max();
 
                 return ['router' => $router, 'heard' => $heard];
             })
@@ -134,9 +139,17 @@ final class NeedsAttention
      */
     public function failedDisconnects(): array
     {
-        $online = Radacct::query()->open()->distinct()->pluck('username')->flip();
+        $entries = $this->latestEntries('disconnect-failed', now()->subDay());
 
-        return array_values($this->latestEntries('disconnect-failed', now()->subDay())
+        if ($entries->isEmpty()) {
+            return [];
+        }
+
+        $online = Radacct::query()->open()
+            ->whereIn('username', $entries->map(fn (array $entry): string => $entry['account']->username))
+            ->distinct()->pluck('username')->flip();
+
+        return array_values($entries
             ->filter(fn (array $entry): bool => $online->has($entry['account']->username))
             ->map(fn (array $entry): array => $this->customerRow($entry['account'], $entry['reason']))
             ->all());

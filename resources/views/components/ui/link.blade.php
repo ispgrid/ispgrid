@@ -1,1 +1,1 @@
-<a {{ $attributes->class('font-medium text-deep-green underline decoration-deep-green/40 underline-offset-4 hover:decoration-deep-green dark:text-signal dark:decoration-signal/40 dark:hover:decoration-signal') }}>{{ $slot }}</a>
+<a {{ $attributes->class('font-medium text-deep-green underline-offset-4 hover:underline focus-visible:underline dark:text-signal') }}>{{ $slot }}</a>
