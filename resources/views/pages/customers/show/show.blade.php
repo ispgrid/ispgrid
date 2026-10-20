@@ -18,9 +18,6 @@
                     <x-ui.button variant="secondary" icon="arrow-uturn-left" wire:click="restore">{{ __('Restore') }}</x-ui.button>
                 @endcan
             @else
-                @can('recharge', $this->account)
-                    <x-ui.button wire:click="openRecharge">{{ __('Recharge') }}</x-ui.button>
-                @endcan
                 @can('changeStatus', $this->account)
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
                 @endcan
