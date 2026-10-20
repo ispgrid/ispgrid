@@ -2,9 +2,11 @@
 
 use App\Actions\Customers\RechargeAccount;
 use App\Enums\AccountStatus;
+use App\Enums\RechargeKind;
 use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Models\Account;
+use App\Models\AdvanceRenewal;
 use App\Models\Plan;
 use App\Models\Recharge;
 use App\Models\User;
@@ -187,4 +189,67 @@ it('stops when FreeRADIUS started the clock after the expiry key was taken', fun
 
     expect(fn () => app(RechargeAccount::class)->handle($account->id, Plan::factory()->hours(3)->firstLogin()->create()->id, null, '20', null, $key))
         ->toThrow(ExpiryChangedMeanwhile::class);
+});
+
+it('records the kind and logs a change of plan as plan-changed', function () {
+    $account = Account::factory()->create(['plan_id' => Plan::factory()->create(['name' => 'Home 25'])->id, 'expiry' => '2026-10-20 10:00:00']);
+    $plan = Plan::factory()->create(['name' => 'Home 100']);
+
+    $recharge = app(RechargeAccount::class)->handle($account->id, $plan->id, Carbon::parse('2026-11-09 14:30'), '999', 'More speed', null, RechargeKind::ChangePlan);
+
+    $entry = Activity::query()->where('subject_id', $account->id)->where('event', '!=', 'created')->sole();
+    expect($recharge->fresh()->kind)->toBe(RechargeKind::ChangePlan)
+        ->and($entry->event)->toBe('plan-changed')
+        ->and($entry->attribute_changes->toArray())->toEqual([
+            'old' => ['plan' => 'Home 25', 'expiry' => '2026-10-20 10:00'],
+            'attributes' => ['plan' => 'Home 100', 'expiry' => '2026-11-09 14:30', 'amount' => '999', 'note' => 'More speed'],
+        ]);
+});
+
+it('records the staff member who booked it, with System as the causer when nobody is logged in', function () {
+    auth()->logout();
+    $account = Account::factory()->create(['expiry' => '2026-10-20 10:00:00']);
+
+    $recharge = app(RechargeAccount::class)->handle($account->id, Plan::factory()->create()->id, Carbon::parse('2026-11-19 10:00'), '599', null, null, RechargeKind::Advance, $this->staff->id);
+
+    $entry = Activity::query()->where('subject_id', $account->id)->where('event', '!=', 'created')->sole();
+    expect($recharge->user_id)->toBe($this->staff->id)
+        ->and($recharge->fresh()->kind)->toBe(RechargeKind::Advance)
+        ->and($entry->event)->toBe('advance-started')
+        ->and($entry->causer_id)->toBeNull();
+});
+
+it('moves a waiting renewal when a recharge extends the expiry', function () {
+    $account = Account::factory()->create(['expiry' => '2026-10-31 00:00:00']);
+    $waiting = AdvanceRenewal::factory()->for($account)->create(['starts_at' => '2026-10-31 00:00:00', 'expiry' => '2026-11-30 00:00:00']);
+
+    app(RechargeAccount::class)->handle($account->id, Plan::factory()->create()->id, Carbon::parse('2026-11-30 00:00'), '599', null);
+
+    $moved = Activity::query()->where('subject_id', $account->id)->where('event', 'advance-moved')->sole();
+    expect($waiting->fresh())
+        ->starts_at->format('Y-m-d H:i')->toBe('2026-11-30 00:00')
+        ->expiry->format('Y-m-d H:i')->toBe('2026-12-30 00:00')
+        ->and($moved->attribute_changes->toArray())->toEqual([
+            'old' => ['starts' => '2026-10-31 00:00'],
+            'attributes' => ['starts' => '2026-11-30 00:00'],
+        ]);
+});
+
+it('leaves the waiting renewal alone when it is the one starting', function () {
+    $account = Account::factory()->create(['expiry' => '2026-10-31 00:00:00']);
+    $waiting = AdvanceRenewal::factory()->for($account)->create(['starts_at' => '2026-10-31 00:00:00', 'expiry' => '2026-11-30 00:00:00']);
+
+    app(RechargeAccount::class)->handle($account->id, $waiting->plan_id, Carbon::parse('2026-11-30 00:00'), '599', null, null, RechargeKind::Advance);
+
+    expect($waiting->fresh()->starts_at->format('Y-m-d H:i'))->toBe('2026-10-31 00:00');
+});
+
+it('keeps the six-argument call of older add-ons working', function () {
+    $account = Account::factory()->create(['expiry' => '2026-10-20 10:00:00']);
+
+    $recharge = app(RechargeAccount::class)->handle($account->id, Plan::factory()->create()->id, Carbon::parse('2026-11-19 10:00'), '599', null, '2026-10-20 10:00:00');
+
+    expect($recharge->fresh()->kind)->toBe(RechargeKind::Recharge)
+        ->and($recharge->user_id)->toBe($this->staff->id)
+        ->and(Activity::query()->where('subject_id', $account->id)->where('event', '!=', 'created')->sole()->event)->toBe('recharged');
 });
