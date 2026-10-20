@@ -15,7 +15,7 @@
     @endforeach
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach ($this->figureCards as $figure)
+        @foreach ($this->todayFigures as $figure)
             @if ($figure['href'])
                 <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
                     <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>

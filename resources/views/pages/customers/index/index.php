@@ -232,7 +232,7 @@ new #[Title('Customers')] class extends Component
             ->when($this->expiring === '1', fn (Builder $query) => $query->whereBetween('expiry', [now(), now()->addDays(7)]))
             ->when($this->expiring === 'today', fn (Builder $query) => $query->whereBetween('expiry', [now(), now()->endOfDay()]))
             ->when($this->expired === '1', fn (Builder $query) => $query->where('expiry', '<', now()))
-            ->when($this->expired === '7', fn (Builder $query) => $query->whereBetween('expiry', [now()->subDays(7), now()]))
+            ->when($this->expired === '7', fn (Builder $query) => $query->where('expiry', '>=', now()->subDays(7))->where('expiry', '<', now()))
             ->when($this->norenewal, fn (Builder $query) => $query->where('auto_renew', false)->doesntHave('waitingRenewal'))
             ->when($this->disabled, fn (Builder $query) => $query->whereIn('status_id', [AccountStatus::Inactive, AccountStatus::Suspended]))
             ->when($this->created === 'today', fn (Builder $query) => $query->where('created_at', '>=', now()->startOfDay()))

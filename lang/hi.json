@@ -1036,5 +1036,7 @@
     "Without a renewal": "बिना नवीनीकरण के",
     "New today": "आज नए",
     "New this month": "इस महीने नए",
-    "Renewed today": "आज नवीनीकृत"
+    "Renewed today": "आज नवीनीकृत",
+    "Total": "कुल",
+    "Static IP expiring within 7 days": "7 दिनों में समाप्त होने वाले स्टैटिक IP"
 }
