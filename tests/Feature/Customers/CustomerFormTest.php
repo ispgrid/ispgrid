@@ -714,6 +714,22 @@ it('saves an end date for an override speed, and clears it when the override spe
     expect($account->fresh()->override_until)->toBeNull();
 });
 
+it('fills the end of a new override speed with the plan expiry', function () {
+    $this->travelTo(now()->setDateTime(2026, 10, 10, 14, 30));
+    $account = Account::factory()->create(['expiry' => '2026-10-31 00:00:00']);
+    $ended = Account::factory()->create(['expiry' => '2026-10-01 00:00:00']);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('override_plan', true)
+        ->assertSet('override_until', '2026-10-31T00:00')
+        ->set('override_until', '2026-10-20T00:00')
+        ->set('override_plan', false)
+        ->set('override_plan', true)
+        ->assertSet('override_until', '2026-10-20T00:00');
+    Livewire::test('pages::customers.form', ['account' => $ended->id])->set('override_plan', true)->assertSet('override_until', '');
+    newCustomerForm()->set('override_plan', true)->assertSet('override_until', '');
+});
+
 it('refuses an end date for an override speed in the past', function () {
     newCustomerForm()->set('override_plan', true)->set('override_upload', '10M')->set('override_download', '50M')
         ->set('override_until', now()->subDay()->format('Y-m-d\TH:i'))

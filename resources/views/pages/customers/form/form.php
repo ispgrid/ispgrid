@@ -476,6 +476,22 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * A new override speed ends at the plan expiry by default (staff can change or clear it).
+     */
+    public function updatedOverridePlan(): void
+    {
+        if (! $this->override_plan || $this->override_until !== '' || $this->accountId === null) {
+            return;
+        }
+
+        $expiry = Account::query()->find($this->accountId)?->expiry;
+
+        if ($expiry !== null && $expiry->isFuture()) {
+            $this->override_until = $expiry->format('Y-m-d\TH:i');
+        }
+    }
+
+    /**
      * A new customer gets the defaults of the chosen type: its pool, or for IPoE the next free IP of the default
      * range. An existing customer keeps what they have.
      */

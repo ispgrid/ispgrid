@@ -166,6 +166,16 @@ it('sets and removes an override speed', function () {
     expect($this->account->fresh()->override_plan)->toBeFalse();
 });
 
+it('ends a new override speed at the plan expiry unless one is set or the plan has ended', function () {
+    planCard($this->account)->call('openOverrideSpeed')->assertSet('speed_until', '2026-10-31T00:00');
+
+    $this->account->update(['override_plan' => true, 'override_upload' => '25M', 'override_download' => '70M', 'override_until' => '2026-10-20 00:00:00']);
+    planCard($this->account)->call('openOverrideSpeed')->assertSet('speed_until', '2026-10-20T00:00');
+
+    $ended = Account::factory()->create(['expiry' => '2026-10-01 00:00:00']);
+    planCard($ended)->call('openOverrideSpeed')->assertSet('speed_until', '');
+});
+
 it('refuses an override speed MikroTik would not read, or one ending in the past', function () {
     planCard($this->account)
         ->call('openOverrideSpeed')

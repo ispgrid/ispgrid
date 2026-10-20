@@ -80,7 +80,7 @@ new class extends Component
     public string $expiry_note = '';
 
     /**
-     * Override speed: upload, download, optional end and comment.
+     * Override speed: upload, download, optional end (a new one ends at the plan expiry by default) and comment.
      */
     public string $speed_upload = '';
 
@@ -361,7 +361,8 @@ new class extends Component
         $account = $this->account;
         $this->speed_upload = $account->override_plan ? (string) $account->override_upload : '';
         $this->speed_download = $account->override_plan ? (string) $account->override_download : '';
-        $this->speed_until = $account->override_until?->format('Y-m-d\TH:i') ?? '';
+        $ends = $account->override_plan ? $account->override_until : ($account->expiry?->isFuture() ? $account->expiry : null);
+        $this->speed_until = $ends?->format('Y-m-d\TH:i') ?? '';
         $this->speed_note = '';
         $this->dispatch('modal-open', name: 'override-speed');
     }
