@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AccountStatus;
+use App\Enums\AdvanceRenewalStatus;
 use App\Enums\ServiceType;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,7 +26,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[Fillable(['username', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
     'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id',
     'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'hotspot_pending_validity', 'hotspot_first_login_at',
-    'usage_since', 'ip_id', 'pool_id', 'override_plan', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
+    'usage_since', 'auto_renew', 'ip_id', 'pool_id', 'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
     'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
     'override_min_upload', 'override_min_download'])]
 class Account extends Model
@@ -44,6 +45,7 @@ class Account extends Model
         'status_id' => 1,
         'override_plan' => false,
         'notifications_off' => false,
+        'auto_renew' => false,
     ];
 
     /**
@@ -55,8 +57,8 @@ class Account extends Model
         return LogOptions::defaults()->logOnly([
             'username', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
             'tax_id', 'business_id', 'remarks', 'notifications_off', 'connection_type_id',
-            'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'usage_since', 'ip_id', 'pool_id',
-            'override_plan', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
+            'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'usage_since', 'auto_renew', 'ip_id', 'pool_id',
+            'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
             'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
             'override_min_upload', 'override_min_download',
         ])->logOnlyDirty()->dontLogEmptyChanges();
@@ -75,6 +77,8 @@ class Account extends Model
             'hotspot_first_login_at' => 'datetime',
             'usage_since' => 'datetime',
             'override_plan' => 'boolean',
+            'override_until' => 'datetime',
+            'auto_renew' => 'boolean',
             'notifications_off' => 'boolean',
             'mac_type' => 'integer',
             'plan_id' => 'integer',
@@ -172,6 +176,16 @@ class Account extends Model
     public function radiusAttributes(): HasMany
     {
         return $this->hasMany(AccountAttribute::class);
+    }
+
+    /**
+     * The advance renewal waiting for the current period to end, if any (at most one).
+     *
+     * @return HasOne<AdvanceRenewal, $this>
+     */
+    public function waitingRenewal(): HasOne
+    {
+        return $this->hasOne(AdvanceRenewal::class)->where('status', AdvanceRenewalStatus::Waiting);
     }
 
     /**
