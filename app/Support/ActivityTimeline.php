@@ -105,7 +105,7 @@ final class ActivityTimeline
             'status-changed' => in_array($new['status'] ?? null, [AccountStatus::Active->label(), 'Active'], true) ? 'green' : 'red',
             'recharged', 'plan-changed', 'advance-booked', 'advance-started', 'advance-cancelled', 'advance-moved', 'auto-renewed', 'invoice-issued' => 'blue',
             'terminated', 'expired', 'deleted', 'disconnect-failed', 'auto-renew-skipped', 'payment-removed', 'invoice-cancelled' => 'red',
-            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'password-changed' => 'amber',
+            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'password-changed', 'billing-changed' => 'amber',
             default => 'grey',
         };
     }
@@ -121,7 +121,7 @@ final class ActivityTimeline
             'recharged', 'plan-changed', 'advance-started', 'auto-renewed', 'advance-moved' => 'arrow-path',
             'expired', 'auto-renew-skipped', 'disconnect-failed' => 'exclamation-triangle',
             'terminated', 'deleted', 'advance-cancelled', 'payment-removed', 'invoice-cancelled' => 'no-symbol',
-            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended' => 'adjustments-horizontal',
+            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'billing-changed' => 'adjustments-horizontal',
             'password-changed', 'unlocked' => 'key',
             'disconnected' => 'x-circle',
             default => 'list-bullet',
