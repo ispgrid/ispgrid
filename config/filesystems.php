@@ -38,6 +38,15 @@ return [
             'report' => false,
         ],
 
+        // Core billing files (the invoice logos). Never served directly; the nightly backup archives this directory.
+        'billing' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/billing'),
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         // Add-on files (each add-on's own directory, listed in its extra.ispgrid.paths). Never served directly:
         // add-ons send them with App\Support\Addons\PrivateFile after a permission check.
         'addons' => [

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 #  ISPGrid backup: the radius database, the add-on databases (ispgrid_*, e.g. the session records archive), the add-on
-#  files (each directory under /opt/ispgrid/storage/app/private/addons), and the config that belongs to them (FreeRADIUS, the panel's .env with its APP_KEY, the add-on list, the WireGuard keys, the
+#  files (each directory under /opt/ispgrid/storage/app/private/addons), the invoice logos
+#  (/opt/ispgrid/storage/app/private/billing), and the config that belongs to them (FreeRADIUS, the panel's .env with its APP_KEY, the add-on list, the WireGuard keys, the
 #  L2TP/IPsec key and logins), in /var/backups/ispgrid, kept 14 days. Prints the radius dump's path last.
 #  Copy /var/backups/ispgrid to another machine: a backup on the same disk does not survive the disk.
 #
@@ -13,6 +14,7 @@
 #       gunzip < /var/backups/ispgrid/ispgrid_ipdr-YYYYMMDD-HHMM.sql.gz | mysql ispgrid_ipdr
 #    3. tar -xzf /var/backups/ispgrid/config-YYYYMMDD-HHMM.tgz -C /
 #       and each add-on's files, e.g.: tar -xzf /var/backups/ispgrid/files-documents-YYYYMMDD-HHMM.tgz -C /
+#       and the invoice logos: tar -xzf /var/backups/ispgrid/files-core-billing-YYYYMMDD-HHMM.tgz -C /
 #    4. sudo /opt/ispgrid/deploy/install.sh --yes
 #       The dump holds no MariaDB users: the installer sets their passwords to the restored ones (.env and the
 #       FreeRADIUS sql module), restarts the services (and the tunnels) and brings the panel back up.
@@ -44,6 +46,13 @@ if [[ -d "$addon_files" ]]; then
     tar -czf "$dir/files-$name-$stamp.tgz.part" -C / --warning=no-file-changed "${addon_files#/}/$name" || [[ $? -eq 1 ]]
     mv "$dir/files-$name-$stamp.tgz.part" "$dir/files-$name-$stamp.tgz"
   done
+fi
+
+#  Core billing files (the invoice logos; issued invoices point at them, so none is ever deleted).
+billing_files=/opt/ispgrid/storage/app/private/billing
+if [[ -d "$billing_files" ]]; then
+  tar -czf "$dir/files-core-billing-$stamp.tgz.part" -C / --warning=no-file-changed "${billing_files#/}" || [[ $? -eq 1 ]]
+  mv "$dir/files-core-billing-$stamp.tgz.part" "$dir/files-core-billing-$stamp.tgz"
 fi
 
 paths=(etc/freeradius)

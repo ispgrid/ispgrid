@@ -69,6 +69,15 @@ final readonly class BillingSettings
     }
 
     /**
+     * These settings with other numbering, for showing the next number before it is saved.
+     */
+    public function withNumbering(Numbering $numbering): self
+    {
+        return new self($this->enabled, $this->invoiceHotspot, $this->company, $numbering, $this->taxSetup, $this->taxConfig,
+            $this->pricesIncludeTax, $this->defaultTermsDays, $this->logo, $this->decimals, $this->currencyCode);
+    }
+
+    /**
      * The tax setup in use (no tax when the saved one does not fit the company's country).
      */
     public function tax(): TaxSetup
