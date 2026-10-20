@@ -41,7 +41,7 @@
                 type="button"
                 x-on:click="visible = ! visible"
                 x-bind:aria-label="visible ? @js(__('Hide password')) : @js(__('Show password'))"
-                class="absolute inset-y-0 end-0 flex items-center px-3 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                class="absolute inset-y-0 end-0 flex items-center px-3 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
             >
                 <x-ui.icon name="eye" class="size-4" x-show="! visible" />
                 <x-ui.icon name="eye-slash" class="size-4" x-show="visible" x-cloak />
@@ -54,7 +54,7 @@
     @endif
 
     @if ($description)
-        <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $description }}</p>
+        <p class="text-xs text-zinc-600 dark:text-zinc-400">{{ $description }}</p>
     @endif
 
     @if ($error)

@@ -10,7 +10,7 @@
     <span class="grid gap-0.5">
         <span class="text-sm font-medium">{{ $label }}</span>
         @if ($description)
-            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $description }}</span>
+            <span class="text-xs text-zinc-600 dark:text-zinc-400">{{ $description }}</span>
         @endif
     </span>
     <span class="relative inline-flex shrink-0">

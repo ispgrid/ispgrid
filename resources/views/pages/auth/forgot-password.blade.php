@@ -12,7 +12,7 @@
             <x-ui.button type="submit" class="w-full" data-test="email-password-reset-link-button">{{ __('Email password reset link') }}</x-ui.button>
         </form>
 
-        <p class="text-center text-sm text-zinc-500 dark:text-zinc-400">
+        <p class="text-center text-sm text-zinc-600 dark:text-zinc-400">
             {{ __('Or, return to') }}
             <x-ui.link :href="route('login')" wire:navigate>{{ __('log in') }}</x-ui.link>
         </p>

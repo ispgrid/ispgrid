@@ -38,7 +38,7 @@
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="6" class="py-8 text-center text-zinc-500 dark:text-zinc-400">{{ __('No login attempt matches these filters.') }}</x-ui.td>
+                <x-ui.td colspan="6" class="py-8 text-center text-zinc-600 dark:text-zinc-400">{{ __('No login attempt matches these filters.') }}</x-ui.td>
             </tr>
         @endforelse
     </x-ui.table>

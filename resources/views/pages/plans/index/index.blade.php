@@ -28,7 +28,7 @@
                     @if ($row['trashed'])
                         <x-ui.badge class="ms-2">{{ __('Deleted') }}</x-ui.badge>
                     @endif
-                    <span class="block text-xs text-zinc-500 dark:text-zinc-400">{{ $row['slug'] }}</span>
+                    <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ $row['slug'] }}</span>
                 </x-ui.td>
                 <x-ui.td class="tabular-nums">{{ $row['speed'] }}</x-ui.td>
                 <x-ui.td>{{ $row['validity'] }}</x-ui.td>
@@ -59,7 +59,7 @@
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="7" class="text-center text-zinc-500">{{ __('No plans yet. Add one before adding customers.') }}</x-ui.td>
+                <x-ui.td colspan="7" class="text-center text-zinc-600 dark:text-zinc-400">{{ __('No plans yet. Add one before adding customers.') }}</x-ui.td>
             </tr>
         @endforelse
     </x-ui.table>

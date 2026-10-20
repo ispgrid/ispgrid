@@ -8,7 +8,7 @@
             aria-expanded="{{ $active ? 'true' : 'false' }}"
             x-bind:aria-expanded="open ? 'true' : 'false'"
             aria-controls="nav-group-{{ $name }}"
-            class="flex items-center justify-between rounded-lg px-2 pb-1 text-xs font-medium tracking-wide text-zinc-500 uppercase hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+            class="flex items-center justify-between rounded-lg px-2 pb-1 text-xs font-medium tracking-wide text-zinc-600 uppercase hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
             <span>{{ $heading }}</span>
             <x-ui.icon name="chevron-down" class="size-4 transition-transform" x-bind:class="open ? '' : '-rotate-90'" />
@@ -20,7 +20,7 @@
 @else
     <div class="grid gap-0.5">
         @if ($heading)
-            <p class="px-2 pb-1 text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{{ $heading }}</p>
+            <p class="px-2 pb-1 text-xs font-medium tracking-wide text-zinc-600 uppercase dark:text-zinc-400">{{ $heading }}</p>
         @endif
         {{ $slot }}
     </div>

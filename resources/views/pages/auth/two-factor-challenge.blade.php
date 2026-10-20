@@ -50,7 +50,7 @@
             <x-ui.button type="submit" class="w-full">{{ __('Continue') }}</x-ui.button>
         </form>
 
-        <p class="text-center text-sm text-zinc-500 dark:text-zinc-400">
+        <p class="text-center text-sm text-zinc-600 dark:text-zinc-400">
             {{ __('or you can') }}
             <button type="button" class="font-medium underline" x-on:click="toggleInput()">
                 <span x-show="! showRecoveryInput">{{ __('log in using a recovery code') }}</span>

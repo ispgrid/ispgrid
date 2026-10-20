@@ -36,7 +36,7 @@ it('shows what the plan gives, leaving out what it does not set', function () {
     $plan->addressLists()->attach(AddressList::factory()->create(['name' => 'allowed']));
 
     showPlan($plan)
-        ->assertSeeInOrder(['Home 25', 'home-25', '10M/25M', '30 days', '₹1,499.00', 'pppoe-main', 'allowed', '500', 'Our best seller'])
+        ->assertSeeInOrder(['Home 25', 'home-25', '10M/25M', '30 days', '₹1,499.00', 'pppoe-main', 'allowed', 'Our best seller', '500 GB'])
         ->assertDontSee(__('Burst upload'));
 });
 

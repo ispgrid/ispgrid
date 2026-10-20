@@ -87,7 +87,7 @@
                                 </div>
                                 <x-ui.button variant="secondary" wire:click="sendTest" class="shrink-0">{{ __('Send test') }}</x-ui.button>
                             </div>
-                            <p id="test-number-help" class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Sends the saved rule now, with values from a real customer.') }}</p>
+                            <p id="test-number-help" class="text-xs text-zinc-600 dark:text-zinc-400">{{ __('Sends the saved rule now, with values from a real customer.') }}</p>
                         </div>
                     @endif
                 </x-ui.card>

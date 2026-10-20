@@ -57,7 +57,7 @@
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="5" class="text-center text-zinc-500">{{ __('No pools yet.') }}</x-ui.td>
+                <x-ui.td colspan="5" class="text-center text-zinc-600 dark:text-zinc-400">{{ __('No pools yet.') }}</x-ui.td>
             </tr>
         @endforelse
     </x-ui.table>

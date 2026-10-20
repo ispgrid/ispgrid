@@ -31,7 +31,7 @@
                             @if ($row['customer'] !== null)
                                 <x-ui.link href="{{ route('customers.show', $row['accountId']) }}" wire:navigate>{{ $row['customer'] }}</x-ui.link>
                             @endif
-                            <span class="block text-xs text-zinc-500 dark:text-zinc-400">{{ $row['channel'] }} {{ $row['to'] }}</span>
+                            <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ $row['channel'] }} {{ $row['to'] }}</span>
                         </x-ui.td>
                         <x-ui.td>{{ $row['rule'] }}</x-ui.td>
                         <x-ui.td class="max-w-md text-sm break-words">{{ $row['preview'] }}</x-ui.td>

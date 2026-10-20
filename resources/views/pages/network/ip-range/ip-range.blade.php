@@ -12,23 +12,23 @@
     <x-ui.card>
         <dl class="grid gap-4 text-sm sm:grid-cols-3">
             <div>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Network') }}</dt>
+                <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Network') }}</dt>
                 <dd class="font-medium tabular-nums">{{ $this->summary['network'] }}</dd>
             </div>
             <div>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Mask') }}</dt>
+                <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Mask') }}</dt>
                 <dd class="font-medium tabular-nums">{{ $this->summary['mask'] }}</dd>
             </div>
             <div>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Gateway') }}</dt>
+                <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Gateway') }}</dt>
                 <dd class="font-medium tabular-nums">{{ $this->summary['gateway'] ?? __('None') }}</dd>
             </div>
             <div>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('DNS') }}</dt>
+                <dt class="text-zinc-600 dark:text-zinc-400">{{ __('DNS') }}</dt>
                 <dd class="font-medium tabular-nums">{{ $this->summary['dns'] ?: __('None') }}</dd>
             </div>
             <div>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Given out') }}</dt>
+                <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Given out') }}</dt>
                 <dd class="font-medium tabular-nums">{{ __(':given of :total', ['given' => $this->summary['given_out'], 'total' => $this->summary['total']]) }}</dd>
             </div>
         </dl>
@@ -75,7 +75,7 @@
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="4" class="text-center text-zinc-500">{{ __('No addresses to show.') }}</x-ui.td>
+                <x-ui.td colspan="4" class="text-center text-zinc-600 dark:text-zinc-400">{{ __('No addresses to show.') }}</x-ui.td>
             </tr>
         @endforelse
     </x-ui.table>

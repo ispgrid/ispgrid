@@ -17,7 +17,7 @@
     <div class="grid gap-0.5">
         <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}</label>
         @if ($description)
-            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $description }}</p>
+            <p class="text-xs text-zinc-600 dark:text-zinc-400">{{ $description }}</p>
         @endif
         @if ($error)
             <p id="{{ $id }}-error" class="text-sm text-red-600 dark:text-red-400">{{ $error }}</p>

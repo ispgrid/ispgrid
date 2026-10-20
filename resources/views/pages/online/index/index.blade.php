@@ -46,7 +46,7 @@
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="9" class="py-8 text-center text-zinc-500 dark:text-zinc-400">
+                <x-ui.td colspan="9" class="py-8 text-center text-zinc-600 dark:text-zinc-400">
                     {{ $search === '' && $router === '' ? __('Nobody is online.') : __('No session matches these filters.') }}
                 </x-ui.td>
             </tr>

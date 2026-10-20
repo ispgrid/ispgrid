@@ -76,7 +76,7 @@
                 <dl class="mt-4 grid gap-3 text-sm">
                     @foreach ($this->service as $label => $value)
                         <div class="grid grid-cols-[9rem_1fr] gap-3">
-                            <dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
+                            <dt class="text-zinc-600 dark:text-zinc-400">{{ $label }}</dt>
                             <dd class="break-words">{{ $value }}</dd>
                         </div>
                     @endforeach
@@ -88,7 +88,7 @@
                 <dl class="mt-4 grid gap-3 text-sm">
                     @foreach ($this->profile as $label => $value)
                         <div class="grid grid-cols-[9rem_1fr] gap-3">
-                            <dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
+                            <dt class="text-zinc-600 dark:text-zinc-400">{{ $label }}</dt>
                             <dd class="break-words whitespace-pre-line">{{ $value }}</dd>
                         </div>
                     @endforeach
@@ -100,10 +100,10 @@
             <x-ui.card>
                 <x-ui.heading>{{ __('For the technician') }}</x-ui.heading>
                 <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-4">
-                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('IP address') }}</dt><dd class="font-mono">{{ $this->technician['ip'] }}</dd></div>
-                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Mask') }}</dt><dd class="font-mono">{{ $this->technician['mask'] }}</dd></div>
-                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Gateway') }}</dt><dd class="font-mono">{{ $this->technician['gateway'] }}</dd></div>
-                    <div><dt class="text-zinc-500 dark:text-zinc-400">{{ __('DNS') }}</dt><dd class="font-mono">{{ $this->technician['dns'] }}</dd></div>
+                    <div><dt class="text-zinc-600 dark:text-zinc-400">{{ __('IP address') }}</dt><dd class="font-mono">{{ $this->technician['ip'] }}</dd></div>
+                    <div><dt class="text-zinc-600 dark:text-zinc-400">{{ __('Mask') }}</dt><dd class="font-mono">{{ $this->technician['mask'] }}</dd></div>
+                    <div><dt class="text-zinc-600 dark:text-zinc-400">{{ __('Gateway') }}</dt><dd class="font-mono">{{ $this->technician['gateway'] }}</dd></div>
+                    <div><dt class="text-zinc-600 dark:text-zinc-400">{{ __('DNS') }}</dt><dd class="font-mono">{{ $this->technician['dns'] }}</dd></div>
                 </dl>
             </x-ui.card>
         @endif
@@ -291,7 +291,7 @@
                     <ul class="mt-4 grid gap-3 text-sm">
                         @foreach ($this->messages as $message)
                             <li class="flex flex-wrap items-start gap-2" wire:key="message-{{ $loop->index }}">
-                                <span class="tabular-nums text-zinc-500 dark:text-zinc-400">{{ $message['when'] }}</span>
+                                <span class="tabular-nums text-zinc-600 dark:text-zinc-400">{{ $message['when'] }}</span>
                                 <x-ui.badge :color="$message['color']">{{ $message['status'] }}</x-ui.badge>
                                 <span class="font-medium">{{ $message['rule'] }}</span>
                                 <span class="basis-full break-words">{{ $message['text'] }}</span>
@@ -325,7 +325,7 @@
                                 <dl class="grid gap-0.5 text-xs">
                                     @foreach ($activity['changes'] as $change)
                                         <div class="flex flex-wrap gap-1">
-                                            <dt class="text-zinc-500 dark:text-zinc-400">{{ $change['field'] }}:</dt>
+                                            <dt class="text-zinc-600 dark:text-zinc-400">{{ $change['field'] }}:</dt>
                                             <dd>
                                                 @if ($change['old'] !== null)
                                                     <span class="line-through decoration-zinc-400">{{ $change['old'] }}</span>
