@@ -111,7 +111,9 @@ example to copy.
   directory in `extra.ispgrid.paths` (e.g. `"paths": ["documents"]`: lowercase letters, digits, `_` or `-`), and
   send a file only from your own route, after your permission check, with
   `PrivateFile::response($path, $downloadName, inline: true)`: pictures and PDFs open in the browser, anything else
-  downloads. The nightly backup keeps each listed directory (`files-<path>-<stamp>.tgz`), and `--delete-data`
+  downloads. A file you keep encrypted: decrypt it and send the bytes with
+  `PrivateFile::contentResponse($contents, $downloadName, inline: true)`, same rules (core 0.1.2: check with
+  `method_exists(PrivateFile::class, 'contentResponse')`). The nightly backup keeps each listed directory (`files-<path>-<stamp>.tgz`), and `--delete-data`
   removes it.
 - **What it must not do:** write `radcheck`, `radreply`, `radusergroup`, `radacct` or any other `rad*` table.
   Anything FreeRADIUS must do differently is a core change.
@@ -122,6 +124,8 @@ example to copy.
   `--remove-addon=vendor/pkg --delete-data` drops the listed databases, deletes the listed paths and removes its
   migrations from core's `migrations` table, so installing it again starts fresh.
 - **Permissions:** register the box in the provider and insert its `permissions` row (guard `web`) in a migration.
+  Its `implies` names the box it needs to be useful (usually a view box); ticking it on Roles ticks that box too,
+  down the whole chain from core 0.1.2 (one step on older cores).
 - **Strings:** `__()` everywhere, and a `lang/hi.json` loaded with `loadJsonTranslationsFrom()`.
 - **Develop locally:** in the core checkout, `composer config repositories.my-addon path ../path/to/addon` and
   `composer require vendor/pkg:@dev`. Do not commit the changed `composer.json` and `composer.lock`.

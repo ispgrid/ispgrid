@@ -60,22 +60,25 @@ final class Permissions
     }
 
     /**
-     * The given names plus the view boxes they imply, unknown names dropped.
+     * The given names plus every box they imply, down the whole chain (erase implies restore implies view), unknown
+     * names dropped.
      *
      * @param  list<string>  $names
      * @return list<string>
      */
     public function withImplied(array $names): array
     {
-        $known = array_values(array_filter($names, $this->has(...)));
+        $result = array_values(array_unique(array_filter($names, $this->has(...))));
 
-        foreach ($known as $name) {
-            if ($this->entries[$name]['implies'] !== null) {
-                $known[] = $this->entries[$name]['implies'];
+        for ($i = 0; $i < count($result); $i++) {
+            $implied = $this->entries[$result[$i]]['implies'] ?? null;
+
+            if ($implied !== null && ! in_array($implied, $result, true)) {
+                $result[] = $implied;
             }
         }
 
-        return array_values(array_unique($known));
+        return $result;
     }
 
     /**
