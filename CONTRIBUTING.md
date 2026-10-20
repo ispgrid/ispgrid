@@ -84,7 +84,9 @@ is a full example.
   (`AddonSettings`, `CustomerFormTabs`, `CustomerTabs`, `CustomerCards`), `App\Support\Addons\PrivateFile`, `AppSetting::valueOf()` and
   `AppSetting::put()`, `ActivityFormatter::addEventLabel()`, the Livewire concerns `AuthorizesEveryRequest` and
   `ShowsToasts`, the `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core
-  is internal and may change in any release.
+  is internal and may change in any release. Since core 0.1.4 `RechargeAccount::handle()` takes two optional
+  trailing arguments, a `RechargeKind` and the id of the staff member the recharge is recorded for; calls with the
+  first six keep working.
 - **Views:** Livewire multi-file components and core's `x-ui.*` components (no Flux, no logic in Blade). Core builds
   its CSS from its own views only, so a Tailwind class that core does not use has no CSS in an add-on view; menu and
   button icons are the names in `App\Support\Heroicons`.
