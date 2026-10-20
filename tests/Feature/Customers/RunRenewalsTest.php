@@ -168,7 +168,7 @@ it('cancels a waiting renewal whose plan was deleted, and logs why', function ()
         ->toBe('The plan Home 25 was deleted; the advance renewal is cancelled');
 });
 
-it('ends an own speed at its until time and disconnects the customer', function () {
+it('ends an override speed at its until time and disconnects the customer', function () {
     Queue::fake();
     $ended = Account::factory()->create(['username' => 'alice', 'override_plan' => true, 'override_upload' => '25M', 'override_download' => '70M', 'override_until' => '2026-10-31 23:50:00']);
     $runs = Account::factory()->create(['override_plan' => true, 'override_upload' => '25M', 'override_download' => '70M', 'override_until' => '2026-10-31 23:51:00']);

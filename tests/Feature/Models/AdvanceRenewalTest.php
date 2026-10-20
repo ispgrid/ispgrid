@@ -25,7 +25,7 @@ it('casts the kind of a recharge, and reads an older row as a recharge', functio
         ->and($older->fresh()->kind)->toBe(RechargeKind::Recharge);
 });
 
-it('starts a customer with auto renew off and no own speed end', function () {
+it('starts a customer with auto renew off and no override speed end', function () {
     $account = Account::factory()->create();
 
     expect($account->fresh())

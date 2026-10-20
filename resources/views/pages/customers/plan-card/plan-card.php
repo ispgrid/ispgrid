@@ -4,7 +4,7 @@ use App\Actions\Customers\BookAdvanceRenewal;
 use App\Actions\Customers\CancelAdvanceRenewal;
 use App\Actions\Customers\ChangeExpiry;
 use App\Actions\Customers\RechargeAccount;
-use App\Actions\Customers\SetOwnSpeed;
+use App\Actions\Customers\SetOverrideSpeed;
 use App\Actions\Customers\TerminateAccount;
 use App\Enums\AccountStatus;
 use App\Enums\RechargeKind;
@@ -34,7 +34,7 @@ use Livewire\Component;
 
 /**
  * The customer's plan, its dates and every plan action (Details tab): change plan, renew in advance, change
- * expiry, own speed and terminate. Recharge stays the page's dialog; its button here asks the page to open it.
+ * expiry, override speed and terminate. Recharge stays the page's dialog; its button here asks the page to open it.
  * Each action re-checks its permission; the page re-renders after one (account-changed).
  */
 new class extends Component
@@ -80,7 +80,7 @@ new class extends Component
     public string $expiry_note = '';
 
     /**
-     * Own speed: upload, download, optional end and comment.
+     * Override speed: upload, download, optional end and comment.
      */
     public string $speed_upload = '';
 
@@ -154,8 +154,8 @@ new class extends Component
             ],
             'speed' => $plan === null ? __('None') : "{$plan->upload}/{$plan->download}",
             'own_speed' => ! $account->override_plan ? null : ($account->override_until === null
-                ? __('Own speed :speed', ['speed' => "{$account->override_upload}/{$account->override_download}"])
-                : __('Own speed :speed until :date', ['speed' => "{$account->override_upload}/{$account->override_download}", 'date' => $account->override_until->format($format)])),
+                ? __('Override speed :speed', ['speed' => "{$account->override_upload}/{$account->override_download}"])
+                : __('Override speed :speed until :date', ['speed' => "{$account->override_upload}/{$account->override_download}", 'date' => $account->override_until->format($format)])),
             'data' => $plan?->monthly_data_gb === null ? null : __(':used of :limit this month', [
                 'used' => Units::bytes(Radacct::usage($account->username, now()->startOfMonth())['bytes']),
                 'limit' => Units::bytes((int) $plan->monthly_data_gb * 1_073_741_824),
@@ -354,7 +354,7 @@ new class extends Component
         $this->finish('change-expiry', __('Expiry changed to :date.', ['date' => $expiry->format($this->dateFormat())]), $applyNow && $this->disconnect());
     }
 
-    public function openOwnSpeed(): void
+    public function openOverrideSpeed(): void
     {
         $this->authorizeLive('update');
         $this->resetValidation();
@@ -363,21 +363,21 @@ new class extends Component
         $this->speed_download = $account->override_plan ? (string) $account->override_download : '';
         $this->speed_until = $account->override_until?->format('Y-m-d\TH:i') ?? '';
         $this->speed_note = '';
-        $this->dispatch('modal-open', name: 'own-speed');
+        $this->dispatch('modal-open', name: 'override-speed');
     }
 
     /**
-     * Saves the own speed (the other custom speed fields stay as the customer form set them) and disconnects an
+     * Saves the override speed (the other override speed fields stay as the customer form set them) and disconnects an
      * online customer so it applies now.
      */
-    public function saveOwnSpeed(SetOwnSpeed $set): void
+    public function saveOverrideSpeed(SetOverrideSpeed $set): void
     {
         $this->authorizeLive('update');
         $this->speed_note = trim($this->speed_note);
 
         $this->withValidator(function ($validator): void {
             $validator->after(function ($validator): void {
-                foreach (SetOwnSpeed::errors($this->account, $this->speed_upload, $this->speed_download) as $field => $message) {
+                foreach (SetOverrideSpeed::errors($this->account, $this->speed_upload, $this->speed_download) as $field => $message) {
                     $validator->errors()->add($field === 'download' ? 'speed_download' : 'speed_upload', $message);
                 }
             });
@@ -399,10 +399,10 @@ new class extends Component
             return;
         }
 
-        $this->finish('own-speed', __('Own speed saved.'), $this->disconnect());
+        $this->finish('override-speed', __('Override speed saved.'), $this->disconnect());
     }
 
-    public function removeOwnSpeed(SetOwnSpeed $set): void
+    public function removeOverrideSpeed(SetOverrideSpeed $set): void
     {
         $this->authorizeLive('update');
 
@@ -414,7 +414,7 @@ new class extends Component
             return;
         }
 
-        $this->finish('own-speed', __('Own speed removed. The plan speed applies.'), $this->disconnect());
+        $this->finish('override-speed', __('Override speed removed. The plan speed applies.'), $this->disconnect());
     }
 
     public function openTerminate(): void

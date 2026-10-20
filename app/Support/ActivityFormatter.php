@@ -127,9 +127,9 @@ final class ActivityFormatter
             'auto-renew-skipped' => __('Auto renew skipped'),
             'expired' => __('Plan expired'),
             'expiry-changed' => __('Expiry changed'),
-            'own-speed-set' => __('Own speed set'),
-            'own-speed-removed' => __('Own speed removed'),
-            'own-speed-ended' => __('Own speed ended'),
+            'own-speed-set' => __('Override speed set'),
+            'own-speed-removed' => __('Override speed removed'),
+            'own-speed-ended' => __('Override speed ended'),
             'terminated' => __('Terminated'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };

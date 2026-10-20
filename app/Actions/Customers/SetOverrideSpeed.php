@@ -11,13 +11,13 @@ use InvalidArgumentException;
 
 /**
  * Gives the customer their own upload and download speed instead of the plan's, until a date or until removed,
- * or removes it (both speeds null). Setting keeps the other custom speed fields (burst, priority, ...) the
+ * or removes it (both speeds null). Setting keeps the other override speed fields (burst, priority, ...) the
  * customer form set; removing clears them all. The caller disconnects an online customer so the speed applies.
  */
-final class SetOwnSpeed
+final class SetOverrideSpeed
 {
     /**
-     * The custom speed fields the customer form edits.
+     * The override speed fields the customer form edits.
      */
     private const FIELDS = ['override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
         'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
@@ -71,7 +71,7 @@ final class SetOwnSpeed
     }
 
     /**
-     * What is wrong with this upload and download for the customer, with their other custom speed fields as they
+     * What is wrong with this upload and download for the customer, with their other override speed fields as they
      * are, keyed by field (upload, download, burst_upload, ...). Empty when MikroTik reads it.
      *
      * @return array<string, string>

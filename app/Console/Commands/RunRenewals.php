@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Actions\Customers\RechargeAccount;
-use App\Actions\Customers\SetOwnSpeed;
+use App\Actions\Customers\SetOverrideSpeed;
 use App\Enums\AccountStatus;
 use App\Enums\AdvanceRenewalStatus;
 use App\Enums\RechargeKind;
@@ -27,11 +27,11 @@ use Throwable;
  * 10 minutes before the expiry: when the session ends at the old expiry, the customer reconnects at once on the new
  * period, which starts at the old expiry (also when the scheduler was down and the renewal is late). Each renewal
  * locks the account and checks the expiry it read, so an overlapping run or a staff recharge cannot record it twice.
- * In order: waiting advance renewals, auto renewals, own speeds that end, plans that expired with nothing renewing
+ * In order: waiting advance renewals, auto renewals, override speeds that end, plans that expired with nothing renewing
  * them (logged once per expiry). One account failing never stops the others.
  */
 #[Signature('customers:renewals')]
-#[Description('Start advance renewals, auto renew customers, end own speeds and log expired plans')]
+#[Description('Start advance renewals, auto renew customers, end override speeds and log expired plans')]
 class RunRenewals extends Command
 {
     /**
@@ -39,14 +39,14 @@ class RunRenewals extends Command
      */
     public const MINUTES_AHEAD = 10;
 
-    public function handle(RechargeAccount $recharge, SetOwnSpeed $ownSpeed): int
+    public function handle(RechargeAccount $recharge, SetOverrideSpeed $overrideSpeed): int
     {
         $now = CarbonImmutable::now();
         $until = $now->addMinutes(self::MINUTES_AHEAD);
 
         $this->startWaitingRenewals($recharge, $until);
         $this->autoRenew($recharge, $now, $until);
-        $this->endOwnSpeeds($ownSpeed, $now);
+        $this->endOverrideSpeeds($overrideSpeed, $now);
         $this->logExpired($now);
 
         return self::SUCCESS;
@@ -159,16 +159,16 @@ class RunRenewals extends Command
         return null;
     }
 
-    private function endOwnSpeeds(SetOwnSpeed $ownSpeed, CarbonImmutable $now): void
+    private function endOverrideSpeeds(SetOverrideSpeed $overrideSpeed, CarbonImmutable $now): void
     {
         Account::query()
             ->where('override_plan', true)
             ->whereNotNull('override_until')
             ->where('override_until', '<=', $now)
-            ->chunkById(100, function ($accounts) use ($ownSpeed): void {
+            ->chunkById(100, function ($accounts) use ($overrideSpeed): void {
                 foreach ($accounts as $account) {
-                    $this->safely(function () use ($ownSpeed, $account): void {
-                        $ownSpeed->handle($account->id, null, null, null, null, 'own-speed-ended');
+                    $this->safely(function () use ($overrideSpeed, $account): void {
+                        $overrideSpeed->handle($account->id, null, null, null, null, 'own-speed-ended');
                         DisconnectAccount::dispatchIfOnline($account->username);
                     });
                 }

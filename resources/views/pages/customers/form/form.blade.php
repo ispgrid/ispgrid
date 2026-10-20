@@ -118,7 +118,7 @@
                         @enderror
                     </fieldset>
 
-                    <x-ui.switch wire:model.live="override_plan" :label="__('Custom speed')" :description="__('Give this customer their own speed instead of the plan speed.')" />
+                    <x-ui.switch wire:model.live="override_plan" :label="__('Override speed')" :description="__('Use a different speed for this customer instead of the plan speed.')" />
 
                     @if ($override_plan)
                         <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>

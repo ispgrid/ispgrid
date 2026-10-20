@@ -84,7 +84,7 @@
                     <x-ui.button variant="secondary" size="sm" wire:click="openChangeExpiry">{{ __('Change expiry') }}</x-ui.button>
                 @endif
                 @if ($this->buttons['own_speed'])
-                    <x-ui.button variant="secondary" size="sm" wire:click="openOwnSpeed">{{ __('Own speed') }}</x-ui.button>
+                    <x-ui.button variant="secondary" size="sm" wire:click="openOverrideSpeed">{{ __('Override speed') }}</x-ui.button>
                 @endif
                 @if ($this->buttons['terminate'])
                     <x-ui.button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" wire:click="openTerminate">{{ __('Terminate') }}</x-ui.button>
@@ -139,9 +139,9 @@
     @endif
 
     @if ($this->buttons['own_speed'])
-        <x-ui.modal name="own-speed" width="sm">
-            <form wire:submit="saveOwnSpeed" class="grid gap-5" novalidate>
-                <x-ui.heading size="lg">{{ __('Own speed') }}</x-ui.heading>
+        <x-ui.modal name="override-speed" width="sm">
+            <form wire:submit="saveOverrideSpeed" class="grid gap-5" novalidate>
+                <x-ui.heading size="lg">{{ __('Override speed') }}</x-ui.heading>
                 <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
                 <div class="grid grid-cols-2 gap-3">
                     <x-ui.input wire:model="speed_upload" english :label="__('Upload')" autocomplete="off" />
@@ -151,9 +151,9 @@
                 <x-ui.input wire:model="speed_note" :label="__('Comment')" maxlength="255" />
                 <div class="flex flex-wrap justify-end gap-2">
                     @if ($this->details['own_speed'])
-                        <x-ui.button variant="ghost" wire:click="removeOwnSpeed">{{ __('Remove own speed') }}</x-ui.button>
+                        <x-ui.button variant="ghost" wire:click="removeOverrideSpeed">{{ __('Remove override speed') }}</x-ui.button>
                     @endif
-                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'own-speed' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'override-speed' })">{{ __('Cancel') }}</x-ui.button>
                     <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
                 </div>
             </form>

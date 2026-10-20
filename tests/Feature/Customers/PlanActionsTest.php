@@ -3,7 +3,7 @@
 use App\Actions\Customers\BookAdvanceRenewal;
 use App\Actions\Customers\CancelAdvanceRenewal;
 use App\Actions\Customers\ChangeExpiry;
-use App\Actions\Customers\SetOwnSpeed;
+use App\Actions\Customers\SetOverrideSpeed;
 use App\Actions\Customers\TerminateAccount;
 use App\Enums\AccountStatus;
 use App\Enums\AdvanceRenewalStatus;
@@ -112,10 +112,10 @@ it('asks for a disconnect only when the new expiry is less than a minute away', 
     'a day ahead' => ['2026-10-11 14:30:00', false],
 ]);
 
-it('sets an own speed until a date, keeping the other custom speed fields', function () {
+it('sets an override speed until a date, keeping the other override speed fields', function () {
     $account = Account::factory()->create(['username' => 'alice', 'override_priority' => 5]);
 
-    app(SetOwnSpeed::class)->handle($account->id, '25M', '70M', Carbon::parse('2026-11-01 00:00'), 'Trial');
+    app(SetOverrideSpeed::class)->handle($account->id, '25M', '70M', Carbon::parse('2026-11-01 00:00'), 'Trial');
 
     expect($account->fresh())
         ->override_plan->toBeTrue()
@@ -128,13 +128,13 @@ it('sets an own speed until a date, keeping the other custom speed fields', func
         ->and(planActionEntry($account)->attribute_changes['attributes'])->toEqual(['speed' => '25M/70M', 'until' => '2026-11-01 00:00', 'note' => 'Trial']);
 });
 
-it('removes an own speed and every custom speed field', function () {
+it('removes an override speed and every override speed field', function () {
     $account = Account::factory()->create([
         'username' => 'alice', 'override_plan' => true, 'override_upload' => '25M', 'override_download' => '70M',
         'override_priority' => 5, 'override_until' => '2026-11-01 00:00:00',
     ]);
 
-    app(SetOwnSpeed::class)->handle($account->id, null, null, null, null);
+    app(SetOverrideSpeed::class)->handle($account->id, null, null, null, null);
 
     expect($account->fresh())
         ->override_plan->toBeFalse()
@@ -146,10 +146,10 @@ it('removes an own speed and every custom speed field', function () {
         ->and(planActionEntry($account)->attribute_changes['old'])->toEqual(['speed' => '25M/70M']);
 });
 
-it('refuses an own speed MikroTik would not read', function () {
+it('refuses an override speed MikroTik would not read', function () {
     $account = Account::factory()->create();
 
-    expect(fn () => app(SetOwnSpeed::class)->handle($account->id, '25 Mbps', '70M', null, null))
+    expect(fn () => app(SetOverrideSpeed::class)->handle($account->id, '25 Mbps', '70M', null, null))
         ->toThrow(InvalidArgumentException::class);
 });
 

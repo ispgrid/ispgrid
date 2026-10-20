@@ -55,10 +55,10 @@ it('writes one sentence and a tone for each kind of entry', function (string $ev
     'auto renew skipped' => ['auto-renew-skipped', [], ['reason' => 'The customer is Suspended', 'expiry' => '2026-11-01 00:00'], 'Auto renew skipped: The customer is Suspended.', 'red'],
     'expired' => ['expired', [], ['plan' => '50Mbps', 'expiry' => '2026-07-31 23:59'], 'Plan expired: 50Mbps ended 31-Jul-2026 23:59.', 'red'],
     'expiry changed' => ['expiry-changed', ['expiry' => '2026-11-18 23:59'], ['expiry' => '2026-07-31 23:59', 'note' => null], 'Expiry changed from 18-Nov-2026 23:59 to 31-Jul-2026 23:59.', 'amber'],
-    'own speed until' => ['own-speed-set', [], ['speed' => '70M/25M', 'until' => '2027-01-31 00:00', 'note' => null], 'Own speed set to 70M/25M until 31-Jan-2027 00:00.', 'amber'],
-    'own speed' => ['own-speed-set', [], ['speed' => '70M/25M', 'until' => null, 'note' => null], 'Own speed set to 70M/25M with no end date.', 'amber'],
-    'own speed removed' => ['own-speed-removed', ['speed' => '70M/25M'], [], 'Own speed removed.', 'amber'],
-    'own speed ended' => ['own-speed-ended', ['speed' => '70M/25M'], [], 'Own speed ended.', 'amber'],
+    'override speed until' => ['own-speed-set', [], ['speed' => '70M/25M', 'until' => '2027-01-31 00:00', 'note' => null], 'Override speed set to 70M/25M until 31-Jan-2027 00:00.', 'amber'],
+    'override speed' => ['own-speed-set', [], ['speed' => '70M/25M', 'until' => null, 'note' => null], 'Override speed set to 70M/25M with no end date.', 'amber'],
+    'override speed removed' => ['own-speed-removed', ['speed' => '70M/25M'], [], 'Override speed removed.', 'amber'],
+    'override speed ended' => ['own-speed-ended', ['speed' => '70M/25M'], [], 'Override speed ended.', 'amber'],
     'terminated' => ['terminated', ['status' => 'Active', 'plan' => '50Mbps'], ['status' => 'Terminated', 'note' => 'Moved'], 'Terminated.', 'red'],
     'status to active' => ['status-changed', ['status' => 'Suspended'], ['status' => 'Active', 'remark' => 'Paid'], 'Status changed from Suspended to Active.', 'green'],
     'status to suspended' => ['status-changed', ['status' => 'Active'], ['status' => 'Suspended', 'remark' => 'Unpaid'], 'Status changed from Active to Suspended.', 'red'],
@@ -103,6 +103,6 @@ it('labels the renewal events for the activity log and the Action filter', funct
     expect($label('plan-changed'))->toBe('Plan changed')
         ->and($label('advance-started'))->toBe('Advance renewal started')
         ->and($label('auto-renew-skipped'))->toBe('Auto renew skipped')
-        ->and($label('own-speed-ended'))->toBe('Own speed ended')
+        ->and($label('own-speed-ended'))->toBe('Override speed ended')
         ->and($label('terminated'))->toBe('Terminated');
 });
