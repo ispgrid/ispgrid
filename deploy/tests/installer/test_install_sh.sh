@@ -422,6 +422,138 @@ check "own path is no conflict" "$(addon_path_owner "$tmp/data.json" files acme/
 printf '{"acme/x": {"paths": ["../../etc", "x"]}}\n' > "$tmp/data.json"
 check "hand-edited invalid path not offered for deletion" "$(addon_saved_paths "$tmp/data.json" acme/x)" x
 
+#  The ISPGrid add-on list (registry): what a server may install, at which commit (deploy/install/addons.php)
+export ADDONS_PHP="$here/../../install/addons.php"
+fx="$here/fixtures"
+reg="$fx/registry.json"
+c1=1111111111111111111111111111111111111111
+c3=3333333333333333333333333333333333333333
+c4=4444444444444444444444444444444444444444
+#  exit_code <command...>: the command's exit status
+exit_code() { "$@" >/dev/null 2>&1; echo $?; }
+#  json_norm <json>: compact JSON, slashes kept, for comparing
+json_norm() { php -r 'echo json_encode(json_decode($argv[1]), JSON_UNESCAPED_SLASHES);' "$1"; }
+check "pick newest for series (yanked skipped)" "$(addons_php pick "$reg" ispgrid/ipdr 0.1)" "v0.1.0 $c1"
+check "pick series 0.2" "$(addons_php pick "$reg" ispgrid/ipdr 0.2)" "v0.2.0 $c3"
+check "pick exact version" "$(addons_php pick "$reg" ispgrid/ipdr 0.1 v0.1.0)" "v0.1.0 $c1"
+check "pick exact yanked" "$(exit_code addons_php pick "$reg" ispgrid/ipdr 0.1 v0.1.1)" 4
+check "pick unknown version" "$(exit_code addons_php pick "$reg" ispgrid/ipdr 0.1 v9.9.9)" 3
+check "pick unlisted" "$(exit_code addons_php pick "$reg" acme/thing 0.1)" 2
+check "pick no version for series" "$(exit_code addons_php pick "$reg" ispgrid/ipdr 0.9)" 5
+check "pick exact version of another series" "$(exit_code addons_php pick "$reg" ispgrid/ipdr 0.1 v0.2.0)" 5
+#  A registry with any value that is not valid is refused as a whole: it did not come through the registry's CI
+check "resolve refuses hostile registry values" "$(exit_code addons_php pick "$fx/registry-hostile.json" ispgrid/ipdr 0.1)" 6
+check "registry with an escape sequence refused" "$(exit_code addons_php yanked "$fx/registry-escape.json" ispgrid/ipdr v0.1.1)" 6
+check "registry valid" "$(exit_code addons_php validate "$reg")" 0
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $r["addons"]["acme/fake"] = $r["addons"]["ispgrid/documents"];
+  file_put_contents($argv[2], json_encode($r));' "$reg" "$tmp/registry-fake-official.json"
+check "official only for ispgrid/ add-ons" "$(exit_code addons_php validate "$tmp/registry-fake-official.json")" 6
+check "hostile registry not valid" "$(exit_code addons_php validate "$fx/registry-hostile.json")" 6
+check "missing registry not valid" "$(exit_code addons_php validate "$tmp/none.json")" 6
+check "yanked reason" "$(addons_php yanked "$reg" ispgrid/ipdr v0.1.1)" "Broke the export"
+check "not yanked" "$(addons_php yanked "$reg" ispgrid/ipdr v0.1.0)" ""
+check "info" "$(addons_php info "$reg" ispgrid/ipdr)" "yes|ISPGrid|Session records (IPDR)"
+check "available for 0.1" "$(addons_php available "$reg" 0.1 | tr '\n' ',')" "ispgrid/documents v0.1.0,ispgrid/ipdr v0.1.0,"
+check "available for 0.2" "$(addons_php available "$reg" 0.2 | tr '\n' ',')" "ispgrid/ipdr v0.2.0,"
+check "reference from source" "$(addons_php reference "$fx/installed.json" ispgrid/ipdr)" "$c1"
+check "reference from dist" "$(addons_php reference "$fx/installed.json" acme/zip)" 5555555555555555555555555555555555555555
+check "no reference when not installed" "$(addons_php reference "$fx/installed.json" acme/none)" ""
+#  resolve: the new addons.json on stdout, "warn ..." and "error ..." lines on stderr
+resolved=$(addons_php resolve "$fx/addons-old.json" "$reg" 0.1 0 2>"$tmp/resolve.err")
+check "old entries convert" "$(json_norm "$resolved")" \
+  "{\"ispgrid/documents\":{\"version\":\"v0.1.0\",\"commit\":\"$c4\",\"pinned\":false},\"acme/thing\":{\"constraint\":\"dev-main\",\"unlisted\":true}}"
+check "unlisted entry warned" "$(cat "$tmp/resolve.err")" "warn acme/thing dev-main is not in the ISPGrid add-on list: its code was not reviewed"
+printf '{}\n' > "$tmp/addons-empty.json"
+check "resolve pins" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v0.1.0)")" \
+  "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":true}}"
+check "resolve adds unpinned" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr)")" \
+  "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":false}}"
+printf '{"ispgrid/ipdr": {"version": "v0.1.0", "commit": "%s", "pinned": false}}\n' "$c1" > "$tmp/addons-ipdr.json"
+check "resolve unpinned moves" "$(json_norm "$(addons_php resolve "$tmp/addons-ipdr.json" "$reg" 0.2 0)")" \
+  "{\"ispgrid/ipdr\":{\"version\":\"v0.2.0\",\"commit\":\"$c3\",\"pinned\":false}}"
+printf '{"ispgrid/ipdr": {"version": "v0.1.0", "commit": "%s", "pinned": true}}\n' "$c1" > "$tmp/addons-pinned.json"
+check "resolve keeps a pin" "$(json_norm "$(addons_php resolve "$tmp/addons-pinned.json" "$reg" 0.1 0)")" \
+  "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":true}}"
+check "resolve unpins on a plain name" "$(json_norm "$(addons_php resolve "$tmp/addons-pinned.json" "$reg" 0.2 0 ispgrid/ipdr)")" \
+  "{\"ispgrid/ipdr\":{\"version\":\"v0.2.0\",\"commit\":\"$c3\",\"pinned\":false}}"
+printf '{"ispgrid/ipdr": {"version": "v0.1.1", "commit": "2222222222222222222222222222222222222222", "pinned": true}}\n' > "$tmp/addons-yanked.json"
+addons_php resolve "$tmp/addons-yanked.json" "$reg" 0.1 0 >/dev/null 2>"$tmp/resolve.err"
+check "pinned yanked version warned" "$(cat "$tmp/resolve.err")" \
+  "warn ispgrid/ipdr v0.1.1 was pulled back from the ISPGrid add-on list: Broke the export. Move to a newer version: sudo ispgrid addon update ispgrid/ipdr"
+check "resolve refuses unlisted without flag" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 acme/new 2>&1 >/dev/null; echo "rc=$?")" \
+  "error acme/new is not in the ISPGrid add-on list (https://github.com/ispgrid/addons). To install it anyway, without review: --allow-unlisted
+rc=1"
+check "resolve allows unlisted with flag" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 acme/new@dev-main 2>/dev/null)")" \
+  '{"acme/new":{"constraint":"dev-main","unlisted":true}}'
+check "a branch of a listed add-on with the flag" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 ispgrid/ipdr@dev-master 2>/dev/null)")"   '{"ispgrid/ipdr":{"constraint":"dev-master","unlisted":true}}'
+check "a branch of a listed add-on without the flag" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@dev-master 2>&1 >/dev/null)"   "error ispgrid/ipdr has no version dev-master in the ISPGrid add-on list. To install it anyway, without review: --allow-unlisted"
+check "a listed version with the flag stays reviewed" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 ispgrid/ipdr@v0.1.0 2>/dev/null)")"   "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":true}}"
+addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 acme/new >/dev/null 2>"$tmp/resolve.err"
+check "any-version warning names no version" "$(cat "$tmp/resolve.err")" "warn acme/new is not in the ISPGrid add-on list: its code was not reviewed"
+check "unlisted default constraint" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 acme/new 2>/dev/null)")" \
+  '{"acme/new":{"constraint":"*","unlisted":true}}'
+check "resolve refuses a yanked version" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v0.1.1 2>&1 >/dev/null)" \
+  "error ispgrid/ipdr v0.1.1 was pulled back from the ISPGrid add-on list: Broke the export"
+check "resolve refuses an unknown version" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v9.9.9 2>&1 >/dev/null)" \
+  "error ispgrid/ipdr has no version v9.9.9 in the ISPGrid add-on list. To install it anyway, without review: --allow-unlisted"
+check "resolve refuses a version of another series" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v0.2.0 2>&1 >/dev/null)" \
+  "error ispgrid/ipdr v0.2.0 does not support ISPGrid 0.1"
+check "resolve without registry keeps recorded entries" "$(json_norm "$(addons_php resolve "$tmp/addons-ipdr.json" - 0.2 0)")" \
+  "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":false}}"
+check "resolve without registry keeps old entries" "$(json_norm "$(addons_php resolve "$fx/addons-old.json" - 0.1 0 2>/dev/null)")" \
+  '{"ispgrid/documents":{"constraint":"*","url":"https://github.com/ispgrid/documents"},"acme/thing":{"constraint":"dev-main","url":"https://github.com/acme/thing"}}'
+check "resolve without registry adds nothing" "$(addons_php resolve "$tmp/addons-ipdr.json" - 0.1 0 ispgrid/documents 2>&1 >/dev/null; echo "rc=$?")" \
+  "error The ISPGrid add-on list could not be read, so nothing can be added or updated. Check that this server reaches github.com.
+rc=1"
+printf '{"ispgrid/documents": {"version": "v0.1.0", "commit": "%s", "pinned": false}}\n' "$c4" > "$tmp/addons-docs.json"
+check "resolve no version for series" "$(addons_php resolve "$tmp/addons-docs.json" "$reg" 0.2 0 2>&1 >/dev/null)" \
+  "error ispgrid/documents has no version for ISPGrid 0.2 yet: wait for one, or remove it with sudo ispgrid addon remove ispgrid/documents"
+check "resolve with no add-ons" "$(json_norm "$(addons_php resolve "$tmp/none.json" "$reg" 0.1 0)")" '{}'
+check "resolve refuses a hostile name" "$(exit_code addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 'acme/x;id')" 1
+#  tag_commit: the commit a tag points to, also for an annotated tag
+repo="$tmp/tagrepo"
+git init -q "$repo" && git -C "$repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m one
+git -C "$repo" tag v1.0.0
+git -C "$repo" -c user.name=t -c user.email=t@t tag -a v1.1.0 -m v1.1.0
+check "tag commit, lightweight" "$(tag_commit "$repo" v1.0.0)" "$(git -C "$repo" rev-parse HEAD)"
+check "tag commit, annotated" "$(tag_commit "$repo" v1.1.0)" "$(git -C "$repo" rev-parse 'v1.1.0^{commit}')"
+check "no such tag" "$(yes_no tag_commit "$repo" v9.0.0)" no
+#  registry_fetch: a clone of the registry repository, the path of its registry.json
+regrepo="$tmp/regrepo"
+git init -q "$regrepo" && cp "$reg" "$regrepo/registry.json"
+git -C "$regrepo" -c core.autocrlf=false add registry.json && git -C "$regrepo" -c user.name=t -c user.email=t@t commit -q -m list
+mkdir -p "$tmp/fetch"
+fetched=$(registry_fetch "$regrepo" "$tmp/fetch")
+#  (compared as JSON: git on Windows may check the file out with CRLF)
+check "registry fetched" "$(json_norm "$(cat "$fetched")")" "$(json_norm "$(cat "$reg")")"
+check "registry fetch fails" "$(yes_no registry_fetch "$tmp/no-repo" "$tmp/fetch2")" no
+parse_args --allow-unlisted --addons-only --registry=/srv/reg
+check "flags for the ispgrid command" "${OPT_ALLOW_UNLISTED:-}${OPT_ADDONS_ONLY:-}${OPT_REGISTRY:-}" "11/srv/reg"
+unset OPT_ALLOW_UNLISTED OPT_ADDONS_ONLY OPT_REGISTRY
+
+#  Before an upgrade changes anything: every installed add-on has a version for the new series
+mkdir -p "$tmp/home/deploy/install"
+cp "$ADDONS_PHP" "$tmp/home/deploy/install/addons.php"
+cp "$tmp/addons-docs.json" "$tmp/home/addons.json"
+check "add-ons ready for 0.1" "$(ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf; addons_ready_for v0.1.9 2>&1 >/dev/null; echo "rc=$?")" "rc=0"
+check "a pulled-back version is refused before anything changes" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_ADDONS=(ispgrid/ipdr@v0.1.1); addons_ready_for addon-command) 3>&1 2>&1 | grep -c 'v0.1.1 was pulled back')" 1
+check "an unlisted add-on is refused before anything changes" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_ADDONS=(acme/new); addons_ready_for addon-command) 3>&1 2>&1 | grep -c 'allow-unlisted')" 1
+check "an unlisted add-on with the flag passes" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_ADDONS=(acme/new) OPT_ALLOW_UNLISTED=1; addons_ready_for addon-command) >/dev/null 3>&1 2>&1; echo "rc=$?")" "rc=0"
+check "an add-on being removed does not block" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_REMOVE_ADDONS=(ispgrid/documents); addons_ready_for v0.2.0) >/dev/null 3>&1 2>&1; echo "rc=$?")" "rc=0"
+check "add-ons not ready for 0.2" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf; addons_ready_for v0.2.0) 3>&1 2>&1 | grep -c 'ispgrid/documents has no version for ISPGrid 0.2')" 1
+
+#  Which steps run: all, --steps, or with --addons-only the ones an add-on change needs
+check "all steps" "$(step_filter)" ""
+OPT_STEPS=05,12
+check "--steps" "$(step_filter)" "05,12"
+OPT_ADDONS_ONLY=1
+check "--addons-only steps" "$(step_filter)" "01,02,04,05,08,12"
+unset OPT_STEPS OPT_ADDONS_ONLY
+#  The core series add-ons are chosen for: the release's, or for a branch the series of this code
+check "series of a release" "$(install_series v0.2.3)" 0.2
+check "series of a branch" "$(install_series addon-command)" "$ISPGRID_SERIES"
+check "series constant looks like one" "$(yes_no grep -qE '^[0-9]+\.[0-9]+$' <<<"$ISPGRID_SERIES")" yes
+
 #  note: a line under the running step, on the console (fd 3) as well as in the log
 shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)
 check "note on the console" "$shown" "    Add-on ispgrid/ipdr v0.1.1 installed"

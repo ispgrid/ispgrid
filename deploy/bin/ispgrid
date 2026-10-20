@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+#
+#  The ISPGrid server command: add-ons and upgrades. Run as root:
+#
+#    sudo ispgrid addon list
+#    sudo ispgrid addon add ispgrid/documents
+#
+#  Every change runs the installer (with --addons-only for add-ons), so it takes the backup, puts the panel in
+#  maintenance, holds the install lock and shows the summary box like any installer run. Add-ons are never installed
+#  from the panel: a panel that could install code would turn a stolen staff login into code on this server.
+#
+
+ISPGRID_INSTALLER=${ISPGRID_INSTALLER:-/opt/ispgrid/deploy/install.sh}
+# shellcheck source=../install.sh
+source "$ISPGRID_INSTALLER"
+
+ispgrid_usage() {
+  cat <<'EOF'
+Usage:
+  sudo ispgrid addon list                                    installed add-ons, updates, and what else is listed
+  sudo ispgrid addon add NAME[@VERSION] [--allow-unlisted]   install an add-on (@VERSION holds that version)
+  sudo ispgrid addon remove NAME [--delete-data]             remove an add-on (its data is kept, unless --delete-data)
+  sudo ispgrid addon update [NAME[@VERSION]]                 move add-ons to their newest listed version
+  sudo ispgrid upgrade [installer options]                   upgrade ISPGrid (see: sudo ispgrid upgrade --help)
+
+Add-ons come from the ISPGrid add-on list, where each version is reviewed: https://github.com/ispgrid/addons
+--allow-unlisted installs one that is not listed: its code was not reviewed.
+EOF
+}
+
+#  ispgrid_installer_args <installed version> <command...>: the installer's arguments for the command, one per line.
+#  Exit 1 for a name that is not valid, 2 for a command or option that is not known.
+ispgrid_installer_args() {
+  local version=$1 action=${3:-} arg name=""
+  local options=()
+  if [[ "${2:-}" == upgrade ]]; then
+    for arg in "${@:3}"; do echo "$arg"; done
+    return 0
+  fi
+  [[ "${2:-}" == addon && "$action" =~ ^(add|remove|update)$ ]] || return 2
+  for arg in "${@:4}"; do
+    case "$arg" in
+      --allow-unlisted) [[ "$action" == add ]] || return 2; options+=("$arg") ;;
+      --delete-data) [[ "$action" == remove ]] || return 2; options+=("$arg") ;;
+      --verbose) options+=("$arg") ;;
+      -*) return 2 ;;
+      *)
+        [[ -z "$name" ]] || return 2
+        name=$arg
+        ;;
+    esac
+  done
+  if [[ -n "$name" ]]; then
+    addon_valid "$name" || { echo "Not an add-on name: $name (write vendor/package or vendor/package@VERSION)" >&2; return 1; }
+  fi
+  if [[ "$action" != update && -z "$name" ]]; then
+    return 2
+  fi
+  if [[ "$action" == remove && "$name" == *@* ]]; then
+    echo "remove takes the name only: $(addon_name "$name")" >&2
+    return 1
+  fi
+  printf '%s\n' "--version=$version" --addons-only --yes
+  case "$action" in
+    add|update) if [[ -n "$name" ]]; then echo "--addon=$name"; fi ;;
+    remove) echo "--remove-addon=$name" ;;
+  esac
+  for arg in ${options[@]+"${options[@]}"}; do echo "$arg"; done
+}
+
+#  ispgrid_list <installed version>: the installed add-ons and their state, then the listed ones not installed yet
+ispgrid_list() {
+  local series dir registry="" from line name kind value pinned installed status newest who info
+  series=$(install_series "$1")
+  from=${OPT_REGISTRY:-$(conf_get registry || true)}
+  from=${from:-$ISPGRID_REGISTRY_DEFAULT}
+  dir=$(mktemp -d)
+  if registry=$(registry_fetch "$from" "$dir") && addons_php validate "$registry"; then
+    :
+  else
+    registry=""
+  fi
+  echo "Installed add-ons (ISPGrid $1)"
+  local entries=()
+  if [[ -f "$ISPGRID_HOME/addons.json" ]]; then
+    mapfile -t entries < <(php -r 'foreach (json_decode(file_get_contents($argv[1]), true) ?: [] as $name => $a) {
+        echo $name, " ", isset($a["commit"]) ? "registry" : "constraint", " ", $a["version"] ?? $a["constraint"] ?? "*", " ",
+          empty($a["pinned"]) ? "no" : "yes", "\n"; }' "$ISPGRID_HOME/addons.json")
+  fi
+  if (( ${#entries[@]} == 0 )); then
+    echo "  No add-ons installed."
+  fi
+  for line in ${entries[@]+"${entries[@]}"}; do
+    read -r name kind value pinned <<<"$line"
+    addon_valid "$name" || continue
+    installed=$(addon_version "$ISPGRID_HOME/vendor/composer/installed.json" "$name" 2>/dev/null || true)
+    installed=${installed:-$value}
+    who="" info=""
+    status="not reviewed"
+    if [[ -n "$registry" ]] && info=$(addons_php info "$registry" "$name"); then
+      IFS='|' read -r official who _ <<<"$info"
+      if [[ "$official" == yes ]]; then who=ISPGrid; fi
+    fi
+    if [[ "$kind" == registry && -z "$registry" ]]; then
+      status="reviewed"
+    elif [[ "$kind" == registry && -z "$info" ]]; then
+      status="no longer listed: remove it with sudo ispgrid addon remove $name"
+    elif [[ "$kind" == registry ]]; then
+      newest=$(addons_php pick "$registry" "$name" "$series" | cut -d' ' -f1 || true)
+      local reason
+      reason=$(addons_php yanked "$registry" "$name" "$value")
+      if [[ -n "$reason" ]]; then
+        status="YANKED: $reason"
+      elif [[ "$pinned" == yes ]]; then
+        status="pinned"
+        if [[ -n "$newest" && "$newest" != "$value" ]]; then status+=" (newest: $newest)"; fi
+      elif [[ -n "$newest" && "$newest" != "$value" ]]; then
+        status="update $newest available"
+      else
+        status="up to date"
+      fi
+    fi
+    printf '  %-30s %-12s %-10s %s\n' "$name" "$installed" "${who:--}" "$status"
+  done
+  if [[ -z "$registry" ]]; then
+    echo
+    echo "The ISPGrid add-on list could not be read from $from (no internet?)."
+    rm -rf "$dir"
+    return 0
+  fi
+  echo
+  echo "Available for ISPGrid $series"
+  local shown=0
+  while read -r name value; do
+    [[ -n "$name" ]] || continue
+    if [[ -f "$ISPGRID_HOME/addons.json" ]] &&
+      php -r 'exit(array_key_exists($argv[2], json_decode(file_get_contents($argv[1]), true) ?: []) ? 0 : 1);' "$ISPGRID_HOME/addons.json" "$name"; then
+      continue
+    fi
+    printf '  %-30s %-12s %s\n' "$name" "$value" "$(addons_php info "$registry" "$name" | cut -d'|' -f3)"
+    shown=1
+  done < <(addons_php available "$registry" "$series")
+  if (( shown == 0 )); then
+    echo "  Nothing else is listed yet."
+  else
+    echo "  Install one with: sudo ispgrid addon add NAME"
+  fi
+  rm -rf "$dir"
+}
+
+#  ispgrid_is_root: run by root (sudo)
+ispgrid_is_root() { [[ $EUID -eq 0 ]]; }
+
+#  ispgrid_main <command...>
+ispgrid_main() {
+  local version code=0
+  local args=()
+  case "${1:-}" in
+    help|-h|--help)
+      ispgrid_usage
+      return 0
+      ;;
+    "")
+      ispgrid_usage >&2
+      return 2
+      ;;
+  esac
+  ispgrid_is_root || die "Run as root: sudo ispgrid $*"
+  version=$(conf_get version || true)
+  [[ -n "$version" ]] || die "ISPGrid is not installed here ($ISPGRID_CONF has no version). Install it first: see https://github.com/ispgrid/ispgrid"
+  if [[ "$*" == "addon list" ]]; then
+    ispgrid_list "$version"
+    return 0
+  fi
+  mapfile -t args < <(ispgrid_installer_args "$version" "$@"; echo "rc=$?")
+  code=${args[-1]#rc=}
+  unset 'args[-1]'
+  if (( code == 2 )); then
+    ispgrid_usage >&2
+    return 2
+  elif (( code != 0 )); then
+    return "$code"
+  fi
+  exec bash "$ISPGRID_HOME/deploy/install.sh" ${args[@]+"${args[@]}"}
+}
+
+#  Run, unless sourced (the tests)
+if ! (return 0 2>/dev/null); then
+  ispgrid_main "$@"
+  exit $?
+fi

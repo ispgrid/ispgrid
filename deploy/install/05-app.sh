@@ -11,7 +11,8 @@ chown -R root:root "$ISPGRID_HOME"
 rm -f bootstrap/cache/*.php
 COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
-#  Add-ons: listed in addons.json (git-ignored, so upgrades keep it). Each is required from its GitHub repository
+#  Add-ons: listed in addons.json (git-ignored, so upgrades keep it), each at a version from the ISPGrid add-on list
+#  (github.com/ispgrid/addons), which names the commit that was reviewed. Each is required from its GitHub repository
 #  (cloned with git: no GitHub API, so no hourly limit and no token), then one composer update for all of them,
 #  without -W: a conflict with the core's lock stops the install. composer.json and composer.lock show as changed
 #  while an add-on is installed; the next upgrade resets and re-adds them.
@@ -19,13 +20,6 @@ addons_file="$ISPGRID_HOME/addons.json"
 if (( ${#OPT_ADDONS[@]} + ${#OPT_REMOVE_ADDONS[@]} > 0 )) && [[ ! -f "$addons_file" ]]; then
   printf '{}\n' > "$addons_file"
 fi
-for spec in "${OPT_ADDONS[@]}"; do
-  ADDON_NAME=$(addon_name "$spec") ADDON_CONSTRAINT=$(addon_constraint "$spec") php -r '
-    $file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
-    $name = getenv("ADDON_NAME");
-    $addons[$name] = ["constraint" => getenv("ADDON_CONSTRAINT"), "url" => "https://github.com/".$name];
-    file_put_contents($file, json_encode($addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
-done
 #  What each add-on created (databases, files, migrations), saved at install; kept after a removal until --delete-data
 addon_data="$(dirname "$ISPGRID_CONF")/addon-data.json"
 [[ -f "$addon_data" ]] || printf '{}\n' > "$addon_data"
@@ -100,33 +94,103 @@ for name in "${OPT_REMOVE_ADDONS[@]}"; do
     note "Removing add-on $name (its data, such as its database, is kept)"
     ADDONS_SUMMARY+=("Removed $name: its data, such as its database, is kept")
     if (( ${#dbs[@]} + ${#paths[@]} > 0 )); then
-      note "To delete its data too: sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data"
-      ADDONS_SUMMARY+=("To delete that data too, run:" "sudo $ISPGRID_HOME/deploy/install.sh --remove-addon=$name --delete-data")
+      note "To delete its data too: sudo ispgrid addon remove $name --delete-data"
+      ADDONS_SUMMARY+=("To delete that data too, run:" "sudo ispgrid addon remove $name --delete-data")
     fi
   else
     note "Add-on $name is not installed, nothing to remove"
   fi
 done
+#  Which version of each add-on: the ones asked for, and the others moved to their newest listed version (or kept,
+#  when pinned with @VERSION or when the list can't be read). addons.php checks every value the list gives.
+series=$(install_series "$ISPGRID_TARGET")
+if [[ -f "$addons_file" ]] && { (( ${#OPT_ADDONS[@]} > 0 )) || [[ "$(php -r 'echo count(json_decode(file_get_contents($argv[1]), true) ?: []);' "$addons_file")" != 0 ]]; }; then
+  registry_src=${OPT_REGISTRY:-$(conf_get registry || true)}
+  registry_src=${registry_src:-$ISPGRID_REGISTRY_DEFAULT}
+  if [[ -n "${OPT_REGISTRY:-}" ]]; then
+    conf_set registry "$OPT_REGISTRY"
+  fi
+  registry_dir=$(mktemp -d)
+  registry_file=-
+  if registry_file=$(registry_fetch "$registry_src" "$registry_dir") && addons_php validate "$registry_file"; then
+    say "Add-on list read from $registry_src"
+  else
+    registry_file=-
+    warn "The ISPGrid add-on list could not be read from $registry_src (or is not valid): add-ons stay at their installed versions."
+  fi
+  if resolved=$(addons_php resolve "$addons_file" "$registry_file" "$series" "${OPT_ALLOW_UNLISTED:+1}" ${OPT_ADDONS[@]+"${OPT_ADDONS[@]}"} 2>"$registry_dir/resolve.err"); then
+    resolve_status=0
+  else
+    resolve_status=$?
+  fi
+  while read -r kind text; do
+    if [[ "$kind" == warn ]]; then warn "$text"; fi
+  done < "$registry_dir/resolve.err"
+  if (( resolve_status != 0 )); then
+    resolve_error=$(sed -n 's/^error //p' "$registry_dir/resolve.err" | head -n 1)
+    rm -rf "$registry_dir"
+    die "${resolve_error:-The add-on versions could not be worked out (see $ISPGRID_LOG).}"
+  fi
+  rm -rf "$registry_dir"
+  printf '%s\n' "$resolved" > "$addons_file"
+fi
+
+#  addon_refuse <vendor/package> <version>: the tag no longer points at the reviewed commit. The add-on leaves
+#  addons.json and, when Composer already fetched it, core's composer files are restored and vendor/ is rebuilt
+#  without it, so its code never runs. The other add-ons come back on the next run.
+addon_refuse() {
+  ADDON_NAME=$1 php -r '
+    $file = $argv[1]; $addons = json_decode(file_get_contents($file), true) ?: [];
+    unset($addons[getenv("ADDON_NAME")]);
+    file_put_contents($file, json_encode((object) $addons, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");' "$addons_file"
+  if [[ -d "vendor/$1" ]]; then
+    git -C "$ISPGRID_HOME" checkout -- composer.json composer.lock
+    COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+  fi
+  die "The tag $2 of $1 no longer points at the reviewed commit, so it was not installed. Report it at https://github.com/ispgrid/addons/issues."
+}
+
 addons=()
 ADDONS_INSTALLED=""
 if [[ -f "$addons_file" ]]; then
-  mapfile -t addons < <(php -r 'foreach (json_decode(file_get_contents($argv[1]), true) ?: [] as $name => $addon) { echo $name, " ", $addon["constraint"], " ", $addon["url"], "\n"; }' "$addons_file")
+  #  One line per add-on: "NAME registry VERSION COMMIT", or "NAME constraint CONSTRAINT -" (not in the list, or the
+  #  list could not be read for an entry from before it)
+  mapfile -t addons < <(php -r 'foreach (json_decode(file_get_contents($argv[1]), true) ?: [] as $name => $addon) {
+      if (isset($addon["commit"])) { echo $name, " registry ", $addon["version"], " ", $addon["commit"], "\n"; }
+      else { echo $name, " constraint ", $addon["constraint"] ?? "*", " -\n"; } }' "$addons_file")
 fi
 if (( ${#addons[@]} > 0 )); then
   addon_names=()
+  reviewed=()
   for line in "${addons[@]}"; do
-    read -r name constraint url <<<"$line"
-    addon_valid "$name@$constraint" || die "addons.json has an add-on entry that is not valid: $line"
-    COMPOSER_ALLOW_SUPERUSER=1 composer config "repositories.${name//\//-}" "{\"type\": \"vcs\", \"url\": \"$url\", \"no-api\": true}"
+    read -r name kind value commit <<<"$line"
+    addon_valid "$name@$value" || die "addons.json has an add-on entry that is not valid: $line"
+    constraint=$value
+    if [[ "$kind" == registry ]]; then
+      is_release_tag "$value" && [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "addons.json has an add-on entry that is not valid: $line"
+      #  Before anything is downloaded: the tag still points at the commit that was reviewed. A tag that can't be read
+      #  (no internet, or a deleted tag) stops the run but keeps the add-on: only a different commit refuses it.
+      tagged=$(tag_commit "https://github.com/$name" "$value" || true)
+      [[ -n "$tagged" ]] ||
+        die "Could not read the tag $value of $name from https://github.com/$name (no internet, or the tag was deleted). Nothing was removed: run the command again later."
+      [[ "$tagged" == "$commit" ]] || addon_refuse "$name" "$value"
+      constraint=${value#v}
+      reviewed+=("$name $value $commit")
+    fi
+    COMPOSER_ALLOW_SUPERUSER=1 composer config "repositories.${name//\//-}" "{\"type\": \"vcs\", \"url\": \"https://github.com/$name\", \"no-api\": true}"
     COMPOSER_ALLOW_SUPERUSER=1 composer require "$name:$constraint" --no-update --no-interaction
     addon_names+=("$name")
   done
   COMPOSER_ALLOW_SUPERUSER=1 composer update "${addon_names[@]}" --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
-  series=$(core_series "$ISPGRID_TARGET")
+  #  Before any add-on code can run (package:discover): Composer installed exactly the reviewed commit
+  for line in ${reviewed[@]+"${reviewed[@]}"}; do
+    read -r name value commit <<<"$line"
+    [[ "$(addons_php reference vendor/composer/installed.json "$name")" == "$commit" ]] || addon_refuse "$name" "$value"
+  done
   for name in "${addon_names[@]}"; do
     supports=$(php -r '$c = json_decode(file_get_contents($argv[1]), true); echo json_encode($c["extra"]["ispgrid"]["core"] ?? []);' "vendor/$name/composer.json")
     addon_supports "$supports" "$series" ||
-      die "Add-on $name supports core $supports, this is $series: install a matching version (--addon=$name@VERSION) or remove it (--remove-addon=$name)."
+      die "Add-on $name supports core $supports, this is $series: install a matching version (sudo ispgrid addon add $name@VERSION) or remove it (sudo ispgrid addon remove $name)."
     mapfile -t dbs < <(addon_databases "vendor/$name/composer.json")
     for db in "${dbs[@]}"; do
       addon_db_valid "$db" ||
@@ -156,6 +220,9 @@ if (( ${#addons[@]} > 0 )); then
       note "Add-on $name $version installed"
     else
       note "Add-on $name $version kept"
+    fi
+    if [[ " ${reviewed[*]+${reviewed[*]}} " != *" $name "* ]]; then
+      version+=" (not reviewed)"
     fi
     ADDONS_INSTALLED+="${ADDONS_INSTALLED:+, }$name $version"
   done

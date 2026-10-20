@@ -13,6 +13,10 @@ ISPGRID_HOME="/opt/ispgrid"
 ISPGRID_CONF="/etc/ispgrid/install.conf"
 ISPGRID_LOG="/var/log/ispgrid-install.log"
 ISPGRID_BACKUPS="/var/backups/ispgrid"
+ISPGRID_REGISTRY_DEFAULT="https://github.com/ispgrid/addons.git"
+#  The core series of this code (bump it with the first release of a new series): add-ons are chosen for it when
+#  a branch is installed, whose name says nothing about the series
+ISPGRID_SERIES="0.1"
 
 usage() {
   cat <<'EOF'
@@ -55,14 +59,19 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --yes                     ask nothing
   --verbose                 show every command's output (it always goes to /var/log/ispgrid-install.log)
   --skip-selftest           skip the FreeRADIUS self-test at the end (164 checks, about 3 minutes)
-  --addon=PACKAGE[@VERSION] install an add-on (repeatable), e.g. --addon=ispgrid/ipdr; later upgrades keep it
+  --addon=PACKAGE[@VERSION] install an add-on from the ISPGrid add-on list (repeatable), e.g. --addon=ispgrid/ipdr;
+                            @VERSION holds that version, otherwise upgrades move it to its newest listed version
+  --allow-unlisted          with --addon: install an add-on that is not in the ISPGrid add-on list (its code was
+                            not reviewed); @VERSION is then any Composer constraint, such as dev-BRANCH
   --remove-addon=PACKAGE    stop installing an add-on (repeatable); its data, such as its database, is kept
   --delete-data             with --remove-addon: also delete the add-on's databases and files (after the run's
                             backup), also for an add-on removed earlier
   --help                    this text
 
-Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --steps=NN,NN (run only these steps),
-and a branch name in --version.
+Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --registry=URL_OR_PATH (the add-on list,
+default: github.com/ispgrid/addons), --steps=NN,NN (run only these steps), and a branch name in --version.
+Used by `sudo ispgrid addon`: --addons-only (only the steps an add-on change needs: no packages, FreeRADIUS,
+tunnels, firewall or self-test).
 EOF
 }
 
@@ -373,6 +382,12 @@ addon_name() { printf '%s\n' "${1%%@*}"; }
 addon_constraint() { if [[ "$1" == *@* ]]; then printf '%s\n' "${1#*@}"; else printf '*\n'; fi; }
 #  core_series <tag>: "0.1" for v0.1.0 or v0.1.0-rc6; nothing for a branch
 core_series() { if [[ "$1" =~ ^v?([0-9]+)\.([0-9]+)\. ]]; then printf '%s.%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"; fi; }
+#  install_series <target>: the series add-ons are chosen for: the release's, or this code's for a branch
+install_series() {
+  local series
+  series=$(core_series "$1")
+  printf '%s\n' "${series:-$ISPGRID_SERIES}"
+}
 #  addon_supports <json list> <series>: the add-on lists the series (an empty series, a branch install, takes any)
 addon_supports() { [[ -z "$2" ]] || grep -qF "\"$2\"" <<<"$1"; }
 #  addon_version <vendor/composer/installed.json> <vendor/package>: the installed version, nothing when it is not installed
@@ -454,6 +469,24 @@ addon_db_owner() {
     foreach ($a as $name => $addon) {
       if ($name !== $argv[3] && in_array($argv[2], (array) ($addon["databases"] ?? []), true)) { echo $name, "\n"; }
     }' "$1" "$2" "$3"
+}
+#  The ISPGrid add-on list (github.com/ispgrid/addons): every add-on version a server may install, with the commit
+#  that was reviewed. deploy/install/addons.php reads it and addons.json; the helpers below fetch and compare.
+#  addons_php <args...>: runs deploy/install/addons.php (see its header for the commands)
+addons_php() { php "${ADDONS_PHP:-$ISPGRID_HOME/deploy/install/addons.php}" "$@"; }
+#  registry_fetch <repository URL or path> <dir>: clones the list into <dir>/registry and prints the path of its
+#  registry.json (git, like the code: no GitHub API and no cache, so a version pulled back a minute ago is seen)
+registry_fetch() {
+  git_remote clone -q --depth 1 "$1" "$2/registry" >/dev/null 2>&1 || return 1
+  [[ -f "$2/registry/registry.json" ]] || return 1
+  printf '%s\n' "$2/registry/registry.json"
+}
+#  tag_commit <repository URL or path> <tag>: the commit the tag points to (for an annotated tag, its commit)
+tag_commit() {
+  local refs
+  refs=$(git_remote ls-remote "$1" "refs/tags/$2" "refs/tags/$2^{}" 2>/dev/null) || return 1
+  awk -v tag="refs/tags/$2" '$2 == tag "^{}" { peeled = $1 } $2 == tag { plain = $1 }
+    END { commit = peeled ? peeled : plain; if (commit == "") exit 1; print commit }' <<<"$refs"
 }
 
 valid_cidr() {
@@ -866,6 +899,9 @@ parse_args() {
       --addon=*) OPT_ADDONS+=("${arg#*=}") ;;
       --remove-addon=*) OPT_REMOVE_ADDONS+=("${arg#*=}") ;;
       --delete-data) OPT_DELETE_DATA=1 ;;
+      --allow-unlisted) OPT_ALLOW_UNLISTED=1 ;;
+      --addons-only) OPT_ADDONS_ONLY=1 ;;
+      --registry=*) OPT_REGISTRY=${arg#*=} ;;
       -h|--help) OPT_HELP=1 ;;
       *) echo "Unknown option: $arg (see --help)" >&2; return 1 ;;
     esac
@@ -1040,12 +1076,26 @@ preflight() {
   enough_disk "$free_kb" "$need_kb" || die "Not enough free disk: $((free_kb / 1024)) MB free, $((need_kb / 1024)) MB needed."
 }
 
-#  run_steps: source deploy/install/NN-*.sh in order (only those in --steps when given)
+#  step_filter: the steps to run, comma-separated (empty: all): --steps, or with --addons-only (sudo ispgrid addon)
+#  only what an add-on change needs: no packages, FreeRADIUS, tunnels, backup script, firewall or self-test
+step_filter() {
+  if [[ -n "${OPT_ADDONS_ONLY:-}" ]]; then
+    echo 01,02,04,05,08,12
+  else
+    echo "${OPT_STEPS:-}"
+  fi
+}
+
+#  run_steps: source deploy/install/NN-*.sh in order (only those step_filter names)
 run_steps() {
-  local file name
+  local file name steps
+  steps=$(step_filter)
+  if [[ -n "${OPT_ADDONS_ONLY:-}" ]]; then
+    SELFTEST_RESULT="not run (add-on change)"
+  fi
   for file in "$ISPGRID_HOME"/deploy/install/[0-9][0-9]-*.sh; do
     name=$(basename "$file")
-    if [[ -n "${OPT_STEPS:-}" && ",$OPT_STEPS," != *",${name%%-*},"* ]]; then
+    if [[ -n "$steps" && ",$steps," != *",${name%%-*},"* ]]; then
       continue
     fi
     # shellcheck source=/dev/null
@@ -1143,6 +1193,34 @@ panel_rows() {
 
 #  ---- Bootstrap: get the code at the target version, then run that copy's installer ----
 
+#  addons_ready_for <target>: before the backup and the maintenance mode, the add-ons asked for (--addon) are in the
+#  ISPGrid add-on list at a version that can be installed, and every installed one has a version for the target's
+#  series (otherwise the run would stop halfway, in step 5, with the panel down). When the list can't be read the
+#  check is skipped: step 5 checks again.
+addons_ready_for() {
+  local dir file from out
+  from=${OPT_REGISTRY:-$(conf_get registry || true)}
+  from=${from:-$ISPGRID_REGISTRY_DEFAULT}
+  dir=$(mktemp -d)
+  if file=$(registry_fetch "$from" "$dir") && addons_php validate "$file"; then
+    #  Add-ons being removed in this run do not count
+    printf '{}
+' > "$dir/addons.json"
+    if [[ -f "$ISPGRID_HOME/addons.json" ]]; then
+      php -r '$a = json_decode(file_get_contents($argv[1]), true) ?: [];
+        foreach (array_slice($argv, 3) as $spec) { unset($a[explode("@", $spec)[0]]); }
+        file_put_contents($argv[2], json_encode((object) $a));'         "$ISPGRID_HOME/addons.json" "$dir/addons.json" ${OPT_REMOVE_ADDONS[@]+"${OPT_REMOVE_ADDONS[@]}"}
+    fi
+    if ! out=$(addons_php resolve "$dir/addons.json" "$file" "$(install_series "$1")" "${OPT_ALLOW_UNLISTED:+1}"       ${OPT_ADDONS[@]+"${OPT_ADDONS[@]}"} 2>&1 >/dev/null); then
+      rm -rf "$dir"
+      die "$(sed -n 's/^error //p' <<<"$out" | head -n 1)"
+    fi
+  else
+    say "The ISPGrid add-on list could not be read: add-on versions are checked in step 5 instead"
+  fi
+  rm -rf "$dir"
+}
+
 bootstrap() {
   local repo installed="" target tags depth=()
   exec 9>/run/ispgrid-install.lock
@@ -1181,6 +1259,9 @@ bootstrap() {
   fi
   if [[ -n "$installed" ]] && is_release_tag "$installed" && is_release_tag "$target" && version_gt "$installed" "$target"; then
     die "ISPGrid $installed is installed; $target is older. Downgrades are not supported."
+  fi
+  if [[ -f "$ISPGRID_HOME/deploy/install/addons.php" ]] && command -v php >/dev/null; then
+    addons_ready_for "$target"
   fi
   say "Installing ISPGrid $target${installed:+ (installed: $installed)}"
   clear_line

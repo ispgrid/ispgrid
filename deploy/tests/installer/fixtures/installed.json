@@ -1,0 +1,6 @@
+{
+    "packages": [
+        { "name": "ispgrid/ipdr", "version": "v0.1.0", "source": { "type": "git", "reference": "1111111111111111111111111111111111111111" }, "dist": null },
+        { "name": "acme/zip", "version": "1.0.0", "source": null, "dist": { "type": "zip", "reference": "5555555555555555555555555555555555555555" } }
+    ]
+}

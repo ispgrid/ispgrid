@@ -3,7 +3,7 @@
 #  console with the generated admin password, in the log and in /etc/ispgrid/info.txt without it
 #  (`sudo ispgrid-info` shows that copy again).
 step_close ok
-if [[ -z "${OPT_STEPS:-}" ]]; then
+if [[ -z "$(step_filter)" ]]; then
   conf_set version "$ISPGRID_TARGET"
 fi
 
@@ -57,9 +57,8 @@ summary_rows() {
     fi
   done <<<"${FIREWALL_NOTE:-unchanged}"
   echo "row|Database|radius (users ispgrid and freeradius; their passwords: $ISPGRID_HOME/.env, /etc/freeradius/mods-available/sql)"
-  if [[ -n "${ADDONS_INSTALLED:-}${ADDONS_REMOVED:-}${ADDONS_SUMMARY[*]+x}" ]]; then
-    echo "row|Add-ons|${ADDONS_INSTALLED:-none}"
-  fi
+  echo "row|Add-ons|${ADDONS_INSTALLED:-none}"
+  echo "text|Add or remove them with sudo ispgrid addon (sudo ispgrid addon list shows what is available)"
   for line in ${ADDONS_SUMMARY[@]+"${ADDONS_SUMMARY[@]}"}; do
     echo "text|$line"
   done
@@ -98,4 +97,5 @@ summary_rows() {
 summary_rows no | box_render yes no > "$(dirname "$ISPGRID_CONF")/info.txt"
 chmod 600 "$(dirname "$ISPGRID_CONF")/info.txt"
 install -m 755 "$ISPGRID_HOME/deploy/bin/ispgrid-info" /usr/local/sbin/ispgrid-info
+install -m 755 "$ISPGRID_HOME/deploy/bin/ispgrid" /usr/local/sbin/ispgrid
 show_box summary_rows

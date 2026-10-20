@@ -75,11 +75,14 @@ jobs:
 
       - name: Shellcheck
         run: |
-          shellcheck -x -S warning deploy/install.sh deploy/install/*.sh deploy/tests/installer/*.sh \
+          shellcheck -x -S warning deploy/install.sh deploy/install/*.sh deploy/bin/ispgrid deploy/tests/installer/*.sh \
             $(ls deploy/wireguard/*.sh deploy/backup/ispgrid-backup deploy/tests/radius_policy_tests.sh deploy/tests/radius_load_test.sh 2>/dev/null)
 
       - name: Installer helper tests
         run: bash deploy/tests/installer/test_install_sh.sh
+
+      - name: ispgrid command tests
+        run: bash deploy/tests/installer/test_ispgrid.sh
 
       - name: sql module script tests
         run: |

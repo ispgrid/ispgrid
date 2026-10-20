@@ -1,0 +1,10 @@
+{
+    "ispgrid/documents": {
+        "constraint": "*",
+        "url": "https://github.com/ispgrid/documents"
+    },
+    "acme/thing": {
+        "constraint": "dev-main",
+        "url": "https://github.com/acme/thing"
+    }
+}
