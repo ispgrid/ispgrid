@@ -135,6 +135,21 @@ it('skips and logs once a customer who cannot be auto renewed', function (Closur
     'expired too long ago' => [fn (Plan $plan) => Account::factory()->create(['plan_id' => $plan->id, 'auto_renew' => true, 'expiry' => '2026-09-01 00:00:00']), 'The plan ended too long ago; recharge by hand'],
 ]);
 
+it('checks customers it already skipped with a few queries, not a few per customer', function () {
+    Account::factory()->suspended()->count(30)->create(['plan_id' => $this->plan->id, 'auto_renew' => true, 'expiry' => '2026-10-31 20:00:00']);
+    Account::factory()->count(5)->create(['plan_id' => $this->plan->id, 'expiry' => '2026-10-31 20:00:00']);
+    runRenewals();
+
+    DB::enableQueryLog();
+    runRenewals();
+    $queries = collect(DB::getQueryLog())->pluck('query');
+
+    expect(Activity::query()->where('event', 'auto-renew-skipped')->count())->toBe(30)
+        ->and(Activity::query()->where('event', 'expired')->count())->toBe(5)
+        ->and($queries->filter(fn (string $query): bool => str_contains($query, 'activity_log'))->count())->toBeLessThanOrEqual(2)
+        ->and($queries->filter(fn (string $query): bool => str_contains($query, 'from `plans`'))->count())->toBeLessThanOrEqual(2);
+});
+
 it('skips a deleted customer without logging', function () {
     $account = Account::factory()->create(['plan_id' => $this->plan->id, 'auto_renew' => true, 'expiry' => '2026-11-01 00:00:00']);
     $account->delete();

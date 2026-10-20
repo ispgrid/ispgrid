@@ -17,6 +17,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -107,23 +108,31 @@ class RunRenewals extends Command
             ->whereNotNull('expiry')
             ->where('expiry', '<=', $until)
             ->whereDoesntHave('waitingRenewal')
-            ->chunkById(100, function ($accounts) use ($recharge, $now): void {
+            ->chunkById(100, function (Collection $accounts) use ($recharge, $now): void {
+                $plans = $this->plansOf($accounts);
+                $skipped = $this->loggedExpiries($accounts, 'auto-renew-skipped');
+
                 foreach ($accounts as $account) {
-                    $this->safely(fn () => $this->autoRenewOne($recharge, $account, $now));
+                    $plan = $account->plan_id === null ? null : $plans->get($account->plan_id);
+                    $this->safely(fn () => $this->autoRenewOne($recharge, $account, $plan, $skipped[$account->id] ?? [], $now));
                 }
             });
     }
 
-    private function autoRenewOne(RechargeAccount $recharge, Account $account, CarbonImmutable $now): void
+    /**
+     * @param  array<string, true>  $skippedFor  the expiries this customer already has a skip entry for
+     */
+    private function autoRenewOne(RechargeAccount $recharge, Account $account, ?Plan $plan, array $skippedFor, CarbonImmutable $now): void
     {
-        $plan = $account->plan_id === null ? null : Plan::withTrashed()->find($account->plan_id);
         $oldExpiry = CarbonImmutable::instance($account->expiry);
         $expiry = $plan === null ? null
             : ExpiryCalculator::fromSettings()->next($oldExpiry, $plan->validity, $plan->validity_unit, $oldExpiry->subSecond());
         $reason = $this->cannotAutoRenew($account, $plan, $expiry, $now);
 
         if ($reason !== null) {
-            $this->logSkippedOnce($account, $reason);
+            if (! isset($skippedFor[$oldExpiry->format(RechargeAccount::DATE_FORMAT)])) {
+                $this->logSkipped($account, $reason);
+            }
 
             return;
         }
@@ -184,15 +193,18 @@ class RunRenewals extends Command
         Account::query()
             ->where('status_id', AccountStatus::Active)
             ->whereBetween('expiry', [$now->subDay(), $now])
-            ->chunkById(100, function ($accounts): void {
+            ->chunkById(100, function (Collection $accounts): void {
+                $plans = $this->plansOf($accounts);
+                $logged = $this->loggedExpiries($accounts, 'expired');
+
                 foreach ($accounts as $account) {
                     $expiry = $account->expiry->format(RechargeAccount::DATE_FORMAT);
 
-                    if ($this->loggedFor($account, 'expired', $expiry)) {
+                    if (isset($logged[$account->id][$expiry])) {
                         continue;
                     }
 
-                    $plan = $account->plan_id === null ? null : Plan::withTrashed()->find($account->plan_id);
+                    $plan = $account->plan_id === null ? null : $plans->get($account->plan_id);
 
                     activity()
                         ->performedOn($account)
@@ -201,13 +213,6 @@ class RunRenewals extends Command
                         ->log('expired');
                 }
             });
-    }
-
-    private function logSkippedOnce(Account $account, string $reason): void
-    {
-        if (! $this->loggedFor($account, 'auto-renew-skipped', $account->expiry->format(RechargeAccount::DATE_FORMAT))) {
-            $this->logSkipped($account, $reason);
-        }
     }
 
     private function logSkipped(Account $account, string $reason): void
@@ -220,15 +225,43 @@ class RunRenewals extends Command
     }
 
     /**
-     * Whether the account already has an entry of this event for this expiry.
+     * The plans of these accounts (deleted ones too), by id: one query per chunk.
+     *
+     * @param  Collection<int, Account>  $accounts
+     * @return Collection<int, Plan>
      */
-    private function loggedFor(Account $account, string $event, string $expiry): bool
+    private function plansOf(Collection $accounts): Collection
     {
-        return Activity::query()
-            ->whereMorphedTo('subject', $account)
+        $ids = $accounts->pluck('plan_id')->filter()->unique()->values();
+
+        return $ids->isEmpty() ? new Collection : Plan::withTrashed()->whereIn('id', $ids)->get()->keyBy('id');
+    }
+
+    /**
+     * The expiries each of these accounts already has an entry of this event for, by account id: one query per
+     * chunk, so customers skipped earlier cost nothing on the next runs.
+     *
+     * @param  Collection<int, Account>  $accounts
+     * @return array<int, array<string, true>>
+     */
+    private function loggedExpiries(Collection $accounts, string $event): array
+    {
+        $logged = [];
+
+        Activity::query()
+            ->where('subject_type', (new Account)->getMorphClass())
+            ->whereIn('subject_id', $accounts->modelKeys())
             ->where('event', $event)
-            ->where('attribute_changes->attributes->expiry', $expiry)
-            ->exists();
+            ->get(['subject_id', 'attribute_changes'])
+            ->each(function (Activity $activity) use (&$logged): void {
+                $expiry = $activity->attribute_changes['attributes']['expiry'] ?? null;
+
+                if (is_string($expiry)) {
+                    $logged[(int) $activity->subject_id][$expiry] = true;
+                }
+            });
+
+        return $logged;
     }
 
     /**
