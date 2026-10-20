@@ -47,6 +47,11 @@ final class NoTax implements TaxSetup
         return null;
     }
 
+    public function totalName(array $config): string
+    {
+        return '';
+    }
+
     public function invoiceTitle(): string
     {
         return 'INVOICE';

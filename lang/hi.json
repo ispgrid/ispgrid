@@ -1162,5 +1162,12 @@
     "Billing address": "बिलिंग पता",
     "Invoices print English letters only. Write this in English letters for the invoice: :fields.": "इनवॉइस केवल अंग्रेज़ी अक्षरों में छपते हैं। इनवॉइस के लिए इसे अंग्रेज़ी अक्षरों में लिखें: :fields।",
     "Enter the first line of the billing address.": "बिलिंग पते की पहली पंक्ति भरें।",
-    "Enter a valid GSTIN, e.g. 09ABCDE1234F1Z5.": "सही GSTIN भरें, जैसे 09ABCDE1234F1Z5।"
+    "Enter a valid GSTIN, e.g. 09ABCDE1234F1Z5.": "सही GSTIN भरें, जैसे 09ABCDE1234F1Z5।",
+    "Do not charge tax": "टैक्स न लगाएँ",
+    "Invoices for this plan carry no tax.": "इस प्लान के इनवॉइस पर टैक्स नहीं लगता।",
+    "Round off the total": "कुल रक़म राउंड ऑफ़ करें",
+    "Invoices for this plan round the total to a whole amount.": "इस प्लान के इनवॉइस में कुल रक़म पूरे अंक में राउंड होती है।",
+    "Leave empty to print the default from Billing settings.": "बिलिंग सेटिंग्स का डिफ़ॉल्ट छापने के लिए खाली छोड़ें।",
+    "Price after tax: :total": "टैक्स के बाद क़ीमत: :total",
+    "Total :name (:rate%)": "कुल :name (:rate%)"
 }

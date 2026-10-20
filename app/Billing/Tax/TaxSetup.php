@@ -53,6 +53,13 @@ interface TaxSetup
      */
     public function itemCodeLabel(): ?string;
 
+    /**
+     * The name of all its taxes together ("GST"), for a price breakdown; '' for no tax.
+     *
+     * @param  array<string, string>  $config
+     */
+    public function totalName(array $config): string;
+
     public function invoiceTitle(): string;
 
     public function usesPlaceOfSupply(): bool;

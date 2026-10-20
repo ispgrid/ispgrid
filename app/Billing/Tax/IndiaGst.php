@@ -65,6 +65,11 @@ final class IndiaGst implements TaxSetup
         return 'SAC/HSN';
     }
 
+    public function totalName(array $config): string
+    {
+        return 'GST';
+    }
+
     public function invoiceTitle(): string
     {
         return 'TAX INVOICE';

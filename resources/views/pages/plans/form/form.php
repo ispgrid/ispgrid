@@ -1,6 +1,11 @@
 <?php
 
 use App\Actions\Radius\SyncPlanToRadius;
+use App\Billing\BillingSettings;
+use App\Billing\Decimal;
+use App\Billing\InvoiceCalculator;
+use App\Billing\LineInput;
+use App\Billing\Tax\TaxContext;
 use App\Enums\ServiceType;
 use App\Enums\SlotMode;
 use App\Enums\ValidityUnit;
@@ -15,6 +20,7 @@ use App\Models\Pool;
 use App\Models\Radacct;
 use App\Models\RadiusAttribute;
 use App\Support\Hotspot;
+use App\Support\Money;
 use App\Support\PlanRules;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
@@ -43,7 +49,8 @@ new #[Title('Plan')] class extends Component
      * @var array<string, list<string>>
      */
     private const TABS = [
-        'general' => ['slug', 'name', 'validity', 'validity_unit', 'hotspot_starts_at_first_login', 'price', 'description'],
+        'general' => ['slug', 'name', 'validity', 'validity_unit', 'hotspot_starts_at_first_login', 'price', 'description',
+            'do_not_charge_tax', 'round_off', 'item_code'],
         'speed' => ['upload_speed', 'download_speed', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
             'burst_time', 'priority', 'min_upload', 'min_download'],
         'limits' => ['limit_after', 'time_limit_hours', 'daily_data_gb', 'daily_time_hours', 'monthly_data_gb',
@@ -86,6 +93,15 @@ new #[Title('Plan')] class extends Component
     public string $price = '0';
 
     public string $description = '';
+
+    /**
+     * Saved inverted as plans.charge_tax: the switch reads "Do not charge tax", as in the old panel.
+     */
+    public bool $do_not_charge_tax = false;
+
+    public bool $round_off = false;
+
+    public string $item_code = '';
 
     public string $upload_speed = '';
 
@@ -178,6 +194,9 @@ new #[Title('Plan')] class extends Component
         // Hidden while Hotspot is off; a setting left from before is dropped at the next save.
         $this->hotspot_starts_at_first_login = Hotspot::enabled() && $model->hotspot_starts_at_first_login;
         $this->is_fup = $model->is_fup;
+        $this->do_not_charge_tax = ! $model->charge_tax;
+        $this->round_off = $model->round_off;
+        $this->item_code = (string) $model->item_code;
         $this->slot_mode = $model->slot_mode?->value ?? '';
         $this->slot_days = $model->slot_days === null ? [] : explode(',', $model->slot_days);
         $this->slot_full_days = $model->slot_full_days;
@@ -209,6 +228,51 @@ new #[Title('Plan')] class extends Component
     public function validityUnits(): array
     {
         return collect(ValidityUnit::cases())->mapWithKeys(fn (ValidityUnit $unit): array => [$unit->value => $unit->label()])->all();
+    }
+
+    /**
+     * The tax setup in Billing settings charges tax, so the plan's tax fields apply.
+     */
+    #[Computed]
+    public function chargesTax(): bool
+    {
+        return BillingSettings::current()->tax()->id() !== 'none';
+    }
+
+    #[Computed]
+    public function itemCodeLabel(): ?string
+    {
+        return BillingSettings::current()->tax()->itemCodeLabel();
+    }
+
+    /**
+     * The plan price as an invoice in your own state would charge it, before any customer discount: the tax
+     * ("Total GST (18%)") and the total. Null with no tax and no round off, or while the price is not a number.
+     *
+     * @return array{label: ?string, tax: string, total: string}|null
+     */
+    #[Computed]
+    public function priceAfterTax(): ?array
+    {
+        $settings = BillingSettings::current();
+        $setup = $settings->tax();
+        $taxed = $setup->id() !== 'none' && ! $this->do_not_charge_tax;
+
+        if ((! $taxed && ! $this->round_off) || ! is_numeric($this->price) || (float) $this->price < 0) {
+            return null;
+        }
+
+        $draft = (new InvoiceCalculator)->calculate(
+            [new LineInput($this->name, null, null, '1', (string) $this->price, '0', $taxed)],
+            $setup, $settings->taxConfig, new TaxContext(null), $settings->pricesIncludeTax, $this->round_off, $settings->decimals,
+        );
+        $money = Money::fromSettings();
+
+        return [
+            'label' => $taxed ? __('Total :name (:rate%)', ['name' => $setup->totalName($settings->taxConfig), 'rate' => Decimal::trim($setup->totalRate($settings->taxConfig))]) : null,
+            'tax' => $money->format($draft->taxTotal),
+            'total' => $money->format($draft->total),
+        ];
     }
 
     #[Computed]
@@ -420,6 +484,8 @@ new #[Title('Plan')] class extends Component
             $this->{$field} = trim($this->{$field});
         }
 
+        $this->item_code = trim($this->item_code);
+
         $this->custom_attributes = array_values(array_map(fn (array $row): array => [
             'attribute' => trim((string) ($row['attribute'] ?? '')),
             'value' => trim((string) ($row['value'] ?? '')),
@@ -438,6 +504,9 @@ new #[Title('Plan')] class extends Component
         return [
             ...PlanRules::rules($this->planId === null, ValidityUnit::tryFrom($this->validity_unit) ?? ValidityUnit::Days),
             'validity_unit' => ['required', Rule::enum(ValidityUnit::class)],
+            'do_not_charge_tax' => ['boolean'],
+            'round_off' => ['boolean'],
+            'item_code' => ['nullable', 'string', 'max:20', 'regex:/^[0-9A-Za-z]+$/'],
             'hotspot_starts_at_first_login' => Hotspot::enabled() ? ['boolean'] : ['boolean', 'declined'],
             'burst_upload' => $speed,
             'burst_download' => $speed,
@@ -598,6 +667,9 @@ new #[Title('Plan')] class extends Component
             'validity_unit' => $this->validity_unit,
             'hotspot_starts_at_first_login' => $this->hotspot_starts_at_first_login,
             'price' => $this->price,
+            'charge_tax' => ! $this->do_not_charge_tax,
+            'round_off' => $this->round_off,
+            'item_code' => $this->nullIfEmpty($this->item_code),
             'description' => $this->nullIfEmpty($this->description),
             'upload' => $this->upload_speed,
             'download' => $this->download_speed,

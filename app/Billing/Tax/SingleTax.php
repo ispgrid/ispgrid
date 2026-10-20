@@ -52,6 +52,11 @@ final class SingleTax implements TaxSetup
         return null;
     }
 
+    public function totalName(array $config): string
+    {
+        return $config['name'] ?? 'Tax';
+    }
+
     public function invoiceTitle(): string
     {
         return 'INVOICE';
