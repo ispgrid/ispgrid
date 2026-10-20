@@ -23,6 +23,7 @@ class InvoiceFactory extends Factory
         return [
             'number' => 'INV-'.fake()->unique()->numberBetween(1000, 999999),
             'series' => 'all',
+            'sequence' => fn (array $attributes): int => (int) preg_replace('/\D/', '', (string) $attributes['number']),
             'account_id' => Account::factory(),
             'kind' => InvoiceKind::Manual,
             'status' => InvoiceStatus::Unpaid,

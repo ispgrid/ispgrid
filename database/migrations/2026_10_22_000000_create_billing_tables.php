@@ -47,6 +47,7 @@ return new class extends Migration
             $table->id();
             $table->string('number', 50)->unique();
             $table->string('series', 20);
+            $table->unsignedInteger('sequence');
             $table->foreignId('account_id')->constrained();
             $table->foreignId('recharge_id')->nullable()->constrained();
             $table->string('kind', 20);
@@ -78,6 +79,7 @@ return new class extends Migration
             $table->index(['account_id', 'issue_date']);
             $table->index(['status', 'issue_date']);
             $table->index('issue_date');
+            $table->unique(['series', 'sequence']);
         });
 
         Schema::create('invoice_lines', function (Blueprint $table) {

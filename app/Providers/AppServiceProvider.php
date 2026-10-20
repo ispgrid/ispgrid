@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Billing\BillingSettings;
 use App\Billing\Tax\IndiaGst;
 use App\Billing\Tax\NoTax;
 use App\Billing\Tax\SingleTax;
@@ -51,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(CustomerCards::class);
         $this->app->singleton(CustomerTabs::class);
         $this->app->singleton(TaxSetups::class, fn (): TaxSetups => new TaxSetups([new NoTax, new SingleTax, new IndiaGst]));
+        $this->app->bind(BillingSettings::class, fn (): BillingSettings => BillingSettings::current());
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
 
         $this->app->singleton(Permissions::class, function (): Permissions {

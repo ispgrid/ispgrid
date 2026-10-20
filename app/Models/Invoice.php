@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * An issued invoice. Everything it prints (company, customer, tax lines, totals) is a copy taken at issue, so a
  * later change to the customer, plan or settings never changes it. It is never edited, only cancelled.
  */
-#[Fillable(['number', 'series', 'account_id', 'recharge_id', 'kind', 'status', 'title', 'issue_date', 'due_date',
+#[Fillable(['number', 'series', 'sequence', 'account_id', 'recharge_id', 'kind', 'status', 'title', 'issue_date', 'due_date',
     'terms_days', 'period_from', 'period_to', 'validity_text', 'place_of_supply', 'tax_setup', 'item_code_label',
     'company', 'customer', 'taxable_total', 'tax_total', 'round_off', 'total', 'paid_total', 'balance',
     'total_in_words', 'user_id', 'cancelled_at', 'cancelled_by', 'cancel_reason'])]
@@ -34,6 +34,7 @@ class Invoice extends Model
             'status' => InvoiceStatus::class,
             'issue_date' => 'immutable_date',
             'due_date' => 'immutable_date',
+            'sequence' => 'integer',
             'terms_days' => 'integer',
             'period_from' => 'immutable_datetime',
             'period_to' => 'immutable_datetime',

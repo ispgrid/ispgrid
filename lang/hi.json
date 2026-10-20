@@ -1072,5 +1072,6 @@
     "View sales": "बिक्री देखें",
     "No tax": "कोई टैक्स नहीं",
     "One tax (VAT, sales tax, ...)": "एक टैक्स (VAT, सेल्स टैक्स, ...)",
-    "India GST": "भारत GST"
+    "India GST": "भारत GST",
+    "The next invoice number must be higher than :number, the last one used.": "अगला इनवॉइस नंबर :number से बड़ा होना चाहिए, जो आख़िरी इस्तेमाल हुआ।"
 }
