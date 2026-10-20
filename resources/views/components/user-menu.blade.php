@@ -6,7 +6,7 @@
             </span>
             <span class="grid min-w-0 flex-1 text-sm leading-tight">
                 <span class="truncate font-medium">{{ auth()->user()->name }}</span>
-                <span class="truncate text-xs text-zinc-500 dark:text-zinc-400">{{ auth()->user()->email }}</span>
+                <span class="truncate text-xs text-zinc-600 dark:text-zinc-400">{{ auth()->user()->email }}</span>
             </span>
             <x-ui.icon name="chevron-up-down" class="size-4 text-zinc-400" />
         </button>

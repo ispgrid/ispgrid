@@ -44,7 +44,7 @@
             <x-ui.button class="w-full" :disabled="$errors->has('setupData')" wire:click="showVerificationIfNecessary">{{ $this->modalConfig['buttonText'] }}</x-ui.button>
 
             <div class="grid gap-3">
-                <p class="text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('or, enter the code manually') }}</p>
+                <p class="text-center text-sm text-zinc-600 dark:text-zinc-400">{{ __('or, enter the code manually') }}</p>
 
                 <div
                     class="flex items-stretch overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-600"

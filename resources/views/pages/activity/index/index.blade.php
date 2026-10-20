@@ -28,14 +28,14 @@
                 <x-ui.td>{{ $row['staff'] }}</x-ui.td>
                 <x-ui.td>{{ $row['event'] }}</x-ui.td>
                 <x-ui.td>
-                    <span class="text-zinc-500 dark:text-zinc-400">{{ $row['type'] }}</span>
+                    <span class="text-zinc-600 dark:text-zinc-400">{{ $row['type'] }}</span>
                     <span class="font-medium">{{ $row['name'] }}</span>
                 </x-ui.td>
                 <x-ui.td>
                     <dl class="grid gap-0.5 text-xs">
                         @foreach ($row['changes'] as $change)
                             <div class="flex flex-wrap gap-1">
-                                <dt class="text-zinc-500 dark:text-zinc-400">{{ $change['field'] }}:</dt>
+                                <dt class="text-zinc-600 dark:text-zinc-400">{{ $change['field'] }}:</dt>
                                 <dd>
                                     @if ($change['old'] !== null)
                                         <span class="line-through decoration-zinc-400">{{ $change['old'] }}</span>
@@ -50,7 +50,7 @@
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="5" class="py-8 text-center text-zinc-500 dark:text-zinc-400">{{ __('No activity matches these filters.') }}</x-ui.td>
+                <x-ui.td colspan="5" class="py-8 text-center text-zinc-600 dark:text-zinc-400">{{ __('No activity matches these filters.') }}</x-ui.td>
             </tr>
         @endforelse
     </x-ui.table>

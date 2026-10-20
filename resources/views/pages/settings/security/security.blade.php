@@ -70,7 +70,7 @@
                         <div wire:key="passkey-{{ $passkey['id'] }}" @class(['flex items-center justify-between gap-4 p-4', 'border-b border-zinc-200 dark:border-zinc-700' => ! $loop->last])>
                             <div class="flex items-center gap-4">
                                 <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
-                                    <x-ui.icon name="key" class="size-5 text-zinc-500 dark:text-zinc-400" />
+                                    <x-ui.icon name="key" class="size-5 text-zinc-600 dark:text-zinc-400" />
                                 </div>
                                 <div class="grid gap-1">
                                     <div class="flex items-center gap-2.5">
@@ -79,7 +79,7 @@
                                             <x-ui.badge>{{ $passkey['authenticator'] }}</x-ui.badge>
                                         @endif
                                     </div>
-                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400">
                                         {{ __('Added :time', ['time' => $passkey['created_at_diff']]) }}
                                         @if ($passkey['last_used_at_diff'])
                                             <span class="mx-1 opacity-50">/</span>

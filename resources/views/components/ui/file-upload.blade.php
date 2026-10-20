@@ -44,7 +44,7 @@
     <p x-show="failed" x-cloak role="alert" class="text-sm text-red-600 dark:text-red-400">{{ __('The file could not be uploaded. It may be larger than 10 MB. Choose it again.') }}</p>
 
     @if ($description)
-        <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $description }}</p>
+        <p class="text-xs text-zinc-600 dark:text-zinc-400">{{ $description }}</p>
     @endif
 
     @if ($error)

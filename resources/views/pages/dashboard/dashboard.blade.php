@@ -18,12 +18,12 @@
         @foreach ($this->figureCards as $figure)
             @if ($figure['href'])
                 <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
-                    <span class="block text-sm text-zinc-500 dark:text-zinc-400">{{ $figure['label'] }}</span>
+                    <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
                     <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>
                 </a>
             @else
                 <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-                    <span class="block text-sm text-zinc-500 dark:text-zinc-400">{{ $figure['label'] }}</span>
+                    <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
                     <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>
                 </div>
             @endif

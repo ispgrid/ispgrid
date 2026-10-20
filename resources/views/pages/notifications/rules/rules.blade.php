@@ -24,7 +24,7 @@
                     <tr wire:key="rule-{{ $rule['id'] }}">
                         <x-ui.td>
                             <x-ui.link href="{{ route('notification-rules.edit', $rule['id']) }}" wire:navigate class="font-medium">{{ $rule['name'] }}</x-ui.link>
-                            <span class="block text-xs text-zinc-500 dark:text-zinc-400">{{ $rule['provider'] }}</span>
+                            <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ $rule['provider'] }}</span>
                         </x-ui.td>
                         <x-ui.td>{{ $rule['trigger'] }}</x-ui.td>
                         <x-ui.td>{{ $rule['channel'] }}</x-ui.td>

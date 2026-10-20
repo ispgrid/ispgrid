@@ -65,6 +65,16 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
     }
+
+    /* Geist at 400 looks thin as dark text on a light background (above all on Windows), while light text on a dark
+       background looks heavier: light mode uses 450 (Geist is a variable font), dark mode keeps 400. */
+    body {
+        font-weight: 450;
+    }
+
+    .dark body {
+        font-weight: 400;
+    }
 }
 
 [x-cloak] {

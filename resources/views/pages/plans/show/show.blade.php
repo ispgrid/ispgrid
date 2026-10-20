@@ -24,7 +24,7 @@
                 <x-ui.heading>{{ $section }}</x-ui.heading>
                 <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-6">
                     @foreach ($rows as $label => $value)
-                        <dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
+                        <dt class="text-zinc-600 dark:text-zinc-400">{{ $label }}</dt>
                         <dd class="font-medium break-words">{{ $value }}</dd>
                     @endforeach
                 </dl>
@@ -55,7 +55,7 @@
                         <tr wire:key="account-{{ $row['id'] }}">
                             <x-ui.td>
                                 <x-ui.link href="{{ route('customers.show', $row['id']) }}" wire:navigate class="font-medium">{{ $row['username'] }}</x-ui.link>
-                                <span class="block text-xs text-zinc-500 dark:text-zinc-400">{{ $row['fullname'] }}</span>
+                                <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ $row['fullname'] }}</span>
                             </x-ui.td>
                             <x-ui.td>{{ $row['type'] }}</x-ui.td>
                             <x-ui.td><x-ui.badge :color="$row['color']">{{ $row['status'] }}</x-ui.badge></x-ui.td>
