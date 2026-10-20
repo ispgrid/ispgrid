@@ -4,6 +4,7 @@ use App\Models\AppSetting;
 use App\Models\Nas;
 use App\Models\Radpostauth;
 use App\Models\User;
+use App\Support\Dashboard\NeedsAttention;
 use App\Support\Dashboard\TodayFigures;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -23,6 +24,30 @@ new #[Title('Dashboard')] class extends Component
         $user = auth()->user();
 
         return TodayFigures::cards($user);
+    }
+
+    /**
+     * What needs attention, each list empty when nothing does (the view hides empty ones).
+     *
+     * @return array{looping: list<array{username: string, count: int, href: ?string}>, quiet: list<array{router: string, last_heard: string}>, messages: int, disconnects: list<array{username: string, reason: string, href: ?string}>, skipped: list<array{username: string, reason: string, href: ?string}>, overLimit: list<array{username: string, used: string, limit: string, href: ?string}>, ranges: list<array{range: string, used: int, total: int}>, server: ?array{backup_age_hours: ?int, backup_late: bool, jobs_waiting: int, jobs_failed: int}}
+     */
+    #[Computed]
+    public function attention(): array
+    {
+        /** @var User $user */
+        $user = auth()->user();
+        $attention = new NeedsAttention($user);
+
+        return [
+            'looping' => $attention->loopingLogins(),
+            'quiet' => $attention->quietRouters(),
+            'messages' => $attention->failedMessages(),
+            'disconnects' => $attention->failedDisconnects(),
+            'skipped' => $attention->skippedRenewals(),
+            'overLimit' => $attention->overDataLimit(),
+            'ranges' => $attention->fullRanges(),
+            'server' => $attention->server(),
+        ];
     }
 
     /**

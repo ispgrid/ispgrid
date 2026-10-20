@@ -55,4 +55,9 @@ paths=(etc/freeradius)
 tar -czf "$dir/config-$stamp.tgz" -C / "${paths[@]}"
 
 find "$dir" -maxdepth 1 -type f \( -name '*.sql.gz' -o -name 'config-*.tgz' -o -name 'files-*.tgz' \) -mtime +"$((keep_days - 1))" -delete
+
+#  The finish time (UTC) for the dashboard, which cannot read this directory.
+finished=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+mysql radius -e "INSERT INTO app_settings (\`key\`, value, created_at, updated_at) VALUES ('backup.last_finished_at', '$finished', NOW(), NOW())
+  ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()" || echo "Could not record the backup time for the dashboard." >&2
 echo "$dir/radius-$stamp.sql.gz"
