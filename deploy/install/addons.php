@@ -151,9 +151,15 @@ function resolve(array $addons, ?array $registry, string $series, bool $allowUnl
         }
         if ($version !== null) {
             $picked = pick($registry, $name, $series, $version);
+            //  A version that is not listed (a branch, or a release not reviewed yet) of a listed add-on: unreviewed code
+            if ($picked === 3 && $allowUnlisted) {
+                $addons[$name] = ['constraint' => $version, 'unlisted' => true];
+
+                continue;
+            }
             if (is_int($picked)) {
                 stop(1, 'error '.match ($picked) {
-                    3 => "$name has no version $version in the ISPGrid add-on list",
+                    3 => "$name has no version $version in the ISPGrid add-on list. To install it anyway, without review: --allow-unlisted",
                     4 => "$name $version was pulled back from the ISPGrid add-on list: ".$registry[$name]['versions'][$version]['yanked'],
                     default => "$name $version does not support ISPGrid $series",
                 });
@@ -173,7 +179,7 @@ function resolve(array $addons, ?array $registry, string $series, bool $allowUnl
         $old = ! isset($entry['unlisted']) && isset($entry['constraint']);
         if (! empty($entry['unlisted']) || ($old && ! isset($registry[$name]))) {
             $addons[$name] = ['constraint' => (string) ($entry['constraint'] ?? '*'), 'unlisted' => true];
-            fwrite(STDERR, "warn $name is not in the ISPGrid add-on list: its code was not reviewed\n");
+            fwrite(STDERR, "warn $name {$addons[$name]['constraint']} is not in the ISPGrid add-on list: its code was not reviewed\n");
 
             continue;
         }

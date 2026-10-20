@@ -459,7 +459,7 @@ check "no reference when not installed" "$(addons_php reference "$fx/installed.j
 resolved=$(addons_php resolve "$fx/addons-old.json" "$reg" 0.1 0 2>"$tmp/resolve.err")
 check "old entries convert" "$(json_norm "$resolved")" \
   "{\"ispgrid/documents\":{\"version\":\"v0.1.0\",\"commit\":\"$c4\",\"pinned\":false},\"acme/thing\":{\"constraint\":\"dev-main\",\"unlisted\":true}}"
-check "unlisted entry warned" "$(cat "$tmp/resolve.err")" "warn acme/thing is not in the ISPGrid add-on list: its code was not reviewed"
+check "unlisted entry warned" "$(cat "$tmp/resolve.err")" "warn acme/thing dev-main is not in the ISPGrid add-on list: its code was not reviewed"
 printf '{}\n' > "$tmp/addons-empty.json"
 check "resolve pins" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v0.1.0)")" \
   "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":true}}"
@@ -482,12 +482,15 @@ check "resolve refuses unlisted without flag" "$(addons_php resolve "$tmp/addons
 rc=1"
 check "resolve allows unlisted with flag" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 acme/new@dev-main 2>/dev/null)")" \
   '{"acme/new":{"constraint":"dev-main","unlisted":true}}'
+check "a branch of a listed add-on with the flag" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 ispgrid/ipdr@dev-master 2>/dev/null)")"   '{"ispgrid/ipdr":{"constraint":"dev-master","unlisted":true}}'
+check "a branch of a listed add-on without the flag" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@dev-master 2>&1 >/dev/null)"   "error ispgrid/ipdr has no version dev-master in the ISPGrid add-on list. To install it anyway, without review: --allow-unlisted"
+check "a listed version with the flag stays reviewed" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 ispgrid/ipdr@v0.1.0 2>/dev/null)")"   "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":true}}"
 check "unlisted default constraint" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 acme/new 2>/dev/null)")" \
   '{"acme/new":{"constraint":"*","unlisted":true}}'
 check "resolve refuses a yanked version" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v0.1.1 2>&1 >/dev/null)" \
   "error ispgrid/ipdr v0.1.1 was pulled back from the ISPGrid add-on list: Broke the export"
 check "resolve refuses an unknown version" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v9.9.9 2>&1 >/dev/null)" \
-  "error ispgrid/ipdr has no version v9.9.9 in the ISPGrid add-on list"
+  "error ispgrid/ipdr has no version v9.9.9 in the ISPGrid add-on list. To install it anyway, without review: --allow-unlisted"
 check "resolve refuses a version of another series" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v0.2.0 2>&1 >/dev/null)" \
   "error ispgrid/ipdr v0.2.0 does not support ISPGrid 0.1"
 check "resolve without registry keeps recorded entries" "$(json_norm "$(addons_php resolve "$tmp/addons-ipdr.json" - 0.2 0)")" \
