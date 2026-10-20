@@ -523,6 +523,25 @@ parse_args --allow-unlisted --addons-only --registry=/srv/reg
 check "flags for the ispgrid command" "${OPT_ALLOW_UNLISTED:-}${OPT_ADDONS_ONLY:-}${OPT_REGISTRY:-}" "11/srv/reg"
 unset OPT_ALLOW_UNLISTED OPT_ADDONS_ONLY OPT_REGISTRY
 
+#  Before an upgrade changes anything: every installed add-on has a version for the new series
+mkdir -p "$tmp/home/deploy/install"
+cp "$ADDONS_PHP" "$tmp/home/deploy/install/addons.php"
+cp "$tmp/addons-docs.json" "$tmp/home/addons.json"
+check "add-ons ready for 0.1" "$(ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf; addons_ready_for v0.1.9 2>&1 >/dev/null; echo "rc=$?")" "rc=0"
+check "add-ons not ready for 0.2" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf; addons_ready_for v0.2.0) 3>&1 2>&1 | grep -c 'ispgrid/documents has no version for ISPGrid 0.2')" 1
+
+#  Which steps run: all, --steps, or with --addons-only the ones an add-on change needs
+check "all steps" "$(step_filter)" ""
+OPT_STEPS=05,12
+check "--steps" "$(step_filter)" "05,12"
+OPT_ADDONS_ONLY=1
+check "--addons-only steps" "$(step_filter)" "01,02,04,05,08,12"
+unset OPT_STEPS OPT_ADDONS_ONLY
+#  The core series add-ons are chosen for: the release's, or for a branch the series of this code
+check "series of a release" "$(install_series v0.2.3)" 0.2
+check "series of a branch" "$(install_series addon-command)" "$ISPGRID_SERIES"
+check "series constant looks like one" "$(yes_no grep -qE '^[0-9]+\.[0-9]+$' <<<"$ISPGRID_SERIES")" yes
+
 #  note: a line under the running step, on the console (fd 3) as well as in the log
 shown=$(bash -c 'source "$1"; UI_SPIN=""; note "Add-on ispgrid/ipdr v0.1.1 installed"' _ "$here/../../install.sh" 3>&1 >/dev/null)
 check "note on the console" "$shown" "    Add-on ispgrid/ipdr v0.1.1 installed"

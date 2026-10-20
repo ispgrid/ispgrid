@@ -3,7 +3,7 @@
 #  console with the generated admin password, in the log and in /etc/ispgrid/info.txt without it
 #  (`sudo ispgrid-info` shows that copy again).
 step_close ok
-if [[ -z "${OPT_STEPS:-}" ]]; then
+if [[ -z "$(step_filter)" ]]; then
   conf_set version "$ISPGRID_TARGET"
 fi
 

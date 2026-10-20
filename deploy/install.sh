@@ -14,6 +14,9 @@ ISPGRID_CONF="/etc/ispgrid/install.conf"
 ISPGRID_LOG="/var/log/ispgrid-install.log"
 ISPGRID_BACKUPS="/var/backups/ispgrid"
 ISPGRID_REGISTRY_DEFAULT="https://github.com/ispgrid/addons.git"
+#  The core series of this code (bump it with the first release of a new series): add-ons are chosen for it when
+#  a branch is installed, whose name says nothing about the series
+ISPGRID_SERIES="0.1"
 
 usage() {
   cat <<'EOF'
@@ -379,6 +382,12 @@ addon_name() { printf '%s\n' "${1%%@*}"; }
 addon_constraint() { if [[ "$1" == *@* ]]; then printf '%s\n' "${1#*@}"; else printf '*\n'; fi; }
 #  core_series <tag>: "0.1" for v0.1.0 or v0.1.0-rc6; nothing for a branch
 core_series() { if [[ "$1" =~ ^v?([0-9]+)\.([0-9]+)\. ]]; then printf '%s.%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"; fi; }
+#  install_series <target>: the series add-ons are chosen for: the release's, or this code's for a branch
+install_series() {
+  local series
+  series=$(core_series "$1")
+  printf '%s\n' "${series:-$ISPGRID_SERIES}"
+}
 #  addon_supports <json list> <series>: the add-on lists the series (an empty series, a branch install, takes any)
 addon_supports() { [[ -z "$2" ]] || grep -qF "\"$2\"" <<<"$1"; }
 #  addon_version <vendor/composer/installed.json> <vendor/package>: the installed version, nothing when it is not installed
@@ -1067,12 +1076,26 @@ preflight() {
   enough_disk "$free_kb" "$need_kb" || die "Not enough free disk: $((free_kb / 1024)) MB free, $((need_kb / 1024)) MB needed."
 }
 
-#  run_steps: source deploy/install/NN-*.sh in order (only those in --steps when given)
+#  step_filter: the steps to run, comma-separated (empty: all): --steps, or with --addons-only (sudo ispgrid addon)
+#  only what an add-on change needs: no packages, FreeRADIUS, tunnels, backup script, firewall or self-test
+step_filter() {
+  if [[ -n "${OPT_ADDONS_ONLY:-}" ]]; then
+    echo 01,02,04,05,08,12
+  else
+    echo "${OPT_STEPS:-}"
+  fi
+}
+
+#  run_steps: source deploy/install/NN-*.sh in order (only those step_filter names)
 run_steps() {
-  local file name
+  local file name steps
+  steps=$(step_filter)
+  if [[ -n "${OPT_ADDONS_ONLY:-}" ]]; then
+    SELFTEST_RESULT="not run (add-on change)"
+  fi
   for file in "$ISPGRID_HOME"/deploy/install/[0-9][0-9]-*.sh; do
     name=$(basename "$file")
-    if [[ -n "${OPT_STEPS:-}" && ",$OPT_STEPS," != *",${name%%-*},"* ]]; then
+    if [[ -n "$steps" && ",$steps," != *",${name%%-*},"* ]]; then
       continue
     fi
     # shellcheck source=/dev/null
@@ -1170,6 +1193,25 @@ panel_rows() {
 
 #  ---- Bootstrap: get the code at the target version, then run that copy's installer ----
 
+#  addons_ready_for <release>: before anything changes, every installed add-on from the ISPGrid add-on list has a
+#  version for the release's series (otherwise the upgrade would stop halfway, in step 5). When the list can't be
+#  read the check is skipped: step 5 still checks each add-on's series.
+addons_ready_for() {
+  local dir file from out
+  from=${OPT_REGISTRY:-$(conf_get registry || true)}
+  from=${from:-$ISPGRID_REGISTRY_DEFAULT}
+  dir=$(mktemp -d)
+  if file=$(registry_fetch "$from" "$dir") && addons_php validate "$file"; then
+    if ! out=$(addons_php resolve "$ISPGRID_HOME/addons.json" "$file" "$(core_series "$1")" "" 2>&1 >/dev/null); then
+      rm -rf "$dir"
+      die "$(sed -n 's/^error //p' <<<"$out" | head -n 1)"
+    fi
+  else
+    say "The ISPGrid add-on list could not be read: add-on versions are checked in step 5 instead"
+  fi
+  rm -rf "$dir"
+}
+
 bootstrap() {
   local repo installed="" target tags depth=()
   exec 9>/run/ispgrid-install.lock
@@ -1208,6 +1250,10 @@ bootstrap() {
   fi
   if [[ -n "$installed" ]] && is_release_tag "$installed" && is_release_tag "$target" && version_gt "$installed" "$target"; then
     die "ISPGrid $installed is installed; $target is older. Downgrades are not supported."
+  fi
+  if is_release_tag "$target" && [[ -f "$ISPGRID_HOME/addons.json" && -f "$ISPGRID_HOME/deploy/install/addons.php" ]] &&
+    command -v php >/dev/null; then
+    addons_ready_for "$target"
   fi
   say "Installing ISPGrid $target${installed:+ (installed: $installed)}"
   clear_line
