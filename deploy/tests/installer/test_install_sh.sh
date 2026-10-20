@@ -488,6 +488,8 @@ check "resolve allows unlisted with flag" "$(json_norm "$(addons_php resolve "$t
 check "a branch of a listed add-on with the flag" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 ispgrid/ipdr@dev-master 2>/dev/null)")"   '{"ispgrid/ipdr":{"constraint":"dev-master","unlisted":true}}'
 check "a branch of a listed add-on without the flag" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@dev-master 2>&1 >/dev/null)"   "error ispgrid/ipdr has no version dev-master in the ISPGrid add-on list. To install it anyway, without review: --allow-unlisted"
 check "a listed version with the flag stays reviewed" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 ispgrid/ipdr@v0.1.0 2>/dev/null)")"   "{\"ispgrid/ipdr\":{\"version\":\"v0.1.0\",\"commit\":\"$c1\",\"pinned\":true}}"
+addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 acme/new >/dev/null 2>"$tmp/resolve.err"
+check "any-version warning names no version" "$(cat "$tmp/resolve.err")" "warn acme/new is not in the ISPGrid add-on list: its code was not reviewed"
 check "unlisted default constraint" "$(json_norm "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 1 acme/new 2>/dev/null)")" \
   '{"acme/new":{"constraint":"*","unlisted":true}}'
 check "resolve refuses a yanked version" "$(addons_php resolve "$tmp/addons-empty.json" "$reg" 0.1 0 ispgrid/ipdr@v0.1.1 2>&1 >/dev/null)" \

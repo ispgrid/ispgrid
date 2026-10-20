@@ -180,7 +180,8 @@ function resolve(array $addons, ?array $registry, string $series, bool $allowUnl
         $old = ! isset($entry['unlisted']) && isset($entry['constraint']);
         if (! empty($entry['unlisted']) || ($old && ! isset($registry[$name]))) {
             $addons[$name] = ['constraint' => (string) ($entry['constraint'] ?? '*'), 'unlisted' => true];
-            fwrite(STDERR, "warn $name {$addons[$name]['constraint']} is not in the ISPGrid add-on list: its code was not reviewed\n");
+            $shown = $addons[$name]['constraint'] === '*' ? $name : "$name {$addons[$name]['constraint']}";
+            fwrite(STDERR, "warn $shown is not in the ISPGrid add-on list: its code was not reviewed\n");
 
             continue;
         }

@@ -90,6 +90,13 @@ check "list: up to date" "$(ISPGRID_HOME=$home OPT_REGISTRY=$regrepo ispgrid_lis
 check "list: update available" "$(ISPGRID_HOME=$home OPT_REGISTRY=$regrepo ispgrid_list v0.2.0 | grep -c 'ispgrid/ipdr .*update v0.2.0 available')" 1
 printf '{"ispgrid/ipdr": {"version": "v0.1.0", "commit": "1111111111111111111111111111111111111111", "pinned": true}}\n' > "$home/addons.json"
 check "list: pinned" "$(ISPGRID_HOME=$home OPT_REGISTRY=$regrepo ispgrid_list v0.2.0 | grep -c 'ispgrid/ipdr .*pinned (newest: v0.2.0)')" 1
+printf '{"acme/gone": {"version": "v1.0.0", "commit": "%s", "pinned": false}}
+' 6666666666666666666666666666666666666666 > "$home/addons.json"
+printf '{"packages": [{"name": "acme/gone", "version": "v1.0.0"}]}
+' > "$home/vendor/composer/installed.json"
+check "list: dropped from the list" "$(ISPGRID_HOME=$home OPT_REGISTRY=$regrepo ispgrid_list v0.1.3 | grep -c 'acme/gone .*no longer listed: remove it with sudo ispgrid addon remove acme/gone')" 1
+printf '{"ispgrid/ipdr": {"version": "v0.1.0", "commit": "1111111111111111111111111111111111111111", "pinned": true}}
+' > "$home/addons.json"
 offline=$(ISPGRID_HOME=$home OPT_REGISTRY=$tmp/no-repo ispgrid_list v0.1.3 2>&1)
 check "list without the registry" "$(grep -c 'could not be read' <<<"$offline")" 1
 check "list without the registry still shows installed" "$(grep -c 'ispgrid/ipdr' <<<"$offline")" 1

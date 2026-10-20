@@ -95,7 +95,7 @@ ispgrid_list() {
     addon_valid "$name" || continue
     installed=$(addon_version "$ISPGRID_HOME/vendor/composer/installed.json" "$name" 2>/dev/null || true)
     installed=${installed:-$value}
-    who=""
+    who="" info=""
     status="not reviewed"
     if [[ -n "$registry" ]] && info=$(addons_php info "$registry" "$name"); then
       IFS='|' read -r official who _ <<<"$info"
@@ -103,6 +103,8 @@ ispgrid_list() {
     fi
     if [[ "$kind" == registry && -z "$registry" ]]; then
       status="reviewed"
+    elif [[ "$kind" == registry && -z "$info" ]]; then
+      status="no longer listed: remove it with sudo ispgrid addon remove $name"
     elif [[ "$kind" == registry ]]; then
       newest=$(addons_php pick "$registry" "$name" "$series" | cut -d' ' -f1 || true)
       local reason
