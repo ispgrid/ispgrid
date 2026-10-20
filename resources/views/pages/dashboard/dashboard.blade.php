@@ -15,7 +15,7 @@
     @endforeach
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach ($this->figureCards as $figure)
+        @foreach ($this->todayFigures as $figure)
             @if ($figure['href'])
                 <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
                     <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
@@ -28,6 +28,132 @@
                 </div>
             @endif
         @endforeach
+    </div>
+
+    @php($attention = $this->attention)
+    <div class="grid gap-4 lg:grid-cols-2">
+        @if ($attention['looping'] !== [])
+            <x-ui.card>
+                <x-ui.heading>{{ __('Logins stuck in a loop') }}</x-ui.heading>
+                <x-ui.text muted class="mt-1">{{ __('Refused 10 times or more today. Often an old password saved on a customer device.') }}</x-ui.text>
+                <ul class="mt-3 grid gap-1 text-sm">
+                    @foreach ($attention['looping'] as $login)
+                        <li class="flex justify-between gap-4" wire:key="looping-{{ $login['username'] }}">
+                            @if ($login['href'])
+                                <x-ui.link href="{{ $login['href'] }}" wire:navigate>{{ $login['username'] }}</x-ui.link>
+                            @else
+                                <span>{{ $login['username'] }}</span>
+                            @endif
+                            <span class="tabular-nums">{{ trans_choice(':count refusal|:count refusals', $login['count']) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
+        @endif
+
+        @if ($attention['quiet'] !== [])
+            <x-ui.card>
+                <x-ui.heading>{{ __('NAS gone quiet') }}</x-ui.heading>
+                <x-ui.text muted class="mt-1">{{ __('Nothing heard for 30 minutes from a NAS that had sessions in the last day.') }}</x-ui.text>
+                <ul class="mt-3 grid gap-1 text-sm">
+                    @foreach ($attention['quiet'] as $router)
+                        <li class="flex justify-between gap-4" wire:key="quiet-{{ $loop->index }}">
+                            <span class="font-medium">{{ $router['router'] }}</span>
+                            <span class="tabular-nums">{{ __('Last heard :time', ['time' => $router['last_heard']]) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
+        @endif
+
+        @if ($attention['messages'] > 0 || $attention['disconnects'] !== [])
+            <x-ui.card>
+                <x-ui.heading>{{ __('Failed messages and disconnects') }}</x-ui.heading>
+                @if ($attention['messages'] > 0)
+                    <p class="mt-3 text-sm">
+                        {{ trans_choice(':count message failed today.|:count messages failed today.', $attention['messages']) }}
+                        @can('view-notification-log')
+                            <x-ui.link href="{{ route('notification-log.index', ['status' => 'failed']) }}" wire:navigate>{{ __('Open the message log') }}</x-ui.link>
+                        @endcan
+                    </p>
+                @endif
+                @if ($attention['disconnects'] !== [])
+                    <x-ui.text muted class="mt-3">{{ __('Could not disconnect, still online:') }}</x-ui.text>
+                    <ul class="mt-1 grid gap-1 text-sm">
+                        @foreach ($attention['disconnects'] as $disconnect)
+                            <li wire:key="disconnect-{{ $disconnect['username'] }}">
+                                @include('partials.dashboard-customer', ['row' => $disconnect])
+                                <span class="text-zinc-600 dark:text-zinc-400">{{ $disconnect['reason'] }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </x-ui.card>
+        @endif
+
+        @if ($attention['skipped'] !== [])
+            <x-ui.card>
+                <x-ui.heading>{{ __('Auto renewals that did not happen') }}</x-ui.heading>
+                <ul class="mt-3 grid gap-1 text-sm">
+                    @foreach ($attention['skipped'] as $skipped)
+                        <li wire:key="skipped-{{ $skipped['username'] }}">
+                            @include('partials.dashboard-customer', ['row' => $skipped])
+                            <span class="text-zinc-600 dark:text-zinc-400">{{ $skipped['reason'] }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
+        @endif
+
+        @if ($attention['overLimit'] !== [])
+            <x-ui.card>
+                <x-ui.heading>{{ __('Over the monthly data limit') }}</x-ui.heading>
+                <ul class="mt-3 grid gap-1 text-sm">
+                    @foreach ($attention['overLimit'] as $over)
+                        <li class="flex justify-between gap-4" wire:key="over-{{ $over['username'] }}">
+                            @include('partials.dashboard-customer', ['row' => $over])
+                            <span class="tabular-nums">{{ __(':used of :limit this month', ['used' => $over['used'], 'limit' => $over['limit']]) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
+        @endif
+
+        @if ($attention['ranges'] !== [])
+            <x-ui.card>
+                <x-ui.heading>{{ __('IP ranges almost full') }}</x-ui.heading>
+                <ul class="mt-3 grid gap-1 text-sm">
+                    @foreach ($attention['ranges'] as $range)
+                        <li class="flex justify-between gap-4" wire:key="range-{{ $loop->index }}">
+                            <span class="font-medium">{{ $range['range'] }}</span>
+                            <span class="tabular-nums">{{ __(':used of :total given out', ['used' => $range['used'], 'total' => $range['total']]) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
+        @endif
+
+        @if ($attention['server'] !== null)
+            <x-ui.card>
+                <x-ui.heading>{{ __('Server') }}</x-ui.heading>
+                <dl class="mt-3 grid gap-1 text-sm">
+                    <div class="flex justify-between gap-4">
+                        <dt>{{ __('Last backup') }}</dt>
+                        <dd @class(['tabular-nums', 'font-medium text-red-700 dark:text-red-400' => $attention['server']['backup_late']])>
+                            {{ $attention['server']['backup_age_hours'] === null ? __('Never') : trans_choice(':count hour ago|:count hours ago', $attention['server']['backup_age_hours']) }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt>{{ __('Queue jobs waiting') }}</dt>
+                        <dd class="tabular-nums">{{ number_format($attention['server']['jobs_waiting']) }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt>{{ __('Queue jobs failed') }}</dt>
+                        <dd @class(['tabular-nums', 'font-medium text-red-700 dark:text-red-400' => $attention['server']['jobs_failed'] > 0])>{{ number_format($attention['server']['jobs_failed']) }}</dd>
+                    </div>
+                </dl>
+            </x-ui.card>
+        @endif
     </div>
 
     <x-ui.card>
