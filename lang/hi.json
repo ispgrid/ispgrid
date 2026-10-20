@@ -936,5 +936,11 @@
     "Connection": "कनेक्शन",
     "Change plan": "प्लान बदलें",
     "Advance renewal": "एडवांस रिन्यूअल",
-    "Auto renewal": "ऑटो रिन्यूअल"
+    "Auto renewal": "ऑटो रिन्यूअल",
+    "The plan :name was deleted; the advance renewal is cancelled": ":name प्लान डिलीट हो गया; एडवांस रिन्यूअल रद्द किया गया",
+    "The customer is :status": "ग्राहक :status है",
+    "The customer has no plan": "ग्राहक का कोई प्लान नहीं है",
+    "The plan :name was deleted": ":name प्लान डिलीट हो गया",
+    "The plan starts at the first login": "प्लान पहले लॉगिन से शुरू होता है",
+    "The plan ended too long ago; recharge by hand": "प्लान बहुत पहले खत्म हुआ; खुद रिचार्ज करें"
 }
