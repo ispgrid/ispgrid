@@ -89,9 +89,6 @@ Common options (all of them: `sudo bash install.sh --help`):
 | `--admin-email=EMAIL` | The first admin's login. The password is asked (hidden); with `--yes` it is generated and shown once. |
 | `--timezone=Asia/Kolkata` | The timezone for FreeRADIUS, MariaDB and the panel. |
 | `--version=vX.Y.Z` | The version to install. Default: the newest release. |
-| `--addon=ispgrid/ipdr` | Install an add-on, such as Session records (IPDR) for Indian ISPs. Upgrades keep it. |
-| `--remove-addon=ispgrid/ipdr` | Remove an add-on. Its data, such as its database, is kept. |
-| `--remove-addon=ispgrid/ipdr --delete-data` | Remove an add-on and delete its data (also for one removed earlier). The backup taken at the start of the run keeps a copy. |
 | `--yes` | Ask nothing and use the defaults. |
 
 Passkeys need the panel on HTTPS with a domain name (`--access=domain`); browsers do not offer them over plain HTTP.
@@ -153,6 +150,29 @@ Run the installer again. It takes a backup first, keeps your data and settings, 
 ```bash
 sudo /opt/ispgrid/deploy/install.sh --version=vX.Y.Z
 ```
+
+From v0.1.3, `sudo ispgrid upgrade --version=vX.Y.Z` does the same.
+
+## Add-ons
+
+Add-ons add features without changing ISPGrid itself, such as Session records (IPDR) for Indian ISPs or Customer
+documents. They are installed on the server, never from the panel (ISPGrid v0.1.3 or newer):
+
+```bash
+sudo ispgrid addon list                          # installed add-ons, updates, and what else is listed
+sudo ispgrid addon add ispgrid/ipdr              # the newest version for your ISPGrid
+sudo ispgrid addon add ispgrid/ipdr@v0.1.2       # hold one version
+sudo ispgrid addon update                        # move every add-on to its newest listed version
+sudo ispgrid addon remove ispgrid/ipdr           # its data, such as its database, is kept
+sudo ispgrid addon remove ispgrid/ipdr --delete-data   # also delete its data (the run's backup keeps a copy)
+```
+
+Each change takes a backup first and puts the panel in maintenance for a minute or two; customers stay online.
+Upgrades of ISPGrid move add-ons to their newest listed version too, unless you held one.
+
+A server installs only add-ons from the [ISPGrid add-on list](https://github.com/ispgrid/addons), at the exact commit
+that was reviewed before it was listed. `--allow-unlisted` installs one that is not listed (your own, or a branch):
+its code was not reviewed, and every run says so.
 
 ## Backups and restore
 
@@ -238,8 +258,8 @@ How the installer locks the server down:
 - **ufw opens only what is needed:** SSH, the panel (with `--access=local`, only to private networks), and RADIUS,
   the notice page and the WireGuard or L2TP tunnel for your NAS.
 
-So installing an add-on or upgrading needs root: use the installer (`--addon=...`, or run it again), not
-`composer` as the `ispgrid` user. Don't give `ispgrid` ownership of `/opt/ispgrid` to get around that: it removes the
+So installing an add-on or upgrading needs root: use `sudo ispgrid addon` or the installer, not `composer` as the
+`ispgrid` user. Don't give `ispgrid` ownership of `/opt/ispgrid` to get around that: it removes the
 protection, and a package added with Composer by hand is removed at the next upgrade anyway.
 
 ## Contributing

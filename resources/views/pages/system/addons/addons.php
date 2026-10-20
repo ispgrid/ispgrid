@@ -26,7 +26,7 @@ new #[Title('Add-ons')] class extends Component
     }
 
     /**
-     * The installed add-ons (read-only: add-ons are installed with the installer), each with its settings section
+     * The installed add-ons (read-only: add-ons are installed on the server with sudo ispgrid addon, never from the panel), each with its settings section
      * when it has one and this staff member may change it.
      *
      * @return list<array{key: string, name: string, package: string, version: string, description: string, status: string, color: string, settings: ?string}>

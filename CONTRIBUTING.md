@@ -121,8 +121,8 @@ example to copy.
   create only those, and the nightly backup dumps every one), create it in a migration, and list it in
   `extra.ispgrid.databases`, e.g. `"databases": ["ispgrid_ipdr"]`. Keep the migrations in `database/migrations`.
   The installer refuses a database or path that another add-on lists. When the add-on is removed, its data is kept;
-  `--remove-addon=vendor/pkg --delete-data` drops the listed databases, deletes the listed paths and removes its
-  migrations from core's `migrations` table, so installing it again starts fresh.
+  `sudo ispgrid addon remove vendor/pkg --delete-data` drops the listed databases, deletes the listed paths and
+  removes its migrations from core's `migrations` table, so installing it again starts fresh.
 - **Permissions:** register the box in the provider and insert its `permissions` row (guard `web`) in a migration.
   Its `implies` names the box it needs to be useful (usually a view box); ticking it on Roles ticks that box too,
   down the whole chain from core 0.1.2 (one step on older cores).
@@ -131,4 +131,10 @@ example to copy.
   `composer require vendor/pkg:@dev`. Do not commit the changed `composer.json` and `composer.lock`.
 - **Test:** `ISPGRID_ADDONS=on php vendor/bin/pest --test-directory=vendor/vendor/pkg/tests vendor/vendor/pkg/tests`.
   Core's own tests run with add-ons off.
-- **Install on a server:** `sudo bash install.sh --addon=vendor/pkg` (see `install.sh --help`).
+- **Install on a server:** `sudo ispgrid addon add vendor/pkg` (core 0.1.3 or newer). A branch, or an add-on that is
+  not listed yet: `sudo ispgrid addon add vendor/pkg@dev-BRANCH --allow-unlisted` (it warns that the code was not
+  reviewed). On older cores: `sudo /opt/ispgrid/deploy/install.sh --addon=vendor/pkg`.
+- **List your add-on:** servers install only add-ons in the [ISPGrid add-on list](https://github.com/ispgrid/addons).
+  Tag a release, then open a pull request there with `php bin/add-version vendor/pkg vX.Y.Z`. Its CI checks that
+  `require` lists only `php` and the license is MIT, BSD, Apache-2.0 or ISC; then the code is reviewed before it is
+  merged. Every new version comes in the same way, and a listed tag must never move.

@@ -1,7 +1,7 @@
 <section class="grid gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Add-ons') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ __('Add-ons are installed and removed with the installer. Each one keeps its settings here.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ __('Add-ons are installed and removed on the server with sudo ispgrid addon. Each one keeps its settings here.') }}</x-ui.text>
     </div>
 
     @forelse ($this->addons as $addon)
