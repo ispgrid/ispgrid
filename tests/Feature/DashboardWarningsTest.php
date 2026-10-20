@@ -176,3 +176,14 @@ it('shows what needs attention on the dashboard and hides the empty parts', func
         ->assertDontSee('IP ranges almost full')
         ->assertSee('Last backup');
 });
+
+it('links each customer named under needs attention', function () {
+    $account = Account::factory()->create(['username' => 'skipped_one']);
+    activity()->performedOn($account)->event('auto-renew-skipped')
+        ->withChanges(['old' => [], 'attributes' => ['reason' => 'The customer has no plan', 'expiry' => '2026-10-19 00:00']])->log('auto-renew-skipped');
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('Auto renewals that did not happen')
+        ->assertSee('The customer has no plan')
+        ->assertSeeHtml('href="'.route('customers.show', $account).'"');
+});
