@@ -1193,16 +1193,25 @@ panel_rows() {
 
 #  ---- Bootstrap: get the code at the target version, then run that copy's installer ----
 
-#  addons_ready_for <release>: before anything changes, every installed add-on from the ISPGrid add-on list has a
-#  version for the release's series (otherwise the upgrade would stop halfway, in step 5). When the list can't be
-#  read the check is skipped: step 5 still checks each add-on's series.
+#  addons_ready_for <target>: before the backup and the maintenance mode, the add-ons asked for (--addon) are in the
+#  ISPGrid add-on list at a version that can be installed, and every installed one has a version for the target's
+#  series (otherwise the run would stop halfway, in step 5, with the panel down). When the list can't be read the
+#  check is skipped: step 5 checks again.
 addons_ready_for() {
   local dir file from out
   from=${OPT_REGISTRY:-$(conf_get registry || true)}
   from=${from:-$ISPGRID_REGISTRY_DEFAULT}
   dir=$(mktemp -d)
   if file=$(registry_fetch "$from" "$dir") && addons_php validate "$file"; then
-    if ! out=$(addons_php resolve "$ISPGRID_HOME/addons.json" "$file" "$(core_series "$1")" "" 2>&1 >/dev/null); then
+    #  Add-ons being removed in this run do not count
+    printf '{}
+' > "$dir/addons.json"
+    if [[ -f "$ISPGRID_HOME/addons.json" ]]; then
+      php -r '$a = json_decode(file_get_contents($argv[1]), true) ?: [];
+        foreach (array_slice($argv, 3) as $spec) { unset($a[explode("@", $spec)[0]]); }
+        file_put_contents($argv[2], json_encode((object) $a));'         "$ISPGRID_HOME/addons.json" "$dir/addons.json" ${OPT_REMOVE_ADDONS[@]+"${OPT_REMOVE_ADDONS[@]}"}
+    fi
+    if ! out=$(addons_php resolve "$dir/addons.json" "$file" "$(install_series "$1")" "${OPT_ALLOW_UNLISTED:+1}"       ${OPT_ADDONS[@]+"${OPT_ADDONS[@]}"} 2>&1 >/dev/null); then
       rm -rf "$dir"
       die "$(sed -n 's/^error //p' <<<"$out" | head -n 1)"
     fi
@@ -1251,8 +1260,7 @@ bootstrap() {
   if [[ -n "$installed" ]] && is_release_tag "$installed" && is_release_tag "$target" && version_gt "$installed" "$target"; then
     die "ISPGrid $installed is installed; $target is older. Downgrades are not supported."
   fi
-  if is_release_tag "$target" && [[ -f "$ISPGRID_HOME/addons.json" && -f "$ISPGRID_HOME/deploy/install/addons.php" ]] &&
-    command -v php >/dev/null; then
+  if [[ -f "$ISPGRID_HOME/deploy/install/addons.php" ]] && command -v php >/dev/null; then
     addons_ready_for "$target"
   fi
   say "Installing ISPGrid $target${installed:+ (installed: $installed)}"

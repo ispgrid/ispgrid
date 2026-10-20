@@ -528,6 +528,10 @@ mkdir -p "$tmp/home/deploy/install"
 cp "$ADDONS_PHP" "$tmp/home/deploy/install/addons.php"
 cp "$tmp/addons-docs.json" "$tmp/home/addons.json"
 check "add-ons ready for 0.1" "$(ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf; addons_ready_for v0.1.9 2>&1 >/dev/null; echo "rc=$?")" "rc=0"
+check "a pulled-back version is refused before anything changes" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_ADDONS=(ispgrid/ipdr@v0.1.1); addons_ready_for addon-command) 3>&1 2>&1 | grep -c 'v0.1.1 was pulled back')" 1
+check "an unlisted add-on is refused before anything changes" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_ADDONS=(acme/new); addons_ready_for addon-command) 3>&1 2>&1 | grep -c 'allow-unlisted')" 1
+check "an unlisted add-on with the flag passes" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_ADDONS=(acme/new) OPT_ALLOW_UNLISTED=1; addons_ready_for addon-command) >/dev/null 3>&1 2>&1; echo "rc=$?")" "rc=0"
+check "an add-on being removed does not block" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf OPT_REMOVE_ADDONS=(ispgrid/documents); addons_ready_for v0.2.0) >/dev/null 3>&1 2>&1; echo "rc=$?")" "rc=0"
 check "add-ons not ready for 0.2" "$( (ISPGRID_HOME=$tmp/home OPT_REGISTRY=$regrepo ISPGRID_CONF=$tmp/none.conf; addons_ready_for v0.2.0) 3>&1 2>&1 | grep -c 'ispgrid/documents has no version for ISPGrid 0.2')" 1
 
 #  Which steps run: all, --steps, or with --addons-only the ones an add-on change needs
