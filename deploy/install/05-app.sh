@@ -168,8 +168,12 @@ if (( ${#addons[@]} > 0 )); then
     constraint=$value
     if [[ "$kind" == registry ]]; then
       is_release_tag "$value" && [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "addons.json has an add-on entry that is not valid: $line"
-      #  Before anything is downloaded: the tag still points at the commit that was reviewed
-      [[ "$(tag_commit "https://github.com/$name" "$value" || true)" == "$commit" ]] || addon_refuse "$name" "$value"
+      #  Before anything is downloaded: the tag still points at the commit that was reviewed. A tag that can't be read
+      #  (no internet, or a deleted tag) stops the run but keeps the add-on: only a different commit refuses it.
+      tagged=$(tag_commit "https://github.com/$name" "$value" || true)
+      [[ -n "$tagged" ]] ||
+        die "Could not read the tag $value of $name from https://github.com/$name (no internet, or the tag was deleted). Nothing was removed: run the command again later."
+      [[ "$tagged" == "$commit" ]] || addon_refuse "$name" "$value"
       constraint=${value#v}
       reviewed+=("$name $value $commit")
     fi
