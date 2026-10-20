@@ -77,6 +77,18 @@ it('names a router that had sessions in the last day and has been quiet for over
     expect(attention()->quietRouters())->toBe([['router' => 'quiet31 (10.9.0.31)', 'last_heard' => '20/10/2026 11:29']]);
 });
 
+it('keeps naming a NAS while its sessions stay open, from indexed lookups only', function () {
+    Nas::factory()->create(['shortname' => 'dead', 'nasname' => '10.9.0.70']);
+    Radacct::factory()->create(['nasipaddress' => '10.9.0.70', 'acctstarttime' => '2026-10-17 08:00:00', 'acctupdatetime' => '2026-10-17 09:00:00']);
+
+    DB::enableQueryLog();
+    $quiet = attention()->quietRouters();
+    $radacct = collect(DB::getQueryLog())->pluck('query')->filter(fn (string $query): bool => str_contains($query, 'radacct'));
+
+    expect($quiet)->toBe([['router' => 'dead (10.9.0.70)', 'last_heard' => '17/10/2026 09:00']])
+        ->and($radacct->filter(fn (string $query): bool => str_contains(strtolower($query), ' or ') || str_contains($query, 'acctupdatetime` >')))->toBeEmpty();
+});
+
 it('counts the messages that failed today', function () {
     NotificationLog::factory()->failed()->count(2)->create();
     NotificationLog::factory()->failed()->create(['created_at' => '2026-10-19 23:00:00']);
@@ -100,6 +112,18 @@ it('lists a failed disconnect from the last day while the session is still open'
     expect(attention()->failedDisconnects())->toBe([
         ['username' => 'stuck', 'reason' => 'No answer from 10.0.0.1', 'href' => route('customers.show', $stuck)],
     ]);
+});
+
+it('asks the session table only about the customers whose disconnect failed', function () {
+    Radacct::factory()->count(3)->create();
+    activity()->performedOn(Account::factory()->create(['username' => 'stuck']))->event('disconnect-failed')
+        ->withChanges(['old' => [], 'attributes' => ['reason' => 'No answer']])->log('disconnect-failed');
+
+    DB::enableQueryLog();
+    attention()->failedDisconnects();
+
+    expect(collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'radacct'))->pluck('bindings')->flatten()->all())
+        ->toContain('stuck');
 });
 
 it('lists an auto renewal skipped in the last 7 days until the customer is recharged', function () {
