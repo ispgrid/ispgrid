@@ -33,6 +33,7 @@ use App\Support\ExpiryCalculator;
 use App\Support\Hotspot;
 use App\Support\Ipv4Cidr;
 use App\Support\Money;
+use App\Support\PlanChoices;
 use App\Support\Units;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -43,6 +44,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -121,6 +123,16 @@ new #[Title('Customer')] class extends Component
             'address',
             'radiusAttributes',
         ])->findOrFail($this->accountId);
+    }
+
+    /**
+     * Re-read the customer after the Plan card changed them.
+     */
+    #[On('account-changed')]
+    public function refreshAccount(): void
+    {
+        unset($this->account, $this->service, $this->activities, $this->recharges);
+        $this->status = (string) $this->account->status_id->value;
     }
 
     /**
@@ -643,6 +655,7 @@ new #[Title('Customer')] class extends Component
         $this->reset('remark');
         unset($this->account, $this->service, $this->activities);
         $this->dispatch('modal-close', name: 'change-status');
+        $this->dispatch('account-changed')->to('pages::customers.plan-card');
         $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username)
             ? __('Status changed. The customer is disconnected so it applies now.')
             : __('Status changed.'));
@@ -680,17 +693,7 @@ new #[Title('Customer')] class extends Component
     #[Computed]
     public function rechargePlans(): array
     {
-        $money = Money::fromSettings();
-
-        return Plan::query()->orderBy('name')
-            ->when($this->account->service_type !== ServiceType::Hotspot, fn (Builder $query) => $query->where('hotspot_starts_at_first_login', false))
-            ->get()
-            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => __(':name (:validity, :price)', [
-                'name' => $plan->name,
-                'validity' => $plan->validityLabel(),
-                'price' => $money->format((string) $plan->price),
-            ])])
-            ->all();
+        return PlanChoices::for($this->account);
     }
 
     /**
@@ -717,8 +720,10 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * Opens the Recharge dialog with the customer's plan, the expiry it gives and its price.
+     * Opens the Recharge dialog with the customer's plan, the expiry it gives and its price. The Plan card's
+     * Recharge button asks for it with the open-recharge event.
      */
+    #[On('open-recharge')]
     public function openRecharge(): void
     {
         $this->authorize('recharge', $this->account);
@@ -803,6 +808,7 @@ new #[Title('Customer')] class extends Component
         unset($this->account, $this->service, $this->activities, $this->recharges);
         $this->status = (string) $this->account->status_id->value;
         $this->dispatch('modal-close', name: 'recharge');
+        $this->dispatch('account-changed')->to('pages::customers.plan-card');
 
         $message = $done->new_pending_validity !== null
             ? __('Recharged: :validity from the first login.', ['validity' => ValidityUnit::describeMinutes($done->new_pending_validity)])

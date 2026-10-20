@@ -70,6 +70,8 @@
     </x-ui.nav-tabs>
 
     @if ($this->activeTab === 'details')
+        <livewire:pages::customers.plan-card :account-id="$this->account->id" :key="'plan-card-'.$this->account->id" />
+
         <div class="grid gap-6 md:grid-cols-2">
             <x-ui.card>
                 <x-ui.heading>{{ __('Service') }}</x-ui.heading>
