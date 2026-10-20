@@ -34,7 +34,7 @@ ispgrid_installer_args() {
   local version=$1 action=${3:-} arg name=""
   local options=()
   if [[ "${2:-}" == upgrade ]]; then
-    printf '%s\n' "${@:3}"
+    for arg in "${@:3}"; do echo "$arg"; done
     return 0
   fi
   [[ "${2:-}" == addon && "$action" =~ ^(add|remove|update)$ ]] || return 2
@@ -65,7 +65,7 @@ ispgrid_installer_args() {
     add|update) if [[ -n "$name" ]]; then echo "--addon=$name"; fi ;;
     remove) echo "--remove-addon=$name" ;;
   esac
-  printf '%s\n' ${options[@]+"${options[@]}"}
+  for arg in ${options[@]+"${options[@]}"}; do echo "$arg"; done
 }
 
 #  ispgrid_list <installed version>: the installed add-ons and their state, then the listed ones not installed yet

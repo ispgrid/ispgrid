@@ -50,6 +50,8 @@ check "add takes one name" "$(args addon add ispgrid/ipdr ispgrid/documents)" " 
 check "remove takes no version" "$(args addon remove ispgrid/ipdr@v0.1.0)" " rc=1"
 check "delete-data only with remove" "$(args addon add ispgrid/ipdr --delete-data)" " rc=2"
 check "unknown command" "$(args addon frob)" " rc=2"
+check "no empty argument" "$(ispgrid_installer_args v0.1.3 addon remove ispgrid/ipdr | grep -c '^$')" 0
+check "no empty argument for upgrade" "$(ispgrid_installer_args v0.1.3 upgrade | grep -c '^$')" 0
 check "unknown top command" "$(args frob)" " rc=2"
 
 #  main: root only, and only on a server where ISPGrid is installed
