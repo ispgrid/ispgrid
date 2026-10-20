@@ -36,7 +36,7 @@ it('opens the tab named in the address, and Details for one that does not exist'
 it('switches to another tab', function () {
     Livewire::test('pages::customers.show', ['account' => Account::factory()->create()->id])
         ->set('tab', 'activity')
-        ->assertSee(__('Changes'))
+        ->assertSee(__('Period'))
         ->assertDontSee(__('Profile'));
 });
 

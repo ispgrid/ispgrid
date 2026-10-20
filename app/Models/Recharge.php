@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RechargeKind;
 use Database\Factories\RechargeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,10 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One recharge of an account: the plan, the expiry before and after (or the validity left waiting for the first
- * login), and who did it.
+ * One recharge of an account: its kind, the plan, the expiry before and after (or the validity left waiting for
+ * the first login), and who did it.
  */
-#[Fillable(['account_id', 'plan_id', 'old_expiry', 'new_expiry', 'new_pending_validity', 'amount', 'note', 'user_id'])]
+#[Fillable(['account_id', 'plan_id', 'kind', 'old_expiry', 'new_expiry', 'new_pending_validity', 'amount', 'note', 'user_id'])]
 class Recharge extends Model
 {
     /** @use HasFactory<RechargeFactory> */
@@ -28,6 +29,7 @@ class Recharge extends Model
             'new_expiry' => 'datetime',
             'new_pending_validity' => 'integer',
             'amount' => 'decimal:2',
+            'kind' => RechargeKind::class,
         ];
     }
 

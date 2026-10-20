@@ -4,6 +4,7 @@ namespace App\Actions\Customers;
 
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
+use App\Enums\RechargeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Exceptions\ExpiryChangedMeanwhile;
@@ -22,6 +23,8 @@ use InvalidArgumentException;
  * A recharge (spec section 5): records it, gives the customer the plan, the new expiry and a fresh usage period
  * (Isp-Usage-Since), makes an Inactive customer Active and rebuilds their FreeRADIUS rows, all in one transaction,
  * and queues the recharge message. The caller queues the disconnect after the commit.
+ * The same for a change of plan, an advance renewal that starts and an auto renewal ($kind): each is recorded and
+ * logged as its kind, and every kind but a starting advance renewal moves a waiting one to the new expiry.
  * A first-login plan on a Hotspot customer whose clock is not running leaves its validity waiting for the first
  * login instead (hotspot_pending_validity, no expiry); FreeRADIUS starts it.
  */
@@ -32,21 +35,24 @@ final class RechargeAccount
      */
     public const DATE_FORMAT = 'Y-m-d H:i';
 
-    public function __construct(private SyncAccountToRadius $sync, private Notifier $notifier) {}
+    public function __construct(private SyncAccountToRadius $sync, private Notifier $notifier, private MoveWaitingRenewal $moveWaiting) {}
 
     /**
      * @param  ?CarbonInterface  $expiry  the new expiry; ignored when the validity waits for the first login
      * @param  ?string  $expectedExpiry  the expiryKey() the new expiry was computed from; null skips the check
+     * @param  ?int  $userId  who the recharge is recorded for (the staff member who booked an advance renewal);
+     *                        null means the logged-in user. The activity entry's causer is always the logged-in user
+     *                        (none: System).
      *
      * @throws ModelNotFoundException when the customer or the plan was deleted meanwhile
      * @throws ExpiryChangedMeanwhile when the customer's expiry is no longer $expectedExpiry
      * @throws FirstLoginPlanNeedsHotspot when a first-login plan is chosen for a PPPoE or IPoE customer
      */
-    public function handle(int $accountId, int $planId, ?CarbonInterface $expiry, string $amount, ?string $note, ?string $expectedExpiry = null): Recharge
+    public function handle(int $accountId, int $planId, ?CarbonInterface $expiry, string $amount, ?string $note, ?string $expectedExpiry = null, RechargeKind $kind = RechargeKind::Recharge, ?int $userId = null): Recharge
     {
         // Loaded inside the transaction: on a deadlock retry, a model updated by the rolled-back attempt would
         // look unchanged and skip its UPDATE while the sync still writes the new values.
-        return DB::transaction(function () use ($accountId, $planId, $expiry, $amount, $note, $expectedExpiry): Recharge {
+        return DB::transaction(function () use ($accountId, $planId, $expiry, $amount, $note, $expectedExpiry, $kind, $userId): Recharge {
             $account = Account::query()->with('plan')->lockForUpdate()->findOrFail($accountId);
 
             if ($expectedExpiry !== null && self::expiryKey($account) !== $expectedExpiry) {
@@ -71,7 +77,7 @@ final class RechargeAccount
             $oldStatus = $account->status_id;
             $newExpiry = $pending === null ? $expiry : null;
 
-            // One "Recharged" entry below says what changed; the model's own entry would repeat it.
+            // One entry below says what changed; the model's own entry would repeat it.
             $account->disableLogging();
             $account->update([
                 'plan_id' => $plan->id,
@@ -83,15 +89,20 @@ final class RechargeAccount
             ]);
             $this->sync->handle($account);
 
+            if ($kind !== RechargeKind::Advance) {
+                $this->moveWaiting->handle($account, $oldExpiry);
+            }
+
             $recharge = Recharge::query()->create([
                 'account_id' => $account->id,
                 'plan_id' => $plan->id,
+                'kind' => $kind,
                 'old_expiry' => $oldExpiry,
                 'new_expiry' => $newExpiry,
                 'new_pending_validity' => $pending,
                 'amount' => $amount,
                 'note' => $note,
-                'user_id' => auth()->id(),
+                'user_id' => $userId ?? auth()->id(),
             ]);
 
             // Rows now, inside the transaction; the send jobs are queued after the commit.
@@ -99,12 +110,12 @@ final class RechargeAccount
 
             activity()
                 ->performedOn($account)
-                ->event('recharged')
+                ->event($kind->event())
                 ->withChanges([
                     'old' => ['plan' => $oldPlan, 'expiry' => self::expiryText($oldExpiry, $oldPending)],
                     'attributes' => ['plan' => $plan->name, 'expiry' => self::expiryText($newExpiry, $pending), 'amount' => $amount, 'note' => $note],
                 ])
-                ->log('recharged');
+                ->log($kind->event());
 
             if ($account->status_id !== $oldStatus) {
                 activity()

@@ -39,6 +39,18 @@ it('messages the customer when a recharge is saved', function () {
     Queue::assertPushed(SendNotification::class, 1);
 });
 
+it('messages the customer when they are auto renewed', function () {
+    auth()->logout();
+    NotificationRule::factory()->enabled()->create(['trigger' => 'recharge_done', 'trigger_settings' => [], 'values' => ['amount_paid']]);
+    $plan = Plan::factory()->create(['price' => 599]);
+    Account::factory()->create(['mobile' => '9876543210', 'plan_id' => $plan->id, 'auto_renew' => true, 'expiry' => now()->addMinutes(5)]);
+
+    $this->artisan('customers:renewals')->assertSuccessful();
+
+    expect(NotificationLog::query()->sole()->values)->toBe(['599.00']);
+    Queue::assertPushed(SendNotification::class, 1);
+});
+
 it('messages a customer staff add in the form, but not ones from an import', function () {
     NotificationRule::factory()->enabled()->create(['trigger' => 'customer_created', 'trigger_settings' => [], 'values' => ['username']]);
 
