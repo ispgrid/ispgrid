@@ -179,6 +179,19 @@ class Account extends Model
     }
 
     /**
+     * What the panel heads a customer with: the full name staff know them by, with the username under it, or the
+     * username alone when there is no name.
+     *
+     * @return array{name: string, login: ?string}
+     */
+    public function heading(): array
+    {
+        $name = trim((string) $this->fullname);
+
+        return $name === '' ? ['name' => $this->username, 'login' => null] : ['name' => $name, 'login' => $this->username];
+    }
+
+    /**
      * The advance renewal waiting for the current period to end, if any (at most one).
      *
      * @return HasOne<AdvanceRenewal, $this>

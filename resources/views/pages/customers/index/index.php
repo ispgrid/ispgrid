@@ -255,7 +255,7 @@ new #[Title('Customers')] class extends Component
     }
 
     /**
-     * @return list<array{id: int, username: string, online: bool, fullname: string, type: string, plan: ?string, status: string, color: string, expiry: ?string, pending: bool, expired: bool, router: ?string, trashed: bool}>
+     * @return list<array{id: int, username: string, name: string, login: ?string, online: bool, type: string, plan: ?string, status: string, color: string, expiry: ?string, pending: bool, expired: bool, router: ?string, trashed: bool}>
      */
     #[Computed]
     public function rows(): array
@@ -268,8 +268,8 @@ new #[Title('Customers')] class extends Component
         return $accounts->map(fn (Account $account): array => [
             'id' => $account->id,
             'username' => $account->username,
+            ...$account->heading(),
             'online' => isset($online[$account->username]),
-            'fullname' => $account->fullname,
             'type' => $account->service_type->label(),
             'plan' => $account->plan?->name,
             'status' => $account->status_id->label(),

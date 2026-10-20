@@ -47,11 +47,13 @@
                     @if ($row['online'])
                         <span class="me-1 inline-block size-2 rounded-full bg-green-500 align-middle" title="{{ __('Online') }}"><span class="sr-only">{{ __('Online') }}</span></span>
                     @endif
-                    <x-ui.link href="{{ route('customers.show', $row['id']) }}" wire:navigate class="font-medium">{{ $row['username'] }}</x-ui.link>
+                    <x-ui.link href="{{ route('customers.show', $row['id']) }}" wire:navigate class="font-medium">{{ $row['name'] }}</x-ui.link>
                     @if ($row['trashed'])
                         <x-ui.badge class="ms-2">{{ __('Deleted') }}</x-ui.badge>
                     @endif
-                    <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ $row['fullname'] }}</span>
+                    @if ($row['login'] !== null)
+                        <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ $row['login'] }}</span>
+                    @endif
                 </x-ui.td>
                 <x-ui.td>{{ $row['type'] }}</x-ui.td>
                 <x-ui.td>{{ $row['plan'] ?? __('None') }}</x-ui.td>

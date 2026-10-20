@@ -149,6 +149,17 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * The full name with the username under it, or the username alone.
+     *
+     * @return array{name: string, login: ?string}
+     */
+    #[Computed]
+    public function heading(): array
+    {
+        return $this->account->heading();
+    }
+
+    /**
      * Re-read the customer after the Plan card changed them.
      */
     #[On('account-changed')]
