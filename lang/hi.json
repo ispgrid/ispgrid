@@ -1026,5 +1026,15 @@
     "Show more": "और दिखाएं",
     "Last 7 days": "पिछले 7 दिन",
     "Last 30 days": "पिछले 30 दिन",
-    "Dates": "तारीखें"
+    "Dates": "तारीखें",
+    "Expiring": "समाप्त होने वाले",
+    "Also showing only:": "केवल ये भी दिखा रहे हैं:",
+    "Clear": "हटाएँ",
+    "Any expiry": "कोई भी समाप्ति",
+    "Expiring today": "आज समाप्त हो रहे",
+    "Expired in the last 7 days": "पिछले 7 दिनों में समाप्त",
+    "Without a renewal": "बिना नवीनीकरण के",
+    "New today": "आज नए",
+    "New this month": "इस महीने नए",
+    "Renewed today": "आज नवीनीकृत"
 }

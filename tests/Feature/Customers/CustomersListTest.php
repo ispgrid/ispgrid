@@ -3,13 +3,17 @@
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Models\Account;
+use App\Models\AdvanceRenewal;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\Nas;
 use App\Models\Plan;
+use App\Models\Radacct;
+use App\Models\Recharge;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -79,7 +83,7 @@ it('shows the customers who expire within seven days', function () {
     Account::factory()->expired()->create(['username' => 'gone']);
 
     Livewire::test('pages::customers.index')
-        ->set('expiring', true)
+        ->set('expiring', '1')
         ->assertSee('soon')
         ->assertDontSee('later')
         ->assertDontSee('gone');
@@ -111,7 +115,7 @@ it('lists only expired customers when asked', function () {
     Account::factory()->create(['username' => 'paidup', 'expiry' => '2026-11-01 00:00:00']);
 
     Livewire::test('pages::customers.index')
-        ->set('expired', true)
+        ->set('expired', '1')
         ->assertSee('lapsed')
         ->assertDontSee('paidup');
 });
@@ -128,6 +132,74 @@ it('shows a validity waiting for the first login as not started, never as expire
     Account::factory()->hotspotPending(180)->create(['username' => 'waiting1']);
 
     Livewire::test('pages::customers.index')->assertSee('Not started');
-    Livewire::test('pages::customers.index')->set('expired', true)->assertDontSee('waiting1');
-    Livewire::test('pages::customers.index')->set('expiring', true)->assertDontSee('waiting1');
+    Livewire::test('pages::customers.index')->set('expired', '1')->assertDontSee('waiting1');
+    Livewire::test('pages::customers.index')->set('expiring', '1')->assertDontSee('waiting1');
+});
+
+/**
+ * The usernames the list shows with these filters (from the address, as a dashboard link opens it).
+ *
+ * @param  array<string, string>  $filters
+ * @return list<string>
+ */
+function listedUsernames(array $filters): array
+{
+    $component = Livewire::withQueryParams($filters)->test('pages::customers.index');
+
+    return collect($component->instance()->rows)->pluck('username')->sort()->values()->all();
+}
+
+it('narrows the list the way each dashboard number counts', function (array $filters, array $expected) {
+    $this->travelTo(Carbon::parse('2026-10-20 12:00:00'));
+    $plan = Plan::factory()->create();
+    Account::factory()->create(['username' => 'today_end', 'expiry' => '2026-10-20 23:00:00', 'created_at' => '2026-09-01 10:00:00']);
+    Account::factory()->create(['username' => 'week_end', 'expiry' => '2026-10-26 10:00:00', 'auto_renew' => true, 'created_at' => '2026-09-01 10:00:00']);
+    $booked = Account::factory()->create(['username' => 'booked', 'expiry' => '2026-10-25 10:00:00', 'created_at' => '2026-09-01 10:00:00']);
+    AdvanceRenewal::factory()->for($booked)->create(['plan_id' => $plan->id]);
+    Account::factory()->create(['username' => 'lapsed_recent', 'expiry' => '2026-10-15 10:00:00', 'created_at' => '2026-09-01 10:00:00']);
+    Account::factory()->create(['username' => 'lapsed_old', 'expiry' => '2026-09-01 10:00:00', 'created_at' => '2026-09-01 10:00:00']);
+    Account::factory()->inactive()->create(['username' => 'new_today', 'expiry' => null, 'created_at' => '2026-10-20 09:00:00']);
+    Account::factory()->suspended()->create(['username' => 'paused', 'expiry' => '2026-12-01 00:00:00', 'created_at' => '2026-10-02 09:00:00',
+        'ip_id' => Ip::factory()->create()->id]);
+    $renewed = Account::factory()->create(['username' => 'renewed', 'expiry' => '2026-11-19 12:00:00', 'created_at' => '2026-09-01 10:00:00']);
+    Recharge::factory()->for($renewed)->create(['created_at' => '2026-10-20 08:00:00']);
+    Account::factory()->create(['username' => 'ended', 'status_id' => AccountStatus::Terminated, 'expiry' => '2026-12-01 00:00:00', 'created_at' => '2026-09-01 10:00:00']);
+
+    expect(listedUsernames($filters))->toBe($expected);
+})->with([
+    'expiring within 7 days (old links)' => [['expiring' => '1'], ['booked', 'today_end', 'week_end']],
+    'expiring today' => [['expiring' => 'today'], ['today_end']],
+    'without a renewal' => [['expiring' => '1', 'norenewal' => '1'], ['today_end']],
+    'expired (old links)' => [['expired' => '1'], ['lapsed_old', 'lapsed_recent']],
+    'expired in the last 7 days' => [['expired' => '7'], ['lapsed_recent']],
+    'disabled' => [['disabled' => '1'], ['new_today', 'paused']],
+    'new today' => [['created' => 'today'], ['new_today']],
+    'new this month' => [['created' => 'month'], ['new_today', 'paused']],
+    'renewed today' => [['renewed' => '1'], ['renewed']],
+    'static IP' => [['staticip' => '1'], ['paused']],
+]);
+
+it('shows a green dot for a customer who is online, from one query for the page', function () {
+    Account::factory()->create(['username' => 'online_one']);
+    Account::factory()->create(['username' => 'offline_one']);
+    Radacct::factory()->create(['username' => 'online_one']);
+    Radacct::factory()->closed()->create(['username' => 'offline_one']);
+
+    DB::enableQueryLog();
+    $component = Livewire::test('pages::customers.index');
+    $radacctQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'radacct'))->count();
+
+    $rows = collect($component->instance()->rows)->keyBy('username');
+    expect($rows['online_one']['online'])->toBeTrue()
+        ->and($rows['offline_one']['online'])->toBeFalse()
+        ->and($radacctQueries)->toBe(1);
+    $component->assertSeeHtml('title="Online"');
+});
+
+it('names a filter that has no control of its own and lets staff clear it', function () {
+    Livewire::withQueryParams(['norenewal' => '1'])->test('pages::customers.index')
+        ->assertSee('Without a renewal')
+        ->call('clearExtraFilters')
+        ->assertSet('norenewal', false)
+        ->assertDontSee('Without a renewal');
 });
