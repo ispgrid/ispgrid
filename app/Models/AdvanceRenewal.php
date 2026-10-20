@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * A renewal booked in advance: it waits until the customer's current period ends, then starts as a recharge
  * (customers:renewals). Its start always follows the customer's expiry.
  */
-#[Fillable(['account_id', 'plan_id', 'amount', 'starts_at', 'expiry', 'note', 'user_id', 'status', 'recharge_id'])]
+#[Fillable(['account_id', 'plan_id', 'amount', 'starts_at', 'expiry', 'note', 'user_id', 'status', 'recharge_id', 'invoice_id'])]
 class AdvanceRenewal extends Model
 {
     /** @use HasFactory<AdvanceRenewalFactory> */
@@ -56,5 +56,15 @@ class AdvanceRenewal extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The invoice issued for it, if any.
+     *
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 }

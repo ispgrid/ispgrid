@@ -1056,5 +1056,18 @@
     "Last backup": "आखिरी बैकअप",
     ":count hour ago|:count hours ago": ":count घंटे पहले|:count घंटे पहले",
     "Queue jobs waiting": "कतार में प्रतीक्षारत जॉब",
-    "Queue jobs failed": "कतार में विफल जॉब"
+    "Queue jobs failed": "कतार में विफल जॉब",
+    "Unpaid": "बकाया",
+    "Partly paid": "आंशिक भुगतान",
+    "Paid": "भुगतान हो गया",
+    "Cancelled": "रद्द",
+    "Manual": "मैन्युअल",
+    "Billing": "बिलिंग",
+    "Billing settings and payment methods": "बिलिंग सेटिंग्स और भुगतान के तरीके",
+    "Free customers, discounts and place of supply": "मुफ़्त ग्राहक, छूट और आपूर्ति का स्थान",
+    "View invoices and payments": "इनवॉइस और भुगतान देखें",
+    "Create invoices": "इनवॉइस बनाएँ",
+    "Record and remove payments": "भुगतान दर्ज करें और हटाएँ",
+    "Cancel invoices": "इनवॉइस रद्द करें",
+    "View sales": "बिक्री देखें"
 }

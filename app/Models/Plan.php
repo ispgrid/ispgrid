@@ -19,6 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * A service plan. Its slug is the FreeRADIUS group name and never changes.
  */
 #[Fillable(['slug', 'name', 'validity', 'validity_unit', 'hotspot_starts_at_first_login', 'description', 'price',
+    'charge_tax', 'round_off', 'item_code',
     'upload', 'download', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
     'burst_time', 'priority', 'min_upload', 'min_download',
     'is_fup', 'limit_after', 'fup_upload', 'fup_download',
@@ -37,6 +38,8 @@ class Plan extends Model
      */
     protected $attributes = [
         'validity_unit' => 'days',
+        'charge_tax' => true,
+        'round_off' => false,
         'hotspot_starts_at_first_login' => false,
         'is_fup' => false,
         'slot_full_days' => false,
@@ -50,6 +53,7 @@ class Plan extends Model
     {
         return LogOptions::defaults()->logOnly([
             'slug', 'name', 'validity', 'validity_unit', 'hotspot_starts_at_first_login', 'description', 'price',
+            'charge_tax', 'round_off', 'item_code',
             'upload', 'download', 'burst_upload', 'burst_download', 'threshold_upload', 'threshold_download',
             'burst_time', 'priority', 'min_upload', 'min_download',
             'is_fup', 'limit_after', 'fup_upload', 'fup_download',
@@ -69,6 +73,8 @@ class Plan extends Model
             'validity_unit' => ValidityUnit::class,
             'hotspot_starts_at_first_login' => 'boolean',
             'price' => 'decimal:2',
+            'charge_tax' => 'boolean',
+            'round_off' => 'boolean',
             'burst_time' => 'integer',
             'priority' => 'integer',
             'is_fup' => 'boolean',

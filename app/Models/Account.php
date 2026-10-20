@@ -26,7 +26,8 @@ use Spatie\Activitylog\Support\LogOptions;
 #[Fillable(['username', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
     'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id',
     'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'hotspot_pending_validity', 'hotspot_first_login_at',
-    'usage_since', 'auto_renew', 'ip_id', 'pool_id', 'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
+    'usage_since', 'auto_renew', 'billing_free', 'discount_percent', 'payment_terms_days', 'billing_name',
+    'billing_address_id', 'place_of_supply', 'ip_id', 'pool_id', 'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
     'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
     'override_min_upload', 'override_min_download'])]
 class Account extends Model
@@ -46,6 +47,9 @@ class Account extends Model
         'override_plan' => false,
         'notifications_off' => false,
         'auto_renew' => false,
+        'billing_free' => false,
+        'discount_percent' => '0.00',
+        'payment_terms_days' => 0,
     ];
 
     /**
@@ -78,6 +82,9 @@ class Account extends Model
             'usage_since' => 'datetime',
             'override_plan' => 'boolean',
             'override_until' => 'datetime',
+            'billing_free' => 'boolean',
+            'discount_percent' => 'decimal:2',
+            'payment_terms_days' => 'integer',
             'auto_renew' => 'boolean',
             'notifications_off' => 'boolean',
             'mac_type' => 'integer',
@@ -132,6 +139,24 @@ class Account extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);
+    }
+
+    /**
+     * The address invoices are billed to, when it differs from the connection address.
+     *
+     * @return BelongsTo<Address, $this>
+     */
+    public function billingAddress(): BelongsTo
+    {
+        return $this->belongsTo(Address::class, 'billing_address_id');
+    }
+
+    /**
+     * @return HasMany<Invoice, $this>
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     /**
