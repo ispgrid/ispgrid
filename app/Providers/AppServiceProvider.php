@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Billing\Tax\IndiaGst;
+use App\Billing\Tax\NoTax;
+use App\Billing\Tax\SingleTax;
+use App\Billing\Tax\TaxSetups;
 use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\Passkey;
@@ -46,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(CustomerFormTabs::class);
         $this->app->singleton(CustomerCards::class);
         $this->app->singleton(CustomerTabs::class);
+        $this->app->singleton(TaxSetups::class, fn (): TaxSetups => new TaxSetups([new NoTax, new SingleTax, new IndiaGst]));
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
 
         $this->app->singleton(Permissions::class, function (): Permissions {

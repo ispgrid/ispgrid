@@ -1069,5 +1069,8 @@
     "Create invoices": "इनवॉइस बनाएँ",
     "Record and remove payments": "भुगतान दर्ज करें और हटाएँ",
     "Cancel invoices": "इनवॉइस रद्द करें",
-    "View sales": "बिक्री देखें"
+    "View sales": "बिक्री देखें",
+    "No tax": "कोई टैक्स नहीं",
+    "One tax (VAT, sales tax, ...)": "एक टैक्स (VAT, सेल्स टैक्स, ...)",
+    "India GST": "भारत GST"
 }
