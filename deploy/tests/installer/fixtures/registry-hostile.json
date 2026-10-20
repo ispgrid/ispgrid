@@ -1,0 +1,23 @@
+{
+    "schema": 1,
+    "addons": {
+        "ispgrid/documents": {
+            "description": "Customer documents",
+            "author": "ISPGrid",
+            "official": true,
+            "versions": {
+                "v0.1.0": { "commit": "zz;rm -rf /", "core": ["0.1"] }
+            }
+        },
+        "ispgrid/ipdr": {
+            "description": "Session records (IPDR)",
+            "author": "ISPGrid",
+            "official": true,
+            "versions": {
+                "v0.1.0": { "commit": "1111111111111111111111111111111111111111", "core": ["0.1"] },
+                "v0.1.1": { "commit": "2222222222222222222222222222222222222222", "core": ["0.1"], "yanked": "Broke the export" },
+                "v0.2.0": { "commit": "3333333333333333333333333333333333333333", "core": ["0.2"] }
+            }
+        }
+    }
+}

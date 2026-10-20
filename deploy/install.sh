@@ -13,6 +13,7 @@ ISPGRID_HOME="/opt/ispgrid"
 ISPGRID_CONF="/etc/ispgrid/install.conf"
 ISPGRID_LOG="/var/log/ispgrid-install.log"
 ISPGRID_BACKUPS="/var/backups/ispgrid"
+ISPGRID_REGISTRY_DEFAULT="https://github.com/ispgrid/addons.git"
 
 usage() {
   cat <<'EOF'
@@ -55,14 +56,19 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --yes                     ask nothing
   --verbose                 show every command's output (it always goes to /var/log/ispgrid-install.log)
   --skip-selftest           skip the FreeRADIUS self-test at the end (164 checks, about 3 minutes)
-  --addon=PACKAGE[@VERSION] install an add-on (repeatable), e.g. --addon=ispgrid/ipdr; later upgrades keep it
+  --addon=PACKAGE[@VERSION] install an add-on from the ISPGrid add-on list (repeatable), e.g. --addon=ispgrid/ipdr;
+                            @VERSION holds that version, otherwise upgrades move it to its newest listed version
+  --allow-unlisted          with --addon: install an add-on that is not in the ISPGrid add-on list (its code was
+                            not reviewed); @VERSION is then any Composer constraint, such as dev-BRANCH
   --remove-addon=PACKAGE    stop installing an add-on (repeatable); its data, such as its database, is kept
   --delete-data             with --remove-addon: also delete the add-on's databases and files (after the run's
                             backup), also for an add-on removed earlier
   --help                    this text
 
-Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --steps=NN,NN (run only these steps),
-and a branch name in --version.
+Development only: --repo=URL_OR_BUNDLE (default: the GitHub repository), --registry=URL_OR_PATH (the add-on list,
+default: github.com/ispgrid/addons), --steps=NN,NN (run only these steps), and a branch name in --version.
+Used by `sudo ispgrid addon`: --addons-only (only the steps an add-on change needs: no packages, FreeRADIUS,
+tunnels, firewall or self-test).
 EOF
 }
 
@@ -454,6 +460,24 @@ addon_db_owner() {
     foreach ($a as $name => $addon) {
       if ($name !== $argv[3] && in_array($argv[2], (array) ($addon["databases"] ?? []), true)) { echo $name, "\n"; }
     }' "$1" "$2" "$3"
+}
+#  The ISPGrid add-on list (github.com/ispgrid/addons): every add-on version a server may install, with the commit
+#  that was reviewed. deploy/install/addons.php reads it and addons.json; the helpers below fetch and compare.
+#  addons_php <args...>: runs deploy/install/addons.php (see its header for the commands)
+addons_php() { php "${ADDONS_PHP:-$ISPGRID_HOME/deploy/install/addons.php}" "$@"; }
+#  registry_fetch <repository URL or path> <dir>: clones the list into <dir>/registry and prints the path of its
+#  registry.json (git, like the code: no GitHub API and no cache, so a version pulled back a minute ago is seen)
+registry_fetch() {
+  git_remote clone -q --depth 1 "$1" "$2/registry" >/dev/null 2>&1 || return 1
+  [[ -f "$2/registry/registry.json" ]] || return 1
+  printf '%s\n' "$2/registry/registry.json"
+}
+#  tag_commit <repository URL or path> <tag>: the commit the tag points to (for an annotated tag, its commit)
+tag_commit() {
+  local refs
+  refs=$(git_remote ls-remote "$1" "refs/tags/$2" "refs/tags/$2^{}" 2>/dev/null) || return 1
+  awk -v tag="refs/tags/$2" '$2 == tag "^{}" { peeled = $1 } $2 == tag { plain = $1 }
+    END { commit = peeled ? peeled : plain; if (commit == "") exit 1; print commit }' <<<"$refs"
 }
 
 valid_cidr() {
@@ -866,6 +890,9 @@ parse_args() {
       --addon=*) OPT_ADDONS+=("${arg#*=}") ;;
       --remove-addon=*) OPT_REMOVE_ADDONS+=("${arg#*=}") ;;
       --delete-data) OPT_DELETE_DATA=1 ;;
+      --allow-unlisted) OPT_ALLOW_UNLISTED=1 ;;
+      --addons-only) OPT_ADDONS_ONLY=1 ;;
+      --registry=*) OPT_REGISTRY=${arg#*=} ;;
       -h|--help) OPT_HELP=1 ;;
       *) echo "Unknown option: $arg (see --help)" >&2; return 1 ;;
     esac
