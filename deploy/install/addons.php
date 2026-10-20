@@ -58,6 +58,7 @@ function registry(string $file): ?array
     foreach ($registry['addons'] as $name => $addon) {
         if (! preg_match(NAME_PATTERN, (string) $name) || ! is_array($addon) || ! plainText($addon['description'] ?? null)
             || ! plainText($addon['author'] ?? null) || ! is_bool($addon['official'] ?? null)
+            || ($addon['official'] && ! str_starts_with((string) $name, 'ispgrid/'))
             || ! is_array($addon['versions'] ?? null)) {
             return null;
         }

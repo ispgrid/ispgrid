@@ -445,6 +445,9 @@ check "pick exact version of another series" "$(exit_code addons_php pick "$reg"
 check "resolve refuses hostile registry values" "$(exit_code addons_php pick "$fx/registry-hostile.json" ispgrid/ipdr 0.1)" 6
 check "registry with an escape sequence refused" "$(exit_code addons_php yanked "$fx/registry-escape.json" ispgrid/ipdr v0.1.1)" 6
 check "registry valid" "$(exit_code addons_php validate "$reg")" 0
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $r["addons"]["acme/fake"] = $r["addons"]["ispgrid/documents"];
+  file_put_contents($argv[2], json_encode($r));' "$reg" "$tmp/registry-fake-official.json"
+check "official only for ispgrid/ add-ons" "$(exit_code addons_php validate "$tmp/registry-fake-official.json")" 6
 check "hostile registry not valid" "$(exit_code addons_php validate "$fx/registry-hostile.json")" 6
 check "missing registry not valid" "$(exit_code addons_php validate "$tmp/none.json")" 6
 check "yanked reason" "$(addons_php yanked "$reg" ispgrid/ipdr v0.1.1)" "Broke the export"
