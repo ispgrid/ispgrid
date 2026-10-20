@@ -66,8 +66,11 @@ A trigger is a kind of event rules can send on.
 
 ## Write an add-on
 
-An add-on is a Composer package that adds a feature without changing core. `ispgrid/ipdr` (Session records) is the
-example to copy.
+An add-on is a Composer package that adds a feature without changing core. Start from the
+[add-on template](https://github.com/ispgrid/addon-template), and follow the
+[guide](https://github.com/ispgrid/addons/blob/master/docs/creating-an-addon.md) (it also has an agent skill). This
+section is the API reference: what an add-on may use, and since which core version. `ispgrid/ipdr` (Session records)
+is a full example.
 
 - **composer.json:** `"extra": {"ispgrid": {"name": "Shown name", "core": ["0.1"], "providers": ["Vendor\Pkg\PkgServiceProvider"]}}`.
   Its `description` is shown on System, then Add-ons.
@@ -82,6 +85,9 @@ example to copy.
   `AppSetting::put()`, `ActivityFormatter::addEventLabel()`, the Livewire concerns `AuthorizesEveryRequest` and
   `ShowsToasts`, the `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core
   is internal and may change in any release.
+- **Views:** Livewire multi-file components and core's `x-ui.*` components (no Flux, no logic in Blade). Core builds
+  its CSS from its own views only, so a Tailwind class that core does not use has no CSS in an add-on view; menu and
+  button icons are the names in `App\Support\Heroicons`.
 - **Menu:** put your pages in the `addons` group ("Add-ons", between Notifications and System; hidden while empty):
   `new NavItem('addons', ...)`. A big add-on may register its own group with an order between 35 and 40.
 - **Settings:** register one Livewire component, `app(AddonSettings::class)->register('vendor/pkg', 'pkg::settings',
