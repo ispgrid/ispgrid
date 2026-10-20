@@ -80,3 +80,9 @@ it('charges tax on a new plan by default', function () {
 
     expect(Plan::query()->where('slug', 'home_25')->firstOrFail())->charge_tax->toBeTrue()->round_off->toBeFalse();
 });
+
+it('ignores a price written with an exponent while it is typed', function () {
+    turnInvoicingOn();
+
+    taxedPlanForm()->set('price', '1e3')->assertOk()->assertDontSee('Total GST (18%)');
+});

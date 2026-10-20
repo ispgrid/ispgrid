@@ -29,6 +29,23 @@ final class GstStates
     }
 
     /**
+     * "Delhi (07)" by code, for a select. PHP turns the codes 10 and up into integer keys; the select still sends
+     * the chosen code back as text.
+     *
+     * @return array<int|string, string>
+     */
+    public static function selectOptions(): array
+    {
+        $options = [];
+
+        foreach (self::STATES as [$code, $name]) {
+            $options[$code] = $name.' ('.$code.')';
+        }
+
+        return $options;
+    }
+
+    /**
      * @return list<string>
      */
     public static function codes(): array

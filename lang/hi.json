@@ -1169,5 +1169,6 @@
     "Invoices for this plan round the total to a whole amount.": "इस प्लान के इनवॉइस में कुल रक़म पूरे अंक में राउंड होती है।",
     "Leave empty to print the default from Billing settings.": "बिलिंग सेटिंग्स का डिफ़ॉल्ट छापने के लिए खाली छोड़ें।",
     "Price after tax: :total": "टैक्स के बाद क़ीमत: :total",
-    "Total :name (:rate%)": "कुल :name (:rate%)"
+    "Total :name (:rate%)": "कुल :name (:rate%)",
+    "Numbers that start again every year need {FY} in the format, or each year would print the same numbers.": "हर साल 1 से शुरू होने वाले नंबरों के फ़ॉर्मेट में {FY} चाहिए, नहीं तो हर साल वही नंबर छपेंगे।"
 }

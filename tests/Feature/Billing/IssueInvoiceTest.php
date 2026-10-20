@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Billing\IssueInvoice;
+use App\Billing\BillingSettings;
 use App\Billing\PaymentInput;
 use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
@@ -28,7 +29,7 @@ function customerInPrayagraj(array $attributes = []): Account
 
 function issue(Account $account, string $price = '99.00', ?PaymentInput $payment = null, string $date = '2026-10-20'): Invoice
 {
-    return app(IssueInvoice::class)->handle($account, billingDraft($account, $price), InvoiceKind::Recharge, CarbonImmutable::parse($date), $payment);
+    return app(IssueInvoice::class)->handle($account, billingLines($price), false, InvoiceKind::Recharge, CarbonImmutable::parse($date), $payment);
 }
 
 it('issues an invoice with the next number and the customer snapshot', function () {
@@ -114,7 +115,7 @@ it('records the payment taken when it was issued', function () {
 });
 
 it('marks an invoice with nothing to pay as paid', function () {
-    $invoice = app(IssueInvoice::class)->handle(customerInPrayagraj(), billingDraft(customerInPrayagraj(['username' => 'example3']), '500.00', discount: '100'), InvoiceKind::Recharge, now());
+    $invoice = app(IssueInvoice::class)->handle(customerInPrayagraj(), billingLines('500.00', discount: '100'), false, InvoiceKind::Recharge, now());
 
     expect($invoice->total)->toBe('0.00')
         ->and($invoice->status)->toBe(InvoiceStatus::Paid);
@@ -131,3 +132,17 @@ it('refuses to issue while invoicing is off', function () {
 
     issue(customerInPrayagraj());
 })->throws(InvoicingNotReady::class);
+
+it('rounds off the total when asked', function () {
+    $invoice = app(IssueInvoice::class)->handle(customerInPrayagraj(), billingLines('99.00'), true, InvoiceKind::Recharge, now());
+
+    expect([$invoice->total, $invoice->round_off])->toBe(['117.00', '0.18']);
+});
+
+it('works out the same breakdown the dialogs show', function () {
+    $account = customerInPrayagraj(['tax_id' => '27ABCDE1234F1Z5', 'place_of_supply' => '27']);
+    $draft = IssueInvoice::draft($account, billingLines('800.00', '10'), false, BillingSettings::current());
+
+    expect($draft->taxLines[0]->label())->toBe('IGST 18%')
+        ->and(issue($account, '8000.00')->taxLines->pluck('name')->all())->toBe(['IGST']);
+});

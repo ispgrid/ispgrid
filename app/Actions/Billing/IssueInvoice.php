@@ -5,9 +5,12 @@ namespace App\Actions\Billing;
 use App\Billing\AmountInWords;
 use App\Billing\BillingSettings;
 use App\Billing\CustomerSnapshot;
+use App\Billing\InvoiceCalculator;
 use App\Billing\InvoiceDraft;
 use App\Billing\InvoiceNumbers;
+use App\Billing\LineInput;
 use App\Billing\PaymentInput;
+use App\Billing\Tax\TaxContext;
 use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
 use App\Exceptions\InvoicingNotReady;
@@ -18,17 +21,34 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Issues an invoice from a worked-out draft: takes the next number of the issue date's series, copies the company,
- * the customer and the amounts into it, and records the payment taken at the same time. It joins the caller's
- * transaction, so a recharge and its invoice are saved together or not at all.
+ * Issues an invoice: works out its amounts from the lines with the customer's own place of supply, takes the next
+ * number of the issue date's series, copies the company, the customer and the amounts into it, and records the
+ * payment taken at the same time. It joins the caller's transaction, so a recharge and its invoice are saved
+ * together or not at all.
  */
 final class IssueInvoice
 {
     public function __construct(private readonly RecordPayment $recordPayment) {}
 
+    /**
+     * The amounts an invoice for these lines would have, as the recharge dialogs show them before issuing.
+     *
+     * @param  list<LineInput>  $lines
+     */
+    public static function draft(Account $account, array $lines, bool $roundOff, BillingSettings $settings): InvoiceDraft
+    {
+        $context = new TaxContext(CustomerSnapshot::of($account, $settings)['place_of_supply']);
+
+        return (new InvoiceCalculator)->calculate($lines, $settings->tax(), $settings->taxConfig, $context, $settings->pricesIncludeTax, $roundOff, $settings->decimals);
+    }
+
+    /**
+     * @param  list<LineInput>  $lines
+     */
     public function handle(
         Account $account,
-        InvoiceDraft $draft,
+        array $lines,
+        bool $roundOff,
         InvoiceKind $kind,
         CarbonInterface $issueDate,
         ?PaymentInput $payment = null,
@@ -42,6 +62,8 @@ final class IssueInvoice
         if (! $settings->canIssue()) {
             throw new InvoicingNotReady('Invoicing is off or the company details are not filled in.');
         }
+
+        $draft = self::draft($account, $lines, $roundOff, $settings);
 
         return DB::transaction(function () use ($settings, $account, $draft, $kind, $issueDate, $payment, $periodFrom, $periodTo, $validityText, $rechargeId): Invoice {
             $number = (new InvoiceNumbers($settings))->next($issueDate);

@@ -14,6 +14,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
@@ -29,7 +30,7 @@ function unpaidInvoice(): Invoice
 {
     $account = Account::factory()->create();
 
-    return app(IssueInvoice::class)->handle($account, billingDraft($account, '500.00'), InvoiceKind::Manual, now());
+    return app(IssueInvoice::class)->handle($account, billingLines('500.00'), false, InvoiceKind::Manual, now());
 }
 
 function pay(Invoice $invoice, string $amount, string $method = 'Cash'): Payment
@@ -109,3 +110,9 @@ it('takes no payment for a cancelled invoice', function () {
 
     pay($invoice, '10.00');
 })->throws(PaymentExceedsBalance::class);
+
+it('refuses a payment method that was turned off', function () {
+    PaymentMethod::query()->where('name', 'Cheque')->update(['active' => false]);
+
+    pay(unpaidInvoice(), '100.00', 'Cheque');
+})->throws(ModelNotFoundException::class);

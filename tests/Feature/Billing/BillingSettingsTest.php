@@ -69,3 +69,13 @@ it('offers India GST only for India', function () {
         ->and($setups->get('india-gst')->invoiceTitle())->toBe('TAX INVOICE')
         ->and($setups->get('none')->invoiceTitle())->toBe('INVOICE');
 });
+
+it('rounds invoices to two decimals at most', function () {
+    AppSetting::put('currency_decimals', '3');
+
+    expect(BillingSettings::current()->decimals)->toBe(2);
+
+    AppSetting::put('currency_decimals', '0');
+
+    expect(BillingSettings::current()->decimals)->toBe(0);
+});

@@ -56,7 +56,7 @@ final class InvoiceNumbers
         InvoiceCounter::query()->firstOrCreate(['series' => $series], ['next_number' => 1]);
         $counter = InvoiceCounter::query()->where('series', $series)->lockForUpdate()->firstOrFail();
 
-        $sequence = max($counter->next_number, $this->highestUsed($series) + 1);
+        $sequence = $this->firstFree($issueDate, max($counter->next_number, $this->highestUsed($series) + 1));
         $counter->update(['next_number' => $sequence + 1]);
 
         return ['number' => $this->format($issueDate, $sequence), 'series' => $series, 'sequence' => $sequence];
@@ -70,7 +70,7 @@ final class InvoiceNumbers
         $series = $this->seriesKey($date);
         $counter = InvoiceCounter::query()->where('series', $series)->value('next_number');
 
-        return $this->format($date, max((int) ($counter ?? 1), $this->highestUsed($series) + 1));
+        return $this->format($date, $this->firstFree($date, max((int) ($counter ?? 1), $this->highestUsed($series) + 1)));
     }
 
     /**
@@ -86,6 +86,19 @@ final class InvoiceNumbers
         }
 
         InvoiceCounter::query()->updateOrCreate(['series' => $series], ['next_number' => $number]);
+    }
+
+    /**
+     * The first number from here whose printed form no invoice has yet. Another series can print the same text
+     * (numbering switched to restart yearly, or a format without {FY}), and invoice numbers are unique.
+     */
+    private function firstFree(CarbonInterface $date, int $sequence): int
+    {
+        while (Invoice::query()->where('number', $this->format($date, $sequence))->exists()) {
+            $sequence++;
+        }
+
+        return $sequence;
     }
 
     private function highestUsed(string $series): int

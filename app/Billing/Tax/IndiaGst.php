@@ -49,7 +49,7 @@ final class IndiaGst implements TaxSetup
     public function configRules(): array
     {
         return [
-            'tax.rate' => ['required', 'numeric', 'between:0,100', 'decimal:0,3'],
+            'tax.rate' => ['required', 'numeric', 'between:0,100', 'decimal:0,2'],
             'tax.state' => ['required', Rule::in(GstStates::codes())],
             'tax.item_code' => ['nullable', 'string', 'max:20', 'regex:/^[0-9A-Za-z]*$/'],
         ];

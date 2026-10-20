@@ -110,3 +110,11 @@ it('never reuses a number when the counter is behind the invoices', function () 
 
     expect(nextNumber('2026-10-20')['number'])->toBe('INV-8');
 });
+
+it('skips a number already printed in another series', function () {
+    numbering('INV/{FY}/{N}');
+    Invoice::factory()->create(['number' => 'INV/26-27/1', 'series' => 'all', 'sequence' => 1]);
+    numbering('INV/{FY}/{N}', restart: true, start: 4);
+
+    expect(nextNumber('2026-10-20'))->toBe(['number' => 'INV/26-27/2', 'series' => '2026-27', 'sequence' => 2]);
+});

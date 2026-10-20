@@ -187,7 +187,12 @@ new #[Title('Billing')] class extends Component
             'terms' => ['nullable', 'string', 'max:4000'],
             'show_signature' => ['boolean'],
             'logo' => ['nullable', 'file', 'mimetypes:image/png,image/jpeg', 'max:200'],
-            'numbering_format' => ['required', 'string', 'max:40', 'regex:/\{N\}/', 'regex:/^[A-Za-z0-9{}\/\-_.]+$/'],
+            'numbering_format' => ['required', 'string', 'max:40', 'regex:/\{N\}/', 'regex:/^[A-Za-z0-9{}\/\-_.]+$/',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if ($this->restart_yearly && ! str_contains((string) $value, '{FY}')) {
+                        $fail(__('Numbers that start again every year need {FY} in the format, or each year would print the same numbers.'));
+                    }
+                }],
             'number_digits' => ['required', 'integer', 'between:0,10'],
             'next_number' => ['nullable', 'integer', 'between:1,999999999'],
             'restart_yearly' => ['boolean'],
@@ -231,14 +236,6 @@ new #[Title('Billing')] class extends Component
             : null;
 
         DB::transaction(function () use ($logo): void {
-            if ($this->next_number !== '') {
-                try {
-                    app(InvoiceNumbers::class)->setNext((int) $this->next_number);
-                } catch (InvalidArgumentException $exception) {
-                    throw ValidationException::withMessages(['next_number' => $exception->getMessage()]);
-                }
-            }
-
             foreach ($this->settingValues() as $key => $value) {
                 AppSetting::put("billing.{$key}", $value);
             }
@@ -247,9 +244,16 @@ new #[Title('Billing')] class extends Component
                 AppSetting::put('billing.logo', $logo);
             }
 
-            foreach ($this->method_names as $id => $name) {
-                PaymentMethod::query()->whereKey($id)->update(['name' => trim($name)]);
+            // After the numbering above is saved, so the number goes to the series it now uses.
+            if ($this->next_number !== '') {
+                try {
+                    app(InvoiceNumbers::class)->setNext((int) $this->next_number);
+                } catch (InvalidArgumentException $exception) {
+                    throw ValidationException::withMessages(['next_number' => $exception->getMessage()]);
+                }
             }
+
+            $this->saveMethodNames();
         }, attempts: 3);
 
         $this->reset('logo', 'next_number');
@@ -372,13 +376,7 @@ new #[Title('Billing')] class extends Component
     #[Computed]
     public function gstStates(): array
     {
-        $states = [];
-
-        foreach (GstStates::options() as $state) {
-            $states[$state['code']] = $state['name'].' ('.$state['code'].')';
-        }
-
-        return $states;
+        return GstStates::selectOptions();
     }
 
     /**
@@ -490,6 +488,27 @@ new #[Title('Billing')] class extends Component
             'prices_include_tax' => $this->prices_include_tax ? '1' : '0',
             'default_terms_days' => (string) (int) $this->default_terms_days,
         ];
+    }
+
+    /**
+     * Renames in two steps (a placeholder first), so two methods can swap names without tripping the unique name.
+     */
+    private function saveMethodNames(): void
+    {
+        $changed = [];
+
+        foreach (PaymentMethod::query()->whereKey(array_keys($this->method_names))->get() as $method) {
+            $name = trim($this->method_names[$method->id]);
+
+            if ($name !== $method->name) {
+                $changed[$method->id] = $name;
+                $method->update(['name' => '#'.$method->id.' '.Str::random(8)]);
+            }
+        }
+
+        foreach ($changed as $id => $name) {
+            PaymentMethod::query()->whereKey($id)->update(['name' => $name]);
+        }
     }
 
     private function loadMethodNames(): void

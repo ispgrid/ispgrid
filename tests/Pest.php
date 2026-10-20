@@ -1,14 +1,8 @@
 <?php
 
 use App\Actions\Import\RowError;
-use App\Billing\BillingSettings;
-use App\Billing\CustomerSnapshot;
-use App\Billing\InvoiceCalculator;
-use App\Billing\InvoiceDraft;
 use App\Billing\LineInput;
-use App\Billing\Tax\TaxContext;
 use App\Enums\Permission;
-use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\RadiusSetting;
 use App\Models\Role;
@@ -130,15 +124,11 @@ function turnInvoicingOn(string $country = 'IN', string $taxSetup = 'india-gst',
 }
 
 /**
- * An invoice draft for this customer with the saved Billing settings: one taxed line at this price.
+ * One taxed invoice line at this price.
+ *
+ * @return list<LineInput>
  */
-function billingDraft(Account $account, string $price, string $quantity = '1', string $discount = '0'): InvoiceDraft
+function billingLines(string $price, string $quantity = '1', string $discount = '0'): array
 {
-    $settings = BillingSettings::current();
-    $snapshot = CustomerSnapshot::of($account, $settings);
-
-    return (new InvoiceCalculator)->calculate(
-        [new LineInput('Plan', null, null, $quantity, $price, $discount, true)],
-        $settings->tax(), $settings->taxConfig, new TaxContext($snapshot['place_of_supply']), $settings->pricesIncludeTax, false, $settings->decimals,
-    );
+    return [new LineInput('Plan', null, null, $quantity, $price, $discount, true)];
 }

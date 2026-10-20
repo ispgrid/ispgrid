@@ -234,15 +234,21 @@ new #[Title('Plan')] class extends Component
      * The tax setup in Billing settings charges tax, so the plan's tax fields apply.
      */
     #[Computed]
+    public function billingSettings(): BillingSettings
+    {
+        return BillingSettings::current();
+    }
+
+    #[Computed]
     public function chargesTax(): bool
     {
-        return BillingSettings::current()->tax()->id() !== 'none';
+        return $this->billingSettings->tax()->id() !== 'none';
     }
 
     #[Computed]
     public function itemCodeLabel(): ?string
     {
-        return BillingSettings::current()->tax()->itemCodeLabel();
+        return $this->billingSettings->tax()->itemCodeLabel();
     }
 
     /**
@@ -254,11 +260,11 @@ new #[Title('Plan')] class extends Component
     #[Computed]
     public function priceAfterTax(): ?array
     {
-        $settings = BillingSettings::current();
+        $settings = $this->billingSettings;
         $setup = $settings->tax();
         $taxed = $setup->id() !== 'none' && ! $this->do_not_charge_tax;
 
-        if ((! $taxed && ! $this->round_off) || ! is_numeric($this->price) || (float) $this->price < 0) {
+        if ((! $taxed && ! $this->round_off) || preg_match('/^\d{1,10}(\.\d{1,2})?$/', trim($this->price)) !== 1) {
             return null;
         }
 

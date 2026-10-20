@@ -25,7 +25,7 @@ final readonly class BillingSettings
         public bool $pricesIncludeTax,
         public int $defaultTermsDays,
         public string $logo,
-        public int $decimals,
+        public int $decimals, // invoice amounts: the currency's decimals, at most 2
         public string $currencyCode,
     ) {}
 
@@ -63,7 +63,7 @@ final readonly class BillingSettings
             pricesIncludeTax: $value('prices_include_tax', '0') === '1',
             defaultTermsDays: (int) $value('default_terms_days', '0'),
             logo: $value('logo', ''),
-            decimals: (int) AppSetting::valueOf('currency_decimals', '2'),
+            decimals: min(2, (int) AppSetting::valueOf('currency_decimals', '2')),
             currencyCode: (string) AppSetting::valueOf('currency_code', 'INR'),
         );
     }

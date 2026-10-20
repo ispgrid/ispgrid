@@ -3,6 +3,7 @@
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Billing\BillingSettings;
+use App\Billing\Decimal;
 use App\Billing\India\Gstin;
 use App\Billing\India\GstStates;
 use App\Billing\LatinText;
@@ -280,7 +281,7 @@ new #[Title('Customer')] class extends Component
             ->all();
         $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state($model), $this->formAddonTabs);
         $this->billing_free = $model->billing_free;
-        $this->discount_percent = $this->trimZeros((string) $model->discount_percent);
+        $this->discount_percent = Decimal::trim((string) $model->discount_percent);
         $this->payment_terms_days = (string) $model->payment_terms_days;
         $this->billing_name = (string) $model->billing_name;
         $this->separate_billing = $model->billing_name !== null || $model->billing_address_id !== null;
@@ -515,13 +516,7 @@ new #[Title('Customer')] class extends Component
     #[Computed]
     public function gstStates(): array
     {
-        $states = [];
-
-        foreach (GstStates::options() as $state) {
-            $states[$state['code']] = $state['name'].' ('.$state['code'].')';
-        }
-
-        return $states;
+        return GstStates::selectOptions();
     }
 
     /**
@@ -1260,11 +1255,6 @@ new #[Title('Customer')] class extends Component
         return $this->usesGst() ? (string) ($this->billingSettings->taxConfig['state'] ?? '') : '';
     }
 
-    private function trimZeros(string $value): string
-    {
-        return str_contains($value, '.') ? rtrim(rtrim($value, '0'), '.') : $value;
-    }
-
     /**
      * What the customer is billed, as the activity log shows it.
      *
@@ -1277,7 +1267,7 @@ new #[Title('Customer')] class extends Component
 
         return [
             'billing' => $account->billing_free ? 'Free' : 'Paid',
-            'discount' => $this->trimZeros((string) $account->discount_percent),
+            'discount' => Decimal::trim((string) $account->discount_percent),
             'payment_terms' => (string) $account->payment_terms_days,
             'place_of_supply' => (string) $account->place_of_supply,
             'billing_name' => (string) $account->billing_name,

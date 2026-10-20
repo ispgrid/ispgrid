@@ -246,3 +246,42 @@ it('carries on numbering from another system', function () {
 it('refuses a numbering format without the number', function () {
     Livewire::test('pages::system.billing-settings')->set('numbering_format', 'INV-{FY}')->call('save')->assertHasErrors(['numbering_format']);
 });
+
+it('needs the financial year in the format when numbers restart every year', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('numbering_format', 'INV-{N}')
+        ->set('restart_yearly', true)
+        ->call('save')
+        ->assertHasErrors(['numbering_format']);
+});
+
+it('sets the next number in the series saved with it', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-20 10:00'));
+
+    Livewire::test('pages::system.billing-settings')
+        ->set('numbering_format', 'INV/{FY}/{N}')
+        ->set('restart_yearly', true)
+        ->set('year_start_month', '4')
+        ->set('next_number', '500')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(InvoiceCounter::query()->pluck('next_number', 'series')->all())->toBe(['2026-27' => 500]);
+});
+
+it('swaps the names of two payment methods', function () {
+    $cash = PaymentMethod::query()->where('name', 'Cash')->value('id');
+    $upi = PaymentMethod::query()->where('name', 'UPI')->value('id');
+
+    Livewire::test('pages::system.billing-settings')
+        ->set("method_names.{$cash}", 'UPI')
+        ->set("method_names.{$upi}", 'Cash')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(PaymentMethod::query()->whereKey($cash)->value('name'))->toBe('UPI');
+});
+
+it('refuses a GST rate whose half needs more than three decimals', function () {
+    billingPageForIndia()->set('tax.rate', '18.125')->call('save')->assertHasErrors(['tax.rate']);
+});
