@@ -5,6 +5,7 @@ use App\Actions\Radius\SyncAccountToRadius;
 use App\Contracts\CustomerFormTab;
 use App\Enums\AccountStatus;
 use App\Enums\IpRangeKind;
+use App\Enums\Permission;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
@@ -32,6 +33,7 @@ use App\Support\RateLimit;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -56,10 +58,10 @@ new #[Title('Customer')] class extends Component
     private const TABS = [
         'profile' => ['title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email', 'tax_id', 'business_id',
             'remarks', 'address'],
-        'service' => ['service_type', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id'],
+        'service' => ['service_type', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'auto_renew'],
         'network' => ['ip_address', 'pool_id', 'address_list_ids', 'override_plan', 'override_upload', 'override_download',
             'override_burst_upload', 'override_burst_download', 'override_threshold_upload', 'override_threshold_download',
-            'override_burst_time', 'override_priority', 'override_min_upload', 'override_min_download'],
+            'override_burst_time', 'override_priority', 'override_min_upload', 'override_min_download', 'override_until'],
         'attributes' => ['custom_attributes'],
     ];
 
@@ -152,6 +154,16 @@ new #[Title('Customer')] class extends Component
 
     public bool $override_plan = false;
 
+    /**
+     * When the custom speed ends by itself ('Y-m-d\TH:i'); empty = until it is switched off.
+     */
+    public string $override_until = '';
+
+    /**
+     * Renew the current plan by itself on the last day, at the plan's price (customers:renewals).
+     */
+    public bool $auto_renew = false;
+
     public bool $notifications_off = false;
 
     public string $override_upload = '';
@@ -223,6 +235,8 @@ new #[Title('Customer')] class extends Component
         $this->service_type = $model->service_type->value;
         $this->ip_address = $model->ip?->address ?? '';
         $this->override_plan = $model->override_plan;
+        $this->override_until = $model->override_until?->format('Y-m-d\TH:i') ?? '';
+        $this->auto_renew = $model->auto_renew;
         $this->notifications_off = $model->notifications_off;
         $this->address_list_ids = $model->addressLists->map(fn (AddressList $list): string => (string) $list->id)->all();
         $this->custom_attributes = $model->radiusAttributes->sortBy('id')
@@ -538,7 +552,7 @@ new #[Title('Customer')] class extends Component
         $this->keepVisibleAddonTabs($tabs, $account);
         $this->withValidator(function (Validator $validator): void {
             $validator->after(function (Validator $validator): void {
-                foreach ([...$this->speedErrors(), ...$this->ipErrors(), ...$this->attributeErrors()] as $field => $message) {
+                foreach ([...$this->speedErrors(), ...$this->ipErrors(), ...$this->attributeErrors(), ...$this->autoRenewErrors()] as $field => $message) {
                     if (! $validator->errors()->has($field)) {
                         $validator->errors()->add($field, $message);
                     }
@@ -793,6 +807,8 @@ new #[Title('Customer')] class extends Component
             'override_priority' => ['nullable', 'integer', 'between:1,8'],
             'override_min_upload' => $speed,
             'override_min_download' => $speed,
+            'override_until' => $this->override_plan ? ['nullable', 'date_format:Y-m-d\TH:i', 'after:now'] : [],
+            'auto_renew' => ['boolean'],
             'custom_attributes' => ['array', 'max:50'],
             'custom_attributes.*.attribute' => ['required', Rule::exists(RadiusAttribute::class, 'name')],
             'custom_attributes.*.value' => ['required', 'string', 'max:253'],
@@ -815,6 +831,7 @@ new #[Title('Customer')] class extends Component
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),
             'custom_attributes.*.value.required' => __('Enter a value.'),
+            'override_until.after' => __('The end must be in the future.'),
         ];
     }
 
@@ -843,6 +860,33 @@ new #[Title('Customer')] class extends Component
         }
 
         return $errors;
+    }
+
+    /**
+     * A plan that starts at the first Hotspot login has no last day to renew on.
+     *
+     * @return array<string, string>
+     */
+    private function autoRenewErrors(): array
+    {
+        if (! $this->auto_renew || ! $this->canAutoRenew || $this->accountId === null) {
+            return [];
+        }
+
+        $firstLogin = Account::query()->whereKey($this->accountId)
+            ->whereHas('plan', fn ($query) => $query->where('hotspot_starts_at_first_login', true))
+            ->exists();
+
+        return $firstLogin ? ['auto_renew' => __('This plan starts at the first Hotspot login, so it cannot renew by itself.')] : [];
+    }
+
+    /**
+     * Auto renew uses the recharge permission; for staff without it the switch is hidden and kept as it is.
+     */
+    #[Computed]
+    public function canAutoRenew(): bool
+    {
+        return auth()->user()?->hasAccess(Permission::RechargeCustomers) ?? false;
     }
 
     /**
@@ -947,7 +991,8 @@ new #[Title('Customer')] class extends Component
             'override_priority' => $override ? $this->intOrNull($this->override_priority) : null,
             'override_min_upload' => $speed($this->override_min_upload),
             'override_min_download' => $speed($this->override_min_download),
-        ] + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
+            'override_until' => $override && $this->override_until !== '' ? Carbon::createFromFormat('!Y-m-d\TH:i', $this->override_until) : null,
+        ] + ($this->canAutoRenew ? ['auto_renew' => $this->auto_renew] : []) + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
     }
 
     private function hasAddress(): bool

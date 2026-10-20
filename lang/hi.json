@@ -942,5 +942,11 @@
     "The customer has no plan": "ग्राहक का कोई प्लान नहीं है",
     "The plan :name was deleted": ":name प्लान डिलीट हो गया",
     "The plan starts at the first login": "प्लान पहले लॉगिन से शुरू होता है",
-    "The plan ended too long ago; recharge by hand": "प्लान बहुत पहले खत्म हुआ; खुद रिचार्ज करें"
+    "The plan ended too long ago; recharge by hand": "प्लान बहुत पहले खत्म हुआ; खुद रिचार्ज करें",
+    "Auto renew": "ऑटो रिन्यू",
+    "Renew the current plan by itself on the last day, at the price of the plan.": "आखिरी दिन मौजूदा प्लान अपने आप रिन्यू करें, प्लान की कीमत पर।",
+    "Until": "तक",
+    "Optional. The plan speed comes back by itself at this time.": "वैकल्पिक। इस समय पर प्लान की स्पीड अपने आप लौट आएगी।",
+    "The end must be in the future.": "समाप्ति भविष्य में होनी चाहिए।",
+    "This plan starts at the first Hotspot login, so it cannot renew by itself.": "यह प्लान पहले Hotspot लॉगिन से शुरू होता है, इसलिए अपने आप रिन्यू नहीं हो सकता।"
 }

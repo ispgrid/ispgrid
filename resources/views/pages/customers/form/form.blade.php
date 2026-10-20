@@ -81,6 +81,10 @@
                         <x-ui.select wire:model="nas_id" :label="__('NAS')" :options="$this->routers" :placeholder="__('Any NAS')" :description="__('Set a NAS to refuse logins through any other.')" />
                         <x-ui.select wire:model="connection_type_id" :label="__('Connection type')" :options="$this->connectionTypes" :placeholder="__('None')" />
                     </div>
+
+                    @if ($this->canAutoRenew)
+                        <x-ui.switch wire:model="auto_renew" :label="__('Auto renew')" :description="__('Renew the current plan by itself on the last day, at the price of the plan.')" />
+                    @endif
                 </x-ui.tab-panel>
 
                 <x-ui.tab-panel name="network" class="grid gap-5">
@@ -129,6 +133,9 @@
                             <x-ui.input wire:model="override_priority" type="number" min="1" max="8" :label="__('Priority')" />
                             <x-ui.input wire:model="override_min_upload" english :label="__('Minimum upload')" autocomplete="off" />
                             <x-ui.input wire:model="override_min_download" english :label="__('Minimum download')" autocomplete="off" />
+                            <div class="sm:col-span-2">
+                                <x-ui.input wire:model="override_until" type="datetime-local" :label="__('Until')" :description="__('Optional. The plan speed comes back by itself at this time.')" />
+                            </div>
                         </div>
                     @endif
                 </x-ui.tab-panel>

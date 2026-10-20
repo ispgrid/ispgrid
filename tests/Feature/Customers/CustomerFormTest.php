@@ -2,6 +2,7 @@
 
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
+use App\Enums\Permission;
 use App\Enums\ServiceType;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
@@ -654,4 +655,68 @@ it('keeps a Hotspot customer on Hotspot while a validity waits for their first l
         ->assertSee('This customer has 3 hours waiting for the first login. Recharge or wait for it to start before changing the type.');
 
     expect($account->fresh()->service_type)->toBe(ServiceType::Hotspot);
+});
+
+it('saves auto renew when adding and editing a customer', function () {
+    newCustomerForm()->set('auto_renew', true)->call('save')->assertHasNoErrors();
+    $account = Account::query()->where('username', 'alice')->sole();
+    expect($account->auto_renew)->toBeTrue();
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertSet('auto_renew', true)
+        ->set('auto_renew', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $entry = Activity::query()->where('subject_id', $account->id)->where('event', 'updated')->latest('id')->first();
+    expect($account->fresh()->auto_renew)->toBeFalse()
+        ->and($entry->attribute_changes['attributes'])->toHaveKey('auto_renew', false);
+});
+
+it('keeps auto renew as it is for staff who may not recharge', function () {
+    $account = Account::factory()->create(['auto_renew' => true]);
+    $this->actingAs(staffLacking(Permission::RechargeCustomers));
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('auto_renew', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($account->fresh()->auto_renew)->toBeTrue();
+});
+
+it('refuses auto renew for a Hotspot customer whose plan starts at the first login', function () {
+    $account = Account::factory()->hotspot()->create(['plan_id' => Plan::factory()->hours(3)->firstLogin()->create()->id]);
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('auto_renew', true)
+        ->call('save')
+        ->assertHasErrors('auto_renew');
+
+    expect($account->fresh()->auto_renew)->toBeFalse();
+});
+
+it('saves an end date for a custom speed, and clears it when the custom speed is switched off', function () {
+    $this->travelTo(now()->setDateTime(2026, 10, 10, 14, 30));
+    newCustomerForm()->set('override_plan', true)->set('override_upload', '10M')->set('override_download', '50M')
+        ->set('override_until', '2026-11-01T00:00')
+        ->call('save')
+        ->assertHasNoErrors();
+    $account = Account::query()->where('username', 'alice')->sole();
+    expect($account->override_until->format('Y-m-d H:i'))->toBe('2026-11-01 00:00');
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertSet('override_until', '2026-11-01T00:00')
+        ->set('override_plan', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($account->fresh()->override_until)->toBeNull();
+});
+
+it('refuses an end date for a custom speed in the past', function () {
+    newCustomerForm()->set('override_plan', true)->set('override_upload', '10M')->set('override_download', '50M')
+        ->set('override_until', now()->subDay()->format('Y-m-d\TH:i'))
+        ->call('save')
+        ->assertHasErrors('override_until');
 });
