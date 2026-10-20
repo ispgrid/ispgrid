@@ -125,3 +125,43 @@ it('drops the warning once the session it was about has ended', function () {
 
     customerPage($account)->assertDontSee('The last disconnect failed');
 });
+
+it('shows the activity as a timeline by day, newest first, filtered by period and action', function () {
+    $account = Account::factory()->create();
+    $this->travelTo(Carbon::parse('2026-10-12 09:00:00'));
+    activity()->performedOn($account)->event('unlocked')->log('unlocked');
+    $this->travelTo(Carbon::parse('2026-10-14 10:00:00'));
+    activity()->performedOn($account)->event('status-changed')
+        ->withChanges(['old' => ['status' => 'Active'], 'attributes' => ['status' => 'Suspended', 'remark' => 'Unpaid']])->log('status-changed');
+
+    $page = customerPage($account, 'activity')
+        ->assertSeeInOrder(['14/10/2026', 'Status changed from Active to Suspended.', 'Asha Rao', 'Unpaid', '12/10/2026', 'Unlocked.', '10/10/2026', 'Customer created.']);
+
+    $page->set('activityPeriod', 'today')
+        ->assertSee('Status changed from Active to Suspended.')
+        ->assertDontSee('Unlocked.');
+
+    $page->set('activityPeriod', 'range')->set('activityFrom', '2026-10-12')->set('activityTo', '2026-10-12')
+        ->assertSee('Unlocked.')
+        ->assertDontSee('Customer created.')
+        ->assertDontSee('Status changed from');
+
+    $page->set('activityPeriod', '')->set('activityAction', 'created')
+        ->assertSee('Customer created.')
+        ->assertDontSee('Unlocked.');
+});
+
+it('shows 50 entries and 50 more on request', function () {
+    $account = Account::factory()->create();
+    foreach (range(1, 55) as $i) {
+        activity()->performedOn($account)->event('unlocked')->log('unlocked');
+    }
+
+    $page = customerPage($account, 'activity');
+    $count = fn (): int => collect($page->instance()->timeline)->flatten(1)->count();
+
+    expect($count())->toBe(50);
+    $page->assertSee('Show more')->call('showMoreActivity');
+    expect($count())->toBe(56);
+    $page->assertDontSee('Show more');
+});

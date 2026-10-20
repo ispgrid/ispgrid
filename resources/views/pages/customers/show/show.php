@@ -26,6 +26,7 @@ use App\Models\Radpostauth;
 use App\Models\Recharge;
 use App\Models\User;
 use App\Support\ActivityFormatter;
+use App\Support\ActivityTimeline;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerTabs;
 use App\Support\CustomerDefaults;
@@ -36,6 +37,7 @@ use App\Support\Money;
 use App\Support\PlanChoices;
 use App\Support\Units;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
@@ -91,6 +93,27 @@ new #[Title('Customer')] class extends Component
     #[Locked]
     public string $recharge_base_expiry = '';
 
+    /**
+     * Activity tab filters: the period ('' all time, today, 7, 30 or range with the two dates, Y-m-d,
+     * inclusive) and the kind of entry (an event key).
+     */
+    #[Url(except: '')]
+    public string $activityPeriod = '';
+
+    #[Url(except: '')]
+    public string $activityFrom = '';
+
+    #[Url(except: '')]
+    public string $activityTo = '';
+
+    #[Url(except: '')]
+    public string $activityAction = '';
+
+    /**
+     * How many entries the Activity tab shows; Show more adds 50.
+     */
+    public int $activityLimit = 50;
+
     public function mount(int $account): void
     {
         $this->accountId = $account;
@@ -131,7 +154,7 @@ new #[Title('Customer')] class extends Component
     #[On('account-changed')]
     public function refreshAccount(): void
     {
-        unset($this->account, $this->service, $this->activities, $this->recharges);
+        unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity, $this->recharges);
         $this->status = (string) $this->account->status_id->value;
     }
 
@@ -497,26 +520,100 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * The last 20 activity entries about this customer.
+     * The shown activity entries, newest first, grouped by day (the app's date format).
      *
-     * @return list<array{id: int, when: string, staff: string, event: string, changes: list<array{field: string, old: ?string, new: ?string}>}>
+     * @return array<string, list<array{id: int, day: string, time: string, tone: string, icon: string, sentence: string, by: string, note: ?string, changes: list<array{field: string, old: ?string, new: ?string}>}>>
      */
     #[Computed]
-    public function activities(): array
+    public function timeline(): array
     {
-        $format = $this->dateFormat();
+        $dateFormat = (string) AppSetting::valueOf('date_format', 'd/m/Y');
 
-        return $this->activityQuery()
-            ->with(['causer' => fn (MorphTo $morphTo) => $morphTo->constrain([User::class => fn ($query) => $query->withTrashed()])])
-            ->latest('id')->limit(20)->get()
-            ->map(fn (Activity $activity): array => [
-                'id' => $activity->id,
-                'when' => $activity->created_at->format($format),
-                'staff' => ActivityFormatter::causerName($activity),
-                'event' => ActivityFormatter::eventLabel($activity),
-                'changes' => ActivityFormatter::changes($activity),
-            ])
+        return $this->activityRows->take($this->activityLimit)
+            ->map(fn (Activity $activity): array => ActivityTimeline::entry($activity, $dateFormat))
+            ->groupBy('day')
+            ->map(fn ($entries): array => $entries->values()->all())
             ->all();
+    }
+
+    /**
+     * Whether more entries match than are shown.
+     */
+    #[Computed]
+    public function hasMoreActivity(): bool
+    {
+        return $this->activityRows->count() > $this->activityLimit;
+    }
+
+    /**
+     * The entries matching the filters, one more than shown (so the page knows there are more).
+     *
+     * @return Collection<int, Activity>
+     */
+    #[Computed]
+    public function activityRows(): Collection
+    {
+        $query = $this->activityQuery()
+            ->with(['causer' => fn (MorphTo $morphTo) => $morphTo->constrain([User::class => fn ($query) => $query->withTrashed()])])
+            ->when($this->activityAction !== '', fn (Builder $query) => $query->where('event', $this->activityAction));
+
+        match ($this->activityPeriod) {
+            'today' => $query->where('created_at', '>=', now()->startOfDay()),
+            '7', '30' => $query->where('created_at', '>=', now()->subDays((int) $this->activityPeriod)->startOfDay()),
+            'range' => $query
+                ->when(self::isDate($this->activityFrom), fn (Builder $query) => $query->where('created_at', '>=', Carbon::parse($this->activityFrom)->startOfDay()))
+                ->when(self::isDate($this->activityTo), fn (Builder $query) => $query->where('created_at', '<=', Carbon::parse($this->activityTo)->endOfDay())),
+            default => null,
+        };
+
+        return $query->latest('id')->limit($this->activityLimit + 1)->get();
+    }
+
+    /**
+     * The Period filter.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function activityPeriods(): array
+    {
+        return ['' => __('All time'), 'today' => __('Today'), '7' => __('Last 7 days'), '30' => __('Last 30 days'), 'range' => __('Dates')];
+    }
+
+    /**
+     * The Action filter: the kinds of entry this customer has, by event.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function activityActions(): array
+    {
+        return $this->activityQuery()->distinct()->orderBy('event')->pluck('event')->filter()
+            ->mapWithKeys(fn (string $event): array => [$event => ActivityFormatter::eventLabel(new Activity([
+                'event' => $event, 'subject_type' => (new Account)->getMorphClass(),
+            ]))])
+            ->sort()
+            ->all();
+    }
+
+    public function showMoreActivity(): void
+    {
+        $this->activityLimit += 50;
+    }
+
+    /**
+     * A changed filter starts again from the first 50 entries.
+     */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['activityPeriod', 'activityFrom', 'activityTo', 'activityAction'], true)) {
+            $this->activityLimit = 50;
+        }
+    }
+
+    private static function isDate(string $value): bool
+    {
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) === 1 && strtotime($value) !== false;
     }
 
     /**
@@ -568,7 +665,7 @@ new #[Title('Customer')] class extends Component
                 'sessions' => $sessions->map(fn (Radacct $session): string => trim($session->nasipaddress.' '.$session->framedipaddress))->implode(', '),
             ]])
             ->log('disconnected');
-        unset($this->activities);
+        unset($this->activityRows, $this->timeline, $this->hasMoreActivity);
 
         $this->toast(__('Disconnect sent to the NAS. The session closes when the NAS confirms.'));
     }
@@ -653,7 +750,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->reset('remark');
-        unset($this->account, $this->service, $this->activities);
+        unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity);
         $this->dispatch('modal-close', name: 'change-status');
         $this->dispatch('account-changed')->to('pages::customers.plan-card');
         $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username)
@@ -805,7 +902,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username);
-        unset($this->account, $this->service, $this->activities, $this->recharges);
+        unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity, $this->recharges);
         $this->status = (string) $this->account->status_id->value;
         $this->dispatch('modal-close', name: 'recharge');
         $this->dispatch('account-changed')->to('pages::customers.plan-card');
@@ -876,7 +973,7 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service, $this->activities);
+        unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity);
         // radacct is kept on delete, so the job still finds the open sessions after the commit.
         $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username)
             ? __('Customer deleted. Their open session is disconnected.')
@@ -969,7 +1066,7 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        unset($this->account, $this->service, $this->technician, $this->activities);
+        unset($this->account, $this->service, $this->technician, $this->activityRows, $this->timeline, $this->hasMoreActivity);
         $this->status = (string) AccountStatus::Inactive->value;
 
         $this->toast($this->account->service_type === ServiceType::Ipoe && $outcome['address'] === null

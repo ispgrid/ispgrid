@@ -308,40 +308,80 @@
     @if ($this->activeTab === 'activity')
         <x-ui.card>
             <x-ui.heading>{{ __('Activity') }}</x-ui.heading>
-            @if ($this->activities === [])
+
+            <div class="mt-4 flex flex-wrap items-end gap-3">
+                <div class="w-44">
+                    <x-ui.select wire:model.live="activityPeriod" :label="__('Period')" :options="$this->activityPeriods" />
+                </div>
+                @if ($activityPeriod === 'range')
+                    <div class="w-40">
+                        <x-ui.input wire:model.live="activityFrom" type="date" :label="__('From')" />
+                    </div>
+                    <div class="w-40">
+                        <x-ui.input wire:model.live="activityTo" type="date" :label="__('To')" />
+                    </div>
+                @endif
+                <div class="w-52">
+                    <x-ui.select wire:model.live="activityAction" :label="__('Action')" :options="$this->activityActions" :placeholder="__('All actions')" />
+                </div>
+            </div>
+
+            @if ($this->timeline === [])
                 <x-ui.text muted class="mt-4">{{ __('No activity yet.') }}</x-ui.text>
-            @else
-                <x-ui.table class="mt-4 [&_td]:align-top">
-                    <x-slot:head>
-                        <x-ui.th>{{ __('When') }}</x-ui.th>
-                        <x-ui.th>{{ __('Staff') }}</x-ui.th>
-                        <x-ui.th>{{ __('Action') }}</x-ui.th>
-                        <x-ui.th>{{ __('Changes') }}</x-ui.th>
-                    </x-slot:head>
-                    @foreach ($this->activities as $activity)
-                        <tr wire:key="activity-{{ $activity['id'] }}">
-                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $activity['when'] }}</x-ui.td>
-                            <x-ui.td>{{ $activity['staff'] }}</x-ui.td>
-                            <x-ui.td>{{ $activity['event'] }}</x-ui.td>
-                            <x-ui.td>
-                                <dl class="grid gap-0.5 text-xs">
-                                    @foreach ($activity['changes'] as $change)
-                                        <div class="flex flex-wrap gap-1">
-                                            <dt class="text-zinc-600 dark:text-zinc-400">{{ $change['field'] }}:</dt>
-                                            <dd>
-                                                @if ($change['old'] !== null)
-                                                    <span class="line-through decoration-zinc-400">{{ $change['old'] }}</span>
-                                                    <span aria-hidden="true">&rarr;</span>
-                                                @endif
-                                                <span>{{ $change['new'] ?? __('(empty)') }}</span>
-                                            </dd>
-                                        </div>
-                                    @endforeach
-                                </dl>
-                            </x-ui.td>
-                        </tr>
-                    @endforeach
-                </x-ui.table>
+            @endif
+
+            @foreach ($this->timeline as $day => $entries)
+                <div wire:key="activity-day-{{ $day }}" class="mt-6">
+                    <p class="text-sm font-semibold text-zinc-600 dark:text-zinc-400">{{ $day }}</p>
+                    <ol class="relative mt-2 grid gap-2 pl-9 before:absolute before:top-0 before:bottom-0 before:left-3 before:w-0.5 before:bg-zinc-200 dark:before:bg-zinc-700">
+                        @foreach ($entries as $entry)
+                            <li wire:key="activity-{{ $entry['id'] }}" class="relative flex justify-between gap-3 rounded-lg border border-zinc-200 px-3.5 py-2.5 text-sm dark:border-zinc-700">
+                                <span @class([
+                                    'absolute top-2.5 -left-8 flex size-5.5 items-center justify-center rounded-full text-white',
+                                    'bg-green-700' => $entry['tone'] === 'green',
+                                    'bg-blue-600' => $entry['tone'] === 'blue',
+                                    'bg-red-600' => $entry['tone'] === 'red',
+                                    'bg-amber-600' => $entry['tone'] === 'amber',
+                                    'bg-zinc-500' => $entry['tone'] === 'grey',
+                                ])>
+                                    <x-ui.icon :name="$entry['icon']" class="size-3.5" />
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="break-words">
+                                        {{ $entry['sentence'] }}
+                                        <span class="text-zinc-600 dark:text-zinc-400">{{ __('By :name.', ['name' => $entry['by']]) }}</span>
+                                    </p>
+                                    @if ($entry['note'])
+                                        <p class="mt-1 text-zinc-600 dark:text-zinc-400">{{ $entry['note'] }}</p>
+                                    @endif
+                                    @if ($entry['changes'] !== [])
+                                        <dl class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                                            @foreach ($entry['changes'] as $change)
+                                                <div class="flex flex-wrap gap-1">
+                                                    <dt class="text-zinc-600 dark:text-zinc-400">{{ $change['field'] }}:</dt>
+                                                    <dd>
+                                                        @if ($change['old'] !== null)
+                                                            <span class="line-through decoration-zinc-400">{{ $change['old'] }}</span>
+                                                            <span aria-hidden="true">&rarr;</span>
+                                                        @endif
+                                                        <span>{{ $change['new'] ?? __('(empty)') }}</span>
+                                                    </dd>
+                                                </div>
+                                            @endforeach
+                                        </dl>
+                                    @endif
+                                </div>
+                                <span class="whitespace-nowrap text-zinc-600 tabular-nums dark:text-zinc-400">{{ $entry['time'] }}</span>
+                            </li>
+                        @endforeach
+                    </ol>
+                </div>
+            @endforeach
+
+            @if ($this->hasMoreActivity)
+                <div class="mt-4">
+                    <x-ui.button variant="secondary" size="sm" wire:click="showMoreActivity">{{ __('Show more') }}</x-ui.button>
+                </div>
             @endif
         </x-ui.card>
     @endif
