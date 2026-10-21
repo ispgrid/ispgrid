@@ -1170,5 +1170,7 @@
     "Leave empty to print the default from Billing settings.": "बिलिंग सेटिंग्स का डिफ़ॉल्ट छापने के लिए खाली छोड़ें।",
     "Price after tax: :total": "टैक्स के बाद क़ीमत: :total",
     "Total :name (:rate%)": "कुल :name (:rate%)",
-    "Numbers that start again every year need {FY} in the format, or each year would print the same numbers.": "हर साल 1 से शुरू होने वाले नंबरों के फ़ॉर्मेट में {FY} चाहिए, नहीं तो हर साल वही नंबर छपेंगे।"
+    "Numbers that start again every year need {FY} in the format, or each year would print the same numbers.": "हर साल 1 से शुरू होने वाले नंबरों के फ़ॉर्मेट में {FY} चाहिए, नहीं तो हर साल वही नंबर छपेंगे।",
+    "Remove this renewal's payments first: there are no refunds yet.": "पहले इस अग्रिम रिन्यूअल के भुगतान हटाएँ: अभी रिफ़ंड की सुविधा नहीं है।",
+    "Remove the advance renewal's payments first: there are no refunds yet.": "पहले अग्रिम रिन्यूअल के भुगतान हटाएँ: अभी रिफ़ंड की सुविधा नहीं है।"
 }

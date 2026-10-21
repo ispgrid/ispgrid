@@ -10,6 +10,7 @@ use App\Enums\AccountStatus;
 use App\Enums\RechargeKind;
 use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Exceptions\RenewalAlreadyWaiting;
+use App\Exceptions\RenewalHasPayments;
 use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
@@ -314,7 +315,15 @@ new class extends Component
     public function cancelRenewal(CancelAdvanceRenewal $cancel): void
     {
         $this->authorizeLive('recharge');
-        $cancel->handle($this->accountId);
+
+        try {
+            $cancel->handle($this->accountId);
+        } catch (RenewalHasPayments) {
+            $this->toast(__("Remove this renewal's payments first: there are no refunds yet."), 'danger');
+
+            return;
+        }
+
         $this->finish(null, __('Advance renewal cancelled.'));
     }
 
@@ -440,6 +449,10 @@ new class extends Component
 
         try {
             $terminate->handle($this->accountId, $this->terminate_note);
+        } catch (RenewalHasPayments) {
+            $this->addError('terminate_note', __("Remove the advance renewal's payments first: there are no refunds yet."));
+
+            return;
         } catch (ModelNotFoundException) {
             $this->toastDeletedMeanwhile();
 

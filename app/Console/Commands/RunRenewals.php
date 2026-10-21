@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Actions\Customers\RechargeAccount;
 use App\Actions\Customers\SetOverrideSpeed;
 use App\Billing\BillingSettings;
+use App\Billing\ChargeOptions;
 use App\Billing\RechargePrice;
 use App\Enums\AccountStatus;
 use App\Enums\AdvanceRenewalStatus;
@@ -97,6 +98,7 @@ class RunRenewals extends Command
             $done = $recharge->handle(
                 $account->id, $locked->plan_id, $locked->expiry, (string) $locked->amount, $locked->note,
                 RechargeAccount::expiryKey($account), RechargeKind::Advance, $locked->user_id,
+                new ChargeOptions(existingInvoiceId: $locked->invoice_id),
             );
 
             $locked->update(['status' => AdvanceRenewalStatus::Started, 'recharge_id' => $done->id]);

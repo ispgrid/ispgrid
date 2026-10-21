@@ -114,7 +114,7 @@ final class RechargeAccount
                 'note' => $note,
                 'user_id' => $userId ?? auth()->id(),
             ]);
-            $this->charge($recharge, $account, $plan, $charge, $oldExpiry, $newExpiry, $pending);
+            $this->charge($recharge, $account, $plan, $kind, $charge, $oldExpiry, $newExpiry, $pending);
 
             // Rows now, inside the transaction; the send jobs are queued after the commit.
             $this->notifier->fire(RechargeDone::key(), $account, $recharge);
@@ -147,16 +147,17 @@ final class RechargeAccount
     }
 
     /**
-     * Links the invoice issued at booking, or issues one now when the recharge is invoiced. The bill period starts at
-     * the old expiry while the plan still runs, otherwise now; a validity waiting for the first login has none.
+     * Links the invoice issued at booking, or issues one now when the recharge is invoiced (an advance renewal that
+     * starts never is: it was invoiced at booking, or booked while invoicing was off). The bill period starts at the
+     * old expiry while the plan still runs, otherwise now; a validity waiting for the first login has none.
      */
-    private function charge(Recharge $recharge, Account $account, Plan $plan, ChargeOptions $charge, ?CarbonInterface $oldExpiry, ?CarbonInterface $newExpiry, ?int $pending): void
+    private function charge(Recharge $recharge, Account $account, Plan $plan, RechargeKind $kind, ChargeOptions $charge, ?CarbonInterface $oldExpiry, ?CarbonInterface $newExpiry, ?int $pending): void
     {
         $invoice = null;
 
         if ($charge->existingInvoiceId !== null) {
             $invoice = Invoice::query()->findOrFail($charge->existingInvoiceId);
-        } elseif (InvoicePolicy::invoicesRecharge($account, $settings = BillingSettings::current())) {
+        } elseif ($kind !== RechargeKind::Advance && InvoicePolicy::invoicesRecharge($account, $settings = BillingSettings::current())) {
             $from = $pending !== null ? null : ($oldExpiry !== null && $oldExpiry->greaterThan(now()) ? $oldExpiry : now());
             $to = $pending !== null ? null : $newExpiry;
             $invoice = $this->issueInvoice->handle(
