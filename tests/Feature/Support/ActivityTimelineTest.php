@@ -76,7 +76,7 @@ it('keeps the comment or remark as the note, and the changed fields only for det
 
     expect($status['note'])->toBe('Unpaid')
         ->and($status['changes'])->toBe([])
-        ->and($updated['changes'])->toBe([['field' => 'remarks', 'old' => 'a', 'new' => 'b']]);
+        ->and($updated['changes'])->toBe([['field' => 'Remarks', 'old' => 'a', 'new' => 'b']]);
 });
 
 it('falls back to the event label for an unknown event', function () {
@@ -85,7 +85,7 @@ it('falls back to the event label for an unknown event', function () {
     expect(timelineEntry('document-viewed', [], ['file' => 'Aadhaar'], $this->staff))
         ->sentence->toBe('Document viewed.')
         ->tone->toBe('grey')
-        ->changes->toBe([['field' => 'file', 'old' => null, 'new' => 'Aadhaar']])
+        ->changes->toBe([['field' => 'File', 'old' => null, 'new' => 'Aadhaar']])
         ->and(timelineEntry('something-new', [], [], $this->staff)['sentence'])->toBe('something-new.');
 });
 

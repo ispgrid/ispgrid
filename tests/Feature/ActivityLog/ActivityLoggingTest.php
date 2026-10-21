@@ -127,6 +127,36 @@ it('records a plan speed change with the old and new value', function () {
         ->and(ActivityFormatter::subjectName($activity))->toBe('Home 25');
 });
 
+it('names the fields and their values the way staff know them', function () {
+    turnInvoicingOn();
+    $plan = Plan::factory()->create(['name' => 'Home 100']);
+    $account = Account::factory()->create(['username' => 'alice', 'tax_id' => null, 'plan_id' => null, 'fullname' => 'Alice']);
+
+    $account->update(['plan_id' => $plan->id, 'tax_id' => '09ABCDE1234F1Z5', 'fullname' => 'Alice Example']);
+    $billing = activity()->performedOn($account)->event('billing-changed')
+        ->withChanges(['old' => ['place_of_supply' => '', 'billing_name' => 'Kkkk'], 'attributes' => ['place_of_supply' => '08', 'billing_name' => '']])
+        ->log('billing-changed');
+
+    expect(ActivityFormatter::changes(Activity::query()->where('event', 'updated')->latest('id')->firstOrFail()))->toEqualCanonicalizing([
+        ['field' => 'Plan', 'old' => null, 'new' => 'Home 100'],
+        ['field' => 'GSTIN', 'old' => null, 'new' => '09ABCDE1234F1Z5'],
+        ['field' => 'Full name', 'old' => 'Alice', 'new' => 'Alice Example'],
+    ])->and(ActivityFormatter::changes($billing))->toBe([
+        ['field' => 'Place of supply', 'old' => null, 'new' => 'Rajasthan (08)'],
+        ['field' => 'Billing name', 'old' => 'Kkkk', 'new' => null],
+    ]);
+});
+
+it('lists only what changed inside a settings record', function () {
+    AppSetting::put('billing.company', (string) json_encode(['name' => '', 'city' => 'Lucknow', 'address_lines' => []]));
+    AppSetting::put('billing.company', (string) json_encode(['name' => 'Example ISP', 'city' => 'Lucknow', 'address_lines' => ['1 Example Road', 'Hazratganj']]));
+
+    expect(ActivityFormatter::changes(Activity::query()->latest('id')->firstOrFail()))->toBe([
+        ['field' => 'Name', 'old' => null, 'new' => 'Example ISP'],
+        ['field' => 'Address lines', 'old' => null, 'new' => '1 Example Road, Hazratganj'],
+    ]);
+});
+
 it('records a customer status change under the customer name', function () {
     $account = Account::factory()->create(['username' => 'alice']);
 
@@ -134,7 +164,7 @@ it('records a customer status change under the customer name', function () {
 
     $activity = Activity::query()->latest('id')->firstOrFail();
 
-    expect(ActivityFormatter::changes($activity))->toBe([['field' => 'status_id', 'old' => '1', 'new' => '3']])
+    expect(ActivityFormatter::changes($activity))->toBe([['field' => 'Status', 'old' => 'Active', 'new' => 'Suspended']])
         ->and(ActivityFormatter::subjectType($activity->subject_type))->toBe('Customer')
         ->and(ActivityFormatter::subjectName($activity))->toBe('alice');
 });

@@ -86,7 +86,7 @@ it('logs the failure on the customer after the last try', function () {
     $entry = Activity::query()->where('event', 'disconnect-failed')->sole();
     expect($entry->subject_id)->toBe($account->id)
         ->and(ActivityFormatter::eventLabel($entry))->toBe('Disconnect failed')
-        ->and(ActivityFormatter::changes($entry))->toBe([['field' => 'reason', 'old' => null, 'new' => '10.0.0.1: no answer']]);
+        ->and(ActivityFormatter::changes($entry))->toBe([['field' => 'Reason', 'old' => null, 'new' => '10.0.0.1: no answer']]);
 });
 
 it('tries three times with a growing pause', function () {

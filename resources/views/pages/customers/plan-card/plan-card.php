@@ -211,6 +211,29 @@ new class extends Component
     }
 
     /**
+     * Plans for Change plan: every other plan. Renewing the same plan is a Recharge, which keeps the time left.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function changePlans(): array
+    {
+        return array_diff_key($this->plans, [(int) $this->account->plan_id => true]);
+    }
+
+    /**
+     * What a plan change throws away: the time left on the running plan, e.g. "20 days 9 hours"; null when none.
+     */
+    #[Computed]
+    public function timeLeft(): ?string
+    {
+        $expiry = $this->account->expiry;
+
+        return $expiry === null || $expiry->lessThanOrEqualTo(now()) ? null
+            : $expiry->diffForHumans(now(), ['syntax' => CarbonInterface::DIFF_ABSOLUTE, 'parts' => 2, 'skip' => ['week']]);
+    }
+
+    /**
      * The money side of Change plan for the chosen plan.
      *
      * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
@@ -236,8 +259,7 @@ new class extends Component
     {
         $this->authorizeLive('recharge');
         $this->resetValidation();
-        $plan = $this->account->plan;
-        $this->change_plan_id = $plan === null || $plan->trashed() || $plan->hotspot_starts_at_first_login ? '' : (string) $plan->id;
+        $this->change_plan_id = '';
         $this->change_note = '';
         $this->fillChangeDefaults();
         $this->resetPayment();
@@ -260,12 +282,12 @@ new class extends Component
         $charge = $this->changeCharge;
 
         $this->validate([
-            'change_plan_id' => ['required', $this->planRule()],
+            'change_plan_id' => ['required', $this->planRule(), Rule::notIn([(string) $this->account->plan_id])],
             'change_expiry' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
             'change_amount' => $charge['mode'] === 'amount' ? ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'] : [],
             'change_note' => ['nullable', 'string', 'max:255'],
             ...$this->moneyRules($charge),
-        ], ['change_expiry.after' => __('The expiry must be in the future.')], [
+        ], ['change_expiry.after' => __('The expiry must be in the future.'), 'change_plan_id.not_in' => __('This is the current plan. Use Recharge to renew it.')], [
             'change_plan_id' => __('plan'), 'change_expiry' => __('expiry'), 'change_amount' => __('amount'), 'change_note' => __('comment'),
             ...$this->adjustAttributes(), ...$this->paymentAttributes(),
         ]);
