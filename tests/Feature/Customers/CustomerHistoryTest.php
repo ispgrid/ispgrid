@@ -76,7 +76,8 @@ it('shows the usage since the last recharge, today and this month, against the p
         ->assertSeeInOrder(['Since the last recharge', '1.00 GB / 100.0 GB', '1 h 05 min'])
         ->assertSeeInOrder(['Today', '1.00 GB', '1 h 05 min'])
         ->assertSeeInOrder(['This month', '6.00 GB', '2 h 05 min'])
-        ->assertSeeInOrder(['Per day, last 31 days', now()->format('d/m/Y'), '1.00 GB']);
+        ->assertSeeInOrder(['Per day, last 31 days', now()->format('d/m/Y'), '1.00 GB'])
+        ->assertDontSee(now()->format('d/m/Y').' 00:00');
 });
 
 it('lists the latest login attempts with a link to the full log', function () {

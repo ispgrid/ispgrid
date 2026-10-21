@@ -512,7 +512,7 @@ new #[Title('Customer')] class extends Component
     #[Computed]
     public function usageDays(): array
     {
-        $format = $this->dateFormat();
+        $format = (string) AppSetting::valueOf('date_format', 'd/m/Y');
 
         return array_map(fn (array $day): array => [
             'day' => $day['day']->format($format),
