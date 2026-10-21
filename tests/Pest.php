@@ -111,6 +111,22 @@ function turnHotspotOn(): void
 }
 
 /**
+ * A day of usage in the usage database, as the radacct triggers would book it.
+ */
+function usageDay(string $username, string $day, int $download, int $upload = 0, int $seconds = 0): void
+{
+    DB::table(config('ispgrid.usage_database').'.usage_daily')->insert(['username' => $username, 'day' => $day, 'bytes_in' => $upload, 'bytes_out' => $download, 'seconds' => $seconds]);
+}
+
+/**
+ * The customer's usage since their last recharge, as the usage database holds it.
+ */
+function usagePeriod(string $username, int $bytes, int $seconds = 0, ?string $since = null): void
+{
+    DB::table(config('ispgrid.usage_database').'.usage_period')->upsert([['username' => $username, 'since' => $since, 'bytes' => $bytes, 'seconds' => $seconds]], ['username']);
+}
+
+/**
  * Turns invoicing on for "Example ISP": by default in India (Uttar Pradesh, 09) with GST at 18%.
  *
  * @param  array<string, string>  $tax

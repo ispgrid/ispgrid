@@ -153,7 +153,7 @@
 
         <x-ui.card>
             <x-ui.heading>{{ __('Usage') }}</x-ui.heading>
-            <x-ui.text muted class="mt-1">{{ __('Sessions that started in each period, as FreeRADIUS counts them for the limits.') }}</x-ui.text>
+            <x-ui.text muted class="mt-1">{{ __('Booked to the day the router reported it, as FreeRADIUS counts it for the limits.') }}</x-ui.text>
             <x-ui.table class="mt-4">
                 <x-slot:head>
                     <x-ui.th>{{ __('Period') }}</x-ui.th>
@@ -168,6 +168,28 @@
                     </tr>
                 @endforeach
             </x-ui.table>
+
+            @if ($this->usageDays !== [])
+                <x-ui.heading class="mt-6">{{ __('Per day, last 31 days') }}</x-ui.heading>
+                <x-ui.table class="mt-2">
+                    <x-slot:head>
+                        <x-ui.th>{{ __('Date') }}</x-ui.th>
+                        <x-ui.th class="text-end">{{ __('Download') }}</x-ui.th>
+                        <x-ui.th class="text-end">{{ __('Upload') }}</x-ui.th>
+                        <x-ui.th class="text-end">{{ __('Total') }}</x-ui.th>
+                        <x-ui.th class="text-end">{{ __('Time') }}</x-ui.th>
+                    </x-slot:head>
+                    @foreach ($this->usageDays as $day)
+                        <tr wire:key="usage-day-{{ $loop->index }}">
+                            <x-ui.td class="whitespace-nowrap">{{ $day['day'] }}</x-ui.td>
+                            <x-ui.td class="text-end tabular-nums">{{ $day['download'] }}</x-ui.td>
+                            <x-ui.td class="text-end tabular-nums">{{ $day['upload'] }}</x-ui.td>
+                            <x-ui.td class="text-end tabular-nums">{{ $day['total'] }}</x-ui.td>
+                            <x-ui.td class="text-end tabular-nums">{{ $day['time'] }}</x-ui.td>
+                        </tr>
+                    @endforeach
+                </x-ui.table>
+            @endif
         </x-ui.card>
 
         @unless ($this->account->trashed())

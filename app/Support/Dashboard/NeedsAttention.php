@@ -15,6 +15,7 @@ use App\Models\Radpostauth;
 use App\Models\Recharge;
 use App\Models\User;
 use App\Support\Units;
+use App\Support\Usage;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -189,13 +190,7 @@ final class NeedsAttention
             return [];
         }
 
-        $used = Radacct::query()
-            ->whereIn('username', $accounts->pluck('username'))
-            ->where('acctstarttime', '>=', now()->startOfMonth())
-            ->groupBy('username')
-            ->selectRaw('username, COALESCE(SUM(acctinputoctets), 0) + COALESCE(SUM(acctoutputoctets), 0) AS bytes')
-            ->toBase()
-            ->pluck('bytes', 'username');
+        $used = Usage::bytesSince(array_values(array_map(strval(...), $accounts->pluck('username')->all())), now()->startOfMonth());
         $customers = $this->user->can('viewAny', Account::class);
 
         return array_values($accounts

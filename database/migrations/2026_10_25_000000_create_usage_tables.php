@@ -46,8 +46,9 @@ return new class extends Migration
 
         DB::unprepared('DROP TRIGGER IF EXISTS radacct_usage_insert');
         DB::unprepared('DROP TRIGGER IF EXISTS radacct_usage_update');
-        DB::unprepared($this->trigger('radacct_usage_insert', 'INSERT', $db, '0'));
-        DB::unprepared($this->trigger('radacct_usage_update', 'UPDATE', $db, 'OLD'));
+        // A trigger body cannot be a prepared statement; the database name in it was checked by database().
+        DB::connection()->getPdo()->exec($this->trigger('radacct_usage_insert', 'INSERT', $db, '0'));
+        DB::connection()->getPdo()->exec($this->trigger('radacct_usage_update', 'UPDATE', $db, 'OLD'));
     }
 
     public function down(): void

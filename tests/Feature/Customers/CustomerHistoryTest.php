@@ -66,13 +66,17 @@ it('says when the customer is not online', function () {
 
 it('shows the usage since the last recharge, today and this month, against the plan limits', function () {
     $plan = Plan::factory()->create(['limit_after' => 100, 'daily_data_gb' => null]);
-    $account = Account::factory()->create(['username' => 'alice', 'plan_id' => $plan->id, 'usage_since' => '2026-10-05 00:00:00']);
-    Radacct::factory()->closed()->create(['username' => 'alice', 'acctstarttime' => '2026-10-01 08:00:00', 'acctinputoctets' => 5_368_709_120, 'acctsessiontime' => 3600]);
-    Radacct::factory()->closed()->create(['username' => 'alice', 'acctstarttime' => '2026-10-06 08:00:00', 'acctoutputoctets' => 1_073_741_824, 'acctsessiontime' => 3900]);
+    $account = Account::factory()->create(['username' => 'alice', 'plan_id' => $plan->id, 'usage_since' => now()->subDay()]);
+    usageDay('alice', now()->startOfMonth()->toDateString(), 0, 5_368_709_120, 3600);
+    usageDay('alice', now()->toDateString(), 1_073_741_824, 0, 3900);
+    usageDay('alice', now()->startOfMonth()->subDay()->toDateString(), 9_000_000_000, 0, 60);
+    usagePeriod('alice', 1_073_741_824, 3900);
 
     customerPage($account, 'connection')
         ->assertSeeInOrder(['Since the last recharge', '1.00 GB / 100.0 GB', '1 h 05 min'])
-        ->assertSeeInOrder(['This month', '6.00 GB', '2 h 05 min']);
+        ->assertSeeInOrder(['Today', '1.00 GB', '1 h 05 min'])
+        ->assertSeeInOrder(['This month', '6.00 GB', '2 h 05 min'])
+        ->assertSeeInOrder(['Per day, last 31 days', now()->format('d/m/Y'), '1.00 GB']);
 });
 
 it('lists the latest login attempts with a link to the full log', function () {
