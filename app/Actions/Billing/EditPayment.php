@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Corrects how and when a payment came in: its method, reference, received at and staff note. The amount and the invoice stay
@@ -23,7 +24,11 @@ final class EditPayment
     {
         DB::transaction(function () use ($paymentId, $methodId, $reference, $paidAt, $note): void {
             $payment = Payment::query()->with(['method', 'invoice'])->lockForUpdate()->findOrFail($paymentId);
-            $method = PaymentMethod::query()
+
+            if ($payment->method?->gateway !== null) {
+                throw new InvalidArgumentException('A payment made online is not edited.');
+            }
+            $method = PaymentMethod::query()->forStaff()
                 ->where(fn ($query) => $query->where('active', true)->orWhere('id', $payment->payment_method_id))
                 ->findOrFail($methodId);
             $reference = $reference === null || trim($reference) === '' ? null : trim($reference);

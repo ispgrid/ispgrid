@@ -20,6 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [SetLocale::class]);
+        // Payment gateways post these from their own site; each request is checked by the gateway instead.
+        $middleware->validateCsrfTokens(except: ['pay/return/*', 'pay/webhook/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

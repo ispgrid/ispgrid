@@ -76,13 +76,14 @@ new #[Title('Receipt')] class extends Component
     }
 
     /**
-     * Edit payment: for staff who record payments, on a payment not removed, of a customer not deleted.
+     * Edit payment: for staff who record payments, on a payment not removed and not made online, of a customer
+     * not deleted.
      */
     #[Computed]
     public function canEdit(): bool
     {
         return Gate::allows('record-payments')
-            && Payment::query()->whereKey($this->paymentId)->exists()
+            && Payment::query()->whereKey($this->paymentId)->whereHas('method', fn ($query) => $query->whereNull('gateway'))->exists()
             && Account::query()->whereKey($this->accountId)->exists();
     }
 
@@ -96,7 +97,7 @@ new #[Title('Receipt')] class extends Component
     {
         $current = Payment::withTrashed()->findOrFail($this->paymentId)->payment_method_id;
 
-        return PaymentMethod::query()->where(fn ($query) => $query->where('active', true)->orWhere('id', $current))
+        return PaymentMethod::query()->forStaff()->where(fn ($query) => $query->where('active', true)->orWhere('id', $current))
             ->orderBy('position')->orderBy('id')->pluck('name', 'id')->all();
     }
 

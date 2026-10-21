@@ -14,6 +14,7 @@ use App\Billing\Tax\TaxSetups;
 use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\Invoice;
+use App\Models\OnlinePayment;
 use App\Models\Passkey;
 use App\Models\Plan;
 use App\Models\User;
@@ -23,7 +24,11 @@ use App\Notifications\Providers\WacrmWhatsApp;
 use App\Notifications\Triggers\AfterExpiry;
 use App\Notifications\Triggers\BeforeExpiry;
 use App\Notifications\Triggers\CustomerCreated;
+use App\Notifications\Triggers\OnlinePaymentReceived;
 use App\Notifications\Triggers\RechargeDone;
+use App\Payments\PaymentGateways;
+use App\Payments\Paytm\PaytmGateway;
+use App\Payments\QuickPay;
 use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerFormTabs;
@@ -35,9 +40,12 @@ use App\Support\SessionKeepers;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -61,6 +69,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(InvoicePdf::class, DompdfInvoicePdf::class);
         $this->app->bind(ReceiptPdf::class, DompdfReceiptPdf::class);
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
+        $this->app->singleton(PaymentGateways::class, function (): PaymentGateways {
+            $gateways = new PaymentGateways;
+            $gateways->register(PaytmGateway::class);
+
+            return $gateways;
+        });
 
         $this->app->singleton(Permissions::class, function (): Permissions {
             $permissions = new Permissions;
@@ -75,7 +89,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
             $registry = new NotificationRegistry;
 
-            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class] as $trigger) {
+            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class, OnlinePaymentReceived::class] as $trigger) {
                 $registry->registerTrigger($trigger);
             }
 
@@ -97,6 +111,12 @@ class AppServiceProvider extends ServiceProvider
         View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->user(), request())));
 
         Passkeys::usePasskeyModel(Passkey::class);
+
+        // The public pay page: searches and payment starts per visitor address.
+        RateLimiter::for('quick-pay', fn (Request $request): array => [
+            Limit::perMinute(10)->by('quick-pay-minute|'.$request->ip()),
+            Limit::perHour(60)->by('quick-pay-hour|'.$request->ip()),
+        ]);
 
         // The reset link goes to the panel's own address: the Host header is the visitor's to choose, and a link
         // built from it would send the reset token to their server.
@@ -168,6 +188,8 @@ class AppServiceProvider extends ServiceProvider
         $menu->group('billing', fn (): string => __('Billing'), true, 33);
         $menu->add(new NavItem('billing', fn (): string => __('Invoices'), 'invoices.index', 'document-text', ['invoices.*'], $billing, 10));
         $menu->add(new NavItem('billing', fn (): string => __('Payments'), 'payments.index', 'credit-card', ['payments.*'], $billing, 20));
+        $menu->add(new NavItem('billing', fn (): string => __('Online payments'), 'online-payments.index', 'qr-code', ['online-payments.*'],
+            fn (User $user): bool => $user->can('view-invoices') && (QuickPay::isOpen() || OnlinePayment::query()->exists()), 30));
 
         // Add-ons put their pages here; the group stays hidden until one does.
         $menu->group('addons', fn (): string => __('Add-ons'), true, 35);
@@ -177,6 +199,7 @@ class AppServiceProvider extends ServiceProvider
         $menu->add(new NavItem('system', fn (): string => __('Roles'), 'roles.index', 'key', ['roles.*'], $can('manage-staff'), 20));
         $menu->add(new NavItem('system', fn (): string => __('App settings'), 'app-settings.edit', 'cog-6-tooth', ['app-settings.*'], $can('manage-app-settings'), 30));
         $menu->add(new NavItem('system', fn (): string => __('Billing'), 'billing-settings.edit', 'banknotes', ['billing-settings.*'], $can('manage-billing'), 32));
+        $menu->add(new NavItem('system', fn (): string => __('Quick pay'), 'online-payments.edit', 'qr-code', ['online-payments.*'], $can('manage-billing'), 33));
         $menu->add(new NavItem('system', fn (): string => __('Add-ons'), 'addons.index', 'puzzle-piece', ['addons.*'], fn (User $user): bool => app(AddonSettings::class)->canOpenPage($user), 35));
         $menu->add(new NavItem('system', fn (): string => __('FreeRADIUS'), 'radius-settings.edit', 'adjustments-horizontal', ['radius-settings.*'], $can('manage-radius-settings'), 40));
         $menu->add(new NavItem('system', fn (): string => __('Connection types'), 'connection-types.index', 'wifi', ['connection-types.*'], $can('manage-connection-types'), 50));

@@ -23,6 +23,9 @@ final class Placeholders
     /** Values only a recharge has. */
     public const RECHARGE = ['amount_paid', 'recharge_reference', 'recharge_note', 'recharge_date', 'recharge_datetime'];
 
+    /** Values only a payment has. */
+    public const PAYMENT = ['payment_amount', 'receipt_number', 'invoice_number', 'payment_method', 'balance_due'];
+
     /** @var array<string, string> */
     private array $settings = [];
 
@@ -48,6 +51,11 @@ final class Placeholders
             'days_left' => __('Days left'),
             'isp_name' => __('ISP name'),
             'support_number' => __('Support number'),
+            'payment_amount' => __('Payment amount'),
+            'receipt_number' => __('Receipt number'),
+            'invoice_number' => __('Invoice number'),
+            'payment_method' => __('Payment method'),
+            'balance_due' => __('Balance due'),
         ];
     }
 
@@ -55,13 +63,13 @@ final class Placeholders
      * @param  list<string>  $keys
      * @return array{values: list<string>, trimmed: bool}
      */
-    public function values(array $keys, ?Account $account, ?Recharge $recharge, CarbonImmutable $now): array
+    public function values(array $keys, ?Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null): array
     {
         $values = [];
         $trimmed = false;
 
         foreach ($keys as $key) {
-            $value = $account === null ? '['.(self::labels()[$key] ?? $key).']' : $this->resolve($key, $account, $recharge, $now);
+            $value = $account === null ? '['.(self::labels()[$key] ?? $key).']' : $this->resolve($key, $account, $recharge, $now, $payment);
 
             if (mb_strlen($value) > self::MAX_LENGTH) {
                 $value = mb_substr($value, 0, self::MAX_LENGTH);
@@ -94,7 +102,7 @@ final class Placeholders
         return strtr($approvedText, $pairs);
     }
 
-    private function resolve(string $key, Account $account, ?Recharge $recharge, CarbonImmutable $now): string
+    private function resolve(string $key, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment): string
     {
         $plan = $account->plan;
         $expiry = $account->expiry;
@@ -117,6 +125,11 @@ final class Placeholders
             'days_left' => $expiry === null ? '' : (string) $this->daysLeft($now, $expiry),
             'isp_name' => $this->setting('notice_isp_name', ''),
             'support_number' => $this->setting('notice_phone', ''),
+            'payment_amount' => $payment === null ? '' : $this->amount($payment->amount),
+            'receipt_number' => (string) $payment?->receipts,
+            'invoice_number' => (string) $payment?->invoices,
+            'payment_method' => (string) $payment?->method,
+            'balance_due' => $payment === null ? '' : $this->amount($payment->balanceDue),
             default => '',
         };
     }
