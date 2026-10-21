@@ -79,8 +79,12 @@ final class ActivityTimeline
             'own-speed-removed' => fn (): string => __('Override speed removed.'),
             'own-speed-ended' => fn (): string => __('Override speed ended.'),
             'terminated' => fn (): string => __('Terminated.'),
-            'invoice-issued' => fn (): string => __('Invoice :number issued, :total.', ['number' => self::text($new['invoice'] ?? null) ?? '', 'total' => $money($new['total'] ?? null)]),
-            'invoice-cancelled' => fn (): string => __('Invoice :number cancelled.', ['number' => self::text($new['invoice'] ?? null) ?? '']),
+            'invoice-issued' => fn (): string => isset($new['replaces'])
+                ? __('Invoice :number issued, :total, replacing :old.', ['number' => self::text($new['invoice'] ?? null) ?? '', 'total' => $money($new['total'] ?? null), 'old' => self::text($new['replaces']) ?? ''])
+                : __('Invoice :number issued, :total.', ['number' => self::text($new['invoice'] ?? null) ?? '', 'total' => $money($new['total'] ?? null)]),
+            'invoice-cancelled' => fn (): string => isset($new['replaced_by'])
+                ? __('Invoice :number cancelled and replaced by :new.', ['number' => self::text($new['invoice'] ?? null) ?? '', 'new' => self::text($new['replaced_by']) ?? ''])
+                : __('Invoice :number cancelled.', ['number' => self::text($new['invoice'] ?? null) ?? '']),
             'invoice-downloaded' => fn (): string => __('Invoice :number PDF opened.', ['number' => self::text($new['invoice'] ?? null) ?? '']),
             'receipt-downloaded' => fn (): string => __('Receipt :number for invoice :invoice opened.', ['number' => self::text($new['receipt'] ?? null) ?? '', 'invoice' => self::text($new['invoice'] ?? null) ?? '']),
             'payment-recorded' => fn (): string => __('Payment of :amount by :method recorded for invoice :number.', [

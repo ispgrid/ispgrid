@@ -11,12 +11,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * An issued invoice. Everything it prints (company, customer, tax lines, totals) is a copy taken at issue, so a
  * later change to the customer, plan or settings never changes it. It is never edited, only cancelled.
  */
-#[Fillable(['number', 'series', 'sequence', 'account_id', 'recharge_id', 'kind', 'status', 'title', 'issue_date', 'due_date',
+#[Fillable(['number', 'series', 'sequence', 'account_id', 'recharge_id', 'replaces_invoice_id', 'kind', 'status', 'title', 'issue_date', 'due_date',
     'terms_days', 'period_from', 'period_to', 'validity_text', 'place_of_supply', 'tax_setup', 'item_code_label',
     'company', 'customer', 'taxable_total', 'tax_total', 'round_off', 'total', 'paid_total', 'balance',
     'total_in_words', 'user_id', 'cancelled_at', 'cancelled_by', 'cancel_reason'])]
@@ -65,6 +66,26 @@ class Invoice extends Model
     public function recharge(): BelongsTo
     {
         return $this->belongsTo(Recharge::class);
+    }
+
+    /**
+     * The invoice this one replaced (Cancel and reissue).
+     *
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function replaces(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'replaces_invoice_id');
+    }
+
+    /**
+     * The invoice that replaced this cancelled one.
+     *
+     * @return HasOne<Invoice, $this>
+     */
+    public function replacedBy(): HasOne
+    {
+        return $this->hasOne(Invoice::class, 'replaces_invoice_id');
     }
 
     /**

@@ -55,6 +55,9 @@
                 <div class="title">{{ $invoice['title'] }}</div>
                 @if ($invoice['cancelled'])
                     <div class="bold" style="color: #b42318;">CANCELLED{{ $invoice['cancel_reason'] ? ': '.$invoice['cancel_reason'] : '' }}</div>
+                    @if ($invoice['replaced_by'])
+                        <div>Replaced by {{ $invoice['replaced_by'] }}</div>
+                    @endif
                 @endif
             </td>
         </tr>
@@ -66,6 +69,9 @@
                 <table>
                     <tr><td class="label" style="border: 0; padding: 1px 0;">Invoice number</td><td class="bold right" style="border: 0; padding: 1px 0;">{{ $invoice['number'] }}</td></tr>
                     <tr><td class="label" style="border: 0; padding: 1px 0;">Invoice date</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['date'] }}</td></tr>
+                    @if ($invoice['replaces'])
+                        <tr><td class="label" style="border: 0; padding: 1px 0;">Replaces invoice</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['replaces'] }}</td></tr>
+                    @endif
                     <tr><td class="label" style="border: 0; padding: 1px 0;">Terms</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['terms'] }}</td></tr>
                     <tr><td class="label" style="border: 0; padding: 1px 0;">Due date</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['due_date'] }}</td></tr>
                 </table>

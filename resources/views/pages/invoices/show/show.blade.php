@@ -9,6 +9,9 @@
                 <x-ui.link href="{{ route('customers.show', ['account' => $this->accountId, 'tab' => 'billing']) }}" wire:navigate>{{ $this->printed['customer']['billing_lines'][0] ?? $this->printed['customer']['username'] }}</x-ui.link>
                 ({{ $this->printed['customer']['username'] }})
             </x-ui.text>
+            @if ($this->related['replaces'])
+                <x-ui.text muted class="mt-1">{{ __('Replaces') }} <x-ui.link href="{{ route('invoices.show', $this->related['replaces']['id']) }}" wire:navigate>{{ $this->related['replaces']['number'] }}</x-ui.link></x-ui.text>
+            @endif
         </div>
         <div class="flex flex-wrap gap-2">
             <x-ui.button variant="secondary" href="{{ route('invoices.pdf', $this->invoiceId) }}" icon="arrow-down-tray">{{ __('Download PDF') }}</x-ui.button>
@@ -19,11 +22,19 @@
             @if (! $this->can['cancelled'] && $this->can['cancel'])
                 <x-ui.button variant="ghost" wire:click="openCancelInvoice({{ $this->invoiceId }})">{{ __('Cancel invoice') }}</x-ui.button>
             @endif
+            @if (! $this->can['cancelled'] && $this->can['reissue'])
+                <x-ui.button variant="ghost" wire:click="openReissueInvoice({{ $this->invoiceId }})">{{ __('Cancel and reissue') }}</x-ui.button>
+            @endif
         </div>
     </div>
 
     @if ($this->printed['cancelled'])
-        <x-ui.alert variant="danger">{{ __('Cancelled: :reason', ['reason' => $this->printed['cancel_reason']]) }}</x-ui.alert>
+        <x-ui.alert variant="danger">
+            {{ __('Cancelled: :reason', ['reason' => $this->printed['cancel_reason']]) }}
+            @if ($this->related['replaced_by'])
+                {{ __('Replaced by') }} <x-ui.link href="{{ route('invoices.show', $this->related['replaced_by']['id']) }}" wire:navigate>{{ $this->related['replaced_by']['number'] }}</x-ui.link>.
+            @endif
+        </x-ui.alert>
     @endif
 
     <x-ui.card class="grid gap-6">
@@ -147,6 +158,10 @@
                 @endforeach
             </x-ui.table>
         </x-ui.card>
+    @endif
+
+    @if ($this->can['reissue'])
+        @include('partials.invoice-form')
     @endif
 
     @include('partials.invoice-dialogs', ['canRecord' => $this->can['record'], 'canRemove' => $this->can['remove'], 'canCancel' => $this->can['cancel']])

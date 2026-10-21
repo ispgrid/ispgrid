@@ -1,50 +1,34 @@
 <?php
 
-use App\Actions\Billing\IssueInvoice;
 use App\Billing\BillingSettings;
-use App\Billing\Decimal;
-use App\Billing\InvoiceDraft;
-use App\Billing\LineInput;
 use App\Billing\Statement;
-use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
-use App\Exceptions\InvoicingNotReady;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ManagesInvoices;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Livewire\Concerns\TakesPayment;
+use App\Livewire\Concerns\WritesInvoices;
 use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Support\Money;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * The customer's Billing tab: dues, invoices, payments and the statement, with New invoice (manual invoices such
- * as a CPE), and Record payment, Remove payment and Cancel invoice (ManagesInvoices). Read-only for a deleted customer.
+ * The customer's Billing tab: dues, invoices, payments and the statement, with New invoice and Cancel and reissue
+ * (WritesInvoices), and Record payment, Remove payment and Cancel invoice (ManagesInvoices). Read-only for a deleted
+ * customer.
  */
 new class extends Component
 {
-    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment;
+    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment, WritesInvoices;
 
     #[Locked]
     public int $accountId;
-
-    /**
-     * New invoice: its lines, round off and issue date (Y-m-d).
-     *
-     * @var list<array{description: string, quantity: string, unit_price: string, discount: string, taxed: bool, item_code: string}>
-     */
-    public array $lines = [];
-
-    public bool $round_off = false;
-
-    public string $invoice_date = '';
 
     public function mount(int $accountId): void
     {
@@ -66,7 +50,7 @@ new class extends Component
     /**
      * What staff may do here: nothing on a deleted customer, and no new invoice or payment while invoicing is off.
      *
-     * @return array{create: bool, record: bool, remove: bool, cancel: bool}
+     * @return array{create: bool, record: bool, remove: bool, cancel: bool, reissue: bool}
      */
     #[Computed]
     public function can(): array
@@ -79,6 +63,7 @@ new class extends Component
             'record' => $live && Gate::allows('record-payments') && $settings->enabled,
             'remove' => $live && Gate::allows('record-payments'),
             'cancel' => $live && Gate::allows('cancel-invoices'),
+            'reissue' => $live && Gate::allows('cancel-invoices') && Gate::allows('create-invoices') && $settings->canIssue(),
         ];
     }
 
@@ -159,178 +144,9 @@ new class extends Component
         ], Statement::for($this->account));
     }
 
-    /**
-     * The item code label of the tax setup (SAC/HSN in India), or null when lines have no code.
-     */
-    #[Computed]
-    public function itemCodeLabel(): ?string
+    protected function invoiceReissued(Invoice $invoice, string $message): void
     {
-        return BillingSettings::current()->tax()->itemCodeLabel();
-    }
-
-    #[Computed]
-    public function canDiscount(): bool
-    {
-        return Gate::allows('set-customer-pricing');
-    }
-
-    /**
-     * The New invoice totals as staff type: taxable, tax lines, round off and total.
-     *
-     * @return list<array{label: string, value: string, total: bool}>
-     */
-    #[Computed]
-    public function newInvoiceTotals(): array
-    {
-        $draft = $this->draft();
-
-        if ($draft === null) {
-            return [];
-        }
-
-        $money = Money::fromSettings();
-        $rows = [['label' => __('Taxable'), 'value' => $money->format($draft->taxableTotal), 'total' => false]];
-
-        foreach ($draft->taxLines as $taxLine) {
-            $rows[] = ['label' => $taxLine->label(), 'value' => $money->format($taxLine->amount), 'total' => false];
-        }
-
-        if (Decimal::compare($draft->roundOff, '0') !== 0) {
-            $rows[] = ['label' => __('Round off'), 'value' => $money->format($draft->roundOff), 'total' => false];
-        }
-
-        $rows[] = ['label' => __('Total'), 'value' => $money->format($draft->total), 'total' => true];
-
-        return $rows;
-    }
-
-    #[Computed]
-    public function newInvoiceTotal(): string
-    {
-        return $this->draft()->total ?? '0';
-    }
-
-    public function openNewInvoice(): void
-    {
-        $this->authorizeLive('create-invoices');
-        $this->resetValidation();
-        $this->lines = [$this->blankLine()];
-        $this->round_off = false;
-        $this->invoice_date = now()->format('Y-m-d');
-        $this->resetPayment();
-        $this->dispatch('modal-open', name: 'billing-new-invoice');
-    }
-
-    public function addLine(): void
-    {
-        $this->authorizeLive('create-invoices');
-
-        if (count($this->lines) < 20) {
-            $this->lines[] = $this->blankLine();
-        }
-    }
-
-    public function removeLine(int $index): void
-    {
-        $this->authorizeLive('create-invoices');
-
-        if (count($this->lines) > 1) {
-            unset($this->lines[$index]);
-            $this->lines = array_values($this->lines);
-        }
-    }
-
-    /**
-     * Issues the manual invoice, with the payment taken now if any.
-     */
-    public function createInvoice(IssueInvoice $issue): void
-    {
-        $this->authorizeLive('create-invoices');
-        $total = $this->newInvoiceTotal;
-
-        $this->validate([
-            'lines' => ['required', 'array', 'min:1', 'max:20'],
-            'lines.*.description' => ['required', 'string', 'max:255'],
-            'lines.*.quantity' => ['required', 'regex:/^\d{1,6}(\.\d{1,2})?$/', 'not_regex:/^0+(\.0+)?$/'],
-            'lines.*.unit_price' => ['required', 'regex:/^\d{1,10}(\.\d{1,2})?$/'],
-            'lines.*.discount' => $this->canDiscount ? ['nullable', 'numeric', 'decimal:0,2', 'between:0,100'] : [],
-            'lines.*.taxed' => ['boolean'],
-            'lines.*.item_code' => ['nullable', 'string', 'max:20'],
-            'round_off' => ['boolean'],
-            'invoice_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-            ...$this->paymentRules($total),
-        ], ['invoice_date.before_or_equal' => __('An invoice cannot be dated in the future.')], [
-            'lines.*.description' => __('description'),
-            'lines.*.quantity' => __('quantity'),
-            'lines.*.unit_price' => __('unit price'),
-            'lines.*.discount' => __('discount'),
-            'lines.*.item_code' => (string) $this->itemCodeLabel,
-            'invoice_date' => __('invoice date'),
-            ...$this->paymentAttributes(),
-        ]);
-
-        try {
-            $invoice = $issue->handle($this->account, $this->lineInputs(), $this->round_off, InvoiceKind::Manual,
-                Carbon::createFromFormat('!Y-m-d', $this->invoice_date) ?: now(), $this->paymentInput($total));
-        } catch (InvoicingNotReady) {
-            $this->toast(__('Invoicing is off or the company details are missing. Check Billing settings.'), 'danger');
-
-            return;
-        }
-
-        $this->invoiceChanged('billing-new-invoice', __('Invoice :number issued.', ['number' => $invoice->number]));
-    }
-
-    /**
-     * @return array{description: string, quantity: string, unit_price: string, discount: string, taxed: bool, item_code: string}
-     */
-    private function blankLine(): array
-    {
-        $settings = BillingSettings::current();
-
-        return [
-            'description' => '', 'quantity' => '1', 'unit_price' => '', 'discount' => '0', 'taxed' => true,
-            'item_code' => $settings->tax()->itemCodeLabel() === null ? '' : ($settings->taxConfig['item_code'] ?? ''),
-        ];
-    }
-
-    /**
-     * The lines as the calculator takes them. A discount needs Set customer pricing; without it the line has none.
-     *
-     * @return list<LineInput>
-     */
-    private function lineInputs(): array
-    {
-        $codes = $this->itemCodeLabel !== null;
-
-        return array_map(fn (array $line): LineInput => new LineInput(
-            description: trim((string) $line['description']),
-            subDescription: null,
-            itemCode: $codes && trim((string) $line['item_code']) !== '' ? trim((string) $line['item_code']) : null,
-            quantity: (string) $line['quantity'],
-            unitPrice: (string) $line['unit_price'],
-            discountPercent: $this->canDiscount && is_numeric($line['discount']) ? (string) $line['discount'] : '0',
-            taxed: (bool) $line['taxed'],
-        ), $this->lines);
-    }
-
-    /**
-     * The worked-out New invoice, or null while a line has no valid quantity or price yet.
-     */
-    private function draft(): ?InvoiceDraft
-    {
-        if ($this->lines === []) {
-            return null;
-        }
-
-        foreach ($this->lines as $line) {
-            if (preg_match('/^\d{1,6}(\.\d{1,2})?$/', (string) $line['quantity']) !== 1 || preg_match('/^\d{1,10}(\.\d{1,2})?$/', (string) $line['unit_price']) !== 1
-                || ($this->canDiscount && $line['discount'] !== '' && preg_match('/^(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)$/', (string) $line['discount']) !== 1)) {
-                return null;
-            }
-        }
-
-        return IssueInvoice::draft($this->account, $this->lineInputs(), $this->round_off, BillingSettings::current());
+        $this->invoiceChanged('billing-new-invoice', $message);
     }
 
     protected function invoiceChanged(string $dialog, string $message): void
