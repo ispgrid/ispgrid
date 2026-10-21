@@ -41,7 +41,7 @@ final class ActivityTimeline
             'sentence' => $sentence ?? ActivityFormatter::eventLabel($activity).'.',
             'by' => self::by($activity),
             'note' => self::text($new['note'] ?? $new['remark'] ?? $new['comment'] ?? $new['reason'] ?? null),
-            'changes' => $sentence === null || $activity->event === 'updated' ? ActivityFormatter::changes($activity) : [],
+            'changes' => $sentence === null || in_array($activity->event, ['updated', 'payment-edited'], true) ? ActivityFormatter::changes($activity) : [],
         ];
     }
 
@@ -86,6 +86,9 @@ final class ActivityTimeline
             'payment-recorded' => fn (): string => __('Payment of :amount by :method recorded for invoice :number.', [
                 'amount' => $money($new['amount'] ?? null), 'method' => self::text($new['method'] ?? null) ?? '', 'number' => self::text($new['invoice'] ?? null) ?? '',
             ]),
+            'payment-edited' => fn (): string => __('Payment :receipt on invoice :number changed.', [
+                'receipt' => self::text($activity->properties->get('receipt')) ?? '', 'number' => self::text($activity->properties->get('invoice')) ?? '',
+            ]),
             'payment-removed' => fn (): string => __('Payment of :amount removed from invoice :number.', ['amount' => $money($new['amount'] ?? null), 'number' => self::text($new['invoice'] ?? null) ?? '']),
             'status-changed' => fn (): string => __('Status changed from :old to :new.', ['old' => self::text($old['status'] ?? null) ?? '', 'new' => self::text($new['status'] ?? null) ?? '']),
             'updated' => fn (): string => __('Details changed.'),
@@ -107,7 +110,7 @@ final class ActivityTimeline
             'status-changed' => in_array($new['status'] ?? null, [AccountStatus::Active->label(), 'Active'], true) ? 'green' : 'red',
             'recharged', 'plan-changed', 'advance-booked', 'advance-started', 'advance-cancelled', 'advance-moved', 'auto-renewed', 'invoice-issued' => 'blue',
             'terminated', 'expired', 'deleted', 'disconnect-failed', 'auto-renew-skipped', 'payment-removed', 'invoice-cancelled' => 'red',
-            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'password-changed', 'billing-changed' => 'amber',
+            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'password-changed', 'billing-changed', 'payment-edited' => 'amber',
             default => 'grey',
         };
     }
@@ -123,7 +126,7 @@ final class ActivityTimeline
             'recharged', 'plan-changed', 'advance-started', 'auto-renewed', 'advance-moved' => 'arrow-path',
             'expired', 'auto-renew-skipped', 'disconnect-failed' => 'exclamation-triangle',
             'terminated', 'deleted', 'advance-cancelled', 'payment-removed', 'invoice-cancelled' => 'no-symbol',
-            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'billing-changed' => 'adjustments-horizontal',
+            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'billing-changed', 'payment-edited' => 'adjustments-horizontal',
             'password-changed', 'unlocked' => 'key',
             'disconnected' => 'x-circle',
             default => 'list-bullet',

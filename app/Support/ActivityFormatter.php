@@ -19,6 +19,7 @@ use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\NotificationRegistry;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
@@ -140,6 +141,7 @@ final class ActivityFormatter
             'receipt-downloaded' => __('Receipt PDF opened'),
             'payment-recorded' => __('Payment recorded'),
             'payment-removed' => __('Payment removed'),
+            'payment-edited' => __('Payment changed'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }
@@ -198,6 +200,7 @@ final class ActivityFormatter
             'nas_id' => __('NAS'),
             'ip_id' => __('Static IP'),
             'override_plan' => __('Override speed'),
+            'paid_at' => __('Received at'),
             default => __(ucfirst(str_replace('_', ' ', (string) preg_replace('/_id$/', '', $field)))),
         };
     }
@@ -215,6 +218,8 @@ final class ActivityFormatter
 
         $named = match ($field) {
             'place_of_supply' => GstStates::label($text),
+            'paid_at' => CarbonImmutable::canBeCreatedFromFormat($text, 'Y-m-d H:i')
+                ? CarbonImmutable::createFromFormat('Y-m-d H:i', $text)?->format(AppSetting::valueOf('date_format', 'd/m/Y').' H:i') : null,
             'status_id' => ctype_digit($text) ? AccountStatus::tryFrom((int) $text)?->label() : null,
             'plan_id' => self::name(Plan::class, $text, 'name'),
             'nas_id' => self::name(Nas::class, $text, 'shortname'),
