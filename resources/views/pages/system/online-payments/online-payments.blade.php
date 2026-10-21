@@ -1,6 +1,6 @@
 <section class="grid gap-6">
     <div>
-        <x-ui.heading level="1" size="xl">{{ __('Online payments') }}</x-ui.heading>
+        <x-ui.heading level="1" size="xl">{{ __('Quick pay') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Quick pay: a public page where customers pay their dues and renew by username or mobile number, without logging in. It shows only a masked username and the amount.') }}</x-ui.text>
     </div>
 
@@ -10,7 +10,7 @@
 
     <x-ui.card>
         <form wire:submit="saveQuickPay" class="grid gap-5">
-            <x-ui.heading>{{ __('Quick pay') }}</x-ui.heading>
+            <x-ui.heading>{{ __('Pay page') }}</x-ui.heading>
             <x-ui.switch wire:model="quick_pay" id="quick-pay" :label="__('Open the pay page')" :description="$this->page['invoicing'] ? null : __('Needs invoicing on in Billing.')" />
             <div class="grid items-start gap-5 sm:grid-cols-2">
                 <x-ui.input wire:model="renewal_days" type="number" min="0" max="60" :label="__('Offer renewal from (days before expiry)')" :description="__('Expired plans are always offered. Empty: dues only, no renewal.')" />

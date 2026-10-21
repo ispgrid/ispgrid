@@ -17,7 +17,7 @@ use Livewire\Component;
  * Quick pay settings: the pay page on or off, how early it offers a renewal, and each payment gateway's keys.
  * Keys are stored encrypted and never shown again.
  */
-new #[Title('Online payments')] class extends Component
+new #[Title('Quick pay')] class extends Component
 {
     use AuthorizesEveryRequest, ShowsToasts;
 
