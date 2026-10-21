@@ -18,9 +18,11 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $gateway_response
  * @property Carbon|null $paid_at
  * @property Carbon|null $settled_at
+ * @property Carbon|null $handled_at
  */
 #[Fillable(['public_id', 'account_id', 'gateway', 'amount', 'dues_amount', 'renewal_amount', 'currency', 'renewal_kind',
-    'renewal_plan_id', 'renewal_expiry_key', 'status', 'gateway_txn_id', 'gateway_status', 'gateway_response', 'paid_at', 'settled_at', 'note'])]
+    'renewal_plan_id', 'renewal_expiry_key', 'status', 'gateway_txn_id', 'gateway_status', 'gateway_response', 'paid_at', 'settled_at', 'note',
+    'handled_at', 'handled_by', 'handled_note'])]
 class OnlinePayment extends Model
 {
     /** @use HasFactory<OnlinePaymentFactory> */
@@ -39,6 +41,7 @@ class OnlinePayment extends Model
             'gateway_response' => 'array',
             'paid_at' => 'datetime',
             'settled_at' => 'datetime',
+            'handled_at' => 'datetime',
         ];
     }
 
@@ -48,6 +51,16 @@ class OnlinePayment extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class)->withTrashed();
+    }
+
+    /**
+     * The staff member who dealt with a Needs attention payment.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function handler(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'handled_by');
     }
 
     /**

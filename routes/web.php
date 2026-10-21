@@ -25,6 +25,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('invoices', 'pages::invoices.index')->name('invoices.index');
     Route::livewire('invoices/{invoice}', 'pages::invoices.show')->name('invoices.show');
     Route::livewire('payments', 'pages::payments.index')->name('payments.index');
+    Route::livewire('online-payments', 'pages::payments.online')->name('online-payments.index');
     Route::livewire('payments/{payment}', 'pages::payments.show')->name('payments.show')->withTrashed();
     Route::get('invoices/{invoice}/pdf', InvoicePdfController::class)->name('invoices.pdf');
     Route::get('payments/{payment}/receipt', PaymentReceiptController::class)->name('payments.receipt')->withTrashed();

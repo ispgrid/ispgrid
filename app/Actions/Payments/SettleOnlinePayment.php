@@ -137,7 +137,7 @@ final class SettleOnlinePayment
             return;
         }
 
-        $account = Account::query()->findOrFail($payment->account_id);
+        $account = Account::withTrashed()->findOrFail($payment->account_id);
         $this->notifier->fire(OnlinePaymentReceived::key(), $account, null, new PaymentNotice(
             $payment->public_id,
             Decimal::round((string) $recorded->sum(fn (Payment $row): float => (float) $row->amount), 2),
@@ -181,10 +181,10 @@ final class SettleOnlinePayment
      */
     private function renew(OnlinePayment $payment, PaymentMethod $method, string $reference, CarbonInterface $paidAt): bool
     {
-        $account = Account::query()->findOrFail($payment->account_id);
-        $offer = $this->quickPay->renewal($account, anyTime: true);
+        $account = Account::query()->find($payment->account_id);
+        $offer = $account === null ? null : $this->quickPay->renewal($account, anyTime: true);
 
-        if ($offer === null || $offer->planId !== $payment->renewal_plan_id || Decimal::compare($offer->price, (string) $payment->renewal_amount) !== 0
+        if ($account === null || $offer === null || $offer->planId !== $payment->renewal_plan_id || Decimal::compare($offer->price, (string) $payment->renewal_amount) !== 0
             || RechargeAccount::expiryKey($account) !== $payment->renewal_expiry_key) {
             return false;
         }

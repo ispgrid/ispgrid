@@ -40,6 +40,10 @@ a customer who is online is changed, their session is disconnected so the change
 - **Invoices and payments:** off until you turn it on in System, then Billing. An invoice with every paid recharge
   and for manual charges (a CPE), payments by cash, UPI, bank or your own methods, discounts and Free customers, GST
   (CGST/SGST or IGST by place of supply) or one tax of your country, invoice and receipt PDFs, dues and a CSV export for filing.
+- **Quick pay:** off until you turn it on in System, then Online payments. A public page (`/pay`) where customers pay
+  their dues, and renew a plan that has ended or ends soon, by username or mobile number without logging in, through
+  Paytm (more gateways can be added). Payments land on their invoices, renewals are booked with their invoice, and
+  the customer gets a confirmation message.
 - **Hotspot:** off until you turn it on in App settings (while it is off, FreeRADIUS refuses Hotspot page logins).
   A Hotspot plan can start its validity at the customer's first login instead of at the recharge.
 - **Online and Login log:** who is connected, from which NAS, IP and device, with traffic; every accepted and

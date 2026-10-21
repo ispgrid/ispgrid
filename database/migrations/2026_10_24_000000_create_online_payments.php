@@ -40,6 +40,9 @@ return new class extends Migration
             $table->dateTime('paid_at')->nullable();
             $table->dateTime('settled_at')->nullable();
             $table->string('note')->nullable();
+            $table->dateTime('handled_at')->nullable();
+            $table->foreignId('handled_by')->nullable()->constrained('users');
+            $table->string('handled_note')->nullable();
             $table->timestamps();
             $table->index(['account_id', 'created_at']);
         });

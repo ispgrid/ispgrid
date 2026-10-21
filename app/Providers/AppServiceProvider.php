@@ -14,6 +14,7 @@ use App\Billing\Tax\TaxSetups;
 use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\Invoice;
+use App\Models\OnlinePayment;
 use App\Models\Passkey;
 use App\Models\Plan;
 use App\Models\User;
@@ -27,6 +28,7 @@ use App\Notifications\Triggers\OnlinePaymentReceived;
 use App\Notifications\Triggers\RechargeDone;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
+use App\Payments\QuickPay;
 use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerFormTabs;
@@ -186,6 +188,8 @@ class AppServiceProvider extends ServiceProvider
         $menu->group('billing', fn (): string => __('Billing'), true, 33);
         $menu->add(new NavItem('billing', fn (): string => __('Invoices'), 'invoices.index', 'document-text', ['invoices.*'], $billing, 10));
         $menu->add(new NavItem('billing', fn (): string => __('Payments'), 'payments.index', 'credit-card', ['payments.*'], $billing, 20));
+        $menu->add(new NavItem('billing', fn (): string => __('Online payments'), 'online-payments.index', 'qr-code', ['online-payments.*'],
+            fn (User $user): bool => $user->can('view-invoices') && (QuickPay::isOpen() || OnlinePayment::query()->exists()), 30));
 
         // Add-ons put their pages here; the group stays hidden until one does.
         $menu->group('addons', fn (): string => __('Add-ons'), true, 35);

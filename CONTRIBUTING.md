@@ -81,6 +81,36 @@ country with its own rules (UK VAT with reverse charge, several rates) is one ne
 4. Test it like `tests/Unit/Billing/InvoiceCalculatorTest.php`: a sale at home, a sale elsewhere if that differs, and
    the rounding of each tax line. Invoices, the PDF and the lists only read the tax lines, so nothing else changes.
 
+## Add a payment gateway
+
+Quick pay sends the customer to a gateway and back. A gateway only talks to its provider: the panel works out what
+is due, keeps every attempt, records the payments and renewals, and tells the customer. Core ships Paytm; an add-on
+registers another the same way.
+
+1. Create a class implementing `App\Contracts\PaymentGateway` (core: `app/Payments/YourGateway/YourGateway.php`):
+   - `key()`: lowercase and stable (it is stored with every attempt), e.g. `razorpay`. `label()`: the name customers
+     and staff see; the gateway's payment method is called "Online (label)".
+   - `currencies()`: the ISO codes it can charge in. It cannot be turned on for another currency.
+   - `settingFields()`: merchant ids and keys as `SettingField`s (mark keys `'secret'`), test or live, and a host
+     override: gateways move their domains, so never rely on a constant alone.
+   - `start($payment, $returnUrl)`: open the payment at the provider (amount `$payment->amount`, order id
+     `$payment->public_id`) and return a `GatewayStart`: `redirect()`, a self-posting `form()`, or the provider's
+     `script()`. Throw `GatewayUnavailable` when the provider refuses. Send no customer name, phone or email unless
+     the provider requires it.
+   - `status($payment)`: ask the provider server to server and return a `GatewayResult` (`Paid`, `Failed` or
+     `Pending`, the amount taken with two decimals, its transaction id and time). This is the only proof of payment.
+     Leave signatures, tokens and keys out of `raw`. Answer `Pending` when the provider cannot be reached.
+   - `verify($request)`: check a return or webhook really comes from the provider (its signature) and return the
+     attempt's `public_id`, or null.
+2. Register it: in core, in `AppServiceProvider` next to Paytm; in an add-on, in its service provider,
+   `app(PaymentGateways::class)->register(YourGateway::class)`.
+3. Test it like `tests/Feature/Payments/PaytmGatewayTest.php` with `Http::fake()`: the exact request and its
+   signature, the status mapping, and a forged return and webhook refused. `tests/Fakes/FakeGateway.php` is the
+   smallest complete gateway.
+
+Abilities a gateway may add later (refunds from the panel, pay links in reminders) come as small extra interfaces,
+so `PaymentGateway` itself does not change.
+
 ## Write an add-on
 
 An add-on is a Composer package that adds a feature without changing core. Start from the
@@ -96,7 +126,8 @@ is a full example.
   for what you use (`class_exists(AddonSettings::class)`) and keep working without it, above all keep any data safe.
   `core` lists the core minor series it supports; core loads only add-ons that list the running series. Do not use
   `extra.laravel`: core registers the providers itself.
-- **What it may use:** `App\Contracts` (`SessionKeeper`, `CustomerFormTab`), the registries `App\Support\Permissions`,
+- **What it may use:** `App\Contracts` (`SessionKeeper`, `CustomerFormTab`, and since core 0.1.7 `PaymentGateway`
+  with the `App\Payments\PaymentGateways` registry), the registries `App\Support\Permissions`,
   `App\Support\Navigation\Navigation`, `App\Support\SessionKeepers` and those in `App\Support\Addons`
   (`AddonSettings`, `CustomerFormTabs`, `CustomerTabs`, `CustomerCards`), `App\Support\Addons\PrivateFile`, `AppSetting::valueOf()` and
   `AppSetting::put()`, `ActivityFormatter::addEventLabel()`, the Livewire concerns `AuthorizesEveryRequest` and

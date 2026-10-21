@@ -1362,5 +1362,20 @@
     "Balance due": "बाकी रकम",
     "Online payment received": "ऑनलाइन भुगतान मिला",
     "When an online payment is received": "जब ऑनलाइन भुगतान मिले",
-    "Online (Paytm)": "ऑनलाइन (Paytm)"
+    "Online (Paytm)": "ऑनलाइन (Paytm)",
+    "Check now": "अभी जाँचें",
+    "Dues :dues, renewal :renewal": "बकाया :dues, नवीनीकरण :renewal",
+    "Handled by :name: :note": ":name ने निपटाया: :note",
+    "Mark handled": "निपटाया गया मार्क करें",
+    "Marked as handled.": "निपटाया गया मार्क हो गया।",
+    "No online payments yet.": "अभी कोई ऑनलाइन भुगतान नहीं।",
+    "Online payment of :amount marked handled: :note": ":amount का ऑनलाइन भुगतान निपटाया गया: :note",
+    "Online payment of :amount received through :gateway.": ":gateway से :amount का ऑनलाइन भुगतान मिला।",
+    "Online payment of :amount through :gateway needs attention: :note": ":gateway से :amount के ऑनलाइन भुगतान पर ध्यान दें: :note",
+    "Payments customers made on the pay page, newest first. Paid ones are already on their invoices and receipts; Needs attention ones took money that could not be used.": "ग्राहकों ने भुगतान पेज पर जो भुगतान किए, नए पहले। भुगतान हो चुके इनवॉइस और रसीद पर दर्ज हैं; \"ध्यान दें\" वालों में पैसे आए पर उपयोग नहीं हो सके।",
+    "Say what was done with the money: refunded in the gateway, or put on the customer by hand.": "बताएँ कि पैसों का क्या किया: गेटवे में लौटाए, या हाथ से ग्राहक के खाते में डाले।",
+    "Status: :status": "स्थिति: :status",
+    "The gateway could not be asked. Try again later.": "गेटवे से पूछा नहीं जा सका। बाद में फिर कोशिश करें।",
+    "What was done": "क्या किया गया",
+    "what was done": "क्या किया गया"
 }

@@ -46,13 +46,13 @@ function settle(OnlinePayment $payment): OnlinePayment
     return app(SettleOnlinePayment::class)->handle($payment->public_id);
 }
 
-function invoiceFor(Account $account, string $price): Invoice
+function quickPayInvoice(Account $account, string $price): Invoice
 {
     return app(IssueInvoice::class)->handle($account, billingLines($price), false, InvoiceKind::Manual, now());
 }
 
 it('starts a payment for what the customer owes and sends them to the gateway', function () {
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
 
     $started = app(StartOnlinePayment::class)->handle($this->account->id, 'fake');
 
@@ -69,9 +69,9 @@ it('starts a payment for what the customer owes and sends them to the gateway', 
 });
 
 it('pays the dues into the oldest invoices first', function () {
-    $older = invoiceFor($this->account, '100');
+    $older = quickPayInvoice($this->account, '100');
     $this->travel(1)->hours();
-    $newer = invoiceFor($this->account, '200');
+    $newer = quickPayInvoice($this->account, '200');
     $payment = startPayment($this->account);
     FakeGateway::pay($payment);
 
@@ -92,7 +92,7 @@ it('pays the dues into the oldest invoices first', function () {
 });
 
 it('settles once however often the return, the webhook and the check ask', function () {
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     $payment = startPayment($this->account);
     FakeGateway::pay($payment);
 
@@ -124,7 +124,7 @@ it('renews an expired customer with a recharge, its invoice and the payment', fu
 
 it('books an advance renewal for a customer whose plan has not ended yet', function () {
     $this->account->update(['expiry' => now()->addDays(3)]);
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     $payment = startPayment($this->account);
     FakeGateway::pay($payment);
 
@@ -141,7 +141,7 @@ it('books an advance renewal for a customer whose plan has not ended yet', funct
 });
 
 it('records nothing when the gateway took another amount', function () {
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     $payment = startPayment($this->account);
     FakeGateway::pay($payment, '1.00');
 
@@ -153,7 +153,7 @@ it('records nothing when the gateway took another amount', function () {
 });
 
 it('flags what no longer fits after staff took cash meanwhile', function () {
-    $invoice = invoiceFor($this->account, '100');
+    $invoice = quickPayInvoice($this->account, '100');
     $payment = startPayment($this->account);
     app(RecordPayment::class)->handle($invoice->id, new PaymentInput(PaymentMethod::query()->where('name', 'Cash')->sole()->id, '118', null, now(), null));
     FakeGateway::pay($payment);
@@ -179,7 +179,7 @@ it('flags the renewal when it can no longer be booked', function () {
 });
 
 it('marks a refused payment failed and leaves a pending one pending', function () {
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     $refused = startPayment($this->account);
     $waiting = startPayment($this->account);
     FakeGateway::$results[$refused->public_id] = new GatewayResult(GatewayStatus::Failed, providerStatus: 'TXN_FAILURE');
@@ -190,7 +190,7 @@ it('marks a refused payment failed and leaves a pending one pending', function (
 });
 
 it('checks pending payments in the background and gives up after a day', function () {
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     $old = startPayment($this->account);
     $this->travel(10)->minutes();
     $fresh = startPayment($this->account);
@@ -211,7 +211,7 @@ it('checks pending payments in the background and gives up after a day', functio
 });
 
 it('still settles a payment after quick pay and the gateway are turned off', function () {
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     $payment = startPayment($this->account);
     AppSetting::put('billing.quick_pay', '0');
     GatewaySetting::query()->update(['enabled' => false]);
@@ -223,7 +223,7 @@ it('still settles a payment after quick pay and the gateway are turned off', fun
 it('refuses to start with nothing to pay, a gateway that is off, or after five tries in an hour', function () {
     expect(fn () => startPayment($this->account))->toThrow(NothingToPay::class);
 
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     GatewaySetting::query()->update(['enabled' => false]);
     expect(fn () => startPayment($this->account))->toThrow(GatewayUnavailable::class)
         ->and(OnlinePayment::query()->count())->toBe(0);
@@ -236,9 +236,24 @@ it('refuses to start with nothing to pay, a gateway that is off, or after five t
 });
 
 it('marks the attempt failed when the gateway refuses to start it', function () {
-    invoiceFor($this->account, '100');
+    quickPayInvoice($this->account, '100');
     FakeGateway::$refuseStart = true;
 
     expect(fn () => startPayment($this->account))->toThrow(GatewayUnavailable::class)
         ->and(OnlinePayment::query()->sole()->status)->toBe(OnlinePaymentStatus::Failed);
+});
+
+it('still records the dues of a customer deleted while paying, and leaves the renewal to staff', function () {
+    $this->account->update(['expiry' => now()->addDays(3)]);
+    quickPayInvoice($this->account, '100');
+    $payment = startPayment($this->account);
+    $this->account->delete();
+    FakeGateway::pay($payment);
+
+    $settled = settle($payment);
+
+    expect($settled->status)->toBe(OnlinePaymentStatus::NeedsAttention)
+        ->and($settled->note)->toContain('590.00')
+        ->and(Payment::query()->count())->toBe(1)
+        ->and(AdvanceRenewal::query()->count())->toBe(0);
 });
