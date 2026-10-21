@@ -71,7 +71,7 @@ it('removes login log rows older than 90 days by default and keeps newer ones', 
     loginLogRow('recent', '89 DAY');
 
     $this->artisan('radius:prune')
-        ->expectsOutput('Login log: 1 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed.')
+        ->expectsOutput('Login log: 1 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed. Usage days: 0 rows removed.')
         ->assertSuccessful();
 
     expect(loginLogUsernames())->toBe(['recent']);
@@ -136,7 +136,7 @@ it('removes reject counters untouched for a day and keeps recent ones', function
     rejectCounterRow('locked', '23 HOUR');
 
     $this->artisan('radius:prune')
-        ->expectsOutput('Login log: 0 rows removed. Reject counters: 1 rows removed. Sessions: 0 rows removed.')
+        ->expectsOutput('Login log: 0 rows removed. Reject counters: 1 rows removed. Sessions: 0 rows removed. Usage days: 0 rows removed.')
         ->assertSuccessful();
 
     expect(DB::table('reject_counters')->pluck('username')->all())->toBe(['locked']);
@@ -144,7 +144,7 @@ it('removes reject counters untouched for a day and keeps recent ones', function
 
 it('reports zero when there is nothing to remove', function () {
     $this->artisan('radius:prune')
-        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed.')
+        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed. Usage days: 0 rows removed.')
         ->assertSuccessful();
 });
 
@@ -155,7 +155,7 @@ it('deletes the login log in chunks so FreeRADIUS inserts never wait long', func
     DB::enableQueryLog();
 
     $this->artisan('radius:prune', ['--chunk' => 2])
-        ->expectsOutput('Login log: 5 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed.')
+        ->expectsOutput('Login log: 5 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed. Usage days: 0 rows removed.')
         ->assertSuccessful();
 
     $deletes = collect(DB::getQueryLog())
@@ -180,7 +180,7 @@ it('writes the counts to the log', function () {
 
     $this->artisan('radius:prune')->assertSuccessful();
 
-    Log::shouldHaveReceived('info')->with('Login log: 1 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed.')->once();
+    Log::shouldHaveReceived('info')->with('Login log: 1 rows removed. Reject counters: 0 rows removed. Sessions: 0 rows removed. Usage days: 0 rows removed.')->once();
 });
 
 it('runs every night at 03:30 without overlapping', function () {
@@ -215,7 +215,7 @@ it('removes closed sessions older than 365 days by default and keeps newer ones'
     sessionRow('recent', '364 DAY');
 
     $this->artisan('radius:prune')
-        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 1 rows removed.')
+        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 1 rows removed. Usage days: 0 rows removed.')
         ->assertSuccessful();
 
     expect(sessionUsernames())->toBe(['recent']);
@@ -229,15 +229,28 @@ it('never removes an open session, however old', function () {
     expect(sessionUsernames())->toBe(['open']);
 });
 
-it('keeps the sessions since the last recharge of the customer, which count towards limits', function () {
+it('removes old sessions since the last recharge too: limits read the usage database', function () {
     Account::factory()->create(['username' => 'yearly', 'usage_since' => now()->subDays(400)]);
     sessionRow('yearly', '389 DAY', '390 DAY');
-    sessionRow('yearly', '499 DAY', '500 DAY');
 
     $this->artisan('radius:prune')->assertSuccessful();
 
-    expect(DB::table('radacct')->whereRaw('acctstarttime > NOW() - INTERVAL 395 DAY')->count())->toBe(1)
-        ->and(DB::table('radacct')->count())->toBe(1);
+    expect(sessionUsernames())->toBe([]);
+});
+
+it('keeps usage per day for 400 days, or the session history when longer', function () {
+    $table = config('ispgrid.usage_database').'.usage_daily';
+    foreach ([399, 401, 500] as $age) {
+        DB::table($table)->insert(['username' => "u{$age}", 'day' => DB::raw("CURDATE() - INTERVAL {$age} DAY"), 'bytes_out' => 1]);
+    }
+
+    $this->artisan('radius:prune')->expectsOutputToContain('Usage days: 2 rows removed.')->assertSuccessful();
+    expect(DB::table($table)->pluck('username')->all())->toBe(['u399']);
+
+    AppSetting::put('session_history_days', '450');
+    DB::table($table)->insert(['username' => 'u420', 'day' => DB::raw('CURDATE() - INTERVAL 420 DAY'), 'bytes_out' => 1]);
+    $this->artisan('radius:prune')->assertSuccessful();
+    expect(DB::table($table)->orderBy('username')->pluck('username')->all())->toBe(['u399', 'u420']);
 });
 
 it('removes old sessions of a deleted customer', function () {
@@ -279,7 +292,7 @@ it('removes sessions in batches', function () {
     }
 
     $this->artisan('radius:prune', ['--chunk' => 2])
-        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 5 rows removed.')
+        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 5 rows removed. Usage days: 0 rows removed.')
         ->assertSuccessful();
 });
 
@@ -317,7 +330,7 @@ it('removes only the old sessions every keeper already has', function () {
     app(SessionKeepers::class)->register(KeepsListedSessions::class);
 
     $this->artisan('radius:prune')
-        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 1 rows removed.')
+        ->expectsOutput('Login log: 0 rows removed. Reject counters: 0 rows removed. Sessions: 1 rows removed. Usage days: 0 rows removed.')
         ->assertSuccessful();
 
     expect(sessionUsernames())->toBe(['unsaved']);

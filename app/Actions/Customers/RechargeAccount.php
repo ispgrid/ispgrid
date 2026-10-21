@@ -19,6 +19,7 @@ use App\Models\Account;
 use App\Models\Invoice;
 use App\Models\Plan;
 use App\Models\Recharge;
+use App\Models\UsagePeriod;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\RechargeDone;
 use Carbon\CarbonInterface;
@@ -97,6 +98,7 @@ final class RechargeAccount
                 'usage_since' => now(),
                 'status_id' => $oldStatus === AccountStatus::Inactive ? AccountStatus::Active : $oldStatus,
             ]);
+            UsagePeriod::restart($account->username, $account->usage_since ?? now());
             $this->sync->handle($account);
 
             if ($kind !== RechargeKind::Advance) {

@@ -30,6 +30,7 @@
         <env name="DB_HOST" value="127.0.0.1" force="true"/>
         <env name="DB_PORT" value="3306" force="true"/>
         <env name="DB_DATABASE" value="radius_test" force="true"/>
+        <env name="USAGE_DATABASE" value="ispgrid_usage_test" force="true"/>
         <env name="DB_USERNAME" value="root" force="true"/>
         <env name="DB_PASSWORD" value="" force="true"/>
         <env name="DB_URL" value="" force="true"/>

@@ -3,3 +3,6 @@
 bind-address = 127.0.0.1
 character-set-server = utf8mb4
 collation-server = utf8mb4_unicode_ci
+# The panel's migrations create the trigger that books usage per day (radacct); with binary logging on, MariaDB
+# would otherwise demand SUPER for that.
+log_bin_trust_function_creators = 1
