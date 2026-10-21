@@ -64,18 +64,20 @@ new class extends Component
     }
 
     /**
-     * What staff may do here: nothing on a deleted customer.
+     * What staff may do here: nothing on a deleted customer, and no new invoice or payment while invoicing is off.
      *
-     * @return array{create: bool, pay: bool, cancel: bool}
+     * @return array{create: bool, record: bool, remove: bool, cancel: bool}
      */
     #[Computed]
     public function can(): array
     {
         $live = ! $this->account->trashed();
+        $settings = BillingSettings::current();
 
         return [
-            'create' => $live && Gate::allows('create-invoices') && BillingSettings::current()->canIssue(),
-            'pay' => $live && Gate::allows('record-payments'),
+            'create' => $live && Gate::allows('create-invoices') && $settings->canIssue(),
+            'record' => $live && Gate::allows('record-payments') && $settings->enabled,
+            'remove' => $live && Gate::allows('record-payments'),
             'cancel' => $live && Gate::allows('cancel-invoices'),
         ];
     }

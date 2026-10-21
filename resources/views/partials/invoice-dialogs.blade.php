@@ -1,5 +1,5 @@
-{{-- Record payment, Remove payment and Cancel invoice (ManagesInvoices). $canPay, $canCancel: what this staff member may do. --}}
-@if ($canPay)
+{{-- Record payment, Remove payment and Cancel invoice (ManagesInvoices). $canRecord, $canRemove, $canCancel: what this staff member may do. --}}
+@if ($canRecord)
     <x-ui.modal name="billing-record-payment">
         <form wire:submit="recordPayment" class="grid gap-5" novalidate>
             <x-ui.heading size="lg">{{ __('Record payment') }}</x-ui.heading>
@@ -11,6 +11,9 @@
         </form>
     </x-ui.modal>
 
+@endif
+
+@if ($canRemove)
     <x-ui.modal name="billing-remove-payment">
         <form wire:submit="removePayment" class="grid gap-5" novalidate>
             <x-ui.heading size="lg">{{ __('Remove payment') }}</x-ui.heading>

@@ -10,7 +10,7 @@
         <div class="flex flex-wrap gap-2">
             <x-ui.button variant="secondary" href="{{ route('invoices.pdf', $this->invoiceId) }}" icon="arrow-down-tray">{{ __('Download PDF') }}</x-ui.button>
             <x-ui.button variant="secondary" href="{{ route('invoices.pdf', ['invoice' => $this->invoiceId, 'print' => 1]) }}" target="_blank" rel="noopener">{{ __('Print') }}</x-ui.button>
-            @if ($this->can['open'] && $this->can['pay'])
+            @if ($this->can['open'] && $this->can['record'])
                 <x-ui.button wire:click="openRecordPayment({{ $this->invoiceId }})">{{ __('Record payment') }}</x-ui.button>
             @endif
             @if (! $this->can['cancelled'] && $this->can['cancel'])
@@ -133,7 +133,7 @@
                         <x-ui.td class="whitespace-nowrap text-end">
                             @if ($payment['removed'])
                                 <span class="text-xs">{{ __('Removed: :reason', ['reason' => $payment['reason']]) }}</span>
-                            @elseif ($this->can['pay'])
+                            @elseif ($this->can['remove'])
                                 <x-ui.button size="sm" variant="ghost" wire:click="openRemovePayment({{ $payment['id'] }})">{{ __('Remove') }}</x-ui.button>
                             @endif
                         </x-ui.td>
@@ -143,5 +143,5 @@
         </x-ui.card>
     @endif
 
-    @include('partials.invoice-dialogs', ['canPay' => $this->can['pay'], 'canCancel' => $this->can['cancel']])
+    @include('partials.invoice-dialogs', ['canRecord' => $this->can['record'], 'canRemove' => $this->can['remove'], 'canCancel' => $this->can['cancel']])
 </section>

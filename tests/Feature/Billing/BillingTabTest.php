@@ -195,3 +195,25 @@ it('shows dues on the Plan card', function () {
         ->assertSee(__('Dues'))
         ->assertSee('590.00');
 });
+
+it('takes no new payment once invoicing is off, but still lets staff correct mistakes', function () {
+    $paid = issueFor($this->account, '500', '590');
+    $open = issueFor($this->account, '100');
+    AppSetting::put('billing.enabled', '0');
+
+    billingTab($this->account)
+        ->assertSee('INV-1')
+        ->assertDontSee(__('Record payment'))
+        ->call('openRecordPayment', $open->id)
+        ->assertForbidden();
+
+    billingTab($this->account)
+        ->call('openRemovePayment', $paid->payments()->sole()->id)
+        ->set('remove_reason', 'Entered twice')
+        ->call('removePayment')
+        ->assertHasNoErrors();
+
+    Livewire::test('pages::invoices.show', ['invoice' => $open->id])->call('openRecordPayment', $open->id)->assertForbidden();
+
+    expect($paid->fresh()->status)->toBe(InvoiceStatus::Unpaid);
+});

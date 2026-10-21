@@ -39,7 +39,7 @@
                             @endif
                         </x-ui.td>
                         <x-ui.td class="whitespace-nowrap text-end">
-                            @if ($invoice['open'] && $this->can['pay'])
+                            @if ($invoice['open'] && $this->can['record'])
                                 <x-ui.button size="sm" variant="secondary" wire:click="openRecordPayment({{ $invoice['id'] }})">{{ __('Record payment') }}</x-ui.button>
                             @endif
                             @if (! $invoice['cancelled'] && $this->can['cancel'])
@@ -76,7 +76,7 @@
                         <x-ui.td class="whitespace-nowrap text-end">
                             @if ($payment['removed'])
                                 <span class="text-xs no-underline">{{ __('Removed: :reason', ['reason' => $payment['reason']]) }}</span>
-                            @elseif ($this->can['pay'])
+                            @elseif ($this->can['remove'])
                                 <x-ui.button size="sm" variant="ghost" wire:click="openRemovePayment({{ $payment['id'] }})">{{ __('Remove') }}</x-ui.button>
                             @endif
                         </x-ui.td>
@@ -165,5 +165,5 @@
         </x-ui.modal>
     @endif
 
-    @include('partials.invoice-dialogs', ['canPay' => $this->can['pay'], 'canCancel' => $this->can['cancel']])
+    @include('partials.invoice-dialogs', ['canRecord' => $this->can['record'], 'canRemove' => $this->can['remove'], 'canCancel' => $this->can['cancel']])
 </div>

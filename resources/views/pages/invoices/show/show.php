@@ -1,5 +1,6 @@
 <?php
 
+use App\Billing\BillingSettings;
 use App\Billing\Pdf\InvoiceView;
 use App\Enums\InvoiceStatus;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
@@ -61,7 +62,9 @@ new #[Title('Invoice')] class extends Component
     }
 
     /**
-     * @return array{pay: bool, cancel: bool, open: bool, cancelled: bool}
+     * What staff may do: nothing on a deleted customer's invoice, and no new payment while invoicing is off.
+     *
+     * @return array{record: bool, remove: bool, cancel: bool, open: bool, cancelled: bool}
      */
     #[Computed]
     public function can(): array
@@ -70,7 +73,8 @@ new #[Title('Invoice')] class extends Component
         $open = in_array($this->invoice->status, [InvoiceStatus::Unpaid, InvoiceStatus::PartlyPaid], true);
 
         return [
-            'pay' => $live && Gate::allows('record-payments'),
+            'record' => $live && Gate::allows('record-payments') && BillingSettings::current()->enabled,
+            'remove' => $live && Gate::allows('record-payments'),
             'cancel' => $live && Gate::allows('cancel-invoices'),
             'open' => $open,
             'cancelled' => $this->invoice->status === InvoiceStatus::Cancelled,

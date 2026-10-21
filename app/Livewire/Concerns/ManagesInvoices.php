@@ -5,6 +5,7 @@ namespace App\Livewire\Concerns;
 use App\Actions\Billing\CancelInvoice;
 use App\Actions\Billing\RecordPayment;
 use App\Actions\Billing\RemovePayment;
+use App\Billing\BillingSettings;
 use App\Exceptions\InvoiceHasPayments;
 use App\Exceptions\PaymentExceedsBalance;
 use App\Models\Account;
@@ -16,7 +17,8 @@ use Livewire\Attributes\Locked;
 /**
  * Record payment, Remove payment and Cancel invoice on one customer's invoices (the Billing tab and the invoice
  * page; their dialogs are in partials/invoice-dialogs). Needs TakesPayment and an $accountId; the component says
- * what happens after a change in invoiceChanged(). Nothing changes on a deleted customer.
+ * what happens after a change in invoiceChanged(). Nothing changes on a deleted customer. While invoicing is off no
+ * new payment is taken, but Remove payment and Cancel invoice still fix mistakes (and free a waiting advance renewal).
  */
 trait ManagesInvoices
 {
@@ -53,6 +55,7 @@ trait ManagesInvoices
     public function openRecordPayment(int $invoiceId): void
     {
         $this->authorizeLive('record-payments');
+        abort_unless(BillingSettings::current()->enabled, 403);
         $invoice = $this->ownInvoice($invoiceId);
         $this->resetValidation();
         $this->paying_invoice_id = $invoice->id;
@@ -64,6 +67,7 @@ trait ManagesInvoices
     public function recordPayment(RecordPayment $record): void
     {
         $this->authorizeLive('record-payments');
+        abort_unless(BillingSettings::current()->enabled, 403);
         abort_if($this->paying_invoice_id === null, 404);
         $balance = $this->payingBalance;
         $this->paid_now = true;
