@@ -4,6 +4,7 @@ use App\Models\AppSetting;
 use App\Models\Nas;
 use App\Models\Radpostauth;
 use App\Models\User;
+use App\Support\Dashboard\MoneyFigures;
 use App\Support\Dashboard\NeedsAttention;
 use App\Support\Dashboard\TodayFigures;
 use Livewire\Attributes\Computed;
@@ -24,6 +25,20 @@ new #[Title('Dashboard')] class extends Component
         $user = auth()->user();
 
         return TodayFigures::cards($user);
+    }
+
+    /**
+     * The money cards (View sales only; empty otherwise).
+     *
+     * @return list<array{label: string, value: string, href: ?string, hint: ?string}>
+     */
+    #[Computed]
+    public function moneyFigures(): array
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return MoneyFigures::cards($user);
     }
 
     /**

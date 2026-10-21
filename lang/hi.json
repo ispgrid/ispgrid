@@ -1256,5 +1256,12 @@
     "Total, without cancelled invoices": "कुल, रद्द इनवॉइस को छोड़कर",
     "Money received against invoices, newest first. Removed payments are struck through.": "इनवॉइस पर मिली राशि, नए पहले। हटाए गए भुगतान कटे हुए दिखते हैं।",
     "Recorded by": "दर्ज करने वाले",
-    "No payments yet.": "अभी कोई भुगतान नहीं।"
+    "No payments yet.": "अभी कोई भुगतान नहीं।",
+    "Sales today": "आज की बिक्री",
+    "Sales this month": "इस महीने की बिक्री",
+    "Collected today": "आज की वसूली",
+    "Collected this month": "इस महीने की वसूली",
+    "Invoiced this month": "इस महीने के इनवॉइस",
+    "Hotspot sales this month": "इस महीने की हॉटस्पॉट बिक्री",
+    "Money": "पैसा"
 }
