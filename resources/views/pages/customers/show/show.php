@@ -521,7 +521,7 @@ new #[Title('Customer')] class extends Component
     /**
      * The last 20 recharges.
      *
-     * @return list<array{id: int, when: string, plan: string, expiry: string, amount: string, invoice: ?string, note: string, staff: string}>
+     * @return list<array{id: int, when: string, plan: string, expiry: string, amount: string, invoice: ?array{id: int, number: string}, note: string, staff: string}>
      */
     #[Computed]
     public function recharges(): array
@@ -540,7 +540,7 @@ new #[Title('Customer')] class extends Component
                     ? ValidityUnit::firstLoginLabel($recharge->new_pending_validity)
                     : $recharge->new_expiry?->format($format) ?? '',
                 'amount' => $money->format((string) $recharge->amount),
-                'invoice' => $recharge->invoice?->number,
+                'invoice' => $recharge->invoice === null ? null : ['id' => $recharge->invoice->id, 'number' => $recharge->invoice->number],
                 'note' => (string) $recharge->note,
                 'staff' => $recharge->user?->name ?? __('System'),
             ])

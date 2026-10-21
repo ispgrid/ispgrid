@@ -271,7 +271,15 @@
                             <x-ui.td>{{ $recharge['plan'] }}</x-ui.td>
                             <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['expiry'] }}</x-ui.td>
                             <x-ui.td class="text-end tabular-nums">{{ $recharge['amount'] }}</x-ui.td>
-                            <x-ui.td class="whitespace-nowrap">{{ $recharge['invoice'] }}</x-ui.td>
+                            <x-ui.td class="whitespace-nowrap">
+                                @if ($recharge['invoice'])
+                                    @can('view-invoices')
+                                        <x-ui.link href="{{ route('invoices.show', $recharge['invoice']['id']) }}" wire:navigate>{{ $recharge['invoice']['number'] }}</x-ui.link>
+                                    @else
+                                        {{ $recharge['invoice']['number'] }}
+                                    @endcan
+                                @endif
+                            </x-ui.td>
                             <x-ui.td>{{ $recharge['note'] }}</x-ui.td>
                             <x-ui.td>{{ $recharge['staff'] }}</x-ui.td>
                         </tr>

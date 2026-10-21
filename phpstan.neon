@@ -24,6 +24,7 @@ parameters:
                 - app/Livewire/Concerns/AuthorizesEveryRequest.php
                 - app/Livewire/Concerns/ConfirmsPasswordAgain.php
                 - app/Livewire/Concerns/RestartsFreeRadius.php
+                - app/Livewire/Concerns/ManagesInvoices.php
                 - app/Livewire/Concerns/PricesRecharges.php
                 - app/Livewire/Concerns/ShowsToasts.php
                 - app/Livewire/Concerns/TakesPayment.php

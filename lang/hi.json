@@ -1236,5 +1236,15 @@
     "Payment recorded.": "भुगतान दर्ज हुआ।",
     "Payment removed.": "भुगतान हटाया गया।",
     "This invoice has payments. Remove them first.": "इस इनवॉइस पर भुगतान हैं। पहले उन्हें हटाएँ।",
-    "Invoice cancelled.": "इनवॉइस रद्द हुआ।"
+    "Invoice cancelled.": "इनवॉइस रद्द हुआ।",
+    "Invoice PDF opened": "इनवॉइस PDF खोली गई",
+    "Invoice :number PDF opened.": "इनवॉइस :number की PDF खोली गई।",
+    "Download PDF": "PDF डाउनलोड करें",
+    "Print": "प्रिंट",
+    "Cancelled: :reason": "रद्द: :reason",
+    "Due date": "देय तारीख",
+    "Bill period": "बिल अवधि",
+    "Bill to": "बिल पाने वाला",
+    "Connectivity address": "कनेक्शन का पता",
+    "Discount": "छूट"
 }

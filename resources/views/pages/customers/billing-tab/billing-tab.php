@@ -1,9 +1,6 @@
 <?php
 
-use App\Actions\Billing\CancelInvoice;
 use App\Actions\Billing\IssueInvoice;
-use App\Actions\Billing\RecordPayment;
-use App\Actions\Billing\RemovePayment;
 use App\Billing\BillingSettings;
 use App\Billing\Decimal;
 use App\Billing\InvoiceDraft;
@@ -11,10 +8,9 @@ use App\Billing\LineInput;
 use App\Billing\Statement;
 use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
-use App\Exceptions\InvoiceHasPayments;
 use App\Exceptions\InvoicingNotReady;
-use App\Exceptions\PaymentExceedsBalance;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\ManagesInvoices;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Livewire\Concerns\TakesPayment;
 use App\Models\Account;
@@ -30,11 +26,11 @@ use Livewire\Component;
 
 /**
  * The customer's Billing tab: dues, invoices, payments and the statement, with New invoice (manual invoices such
- * as a CPE), Record payment, Remove payment and Cancel invoice. Read-only for a deleted customer.
+ * as a CPE), and Record payment, Remove payment and Cancel invoice (ManagesInvoices). Read-only for a deleted customer.
  */
 new class extends Component
 {
-    use AuthorizesEveryRequest, ShowsToasts, TakesPayment;
+    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment;
 
     #[Locked]
     public int $accountId;
@@ -49,22 +45,6 @@ new class extends Component
     public bool $round_off = false;
 
     public string $invoice_date = '';
-
-    /**
-     * The invoice a payment is being recorded for, the payment being removed and the invoice being cancelled.
-     */
-    #[Locked]
-    public ?int $paying_invoice_id = null;
-
-    #[Locked]
-    public ?int $removing_payment_id = null;
-
-    #[Locked]
-    public ?int $cancelling_invoice_id = null;
-
-    public string $remove_reason = '';
-
-    public string $cancel_reason = '';
 
     public function mount(int $accountId): void
     {
@@ -233,15 +213,6 @@ new class extends Component
         return $this->draft()->total ?? '0';
     }
 
-    /**
-     * The balance of the invoice a payment is being recorded for.
-     */
-    #[Computed]
-    public function payingBalance(): string
-    {
-        return $this->paying_invoice_id === null ? '0' : (string) $this->ownInvoice($this->paying_invoice_id)->balance;
-    }
-
     public function openNewInvoice(): void
     {
         $this->authorizeLive('create-invoices');
@@ -310,110 +281,7 @@ new class extends Component
             return;
         }
 
-        $this->finish('billing-new-invoice', __('Invoice :number issued.', ['number' => $invoice->number]));
-    }
-
-    public function openRecordPayment(int $invoiceId): void
-    {
-        $this->authorizeLive('record-payments');
-        $invoice = $this->ownInvoice($invoiceId);
-        $this->resetValidation();
-        $this->paying_invoice_id = $invoice->id;
-        unset($this->payingBalance);
-        $this->resetPayment();
-        $this->dispatch('modal-open', name: 'billing-record-payment');
-    }
-
-    public function recordPayment(RecordPayment $record): void
-    {
-        $this->authorizeLive('record-payments');
-        abort_if($this->paying_invoice_id === null, 404);
-        $balance = $this->payingBalance;
-        $this->paid_now = true;
-
-        $this->validate($this->paymentRules($balance), [], $this->paymentAttributes());
-        $payment = $this->paymentInput($balance);
-
-        if ($payment === null) {
-            $this->finish('billing-record-payment', __('Nothing is due on this invoice.'));
-
-            return;
-        }
-
-        try {
-            $record->handle($this->paying_invoice_id, $payment);
-        } catch (PaymentExceedsBalance) {
-            unset($this->payingBalance);
-            $this->addError('payment_amount', __('The payment must be more than 0 and at most the total.'));
-
-            return;
-        }
-
-        $this->finish('billing-record-payment', __('Payment recorded.'));
-    }
-
-    public function openRemovePayment(int $paymentId): void
-    {
-        $this->authorizeLive('record-payments');
-        $this->resetValidation();
-        $this->removing_payment_id = Payment::query()->where('account_id', $this->accountId)->findOrFail($paymentId)->id;
-        $this->remove_reason = '';
-        $this->dispatch('modal-open', name: 'billing-remove-payment');
-    }
-
-    public function removePayment(RemovePayment $remove): void
-    {
-        $this->authorizeLive('record-payments');
-        abort_if($this->removing_payment_id === null, 404);
-        $this->remove_reason = trim($this->remove_reason);
-        $this->validate(['remove_reason' => ['required', 'string', 'max:255']], [], ['remove_reason' => __('reason')]);
-
-        $remove->handle(Payment::query()->where('account_id', $this->accountId)->findOrFail($this->removing_payment_id)->id, $this->remove_reason);
-        $this->finish('billing-remove-payment', __('Payment removed.'));
-    }
-
-    public function openCancelInvoice(int $invoiceId): void
-    {
-        $this->authorizeLive('cancel-invoices');
-        $this->resetValidation();
-        $this->cancelling_invoice_id = $this->ownInvoice($invoiceId)->id;
-        $this->cancel_reason = '';
-        $this->dispatch('modal-open', name: 'billing-cancel-invoice');
-    }
-
-    public function cancelInvoice(CancelInvoice $cancel): void
-    {
-        $this->authorizeLive('cancel-invoices');
-        abort_if($this->cancelling_invoice_id === null, 404);
-        $this->cancel_reason = trim($this->cancel_reason);
-        $this->validate(['cancel_reason' => ['required', 'string', 'max:255']], [], ['cancel_reason' => __('reason')]);
-
-        try {
-            $cancel->handle($this->ownInvoice($this->cancelling_invoice_id)->id, $this->cancel_reason);
-        } catch (InvoiceHasPayments) {
-            $this->addError('cancel_reason', __('This invoice has payments. Remove them first.'));
-
-            return;
-        }
-
-        $this->finish('billing-cancel-invoice', __('Invoice cancelled.'));
-    }
-
-    /**
-     * The action's permission, and a customer that is not deleted.
-     */
-    private function authorizeLive(string $ability): void
-    {
-        $this->authorize($ability);
-        abort_if($this->account->trashed(), 403);
-    }
-
-    /**
-     * One of this customer's invoices (404 for anyone else's).
-     */
-    private function ownInvoice(int $invoiceId): Invoice
-    {
-        return Invoice::query()->where('account_id', $this->accountId)->findOrFail($invoiceId);
+        $this->invoiceChanged('billing-new-invoice', __('Invoice :number issued.', ['number' => $invoice->number]));
     }
 
     /**
@@ -468,7 +336,7 @@ new class extends Component
         return IssueInvoice::draft($this->account, $this->lineInputs(), $this->round_off, BillingSettings::current());
     }
 
-    private function finish(string $dialog, string $message): void
+    protected function invoiceChanged(string $dialog, string $message): void
     {
         unset($this->invoices, $this->payments, $this->statement, $this->dues, $this->payingBalance);
         $this->dispatch('modal-close', name: $dialog);

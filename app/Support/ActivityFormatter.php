@@ -134,6 +134,7 @@ final class ActivityFormatter
             'billing-changed' => __('Billing changed'),
             'invoice-issued' => __('Invoice issued'),
             'invoice-cancelled' => __('Invoice cancelled'),
+            'invoice-downloaded' => __('Invoice PDF opened'),
             'payment-recorded' => __('Payment recorded'),
             'payment-removed' => __('Payment removed'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,

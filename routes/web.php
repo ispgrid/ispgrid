@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\InvoicePdfController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
@@ -10,6 +11,8 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('customers/create', 'pages::customers.form')->name('customers.create');
     Route::livewire('customers/{account}', 'pages::customers.show')->name('customers.show');
     Route::livewire('customers/{account}/edit', 'pages::customers.form')->name('customers.edit');
+    Route::livewire('invoices/{invoice}', 'pages::invoices.show')->name('invoices.show');
+    Route::get('invoices/{invoice}/pdf', InvoicePdfController::class)->name('invoices.pdf');
     Route::livewire('online', 'pages::online.index')->name('online.index');
     Route::livewire('login-log', 'pages::login-log.index')->name('login-log.index');
     Route::livewire('plans', 'pages::plans.index')->name('plans.index');
