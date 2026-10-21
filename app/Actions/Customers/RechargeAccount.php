@@ -2,14 +2,21 @@
 
 namespace App\Actions\Customers;
 
+use App\Actions\Billing\IssueInvoice;
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Billing\BillingSettings;
+use App\Billing\ChargeOptions;
+use App\Billing\InvoicePolicy;
+use App\Billing\RechargeInvoice;
 use App\Enums\AccountStatus;
+use App\Enums\InvoiceKind;
 use App\Enums\RechargeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Models\Account;
+use App\Models\Invoice;
 use App\Models\Plan;
 use App\Models\Recharge;
 use App\Notifications\Notifier;
@@ -27,6 +34,8 @@ use InvalidArgumentException;
  * logged as its kind, and every kind but a starting advance renewal moves a waiting one to the new expiry.
  * A first-login plan on a Hotspot customer whose clock is not running leaves its validity waiting for the first
  * login instead (hotspot_pending_validity, no expiry); FreeRADIUS starts it.
+ * Money: an invoiced recharge (InvoicePolicy) issues its invoice in the same transaction, with the payment taken now,
+ * and records the invoice total as its amount; a Free customer records 0; otherwise the caller's amount is kept.
  */
 final class RechargeAccount
 {
@@ -35,7 +44,7 @@ final class RechargeAccount
      */
     public const DATE_FORMAT = 'Y-m-d H:i';
 
-    public function __construct(private SyncAccountToRadius $sync, private Notifier $notifier, private MoveWaitingRenewal $moveWaiting) {}
+    public function __construct(private SyncAccountToRadius $sync, private Notifier $notifier, private MoveWaitingRenewal $moveWaiting, private IssueInvoice $issueInvoice) {}
 
     /**
      * @param  ?CarbonInterface  $expiry  the new expiry; ignored when the validity waits for the first login
@@ -43,16 +52,17 @@ final class RechargeAccount
      * @param  ?int  $userId  who the recharge is recorded for (the staff member who booked an advance renewal);
      *                        null means the logged-in user. The activity entry's causer is always the logged-in user
      *                        (none: System).
+     * @param  ChargeOptions  $charge  an adjusted price, the payment taken now, or the invoice already issued for it
      *
      * @throws ModelNotFoundException when the customer or the plan was deleted meanwhile
      * @throws ExpiryChangedMeanwhile when the customer's expiry is no longer $expectedExpiry
      * @throws FirstLoginPlanNeedsHotspot when a first-login plan is chosen for a PPPoE or IPoE customer
      */
-    public function handle(int $accountId, int $planId, ?CarbonInterface $expiry, string $amount, ?string $note, ?string $expectedExpiry = null, RechargeKind $kind = RechargeKind::Recharge, ?int $userId = null): Recharge
+    public function handle(int $accountId, int $planId, ?CarbonInterface $expiry, string $amount, ?string $note, ?string $expectedExpiry = null, RechargeKind $kind = RechargeKind::Recharge, ?int $userId = null, ChargeOptions $charge = new ChargeOptions): Recharge
     {
         // Loaded inside the transaction: on a deadlock retry, a model updated by the rolled-back attempt would
         // look unchanged and skip its UPDATE while the sync still writes the new values.
-        return DB::transaction(function () use ($accountId, $planId, $expiry, $amount, $note, $expectedExpiry, $kind, $userId): Recharge {
+        return DB::transaction(function () use ($accountId, $planId, $expiry, $amount, $note, $expectedExpiry, $kind, $userId, $charge): Recharge {
             $account = Account::query()->with('plan')->lockForUpdate()->findOrFail($accountId);
 
             if ($expectedExpiry !== null && self::expiryKey($account) !== $expectedExpiry) {
@@ -100,10 +110,11 @@ final class RechargeAccount
                 'old_expiry' => $oldExpiry,
                 'new_expiry' => $newExpiry,
                 'new_pending_validity' => $pending,
-                'amount' => $amount,
+                'amount' => $account->billing_free ? '0' : $amount,
                 'note' => $note,
                 'user_id' => $userId ?? auth()->id(),
             ]);
+            $this->charge($recharge, $account, $plan, $charge, $oldExpiry, $newExpiry, $pending);
 
             // Rows now, inside the transaction; the send jobs are queued after the commit.
             $this->notifier->fire(RechargeDone::key(), $account, $recharge);
@@ -113,7 +124,10 @@ final class RechargeAccount
                 ->event($kind->event())
                 ->withChanges([
                     'old' => ['plan' => $oldPlan, 'expiry' => self::expiryText($oldExpiry, $oldPending)],
-                    'attributes' => ['plan' => $plan->name, 'expiry' => self::expiryText($newExpiry, $pending), 'amount' => $amount, 'note' => $note],
+                    'attributes' => [
+                        'plan' => $plan->name, 'expiry' => self::expiryText($newExpiry, $pending), 'amount' => $recharge->invoice_id === null && ! $account->billing_free ? $amount : (string) $recharge->amount, 'note' => $note,
+                        ...($charge->adjustReason === null ? [] : ['adjust_reason' => $charge->adjustReason]),
+                    ],
                 ])
                 ->log($kind->event());
 
@@ -130,6 +144,31 @@ final class RechargeAccount
 
             return $recharge;
         }, attempts: 3);
+    }
+
+    /**
+     * Links the invoice issued at booking, or issues one now when the recharge is invoiced. The bill period starts at
+     * the old expiry while the plan still runs, otherwise now; a validity waiting for the first login has none.
+     */
+    private function charge(Recharge $recharge, Account $account, Plan $plan, ChargeOptions $charge, ?CarbonInterface $oldExpiry, ?CarbonInterface $newExpiry, ?int $pending): void
+    {
+        $invoice = null;
+
+        if ($charge->existingInvoiceId !== null) {
+            $invoice = Invoice::query()->findOrFail($charge->existingInvoiceId);
+        } elseif (InvoicePolicy::invoicesRecharge($account, $settings = BillingSettings::current())) {
+            $from = $pending !== null ? null : ($oldExpiry !== null && $oldExpiry->greaterThan(now()) ? $oldExpiry : now());
+            $to = $pending !== null ? null : $newExpiry;
+            $invoice = $this->issueInvoice->handle(
+                $account, RechargeInvoice::lines($account, $plan, $settings, $charge->adjustedPrice, $from, $to, $pending), $plan->round_off,
+                InvoiceKind::Recharge, now(), $charge->payment, $from, $to,
+                $pending === null ? null : RechargeInvoice::validityText($pending), $recharge->id,
+            );
+        }
+
+        if ($invoice !== null) {
+            $recharge->update(['invoice_id' => $invoice->id, 'amount' => $invoice->total]);
+        }
     }
 
     /**
