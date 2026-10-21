@@ -2,6 +2,7 @@
 
 use App\Actions\Billing\IssueInvoice;
 use App\Billing\PaymentInput;
+use App\Billing\Pdf\ReceiptView;
 use App\Billing\Statement;
 use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
@@ -118,6 +119,27 @@ it('records a later payment', function () {
         ->assertHasNoErrors();
 
     expect($invoice->fresh()->status)->toBe(InvoiceStatus::Paid);
+});
+
+it('keeps a staff note with a payment, shown on the receipt page but not printed', function () {
+    $invoice = issueFor($this->account, '500');
+
+    billingTab($this->account)
+        ->call('openRecordPayment', $invoice->id)
+        ->assertSet('payment_note', '')
+        ->set('payment_note', str_repeat('x', 256))
+        ->call('recordPayment')
+        ->assertHasErrors('payment_note')
+        ->set('payment_note', ' Paid by a neighbour ')
+        ->call('recordPayment')
+        ->assertHasNoErrors();
+
+    $payment = Payment::query()->sole();
+
+    expect($payment->note)->toBe('Paid by a neighbour')
+        ->and(view('pdf.receipt', ['receipt' => ReceiptView::for($payment)])->render())->not->toContain('Paid by a neighbour');
+
+    Livewire::test('pages::payments.show', ['payment' => $payment->id])->assertSee('Paid by a neighbour');
 });
 
 it('removes a payment and cancels an invoice, each with a reason', function () {

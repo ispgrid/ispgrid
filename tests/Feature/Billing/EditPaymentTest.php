@@ -61,6 +61,23 @@ it('changes the method, reference and received at and logs what changed', functi
         ->changes->toHaveCount(3);
 });
 
+it('changes the note and logs it', function () {
+    Livewire::test('pages::payments.show', ['payment' => $this->payment->id])
+        ->call('openEditPayment')
+        ->assertSet('edit_note', '')
+        ->set('edit_note', str_repeat('x', 256))
+        ->call('editPayment')
+        ->assertHasErrors('edit_note')
+        ->set('edit_note', ' Paid by a neighbour ')
+        ->call('editPayment')
+        ->assertHasNoErrors()
+        ->assertSee('Paid by a neighbour');
+
+    expect($this->payment->fresh()->note)->toBe('Paid by a neighbour')
+        ->and(ActivityFormatter::changes(Activity::query()->where('event', 'payment-edited')->sole()))
+        ->toBe([['field' => 'Note', 'old' => null, 'new' => 'Paid by a neighbour']]);
+});
+
 it('logs only the fields that changed, and nothing when none did', function () {
     $page = Livewire::test('pages::payments.show', ['payment' => $this->payment->id])
         ->call('openEditPayment')

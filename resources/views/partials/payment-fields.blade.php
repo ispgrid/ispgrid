@@ -12,6 +12,9 @@
                     :description="($withSwitch ?? true) ? __('Empty means the whole total. Less leaves the rest due.') : __('Empty means the whole balance. Less leaves the rest due.')" />
                 <x-ui.input wire:model="payment_reference" :id="$fieldId('payment_reference')" :label="__('Reference')" maxlength="100" :description="__('UPI transaction ID or cheque number.')" />
                 <x-ui.input wire:model="payment_paid_at" :id="$fieldId('payment_paid_at')" type="datetime-local" :label="__('Received at')" />
+                <div class="sm:col-span-2">
+                    <x-ui.input wire:model="payment_note" :id="$fieldId('payment_note')" :label="__('Note')" maxlength="255" :description="__('For staff only. It is not printed on the receipt.')" />
+                </div>
             </div>
         @endif
     </div>
