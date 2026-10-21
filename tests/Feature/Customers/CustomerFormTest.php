@@ -399,7 +399,7 @@ it('shows the ID fields under the labels from the app settings and hides an unla
 
     Livewire::test('pages::customers.form')
         ->assertSee('GSTIN')
-        ->assertSeeHtml('wire:model="tax_id"')
+        ->assertSeeHtml('wire:model.live.blur="tax_id"')
         ->assertDontSeeHtml('wire:model="business_id"');
 });
 

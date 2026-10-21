@@ -41,6 +41,14 @@ enum Permission: string
     case ManageNotificationRules = 'manage-notification-rules';
     case ManageNotificationProviders = 'manage-notification-providers';
 
+    case ManageBilling = 'manage-billing';
+    case SetCustomerPricing = 'set-customer-pricing';
+    case ViewInvoices = 'view-invoices';
+    case CreateInvoices = 'create-invoices';
+    case RecordPayments = 'record-payments';
+    case CancelInvoices = 'cancel-invoices';
+    case ViewSales = 'view-sales';
+
     public function label(): string
     {
         return match ($this) {
@@ -70,6 +78,13 @@ enum Permission: string
             self::ViewNotificationLog => __('View message log'),
             self::ManageNotificationRules => __('Manage notification rules'),
             self::ManageNotificationProviders => __('Manage notification providers (API keys)'),
+            self::ManageBilling => __('Billing settings and payment methods'),
+            self::SetCustomerPricing => __('Free customers, discounts and place of supply'),
+            self::ViewInvoices => __('View invoices and payments'),
+            self::CreateInvoices => __('Create invoices'),
+            self::RecordPayments => __('Record and remove payments'),
+            self::CancelInvoices => __('Cancel invoices'),
+            self::ViewSales => __('View sales'),
         };
     }
 
@@ -88,6 +103,8 @@ enum Permission: string
             self::ManageAddressLists => __('Network'),
             self::ViewNotificationLog, self::ManageNotificationRules,
             self::ManageNotificationProviders => __('Notifications'),
+            self::ManageBilling, self::SetCustomerPricing, self::ViewInvoices, self::CreateInvoices,
+            self::RecordPayments, self::CancelInvoices, self::ViewSales => __('Billing'),
             default => __('System'),
         };
     }
@@ -103,6 +120,8 @@ enum Permission: string
             self::ManagePlans => self::ViewPlans,
             self::ManageNas, self::ManagePools, self::ManageIpRanges, self::ManageAddressLists => self::ViewNetwork,
             self::ManageNotificationRules, self::ManageNotificationProviders => self::ViewNotificationLog,
+            self::CreateInvoices, self::RecordPayments, self::CancelInvoices => self::ViewInvoices,
+            self::ViewInvoices => self::ViewCustomers,
             default => null,
         };
     }

@@ -28,7 +28,7 @@
                             <x-ui.input wire:model="alt_number" type="tel" inputmode="numeric" :label="__('Other number')" />
                             <x-ui.input wire:model="email" type="email" :label="__('Email')" maxlength="100" />
                             @if ($this->taxIdLabel !== '')
-                                <x-ui.input wire:model="tax_id" :label="$this->taxIdLabel" maxlength="50" />
+                                <x-ui.input wire:model.live.blur="tax_id" :label="$this->taxIdLabel" maxlength="50" />
                             @endif
                             @if ($this->businessIdLabel !== '')
                                 <x-ui.input wire:model="business_id" :label="$this->businessIdLabel" maxlength="30" />
@@ -84,6 +84,48 @@
 
                     @if ($this->canAutoRenew)
                         <x-ui.switch wire:model="auto_renew" :label="__('Auto renew')" :description="__('Renew the current plan by itself on the last day, at the price of the plan.')" />
+                    @endif
+                </x-ui.tab-panel>
+
+                <x-ui.tab-panel name="billing" class="grid gap-5">
+                    @foreach ($this->billingWarnings() as $warning)
+                        <x-ui.alert variant="warning">{{ $warning }}</x-ui.alert>
+                    @endforeach
+
+                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        @if ($this->canSetPricing)
+                            <div class="sm:col-span-2">
+                                <x-ui.switch wire:model.live="billing_free" :label="__('Free customer')" :description="__('Recharges cost nothing and make no invoice, e.g. for a non-profit.')" />
+                            </div>
+                            @unless ($billing_free)
+                                <x-ui.input wire:model="discount_percent" inputmode="decimal" :label="__('Discount (%)')" :description="__('Taken off the plan price on every recharge.')" />
+                            @endunless
+                        @endif
+                        <x-ui.input wire:model="payment_terms_days" type="number" min="0" max="365" :label="__('Payment terms (days)')" :description="__('When invoices are due. 0 means due on receipt.')" />
+                        @if ($this->canSetPricing && $this->showsPlaceOfSupply())
+                            <x-ui.select wire:model.live="place_of_supply" :label="__('Place of supply')" :options="$this->gstStates" :description="__('The state the GSTIN customer is billed in. Another state than yours means IGST.')" />
+                        @endif
+                    </div>
+
+                    <x-ui.switch wire:model.live="separate_billing" :label="__('Bill to another name or address')" :description="__('Invoices then show this instead of the customer name and installation address.')" />
+
+                    @if ($separate_billing)
+                        <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                            <div class="sm:col-span-2">
+                                <x-ui.input wire:model.live.blur="billing_name" :label="__('Billing name')" maxlength="150" />
+                            </div>
+                            <div class="sm:col-span-2">
+                                <x-ui.input wire:model.live.blur="billing_address.line1" :label="__('Address line 1')" maxlength="255" />
+                            </div>
+                            <div class="sm:col-span-2">
+                                <x-ui.input wire:model.live.blur="billing_address.line2" :label="__('Address line 2')" maxlength="255" />
+                            </div>
+                            <x-ui.input wire:model="billing_address.area" :label="__('Area')" maxlength="100" />
+                            <x-ui.input wire:model="billing_address.city" :label="__('City')" maxlength="100" />
+                            <x-ui.input wire:model="billing_address.state" :label="__('State')" maxlength="100" />
+                            <x-ui.input wire:model="billing_address.postal_code" :label="__('Postal code')" maxlength="20" />
+                            <x-ui.input wire:model="billing_address.country" :label="__('Country')" maxlength="60" />
+                        </div>
                     @endif
                 </x-ui.tab-panel>
 

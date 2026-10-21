@@ -1,7 +1,9 @@
 <?php
 
 use App\Actions\Import\RowError;
+use App\Billing\LineInput;
 use App\Enums\Permission;
+use App\Models\AppSetting;
 use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
@@ -106,4 +108,27 @@ function staffLacking(Permission $missing): User
 function turnHotspotOn(): void
 {
     RadiusSetting::query()->updateOrCreate(['id' => 1], ['hotspot_enabled' => true]);
+}
+
+/**
+ * Turns invoicing on for "Example ISP": by default in India (Uttar Pradesh, 09) with GST at 18%.
+ *
+ * @param  array<string, string>  $tax
+ */
+function turnInvoicingOn(string $country = 'IN', string $taxSetup = 'india-gst', array $tax = ['rate' => '18', 'state' => '09']): void
+{
+    AppSetting::put('billing.enabled', '1');
+    AppSetting::put('billing.company', (string) json_encode(['name' => 'Example ISP', 'country' => $country, 'address_lines' => ['1 Example Street'], 'city' => 'Prayagraj', 'tax_number' => '09ABCDE1234F1Z5']));
+    AppSetting::put('billing.tax_setup', $taxSetup);
+    AppSetting::put('billing.tax', (string) json_encode($tax));
+}
+
+/**
+ * One taxed invoice line at this price.
+ *
+ * @return list<LineInput>
+ */
+function billingLines(string $price, string $quantity = '1', string $discount = '0'): array
+{
+    return [new LineInput('Plan', null, null, $quantity, $price, $discount, true)];
 }

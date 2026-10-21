@@ -2,6 +2,11 @@
 
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Billing\BillingSettings;
+use App\Billing\Decimal;
+use App\Billing\India\Gstin;
+use App\Billing\India\GstStates;
+use App\Billing\LatinText;
 use App\Contracts\CustomerFormTab;
 use App\Enums\AccountStatus;
 use App\Enums\IpRangeKind;
@@ -59,6 +64,7 @@ new #[Title('Customer')] class extends Component
         'profile' => ['title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email', 'tax_id', 'business_id',
             'remarks', 'address'],
         'service' => ['service_type', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'auto_renew'],
+        'billing' => ['billing_free', 'discount_percent', 'payment_terms_days', 'billing_name', 'billing_address', 'place_of_supply'],
         'network' => ['ip_address', 'pool_id', 'address_list_ids', 'override_plan', 'override_upload', 'override_download',
             'override_burst_upload', 'override_burst_download', 'override_threshold_upload', 'override_threshold_download',
             'override_burst_time', 'override_priority', 'override_min_upload', 'override_min_download', 'override_until'],
@@ -75,6 +81,8 @@ new #[Title('Customer')] class extends Component
         'override_min_upload', 'override_min_download'];
 
     private const ADDRESS_FIELDS = ['line1', 'line2', 'area', 'city', 'state', 'postal_code', 'country', 'latitude', 'longitude'];
+
+    private const BILLING_ADDRESS_FIELDS = ['line1', 'line2', 'area', 'city', 'state', 'postal_code', 'country'];
 
     #[Locked]
     public ?int $accountId = null;
@@ -166,6 +174,32 @@ new #[Title('Customer')] class extends Component
 
     public bool $notifications_off = false;
 
+    /**
+     * A Free customer's recharges cost nothing and make no invoice (e.g. a non-profit).
+     */
+    public bool $billing_free = false;
+
+    public string $discount_percent = '0';
+
+    public string $payment_terms_days = '0';
+
+    /**
+     * Bill to another name or address than the customer's own.
+     */
+    public bool $separate_billing = false;
+
+    public string $billing_name = '';
+
+    /**
+     * @var array<string, string>
+     */
+    public array $billing_address = ['line1' => '', 'line2' => '', 'area' => '', 'city' => '', 'state' => '', 'postal_code' => '', 'country' => ''];
+
+    /**
+     * The GST state code invoices are supplied to, for a customer with a GSTIN (India GST only).
+     */
+    public string $place_of_supply = '';
+
     public string $override_upload = '';
 
     public string $override_download = '';
@@ -205,11 +239,13 @@ new #[Title('Customer')] class extends Component
             $this->pool_id = (string) (CustomerDefaults::poolId(ServiceType::Ppp) ?? '');
             $this->free_ip_range = (string) (CustomerDefaults::ipRangeId() ?? '');
             $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state(null), $this->formAddonTabs);
+            $this->payment_terms_days = (string) $this->billingSettings->defaultTermsDays;
+            $this->place_of_supply = $this->homeState();
 
             return;
         }
 
-        $model = Account::query()->with(['address', 'ip', 'addressLists', 'radiusAttributes'])->findOrFail($account);
+        $model = Account::query()->with(['address', 'billingAddress', 'ip', 'addressLists', 'radiusAttributes'])->findOrFail($account);
         $this->authorize('update', $model);
 
         $this->accountId = $model->id;
@@ -244,6 +280,17 @@ new #[Title('Customer')] class extends Component
             ->values()
             ->all();
         $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state($model), $this->formAddonTabs);
+        $this->billing_free = $model->billing_free;
+        $this->discount_percent = Decimal::trim((string) $model->discount_percent);
+        $this->payment_terms_days = (string) $model->payment_terms_days;
+        $this->billing_name = (string) $model->billing_name;
+        $this->separate_billing = $model->billing_name !== null || $model->billing_address_id !== null;
+
+        foreach (self::BILLING_ADDRESS_FIELDS as $field) {
+            $this->billing_address[$field] = (string) ($model->billingAddress?->{$field} ?? '');
+        }
+
+        $this->place_of_supply = $model->place_of_supply ?? $this->homeState();
     }
 
     /**
@@ -269,6 +316,7 @@ new #[Title('Customer')] class extends Component
         return [
             'profile' => __('Profile'),
             'service' => __('Service'),
+            'billing' => __('Billing'),
             'network' => __('Network'),
             'attributes' => __('Attributes'),
             ...array_map(fn (CustomerFormTab $tab): string => $tab->label(), $this->formAddonTabs),
@@ -423,10 +471,89 @@ new #[Title('Customer')] class extends Component
             ->all();
     }
 
+    /**
+     * The Tax ID field's label (App settings). With India GST and no label of its own, it is the GSTIN.
+     */
     #[Computed]
     public function taxIdLabel(): string
     {
-        return (string) AppSetting::valueOf('tax_id_label', '');
+        $label = (string) AppSetting::valueOf('tax_id_label', '');
+
+        return $label === '' && $this->usesGst() ? 'GSTIN' : $label;
+    }
+
+    #[Computed]
+    public function billingSettings(): BillingSettings
+    {
+        return BillingSettings::current();
+    }
+
+    /**
+     * India GST is the tax setup, so GSTINs are checked and customers with one get a place of supply.
+     */
+    public function usesGst(): bool
+    {
+        return $this->billingSettings->tax()->usesPlaceOfSupply();
+    }
+
+    /**
+     * Free, discount and place of supply change what a customer pays: they need Set customer pricing.
+     */
+    #[Computed]
+    public function canSetPricing(): bool
+    {
+        return Gate::allows(Permission::SetCustomerPricing->value);
+    }
+
+    public function showsPlaceOfSupply(): bool
+    {
+        return $this->usesGst() && trim($this->tax_id) !== '';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function gstStates(): array
+    {
+        return GstStates::selectOptions();
+    }
+
+    /**
+     * Warnings for what is filled in on the Billing tab; the save still goes ahead.
+     *
+     * @return list<string>
+     */
+    public function billingWarnings(): array
+    {
+        $warnings = [];
+        $home = $this->homeState();
+        $place = $this->place_of_supply === '' ? $home : $this->place_of_supply;
+        $gstin = strtoupper(trim($this->tax_id));
+
+        if ($this->showsPlaceOfSupply() && $home !== '' && $place !== $home) {
+            $warnings[] = __('Invoices for this customer will charge IGST, not CGST and SGST.');
+        }
+
+        if ($this->showsPlaceOfSupply() && Gstin::isValid($gstin) && Gstin::stateCode($gstin) !== $place) {
+            $warnings[] = __('This GSTIN is registered in :state, but the place of supply is :place.', [
+                'state' => GstStates::label(Gstin::stateCode($gstin)), 'place' => GstStates::label($place),
+            ]);
+        }
+
+        $notLatin = array_keys(array_filter([
+            __('Full name') => $this->fullname,
+            __('Company') => $this->company,
+            __('Billing name') => $this->separate_billing ? $this->billing_name : '',
+            __('Installation address') => implode(' ', $this->address),
+            __('Billing address') => $this->separate_billing ? implode(' ', $this->billing_address) : '',
+        ], fn (string $text): bool => ! LatinText::isLatin($text)));
+
+        if ($notLatin !== []) {
+            $warnings[] = __('Invoices print English letters only. Write this in English letters for the invoice: :fields.', ['fields' => implode(', ', $notLatin)]);
+        }
+
+        return $warnings;
     }
 
     #[Computed]
@@ -472,7 +599,17 @@ new #[Title('Customer')] class extends Component
         $account = $this->accountId === null ? null : Account::query()->find($this->accountId);
         $warned = array_filter($this->formAddonTabs, fn (CustomerFormTab $tab, string $key): bool => $tab->warnings((array) ($this->addonTabs[$key] ?? []), $account) !== [], ARRAY_FILTER_USE_BOTH);
 
-        return array_keys($warned);
+        return [...($this->billingWarnings() === [] ? [] : ['billing']), ...array_keys($warned)];
+    }
+
+    /**
+     * A GSTIN just filled in starts at the company's state as the place of supply.
+     */
+    public function updatedTaxId(): void
+    {
+        if ($this->place_of_supply === '') {
+            $this->place_of_supply = $this->homeState();
+        }
     }
 
     /**
@@ -568,7 +705,7 @@ new #[Title('Customer')] class extends Component
         $this->keepVisibleAddonTabs($tabs, $account);
         $this->withValidator(function (Validator $validator): void {
             $validator->after(function (Validator $validator): void {
-                foreach ([...$this->speedErrors(), ...$this->ipErrors(), ...$this->attributeErrors(), ...$this->autoRenewErrors()] as $field => $message) {
+                foreach ([...$this->speedErrors(), ...$this->ipErrors(), ...$this->attributeErrors(), ...$this->autoRenewErrors(), ...$this->gstinErrors()] as $field => $message) {
                     if (! $validator->errors()->has($field)) {
                         $validator->errors()->add($field, $message);
                     }
@@ -593,11 +730,14 @@ new #[Title('Customer')] class extends Component
                 $before = $account === null
                     ? ['address' => '', 'address_lists' => '', 'custom_attributes' => '']
                     : $this->relationSummary($account);
+                $billingBefore = $account === null ? [] : $this->billingSummary($account);
                 $previousIpId = $account?->ip_id;
                 $previousType = $account?->service_type;
                 $this->refuseTypeChange($previousType, $account);
                 $oldAddress = $account?->address;
                 $columns['address_id'] = $this->saveAddress($oldAddress);
+                $oldBillingAddress = $account?->billingAddress;
+                $columns['billing_address_id'] = $this->saveBillingAddress($oldBillingAddress);
                 $columns['password'] ??= $account?->password ?? Str::random(16);
                 $isNew = $account === null;
 
@@ -610,6 +750,10 @@ new #[Title('Customer')] class extends Component
 
                 if ($oldAddress !== null && $columns['address_id'] === null) {
                     $oldAddress->delete();
+                }
+
+                if ($oldBillingAddress !== null && $columns['billing_address_id'] === null) {
+                    $oldBillingAddress->delete();
                 }
 
                 $account->addressLists()->sync($listIds);
@@ -630,6 +774,7 @@ new #[Title('Customer')] class extends Component
                     app(Notifier::class)->fire(CustomerCreated::key(), $account);
                 } else {
                     $this->logRelationChanges($account, $before);
+                    $this->logBillingChanges($account, $billingBefore);
                 }
 
                 // The password itself is never logged, only that it changed.
@@ -778,6 +923,18 @@ new #[Title('Customer')] class extends Component
             $this->address[$field] = trim((string) ($this->address[$field] ?? ''));
         }
 
+        foreach (self::BILLING_ADDRESS_FIELDS as $field) {
+            $this->billing_address[$field] = trim((string) ($this->billing_address[$field] ?? ''));
+        }
+
+        $this->billing_name = trim($this->billing_name);
+        $this->discount_percent = trim($this->discount_percent);
+        $this->payment_terms_days = trim($this->payment_terms_days);
+
+        if ($this->usesGst()) {
+            $this->tax_id = strtoupper($this->tax_id);
+        }
+
         $this->custom_attributes = array_values(array_map(fn (array $row): array => [
             'attribute' => trim((string) ($row['attribute'] ?? '')),
             'value' => trim((string) ($row['value'] ?? '')),
@@ -825,6 +982,19 @@ new #[Title('Customer')] class extends Component
             'override_min_download' => $speed,
             'override_until' => $this->override_plan ? ['nullable', 'date_format:Y-m-d\TH:i', 'after:now'] : [],
             'auto_renew' => ['boolean'],
+            'billing_free' => ['boolean'],
+            'discount_percent' => ['required', 'numeric', 'between:0,100', 'decimal:0,2'],
+            'payment_terms_days' => ['required', 'integer', 'between:0,365'],
+            'separate_billing' => ['boolean'],
+            'billing_name' => ['nullable', 'string', 'max:150'],
+            'billing_address.line1' => [Rule::requiredIf($this->separate_billing && $this->hasBillingAddress()), 'nullable', 'string', 'max:255'],
+            'billing_address.line2' => ['nullable', 'string', 'max:255'],
+            'billing_address.area' => ['nullable', 'string', 'max:100'],
+            'billing_address.city' => ['nullable', 'string', 'max:100'],
+            'billing_address.state' => ['nullable', 'string', 'max:100'],
+            'billing_address.postal_code' => ['nullable', 'string', 'max:20'],
+            'billing_address.country' => ['nullable', 'string', 'max:60'],
+            'place_of_supply' => ['nullable', Rule::in(GstStates::codes())],
             'custom_attributes' => ['array', 'max:50'],
             'custom_attributes.*.attribute' => ['required', Rule::exists(RadiusAttribute::class, 'name')],
             'custom_attributes.*.value' => ['required', 'string', 'max:253'],
@@ -848,6 +1018,7 @@ new #[Title('Customer')] class extends Component
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),
             'custom_attributes.*.value.required' => __('Enter a value.'),
             'override_until.after' => __('The end must be in the future.'),
+            'billing_address.line1.required' => __('Enter the first line of the billing address.'),
         ];
     }
 
@@ -876,6 +1047,20 @@ new #[Title('Customer')] class extends Component
         }
 
         return $errors;
+    }
+
+    /**
+     * With India GST, a tax ID is a GSTIN and must look like one.
+     *
+     * @return array<string, string>
+     */
+    private function gstinErrors(): array
+    {
+        if (! $this->usesGst() || $this->tax_id === '' || Gstin::isValid($this->tax_id)) {
+            return [];
+        }
+
+        return ['tax_id' => __('Enter a valid GSTIN, e.g. 09ABCDE1234F1Z5.')];
     }
 
     /**
@@ -1008,7 +1193,110 @@ new #[Title('Customer')] class extends Component
             'override_min_upload' => $speed($this->override_min_upload),
             'override_min_download' => $speed($this->override_min_download),
             'override_until' => $override && $this->override_until !== '' ? Carbon::createFromFormat('!Y-m-d\TH:i', $this->override_until) : null,
-        ] + ($this->canAutoRenew ? ['auto_renew' => $this->auto_renew] : []) + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
+            'payment_terms_days' => (int) $this->payment_terms_days,
+            'billing_name' => $this->separate_billing ? $this->nullIfEmpty($this->billing_name) : null,
+        ] + $this->pricingColumns() + ($this->canAutoRenew ? ['auto_renew' => $this->auto_renew] : []) + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
+    }
+
+    /**
+     * Free, discount and place of supply, only for staff who may set them: for others the stored values stay,
+     * whatever the request says.
+     *
+     * @return array<string, mixed>
+     */
+    private function pricingColumns(): array
+    {
+        if (! $this->canSetPricing) {
+            return [];
+        }
+
+        return [
+            'billing_free' => $this->billing_free,
+            'discount_percent' => $this->discount_percent,
+            'place_of_supply' => $this->showsPlaceOfSupply() ? $this->nullIfEmpty($this->place_of_supply) : null,
+        ];
+    }
+
+    private function hasBillingAddress(): bool
+    {
+        return collect($this->billing_address)->contains(fn (?string $value): bool => trim((string) $value) !== '');
+    }
+
+    /**
+     * Creates or updates the separate billing address and returns its id; null when billing goes to the
+     * customer's own address.
+     */
+    private function saveBillingAddress(?Address $current): ?int
+    {
+        if (! $this->separate_billing || ! $this->hasBillingAddress()) {
+            return null;
+        }
+
+        $values = [];
+
+        foreach (self::BILLING_ADDRESS_FIELDS as $field) {
+            $values[$field] = $this->nullIfEmpty($this->billing_address[$field]);
+        }
+
+        if ($current === null) {
+            return Address::query()->create($values)->id;
+        }
+
+        $current->update($values);
+
+        return $current->id;
+    }
+
+    /**
+     * The company's GST state, the place of supply unless a customer's GSTIN says otherwise ('' without GST).
+     */
+    private function homeState(): string
+    {
+        return $this->usesGst() ? (string) ($this->billingSettings->taxConfig['state'] ?? '') : '';
+    }
+
+    /**
+     * What the customer is billed, as the activity log shows it.
+     *
+     * @return array<string, string>
+     */
+    private function billingSummary(Account $account): array
+    {
+        $account->load('billingAddress');
+        $address = $account->billingAddress;
+
+        return [
+            'billing' => $account->billing_free ? 'Free' : 'Paid',
+            'discount' => Decimal::trim((string) $account->discount_percent),
+            'payment_terms' => (string) $account->payment_terms_days,
+            'place_of_supply' => (string) $account->place_of_supply,
+            'billing_name' => (string) $account->billing_name,
+            'billing_address' => $address === null ? '' : collect(self::BILLING_ADDRESS_FIELDS)
+                ->map(fn (string $field): string => (string) $address->{$field})
+                ->filter(fn (string $value): bool => $value !== '')
+                ->implode(', '),
+        ];
+    }
+
+    /**
+     * One "Billing changed" entry with the old and new values of what changed.
+     *
+     * @param  array<string, string>  $before
+     */
+    private function logBillingChanges(Account $account, array $before): void
+    {
+        $after = $this->billingSummary($account->refresh());
+        $changed = array_flip(array_keys(array_diff_assoc($after, $before)));
+
+        if ($changed === []) {
+            return;
+        }
+
+        activity()
+            ->performedOn($account)
+            ->event('billing-changed')
+            ->withChanges(['old' => array_intersect_key($before, $changed), 'attributes' => array_intersect_key($after, $changed)])
+            ->log('billing-changed');
     }
 
     private function hasAddress(): bool
@@ -1117,6 +1405,8 @@ new #[Title('Customer')] class extends Component
         }
 
         $relations = array_filter($this->relationSummary($account), fn (string $value): bool => $value !== '');
+        $billing = array_diff_assoc($this->billingSummary($account), ['billing' => 'Paid', 'discount' => '0', 'payment_terms' => '0', 'place_of_supply' => '', 'billing_name' => '', 'billing_address' => '']);
+        $relations += $billing;
 
         activity()
             ->performedOn($account)

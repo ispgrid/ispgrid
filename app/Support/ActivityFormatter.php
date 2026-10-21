@@ -131,6 +131,11 @@ final class ActivityFormatter
             'own-speed-removed' => __('Override speed removed'),
             'own-speed-ended' => __('Override speed ended'),
             'terminated' => __('Terminated'),
+            'billing-changed' => __('Billing changed'),
+            'invoice-issued' => __('Invoice issued'),
+            'invoice-cancelled' => __('Invoice cancelled'),
+            'payment-recorded' => __('Payment recorded'),
+            'payment-removed' => __('Payment removed'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }

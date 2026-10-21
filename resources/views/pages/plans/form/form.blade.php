@@ -21,8 +21,25 @@
                             <x-ui.input wire:model="validity" type="number" min="1" :max="$validity_unit === 'hours' ? 720 : 3650" :label="__('Validity')" :description="__('How long a recharge lasts.')" required />
                             <x-ui.select wire:model.live="validity_unit" :label="__('Unit')" :options="$this->validityUnits" />
                         </div>
-                        <x-ui.input wire:model="price" type="number" min="0" step="0.01" :label="__('Price')" required />
+                        <x-ui.input wire:model.live.debounce.400ms="price" type="number" min="0" step="0.01" :label="__('Price')" required />
                     </div>
+                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        @if ($this->chargesTax)
+                            <x-ui.switch wire:model.live="do_not_charge_tax" :label="__('Do not charge tax')" :description="__('Invoices for this plan carry no tax.')" />
+                        @endif
+                        <x-ui.switch wire:model.live="round_off" :label="__('Round off the total')" :description="__('Invoices for this plan round the total to a whole amount.')" />
+                        @if ($this->itemCodeLabel !== null)
+                            <x-ui.input wire:model="item_code" english :label="$this->itemCodeLabel" :description="__('Leave empty to print the default from Billing settings.')" maxlength="20" autocomplete="off" />
+                        @endif
+                    </div>
+                    @if ($this->priceAfterTax)
+                        <x-ui.text muted>
+                            @if ($this->priceAfterTax['label'])
+                                {{ $this->priceAfterTax['label'] }}: {{ $this->priceAfterTax['tax'] }} &middot;
+                            @endif
+                            {{ __('Price after tax: :total', ['total' => $this->priceAfterTax['total']]) }}
+                        </x-ui.text>
+                    @endif
                     @if ($this->hotspotOn)
                         <x-ui.switch wire:model="hotspot_starts_at_first_login" :label="__('Validity starts at first login')" :description="__('For Hotspot customers: the time starts at their first login. Unused, it never runs out.')" />
                     @endif

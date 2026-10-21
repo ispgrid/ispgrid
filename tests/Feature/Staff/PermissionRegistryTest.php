@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Permission;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\Permissions;
@@ -101,4 +102,11 @@ it('ticks and saves every box down an implied chain', function () {
 
     expect(Role::findByName('Records desk')->permissions->pluck('name')->all())
         ->toEqualCanonicalizing(['erase-x', 'restore-x', 'view-x', 'view-customers']);
+});
+
+it('lists the billing boxes under Billing with the view boxes they need', function () {
+    $billing = array_map(fn (Permission $permission): string => $permission->value, Permission::byArea()[__('Billing')]);
+
+    expect($billing)->toBe(['manage-billing', 'set-customer-pricing', 'view-invoices', 'create-invoices', 'record-payments', 'cancel-invoices', 'view-sales'])
+        ->and(app(Permissions::class)->withImplied(['cancel-invoices']))->toEqualCanonicalizing(['cancel-invoices', 'view-invoices', 'view-customers']);
 });

@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 
+use App\Billing\BillingSettings;
+use App\Billing\Tax\IndiaGst;
+use App\Billing\Tax\NoTax;
+use App\Billing\Tax\SingleTax;
+use App\Billing\Tax\TaxSetups;
 use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\Passkey;
@@ -46,6 +51,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(CustomerFormTabs::class);
         $this->app->singleton(CustomerCards::class);
         $this->app->singleton(CustomerTabs::class);
+        $this->app->singleton(TaxSetups::class, fn (): TaxSetups => new TaxSetups([new NoTax, new SingleTax, new IndiaGst]));
+        $this->app->bind(BillingSettings::class, fn (): BillingSettings => BillingSettings::current());
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
 
         $this->app->singleton(Permissions::class, function (): Permissions {
@@ -156,6 +163,7 @@ class AppServiceProvider extends ServiceProvider
         $menu->add(new NavItem('system', fn (): string => __('Staff'), 'staff.index', 'users', ['staff.*'], $can('manage-staff'), 10));
         $menu->add(new NavItem('system', fn (): string => __('Roles'), 'roles.index', 'key', ['roles.*'], $can('manage-staff'), 20));
         $menu->add(new NavItem('system', fn (): string => __('App settings'), 'app-settings.edit', 'cog-6-tooth', ['app-settings.*'], $can('manage-app-settings'), 30));
+        $menu->add(new NavItem('system', fn (): string => __('Billing'), 'billing-settings.edit', 'banknotes', ['billing-settings.*'], $can('manage-billing'), 32));
         $menu->add(new NavItem('system', fn (): string => __('Add-ons'), 'addons.index', 'puzzle-piece', ['addons.*'], fn (User $user): bool => app(AddonSettings::class)->canOpenPage($user), 35));
         $menu->add(new NavItem('system', fn (): string => __('FreeRADIUS'), 'radius-settings.edit', 'adjustments-horizontal', ['radius-settings.*'], $can('manage-radius-settings'), 40));
         $menu->add(new NavItem('system', fn (): string => __('Connection types'), 'connection-types.index', 'wifi', ['connection-types.*'], $can('manage-connection-types'), 50));

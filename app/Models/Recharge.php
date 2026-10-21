@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One recharge of an account: its kind, the plan, the expiry before and after (or the validity left waiting for
  * the first login), and who did it.
  */
-#[Fillable(['account_id', 'plan_id', 'kind', 'old_expiry', 'new_expiry', 'new_pending_validity', 'amount', 'note', 'user_id'])]
+#[Fillable(['account_id', 'plan_id', 'kind', 'old_expiry', 'new_expiry', 'new_pending_validity', 'amount', 'invoice_id', 'note', 'user_id'])]
 class Recharge extends Model
 {
     /** @use HasFactory<RechargeFactory> */
@@ -57,5 +57,15 @@ class Recharge extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The invoice issued for it, if any.
+     *
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 }

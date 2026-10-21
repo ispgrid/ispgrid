@@ -79,6 +79,12 @@ final class ActivityTimeline
             'own-speed-removed' => fn (): string => __('Override speed removed.'),
             'own-speed-ended' => fn (): string => __('Override speed ended.'),
             'terminated' => fn (): string => __('Terminated.'),
+            'invoice-issued' => fn (): string => __('Invoice :number issued, :total.', ['number' => self::text($new['invoice'] ?? null) ?? '', 'total' => $money($new['total'] ?? null)]),
+            'invoice-cancelled' => fn (): string => __('Invoice :number cancelled.', ['number' => self::text($new['invoice'] ?? null) ?? '']),
+            'payment-recorded' => fn (): string => __('Payment of :amount by :method recorded for invoice :number.', [
+                'amount' => $money($new['amount'] ?? null), 'method' => self::text($new['method'] ?? null) ?? '', 'number' => self::text($new['invoice'] ?? null) ?? '',
+            ]),
+            'payment-removed' => fn (): string => __('Payment of :amount removed from invoice :number.', ['amount' => $money($new['amount'] ?? null), 'number' => self::text($new['invoice'] ?? null) ?? '']),
             'status-changed' => fn (): string => __('Status changed from :old to :new.', ['old' => self::text($old['status'] ?? null) ?? '', 'new' => self::text($new['status'] ?? null) ?? '']),
             'updated' => fn (): string => __('Details changed.'),
         ];
@@ -95,11 +101,11 @@ final class ActivityTimeline
     private static function tone(string $event, array $new): string
     {
         return match ($event) {
-            'created', 'restored' => 'green',
+            'created', 'restored', 'payment-recorded' => 'green',
             'status-changed' => in_array($new['status'] ?? null, [AccountStatus::Active->label(), 'Active'], true) ? 'green' : 'red',
-            'recharged', 'plan-changed', 'advance-booked', 'advance-started', 'advance-cancelled', 'advance-moved', 'auto-renewed' => 'blue',
-            'terminated', 'expired', 'deleted', 'disconnect-failed', 'auto-renew-skipped' => 'red',
-            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'password-changed' => 'amber',
+            'recharged', 'plan-changed', 'advance-booked', 'advance-started', 'advance-cancelled', 'advance-moved', 'auto-renewed', 'invoice-issued' => 'blue',
+            'terminated', 'expired', 'deleted', 'disconnect-failed', 'auto-renew-skipped', 'payment-removed', 'invoice-cancelled' => 'red',
+            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'password-changed', 'billing-changed' => 'amber',
             default => 'grey',
         };
     }
@@ -110,12 +116,12 @@ final class ActivityTimeline
     private static function icon(string $event): string
     {
         return match ($event) {
-            'created', 'advance-booked', 'imported' => 'plus',
+            'created', 'advance-booked', 'imported', 'invoice-issued', 'payment-recorded' => 'plus',
             'restored', 'status-changed' => 'check',
             'recharged', 'plan-changed', 'advance-started', 'auto-renewed', 'advance-moved' => 'arrow-path',
             'expired', 'auto-renew-skipped', 'disconnect-failed' => 'exclamation-triangle',
-            'terminated', 'deleted', 'advance-cancelled' => 'no-symbol',
-            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended' => 'adjustments-horizontal',
+            'terminated', 'deleted', 'advance-cancelled', 'payment-removed', 'invoice-cancelled' => 'no-symbol',
+            'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'billing-changed' => 'adjustments-horizontal',
             'password-changed', 'unlocked' => 'key',
             'disconnected' => 'x-circle',
             default => 'list-bullet',

@@ -32,6 +32,7 @@ it('gives Technician the agreed defaults', function () {
         'delete-customers', 'view-customer-passwords', 'reset-customer-devices',
         'view-online-sessions', 'disconnect-sessions', 'view-login-log',
         'view-plans', 'view-network', 'view-notification-log',
+        'view-invoices', 'create-invoices', 'record-payments',
     ])->and($technician->isAdmin())->toBeFalse();
 });
 

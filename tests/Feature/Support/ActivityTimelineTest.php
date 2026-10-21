@@ -64,6 +64,10 @@ it('writes one sentence and a tone for each kind of entry', function (string $ev
     'status to suspended' => ['status-changed', ['status' => 'Active'], ['status' => 'Suspended', 'remark' => 'Unpaid'], 'Status changed from Active to Suspended.', 'red'],
     'updated' => ['updated', ['remarks' => 'a'], ['remarks' => 'b'], 'Details changed.', 'amber'],
     'disconnected' => ['disconnected', [], [], 'Disconnected.', 'grey'],
+    'invoice issued' => ['invoice-issued', [], ['invoice' => 'INV-7', 'total' => '590'], 'Invoice INV-7 issued, ₹590.00.', 'blue'],
+    'payment recorded' => ['payment-recorded', [], ['invoice' => 'INV-7', 'amount' => '590', 'method' => 'UPI', 'reference' => 'T123', 'note' => null], 'Payment of ₹590.00 by UPI recorded for invoice INV-7.', 'green'],
+    'payment removed' => ['payment-removed', [], ['invoice' => 'INV-7', 'amount' => '590', 'method' => 'Cheque', 'reason' => 'Bounced'], 'Payment of ₹590.00 removed from invoice INV-7.', 'red'],
+    'invoice cancelled' => ['invoice-cancelled', [], ['invoice' => 'INV-7', 'total' => '590', 'reason' => 'Wrong customer'], 'Invoice INV-7 cancelled.', 'red'],
 ]);
 
 it('keeps the comment or remark as the note, and the changed fields only for details changes', function () {
