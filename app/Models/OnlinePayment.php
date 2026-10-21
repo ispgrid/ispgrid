@@ -20,7 +20,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $settled_at
  */
 #[Fillable(['public_id', 'account_id', 'gateway', 'amount', 'dues_amount', 'renewal_amount', 'currency', 'renewal_kind',
-    'renewal_plan_id', 'status', 'gateway_txn_id', 'gateway_status', 'gateway_response', 'paid_at', 'settled_at', 'note'])]
+    'renewal_plan_id', 'renewal_expiry_key', 'status', 'gateway_txn_id', 'gateway_status', 'gateway_response', 'paid_at', 'settled_at', 'note'])]
 class OnlinePayment extends Model
 {
     /** @use HasFactory<OnlinePaymentFactory> */

@@ -36,9 +36,12 @@ use App\Support\SessionKeepers;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -99,6 +102,12 @@ class AppServiceProvider extends ServiceProvider
         View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->user(), request())));
 
         Passkeys::usePasskeyModel(Passkey::class);
+
+        // The public pay page: searches and payment starts per visitor address.
+        RateLimiter::for('quick-pay', fn (Request $request): array => [
+            Limit::perMinute(10)->by('quick-pay-minute|'.$request->ip()),
+            Limit::perHour(60)->by('quick-pay-hour|'.$request->ip()),
+        ]);
 
         // The reset link goes to the panel's own address: the Host header is the visitor's to choose, and a link
         // built from it would send the reset token to their server.

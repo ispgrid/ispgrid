@@ -32,6 +32,7 @@ return new class extends Migration
             $table->char('currency', 3);
             $table->string('renewal_kind', 10)->nullable();
             $table->foreignId('renewal_plan_id')->nullable()->constrained('plans');
+            $table->string('renewal_expiry_key', 40)->nullable();
             $table->string('status', 20)->index();
             $table->string('gateway_txn_id', 100)->nullable();
             $table->string('gateway_status', 40)->nullable();

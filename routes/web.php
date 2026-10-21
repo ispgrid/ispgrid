@@ -1,10 +1,20 @@
 <?php
 
 use App\Http\Controllers\InvoicePdfController;
+use App\Http\Controllers\PaymentGatewayController;
 use App\Http\Controllers\PaymentReceiptController;
+use App\Http\Controllers\QuickPayController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
+
+// Quick pay: public, no login.
+Route::get('pay', [QuickPayController::class, 'show'])->name('pay.show');
+Route::post('pay', [QuickPayController::class, 'find'])->middleware('throttle:quick-pay')->name('pay.find');
+Route::post('pay/start', [QuickPayController::class, 'start'])->middleware('throttle:quick-pay')->name('pay.start');
+Route::get('pay/result/{publicId}', [QuickPayController::class, 'result'])->where('publicId', '[0-9A-Z]{26}')->name('pay.result');
+Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->name('pay.return');
+Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->name('pay.webhook');
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');

@@ -111,19 +111,19 @@ final class QuickPay
     /**
      * The customer's current plan, renewed: offered when the plan has expired or ends within the renewal days, to
      * an Active or Inactive customer who pays (not Free), whose renewal would be invoiced, with no advance renewal
-     * already waiting.
+     * already waiting. $anyTime leaves out the renewal days (settling a renewal the customer has already paid for).
      */
-    public function renewal(Account $account): ?RenewalOffer
+    public function renewal(Account $account, bool $anyTime = false): ?RenewalOffer
     {
         $days = self::renewalDays();
         $plan = $account->plan_id === null ? null : Plan::withTrashed()->find($account->plan_id);
         $now = CarbonImmutable::now();
         $settings = BillingSettings::current();
 
-        if ($days === null || $plan === null || $plan->trashed() || $plan->hotspot_starts_at_first_login || $account->expiry === null
+        if ((! $anyTime && $days === null) || $plan === null || $plan->trashed() || $plan->hotspot_starts_at_first_login || $account->expiry === null
             || ! in_array($account->status_id, [AccountStatus::Active, AccountStatus::Inactive], true)
             || $account->billing_free || ! InvoicePolicy::invoicesRecharge($account, $settings)
-            || $account->expiry->greaterThan($now->addDays($days)) || $account->waitingRenewal()->exists()) {
+            || (! $anyTime && $account->expiry->greaterThan($now->addDays((int) $days))) || $account->waitingRenewal()->exists()) {
             return null;
         }
 
