@@ -22,6 +22,7 @@ use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\AddressList;
 use App\Models\AppSetting;
+use App\Models\Invoice;
 use App\Models\Nas;
 use App\Models\NotificationLog;
 use App\Models\Plan;
@@ -186,6 +187,7 @@ new #[Title('Customer')] class extends Component
             'details' => __('Details'),
             'connection' => __('Connection'),
             'recharges' => __('Recharges'),
+            'billing' => $this->showsBilling() ? __('Billing') : null,
             'messages' => Gate::allows('view-notification-log') ? __('Messages') : null,
             'activity' => __('Activity'),
         ];
@@ -198,6 +200,15 @@ new #[Title('Customer')] class extends Component
         uasort($tabs, fn (array $a, array $b): int => $a['order'] <=> $b['order']);
 
         return array_map(fn (array $tab): string => $tab['label'], $tabs);
+    }
+
+    /**
+     * The Billing tab: for staff with View invoices, while invoicing is on or the customer has invoices.
+     */
+    private function showsBilling(): bool
+    {
+        return Gate::allows('view-invoices')
+            && (BillingSettings::current()->enabled || Invoice::query()->where('account_id', $this->accountId)->exists());
     }
 
     /**
@@ -510,7 +521,7 @@ new #[Title('Customer')] class extends Component
     /**
      * The last 20 recharges.
      *
-     * @return list<array{id: int, when: string, plan: string, expiry: string, amount: string, note: string, staff: string}>
+     * @return list<array{id: int, when: string, plan: string, expiry: string, amount: string, invoice: ?string, note: string, staff: string}>
      */
     #[Computed]
     public function recharges(): array
@@ -519,7 +530,7 @@ new #[Title('Customer')] class extends Component
         $money = Money::fromSettings();
 
         return Recharge::query()->where('account_id', $this->accountId)
-            ->with(['plan' => fn ($query) => $query->withTrashed(), 'user' => fn ($query) => $query->withTrashed()])
+            ->with(['plan' => fn ($query) => $query->withTrashed(), 'user' => fn ($query) => $query->withTrashed(), 'invoice'])
             ->latest('id')->limit(20)->get()
             ->map(fn (Recharge $recharge): array => [
                 'id' => $recharge->id,
@@ -529,6 +540,7 @@ new #[Title('Customer')] class extends Component
                     ? ValidityUnit::firstLoginLabel($recharge->new_pending_validity)
                     : $recharge->new_expiry?->format($format) ?? '',
                 'amount' => $money->format((string) $recharge->amount),
+                'invoice' => $recharge->invoice?->number,
                 'note' => (string) $recharge->note,
                 'staff' => $recharge->user?->name ?? __('System'),
             ])

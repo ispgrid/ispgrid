@@ -67,6 +67,12 @@
                     <dd>{{ $this->details['data'] }}</dd>
                 </div>
             @endif
+            @if ($this->details['dues'])
+                <div class="grid grid-cols-[9rem_1fr] gap-3">
+                    <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Dues') }}</dt>
+                    <dd class="font-semibold tabular-nums text-red-700 dark:text-red-300">{{ $this->details['dues'] }}</dd>
+                </div>
+            @endif
         </dl>
 
         @if (in_array(true, $this->buttons, true))

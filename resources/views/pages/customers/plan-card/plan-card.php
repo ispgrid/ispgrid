@@ -8,7 +8,9 @@ use App\Actions\Customers\SetOverrideSpeed;
 use App\Actions\Customers\TerminateAccount;
 use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
+use App\Billing\Decimal;
 use App\Billing\RechargePrice;
+use App\Billing\Statement;
 use App\Enums\AccountStatus;
 use App\Enums\RechargeKind;
 use App\Exceptions\ExpiryChangedMeanwhile;
@@ -31,6 +33,7 @@ use App\Support\Units;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use Livewire\Attributes\Computed;
@@ -127,7 +130,7 @@ new class extends Component
     /**
      * What the card shows.
      *
-     * @return array{plan: ?string, price: ?string, started: ?string, expires: ?string, expires_in: ?string, expired: bool, auto_renew: bool, renews: ?string, waiting: ?array{plan: string, starts: string, expiry: string, amount: string}, speed: string, own_speed: ?string, data: ?string, online: bool}
+     * @return array{plan: ?string, price: ?string, started: ?string, expires: ?string, expires_in: ?string, expired: bool, auto_renew: bool, renews: ?string, waiting: ?array{plan: string, starts: string, expiry: string, amount: string}, speed: string, own_speed: ?string, data: ?string, online: bool, dues: ?string}
      */
     #[Computed]
     public function details(): array
@@ -167,6 +170,7 @@ new class extends Component
                 'limit' => Units::bytes((int) $plan->monthly_data_gb * 1_073_741_824),
             ]),
             'online' => Radacct::query()->where('username', $account->username)->whereNull('acctstoptime')->exists(),
+            'dues' => $this->dues($account),
         ];
     }
 
@@ -618,6 +622,20 @@ new class extends Component
     {
         $this->refreshAccount();
         $this->toast(__('This customer was deleted meanwhile. Reload the page.'), 'danger');
+    }
+
+    /**
+     * What the customer owes, for staff with View invoices; null when nothing.
+     */
+    private function dues(Account $account): ?string
+    {
+        if (! Gate::allows('view-invoices')) {
+            return null;
+        }
+
+        $dues = Statement::dues($account);
+
+        return Decimal::compare($dues, '0') > 0 ? Money::fromSettings()->format($dues) : null;
     }
 
     private function nullIfEmpty(string $value): ?string

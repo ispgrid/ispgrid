@@ -261,6 +261,7 @@
                         <x-ui.th>{{ __('Plan') }}</x-ui.th>
                         <x-ui.th>{{ __('Expiry') }}</x-ui.th>
                         <x-ui.th class="text-end">{{ __('Amount') }}</x-ui.th>
+                        <x-ui.th>{{ __('Invoice') }}</x-ui.th>
                         <x-ui.th>{{ __('Note') }}</x-ui.th>
                         <x-ui.th>{{ __('Staff') }}</x-ui.th>
                     </x-slot:head>
@@ -270,6 +271,7 @@
                             <x-ui.td>{{ $recharge['plan'] }}</x-ui.td>
                             <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['expiry'] }}</x-ui.td>
                             <x-ui.td class="text-end tabular-nums">{{ $recharge['amount'] }}</x-ui.td>
+                            <x-ui.td class="whitespace-nowrap">{{ $recharge['invoice'] }}</x-ui.td>
                             <x-ui.td>{{ $recharge['note'] }}</x-ui.td>
                             <x-ui.td>{{ $recharge['staff'] }}</x-ui.td>
                         </tr>
@@ -277,6 +279,10 @@
                 </x-ui.table>
             @endif
         </x-ui.card>
+    @endif
+
+    @if ($this->activeTab === 'billing')
+        <livewire:pages::customers.billing-tab :account-id="$this->account->id" :key="'billing-tab-'.$this->account->id" />
     @endif
 
     @if ($this->activeTab === 'messages')

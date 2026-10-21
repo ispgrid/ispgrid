@@ -1,7 +1,9 @@
-{{-- The payment section (TakesPayment). $total: the invoice total; nothing to take when it is 0. --}}
+{{-- The payment section (TakesPayment). $total: the invoice total or balance, nothing to take when it is 0; $withSwitch: false for Record payment. --}}
 @if ((float) $total > 0)
     <div class="grid gap-5">
-        <x-ui.switch wire:model.live="paid_now" :label="__('Payment received now')" :description="__('Off: the invoice stays unpaid, due by the payment terms.')" />
+        @if ($withSwitch ?? true)
+            <x-ui.switch wire:model.live="paid_now" :label="__('Payment received now')" :description="__('Off: the invoice stays unpaid, due by the payment terms.')" />
+        @endif
         @if ($this->paid_now)
             <div class="grid gap-5 sm:grid-cols-2">
                 <x-ui.select wire:model="payment_method_id" :label="__('Method')" :options="$this->paymentMethods" />
