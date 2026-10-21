@@ -104,7 +104,10 @@
             <form wire:submit="changePlan" class="grid gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Change plan') }}</x-ui.heading>
                 <x-ui.text muted>{{ __('Starts now. The time left on the current plan ends, and an online customer is disconnected so the new plan applies at once.') }}</x-ui.text>
-                <x-ui.select wire:model.live="change_plan_id" :label="__('Plan')" :options="$this->plans" :placeholder="__('Choose a plan')" />
+                @if ($this->timeLeft !== null)
+                    <x-ui.alert variant="warning">{{ __('The time left on the current plan (:time) ends now.', ['time' => $this->timeLeft]) }}</x-ui.alert>
+                @endif
+                <x-ui.select wire:model.live="change_plan_id" :label="__('Plan')" :options="$this->changePlans" :placeholder="__('Choose a plan')" />
                 @include('partials.billing-breakdown', ['charge' => $this->changeCharge, 'amountField' => 'change_amount', 'idPrefix' => 'change', 'amountDescription' => __('The plan price less the customer discount. Change it for a part payment.')])
                 <x-ui.input wire:model="change_expiry" type="datetime-local" :label="__('Expires')" :description="__('From now, with the plan validity and the expiry mode in App settings. You can change it.')" />
                 <x-ui.input wire:model="change_note" :label="__('Comment')" maxlength="255" />

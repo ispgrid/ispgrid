@@ -113,6 +113,15 @@ it('refuses an invalid GSTIN in India', function () {
     billingCustomerForm()->set('tax_id', '09ABCDE1234')->call('save')->assertHasErrors(['tax_id' => __('Enter a valid GSTIN, e.g. 09ABCDE1234F1Z5.')]);
 });
 
+it('calls the tax ID a GSTIN under India GST, whatever its label in App settings', function () {
+    turnInvoicingOn();
+    AppSetting::put('tax_id_label', 'VAT');
+    $account = Account::factory()->create(['tax_id' => '09ABCDE1234F1Z5']);
+
+    billingCustomerForm()->assertSeeHtml('<label for="field-tax_id" class="text-sm font-medium">GSTIN');
+    Livewire::test('pages::customers.show', ['account' => $account->id])->assertSee('GSTIN')->assertDontSee('VAT');
+});
+
 it('takes any tax ID outside India', function () {
     turnInvoicingOn(country: 'GB', taxSetup: 'single', tax: ['name' => 'VAT', 'rate' => '20']);
     AppSetting::put('tax_id_label', 'VAT number');

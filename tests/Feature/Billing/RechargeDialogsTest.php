@@ -134,7 +134,8 @@ it('takes the payment in Change plan and Renew in advance', function () {
     $card = Livewire::test('pages::customers.plan-card', ['accountId' => $this->account->id]);
 
     $card->call('openAdvance')->assertSee('CGST 9%')->call('bookRenewal')->assertHasNoErrors();
-    $card->call('openChangePlan')->set('paid_now', false)->call('changePlan')->assertHasNoErrors();
+    $other = Plan::factory()->create(['name' => 'Home 50', 'price' => 500, 'validity' => 30]);
+    $card->call('openChangePlan')->set('change_plan_id', (string) $other->id)->set('paid_now', false)->call('changePlan')->assertHasNoErrors();
 
     $renewal = AdvanceRenewal::query()->sole();
     expect($renewal->invoice->status)->toBe(InvoiceStatus::Paid)

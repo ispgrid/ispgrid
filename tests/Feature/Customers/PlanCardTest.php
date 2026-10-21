@@ -92,6 +92,20 @@ it('changes the plan from now with the edited amount and disconnects an online c
     Queue::assertPushed(DisconnectAccount::class);
 });
 
+it('leaves the current plan out of Change plan and says what time is lost', function () {
+    $other = Plan::factory()->create(['name' => 'Home 100']);
+
+    $card = planCard($this->account)
+        ->call('openChangePlan')
+        ->assertSet('change_plan_id', '')
+        ->assertSee('The time left on the current plan (20 days 9 hours) ends now.');
+
+    expect(array_keys($card->instance()->changePlans))->toBe([$other->id]);
+
+    $card->set('change_plan_id', (string) $this->plan->id)->call('changePlan')->assertHasErrors('change_plan_id');
+    expect(Recharge::query()->count())->toBe(0);
+});
+
 it('books a renewal in advance, and refuses a second one', function () {
     $next = Plan::factory()->create(['name' => 'Home 100', 'validity' => 30, 'price' => 999]);
 

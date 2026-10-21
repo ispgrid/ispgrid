@@ -15,6 +15,9 @@
         <div class="flex flex-wrap gap-2">
             <x-ui.button variant="secondary" href="{{ route('payments.receipt', $this->paymentId) }}" icon="arrow-down-tray">{{ __('Download PDF') }}</x-ui.button>
             <x-ui.button variant="secondary" href="{{ route('payments.receipt', ['payment' => $this->paymentId, 'print' => 1]) }}" target="_blank" rel="noopener">{{ __('Print') }}</x-ui.button>
+            @if ($this->canEdit)
+                <x-ui.button variant="secondary" wire:click="openEditPayment">{{ __('Edit') }}</x-ui.button>
+            @endif
         </div>
     </div>
 
@@ -69,4 +72,24 @@
             @endif
         </dl>
     </x-ui.card>
+
+    @if ($this->canEdit)
+        <x-ui.modal name="edit-payment">
+            <form wire:submit="editPayment" class="grid gap-5" novalidate>
+                <x-ui.heading size="lg">{{ __('Edit payment') }}</x-ui.heading>
+                <x-ui.text>{{ __('The amount and the invoice stay as they are. For a wrong amount, remove the payment and record it again.') }}</x-ui.text>
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <x-ui.select wire:model="edit_method_id" :label="__('Method')" :options="$this->editMethods" />
+                    <x-ui.input wire:model="edit_paid_at" type="datetime-local" :label="__('Received at')" />
+                    <div class="sm:col-span-2">
+                        <x-ui.input wire:model="edit_reference" :label="__('Reference')" maxlength="100" :description="__('UPI transaction ID or cheque number.')" />
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'edit-payment' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.modal>
+    @endif
 </section>

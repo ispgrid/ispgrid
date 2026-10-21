@@ -41,6 +41,7 @@ use App\Support\Hotspot;
 use App\Support\Ipv4Cidr;
 use App\Support\Money;
 use App\Support\PlanChoices;
+use App\Support\TaxIdLabel;
 use App\Support\Units;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -356,7 +357,7 @@ new #[Title('Customer')] class extends Component
             __('WhatsApp') => $phone($account->whatsapp),
             __('Other number') => $phone($account->alt_number),
             __('Email') => $account->email,
-            (AppSetting::valueOf('tax_id_label') ?: __('Tax ID')) => $account->tax_id,
+            TaxIdLabel::forDisplay() => $account->tax_id,
             (AppSetting::valueOf('business_id_label') ?: __('Business ID')) => $account->business_id,
             __('Address') => $address === null ? null : collect(['line1', 'line2', 'area', 'city', 'state', 'postal_code', 'country'])
                 ->map(fn (string $field): string => (string) $address->{$field})
@@ -661,7 +662,7 @@ new #[Title('Customer')] class extends Component
 
         return [
             'when' => $failure->created_at->format($this->dateFormat()),
-            'reason' => (string) (collect(ActivityFormatter::changes($failure))->firstWhere('field', 'reason')['new'] ?? ''),
+            'reason' => (string) ($failure->attribute_changes['attributes']['reason'] ?? ''),
         ];
     }
 

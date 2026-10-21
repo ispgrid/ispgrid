@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Billing\India\GstStates;
+use App\Enums\AccountStatus;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;
@@ -17,6 +19,7 @@ use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\NotificationRegistry;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
@@ -138,6 +141,7 @@ final class ActivityFormatter
             'receipt-downloaded' => __('Receipt PDF opened'),
             'payment-recorded' => __('Payment recorded'),
             'payment-removed' => __('Payment removed'),
+            'payment-edited' => __('Payment changed'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }
@@ -157,17 +161,107 @@ final class ActivityFormatter
             [$new, $old] = [$old, []];
         }
 
+        // A settings record kept as JSON (the company details, say): list what changed inside it, not the whole text.
+        if ($activity->subject_type === (new AppSetting)->getMorphClass() && is_array($inner = self::record($new['value'] ?? null))) {
+            [$old, $new] = [self::record($old['value'] ?? null) ?? [], $inner];
+            $fields = array_filter(array_unique([...array_keys($old), ...array_keys($new)]),
+                fn (int|string $field): bool => self::stringify($old[$field] ?? null) !== self::stringify($new[$field] ?? null));
+        } else {
+            $fields = array_unique([...array_keys($old), ...array_keys($new)]);
+        }
+
         $rows = [];
 
-        foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $field) {
+        foreach ($fields as $field) {
             $rows[] = [
-                'field' => (string) $field,
-                'old' => self::stringify($old[$field] ?? null),
-                'new' => self::stringify($new[$field] ?? null),
+                'field' => self::fieldLabel((string) $field),
+                'old' => self::value((string) $field, $old[$field] ?? null),
+                'new' => self::value((string) $field, $new[$field] ?? null),
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * A field's name as the screens call it: "Full name", "GSTIN", "Place of supply"; others from the field name.
+     */
+    private static function fieldLabel(string $field): string
+    {
+        return match ($field) {
+            'fullname' => __('Full name'),
+            'whatsapp' => __('WhatsApp'),
+            'alt_number' => __('Other number'),
+            'tax_id' => TaxIdLabel::forDisplay(),
+            'business_id' => (string) AppSetting::valueOf('business_id_label', '') ?: __('Business ID'),
+            'notifications_off' => __('No reminders'),
+            'service_type' => __('Type'),
+            'mac_type' => __('Device limit'),
+            'nas_id' => __('NAS'),
+            'ip_id' => __('Static IP'),
+            'override_plan' => __('Override speed'),
+            'paid_at' => __('Received at'),
+            default => __(ucfirst(str_replace('_', ' ', (string) preg_replace('/_id$/', '', $field)))),
+        };
+    }
+
+    /**
+     * A value as staff read it: names for ids, the state for a place of supply, (empty) for a blank.
+     */
+    private static function value(string $field, mixed $value): ?string
+    {
+        $text = self::stringify($value);
+
+        if ($text === null || $text === '') {
+            return null;
+        }
+
+        $named = match ($field) {
+            'place_of_supply' => GstStates::label($text),
+            'paid_at' => CarbonImmutable::canBeCreatedFromFormat($text, 'Y-m-d H:i')
+                ? CarbonImmutable::createFromFormat('Y-m-d H:i', $text)?->format(AppSetting::valueOf('date_format', 'd/m/Y').' H:i') : null,
+            'status_id' => ctype_digit($text) ? AccountStatus::tryFrom((int) $text)?->label() : null,
+            'plan_id' => self::name(Plan::class, $text, 'name'),
+            'nas_id' => self::name(Nas::class, $text, 'shortname'),
+            'pool_id' => self::name(Pool::class, $text, 'name'),
+            'connection_type_id' => self::name(ConnectionType::class, $text, 'name'),
+            'ip_id' => self::name(Ip::class, $text, 'address'),
+            default => null,
+        };
+
+        return $named ?? $text;
+    }
+
+    /**
+     * The name of a (possibly deleted) row by its id; null when it is gone.
+     *
+     * @param  class-string<Plan|Nas|Pool|ConnectionType|Ip>  $model
+     */
+    private static function name(string $model, string $id, string $column): ?string
+    {
+        if (! ctype_digit($id)) {
+            return null;
+        }
+
+        $name = $model::withTrashed()->whereKey((int) $id)->value($column);
+
+        return is_scalar($name) && $name !== '' ? (string) $name : null;
+    }
+
+    /**
+     * A settings value that holds a JSON object, decoded; null for any other value.
+     *
+     * @return array<int|string, mixed>|null
+     */
+    private static function record(mixed $value): ?array
+    {
+        if (! is_string($value) || ! str_starts_with(ltrim($value), '{')) {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     private static function stringify(mixed $value): ?string
@@ -176,6 +270,7 @@ final class ActivityFormatter
             $value === null => null,
             is_bool($value) => $value ? 'yes' : 'no',
             is_scalar($value) => (string) $value,
+            is_array($value) && array_is_list($value) && array_filter($value, 'is_scalar') === $value => implode(', ', $value),
             default => (string) json_encode($value),
         };
     }

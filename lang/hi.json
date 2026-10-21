@@ -1272,5 +1272,12 @@
     "Invoice total": "इनवॉइस कुल",
     "Received from": "किससे प्राप्त",
     "Removed": "हटाया गया",
-    "This payment": "यह भुगतान"
+    "This payment": "यह भुगतान",
+    "The time left on the current plan (:time) ends now.": "मौजूदा प्लान का बचा समय (:time) अभी खत्म हो जाएगा।",
+    "This is the current plan. Use Recharge to renew it.": "यह मौजूदा प्लान है। इसे नवीनीकृत करने के लिए रिचार्ज करें।",
+    "Edit payment": "भुगतान बदलें",
+    "Payment changed": "भुगतान बदला गया",
+    "Payment changed.": "भुगतान बदल दिया गया।",
+    "Payment :receipt on invoice :number changed.": "इनवॉइस :number पर भुगतान :receipt बदला गया।",
+    "The amount and the invoice stay as they are. For a wrong amount, remove the payment and record it again.": "राशि और इनवॉइस वैसे ही रहते हैं। गलत राशि हो तो भुगतान हटाकर फिर से दर्ज करें।"
 }

@@ -35,6 +35,7 @@ use App\Support\Hotspot;
 use App\Support\IpAddress;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
+use App\Support\TaxIdLabel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -472,14 +473,12 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * The Tax ID field's label (App settings). With India GST and no label of its own, it is the GSTIN.
+     * The Tax ID field's label: GSTIN under India GST, otherwise the one in App settings (empty hides the field).
      */
     #[Computed]
     public function taxIdLabel(): string
     {
-        $label = (string) AppSetting::valueOf('tax_id_label', '');
-
-        return $label === '' && $this->usesGst() ? 'GSTIN' : $label;
+        return TaxIdLabel::forField();
     }
 
     #[Computed]
