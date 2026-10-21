@@ -24,6 +24,7 @@ use App\Notifications\Triggers\AfterExpiry;
 use App\Notifications\Triggers\BeforeExpiry;
 use App\Notifications\Triggers\CustomerCreated;
 use App\Notifications\Triggers\RechargeDone;
+use App\Payments\PaymentGateways;
 use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerFormTabs;
@@ -61,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(InvoicePdf::class, DompdfInvoicePdf::class);
         $this->app->bind(ReceiptPdf::class, DompdfReceiptPdf::class);
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
+        $this->app->singleton(PaymentGateways::class);
 
         $this->app->singleton(Permissions::class, function (): Permissions {
             $permissions = new Permissions;
