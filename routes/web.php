@@ -11,7 +11,9 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('customers/create', 'pages::customers.form')->name('customers.create');
     Route::livewire('customers/{account}', 'pages::customers.show')->name('customers.show');
     Route::livewire('customers/{account}/edit', 'pages::customers.form')->name('customers.edit');
+    Route::livewire('invoices', 'pages::invoices.index')->name('invoices.index');
     Route::livewire('invoices/{invoice}', 'pages::invoices.show')->name('invoices.show');
+    Route::livewire('payments', 'pages::payments.index')->name('payments.index');
     Route::get('invoices/{invoice}/pdf', InvoicePdfController::class)->name('invoices.pdf');
     Route::livewire('online', 'pages::online.index')->name('online.index');
     Route::livewire('login-log', 'pages::login-log.index')->name('login-log.index');

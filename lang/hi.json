@@ -1246,5 +1246,15 @@
     "Bill period": "बिल अवधि",
     "Bill to": "बिल पाने वाला",
     "Connectivity address": "कनेक्शन का पता",
-    "Discount": "छूट"
+    "Discount": "छूट",
+    "Has dues": "बकाया वाले",
+    "Every invoice issued, newest first. Cancelled invoices keep their numbers.": "जारी हर इनवॉइस, नए पहले। रद्द इनवॉइस का नंबर वही रहता है।",
+    "Export CSV": "CSV एक्सपोर्ट करें",
+    "Customer or number": "ग्राहक या नंबर",
+    "Paid by": "भुगतान का तरीका",
+    "Any method": "कोई भी तरीका",
+    "Total, without cancelled invoices": "कुल, रद्द इनवॉइस को छोड़कर",
+    "Money received against invoices, newest first. Removed payments are struck through.": "इनवॉइस पर मिली राशि, नए पहले। हटाए गए भुगतान कटे हुए दिखते हैं।",
+    "Recorded by": "दर्ज करने वाले",
+    "No payments yet.": "अभी कोई भुगतान नहीं।"
 }

@@ -107,12 +107,7 @@ new class extends Component
                 'paid' => $money->format((string) $invoice->paid_total),
                 'balance' => $money->format((string) $invoice->balance),
                 'status' => $invoice->status->label(),
-                'color' => match ($invoice->status) {
-                    InvoiceStatus::Paid => 'green',
-                    InvoiceStatus::PartlyPaid => 'amber',
-                    InvoiceStatus::Unpaid => 'red',
-                    InvoiceStatus::Cancelled => 'zinc',
-                },
+                'color' => $invoice->status->color(),
                 'open' => in_array($invoice->status, [InvoiceStatus::Unpaid, InvoiceStatus::PartlyPaid], true),
                 'cancelled' => $invoice->status === InvoiceStatus::Cancelled,
                 'reason' => $invoice->cancel_reason,

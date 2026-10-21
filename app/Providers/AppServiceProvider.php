@@ -11,6 +11,7 @@ use App\Billing\Tax\SingleTax;
 use App\Billing\Tax\TaxSetups;
 use App\Enums\Permission;
 use App\Models\Account;
+use App\Models\Invoice;
 use App\Models\Passkey;
 use App\Models\Plan;
 use App\Models\User;
@@ -158,6 +159,12 @@ class AppServiceProvider extends ServiceProvider
         $menu->add(new NavItem('notifications', fn (): string => __('Rules'), 'notification-rules.index', 'bell', ['notification-rules.*'], $can('manage-notification-rules'), 10));
         $menu->add(new NavItem('notifications', fn (): string => __('Message log'), 'notification-log.index', 'chat-bubble-left-right', ['notification-log.*'], $can('view-notification-log'), 20));
         $menu->add(new NavItem('notifications', fn (): string => __('Providers'), 'notifications.providers', 'paper-airplane', ['notifications.*'], $can('manage-notification-providers'), 30));
+
+        // Invoices and Payments: shown while invoicing is on, or once there is an invoice to look at.
+        $billing = fn (User $user): bool => $user->can('view-invoices') && (BillingSettings::current()->enabled || Invoice::query()->exists());
+        $menu->group('billing', fn (): string => __('Billing'), true, 33);
+        $menu->add(new NavItem('billing', fn (): string => __('Invoices'), 'invoices.index', 'document-text', ['invoices.*'], $billing, 10));
+        $menu->add(new NavItem('billing', fn (): string => __('Payments'), 'payments.index', 'credit-card', ['payments.*'], $billing, 20));
 
         // Add-ons put their pages here; the group stays hidden until one does.
         $menu->group('addons', fn (): string => __('Add-ons'), true, 35);

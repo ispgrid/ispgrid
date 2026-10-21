@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountStatus;
+use App\Enums\InvoiceStatus;
 use App\Enums\ServiceType;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Models\Account;
@@ -13,6 +14,7 @@ use App\Support\Hotspot;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -23,12 +25,12 @@ new #[Title('Customers')] class extends Component
 {
     use AuthorizesEveryRequest, WithPagination;
 
-    private const FILTERS = ['search', 'status', 'plan', 'type', 'router', 'connection', 'expiring', 'expired', 'norenewal', 'disabled', 'created', 'renewed', 'staticip'];
+    private const FILTERS = ['search', 'status', 'plan', 'type', 'router', 'connection', 'expiring', 'expired', 'norenewal', 'disabled', 'created', 'renewed', 'staticip', 'dues'];
 
     /**
      * Filters the dashboard links use that have no control on this page, cleared together.
      */
-    private const EXTRA_FILTERS = ['norenewal', 'disabled', 'created', 'renewed', 'staticip'];
+    private const EXTRA_FILTERS = ['norenewal', 'disabled', 'created', 'renewed', 'staticip', 'dues'];
 
     #[Url]
     public string $search = '';
@@ -80,6 +82,12 @@ new #[Title('Customers')] class extends Component
 
     #[Url]
     public bool $staticip = false;
+
+    /**
+     * Customers who owe something on an invoice (the dashboard's Dues card links here). Needs View invoices.
+     */
+    #[Url]
+    public bool $dues = false;
 
     public function mount(): void
     {
@@ -157,6 +165,10 @@ new #[Title('Customers')] class extends Component
 
         if ($this->staticip) {
             $labels[] = __('Static IP');
+        }
+
+        if ($this->dues && Gate::allows('view-invoices')) {
+            $labels[] = __('Has dues');
         }
 
         return $labels;
@@ -240,6 +252,8 @@ new #[Title('Customers')] class extends Component
             ->when($this->renewed, fn (Builder $query) => $query->whereExists(fn ($query) => $query->select(DB::raw(1))->from('recharges')
                 ->whereColumn('recharges.account_id', 'accounts.id')->where('recharges.created_at', '>=', now()->startOfDay())))
             ->when($this->staticip, fn (Builder $query) => $query->whereNotNull('ip_id'))
+            ->when($this->dues && Gate::allows('view-invoices'), fn (Builder $query) => $query->whereHas('invoices', fn (Builder $invoices) => $invoices
+                ->where('status', '!=', InvoiceStatus::Cancelled)->where('balance', '>', 0)))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('username', 'like', "%{$search}%")
                 ->orWhere('fullname', 'like', "%{$search}%")
