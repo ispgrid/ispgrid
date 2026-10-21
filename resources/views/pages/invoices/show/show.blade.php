@@ -136,7 +136,7 @@
                         <x-ui.td class="text-end tabular-nums">{{ $payment['amount'] }}</x-ui.td>
                         <x-ui.td>{{ $payment['staff'] }}</x-ui.td>
                         <x-ui.td class="whitespace-nowrap text-end">
-                            <x-ui.button size="sm" variant="ghost" :href="route('payments.receipt', $payment['id'])">{{ __('Receipt') }}</x-ui.button>
+                            <x-ui.button size="sm" variant="ghost" :href="route('payments.show', $payment['id'])" wire:navigate>{{ __('Receipt') }}</x-ui.button>
                             @if ($payment['removed'])
                                 <span class="text-xs">{{ __('Removed: :reason', ['reason' => $payment['reason']]) }}</span>
                             @elseif ($this->can['remove'])

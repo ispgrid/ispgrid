@@ -57,7 +57,7 @@
                             @endif
                         </x-ui.td>
                         <x-ui.td class="whitespace-nowrap text-end">
-                            <x-ui.button size="sm" variant="ghost" :href="route('payments.receipt', $row['id'])">{{ __('Receipt') }}</x-ui.button>
+                            <x-ui.button size="sm" variant="ghost" :href="route('payments.show', $row['id'])" wire:navigate>{{ __('Receipt') }}</x-ui.button>
                         </x-ui.td>
                     </tr>
                 @endforeach

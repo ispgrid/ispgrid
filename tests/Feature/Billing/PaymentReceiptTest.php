@@ -90,9 +90,34 @@ it('marks a removed payment and leaves it out of later balances', function () {
     $this->get(route('payments.receipt', $first->id))->assertOk();
 });
 
+it('opens the receipt page with Download PDF and Print', function () {
+    $payment = paymentOn($this->invoice, '300');
+
+    Livewire::test('pages::payments.show', ['payment' => $payment->id])
+        ->assertSee("RCPT-{$payment->id}")
+        ->assertSee('Alice Example')
+        ->assertSee('₹300.00')
+        ->assertSee('Indian Rupee Three Hundred Only')
+        ->assertSee('₹290.00')
+        ->assertSeeHtml(route('payments.receipt', $payment))
+        ->assertSeeHtml(route('payments.receipt', ['payment' => $payment->id, 'print' => 1]))
+        ->assertSeeHtml(route('invoices.show', $this->invoice))
+        ->assertDontSee(__('Removed'));
+
+    $this->actingAs(staffHolding(Permission::ViewCustomers));
+    $this->get(route('payments.show', $payment))->assertForbidden();
+});
+
+it('marks the receipt page of a removed payment', function () {
+    $payment = paymentOn($this->invoice, '300');
+    app(RemovePayment::class)->handle($payment->id, 'Bounced');
+
+    $this->get(route('payments.show', $payment->id))->assertOk()->assertSee(__('Removed'))->assertSee('Bounced');
+});
+
 it('links the receipt from every list of payments', function () {
     $payment = paymentOn($this->invoice, '300');
-    $receipt = route('payments.receipt', $payment);
+    $receipt = route('payments.show', $payment);
 
     Livewire::test('pages::invoices.show', ['invoice' => $this->invoice->id])->assertSeeHtml($receipt);
     Livewire::test('pages::customers.billing-tab', ['accountId' => $this->account->id])->assertSeeHtml($receipt);

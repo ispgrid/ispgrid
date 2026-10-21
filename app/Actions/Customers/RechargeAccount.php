@@ -149,7 +149,8 @@ final class RechargeAccount
     /**
      * Links the invoice issued at booking, or issues one now when the recharge is invoiced (an advance renewal that
      * starts never is: it was invoiced at booking, or booked while invoicing was off). The bill period starts at the
-     * old expiry while the plan still runs, otherwise now; a validity waiting for the first login has none.
+     * old expiry when the new validity follows on from a plan that still runs; a plan change (its validity starts
+     * again) or an expiry set before the old one starts it now. A validity waiting for the first login has none.
      */
     private function charge(Recharge $recharge, Account $account, Plan $plan, RechargeKind $kind, ChargeOptions $charge, ?CarbonInterface $oldExpiry, ?CarbonInterface $newExpiry, ?int $pending): void
     {
@@ -158,7 +159,9 @@ final class RechargeAccount
         if ($charge->existingInvoiceId !== null) {
             $invoice = Invoice::query()->findOrFail($charge->existingInvoiceId);
         } elseif ($kind !== RechargeKind::Advance && InvoicePolicy::invoicesRecharge($account, $settings = BillingSettings::current())) {
-            $from = $pending !== null ? null : ($oldExpiry !== null && $oldExpiry->greaterThan(now()) ? $oldExpiry : now());
+            $followsOn = $kind !== RechargeKind::ChangePlan && $oldExpiry !== null && $oldExpiry->greaterThan(now())
+                && $newExpiry !== null && $newExpiry->greaterThan($oldExpiry);
+            $from = $pending !== null ? null : ($followsOn ? $oldExpiry : now());
             $to = $pending !== null ? null : $newExpiry;
             $invoice = $this->issueInvoice->handle(
                 $account, RechargeInvoice::lines($account, $plan, $settings, $charge->adjustedPrice, $from, $to, $pending), $plan->round_off,
