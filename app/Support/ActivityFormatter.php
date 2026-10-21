@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
+use App\Models\GatewaySetting;
 use App\Models\Ip;
 use App\Models\IpRange;
 use App\Models\Nas;
@@ -19,6 +20,7 @@ use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\NotificationRegistry;
+use App\Payments\PaymentGateways;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -54,6 +56,7 @@ final class ActivityFormatter
         Role::class => 'Role',
         NotificationRule::class => 'Notification rule',
         NotificationProvider::class => 'Notification provider',
+        GatewaySetting::class => 'Payment gateway',
     ];
 
     public static function subjectType(?string $class): string
@@ -77,6 +80,7 @@ final class ActivityFormatter
             $subject instanceof Role => $subject->label(),
             $subject instanceof NotificationRule => $subject->name,
             $subject instanceof NotificationProvider => self::providerLabel($subject->provider),
+            $subject instanceof GatewaySetting => self::gatewayLabel($subject->gateway),
             // A deleted role is gone for good: its delete entry keeps the name.
             default => $activity->attribute_changes['old']['name'] ?? '#'.$activity->subject_id,
         };
@@ -88,6 +92,16 @@ final class ActivityFormatter
     private static function providerLabel(string $key): string
     {
         $class = app(NotificationRegistry::class)->providerClass($key);
+
+        return $class === null ? $key : $class::label();
+    }
+
+    /**
+     * A payment gateway's label, or its key when the gateway is no longer installed.
+     */
+    private static function gatewayLabel(string $key): string
+    {
+        $class = app(PaymentGateways::class)->class($key);
 
         return $class === null ? $key : $class::label();
     }
@@ -142,6 +156,9 @@ final class ActivityFormatter
             'payment-recorded' => __('Payment recorded'),
             'payment-removed' => __('Payment removed'),
             'payment-edited' => __('Payment changed'),
+            'online-payment' => __('Online payment'),
+            'online-payment-handled' => __('Online payment handled'),
+            'quick-pay-settings' => __('Quick pay settings changed'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }

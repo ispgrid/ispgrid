@@ -94,6 +94,10 @@ final class ActivityTimeline
                 'receipt' => self::text($activity->properties->get('receipt')) ?? '', 'number' => self::text($activity->properties->get('invoice')) ?? '',
             ]),
             'payment-removed' => fn (): string => __('Payment of :amount removed from invoice :number.', ['amount' => $money($new['amount'] ?? null), 'number' => self::text($new['invoice'] ?? null) ?? '']),
+            'online-payment' => fn (): string => ($new['status'] ?? null) === 'paid'
+                ? __('Online payment of :amount received through :gateway.', ['amount' => $money($new['amount'] ?? null), 'gateway' => self::text($new['gateway'] ?? null) ?? ''])
+                : __('Online payment of :amount through :gateway needs attention: :note', ['amount' => $money($new['amount'] ?? null), 'gateway' => self::text($new['gateway'] ?? null) ?? '', 'note' => self::text($new['note'] ?? null) ?? '']),
+            'online-payment-handled' => fn (): string => __('Online payment of :amount marked handled: :note', ['amount' => $money($new['amount'] ?? null), 'note' => self::text($new['note'] ?? null) ?? '']),
             'status-changed' => fn (): string => __('Status changed from :old to :new.', ['old' => self::text($old['status'] ?? null) ?? '', 'new' => self::text($new['status'] ?? null) ?? '']),
             'updated' => fn (): string => __('Details changed.'),
         ];
@@ -111,6 +115,7 @@ final class ActivityTimeline
     {
         return match ($event) {
             'created', 'restored', 'payment-recorded' => 'green',
+            'online-payment' => ($new['status'] ?? null) === 'paid' ? 'green' : 'amber',
             'status-changed' => in_array($new['status'] ?? null, [AccountStatus::Active->label(), 'Active'], true) ? 'green' : 'red',
             'recharged', 'plan-changed', 'advance-booked', 'advance-started', 'advance-cancelled', 'advance-moved', 'auto-renewed', 'invoice-issued' => 'blue',
             'terminated', 'expired', 'deleted', 'disconnect-failed', 'auto-renew-skipped', 'payment-removed', 'invoice-cancelled' => 'red',
@@ -132,6 +137,7 @@ final class ActivityTimeline
             'terminated', 'deleted', 'advance-cancelled', 'payment-removed', 'invoice-cancelled' => 'no-symbol',
             'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'billing-changed', 'payment-edited' => 'adjustments-horizontal',
             'password-changed', 'unlocked' => 'key',
+            'online-payment', 'online-payment-handled' => 'qr-code',
             'disconnected' => 'x-circle',
             default => 'list-bullet',
         };

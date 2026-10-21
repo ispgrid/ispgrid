@@ -4,12 +4,15 @@ use App\Actions\Import\RowError;
 use App\Billing\LineInput;
 use App\Enums\Permission;
 use App\Models\AppSetting;
+use App\Models\GatewaySetting;
 use App\Models\RadiusSetting;
 use App\Models\Role;
 use App\Models\User;
+use App\Payments\PaymentGateways;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Fakes\FakeGateway;
 use Tests\TestCase;
 
 /*
@@ -137,6 +140,27 @@ function turnInvoicingOn(string $country = 'IN', string $taxSetup = 'india-gst',
     AppSetting::put('billing.company', (string) json_encode(['name' => 'Example ISP', 'country' => $country, 'address_lines' => ['1 Example Street'], 'city' => 'Prayagraj', 'tax_number' => '09ABCDE1234F1Z5']));
     AppSetting::put('billing.tax_setup', $taxSetup);
     AppSetting::put('billing.tax', (string) json_encode($tax));
+}
+
+/**
+ * Registers the test payment gateway (Tests\Fakes\FakeGateway) and turns it on with a known API key.
+ */
+function useFakeGateway(bool $enabled = true): void
+{
+    FakeGateway::reset();
+    app(PaymentGateways::class)->register(FakeGateway::class);
+    GatewaySetting::query()->updateOrCreate(['gateway' => 'fake'], ['enabled' => $enabled, 'settings' => ['account' => 'ACC1', 'api_key' => 'test-secret']]);
+}
+
+/**
+ * Invoicing, the test gateway and quick pay all on.
+ */
+function turnQuickPayOn(?string $renewalDays = '7'): void
+{
+    turnInvoicingOn();
+    useFakeGateway();
+    AppSetting::put('billing.quick_pay', '1');
+    AppSetting::put('billing.quick_pay_renewal_days', $renewalDays ?? '');
 }
 
 /**

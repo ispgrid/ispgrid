@@ -36,7 +36,7 @@ trait TakesPayment
     #[Computed]
     public function paymentMethods(): array
     {
-        return PaymentMethod::query()->where('active', true)->orderBy('position')->orderBy('id')->pluck('name', 'id')->all();
+        return PaymentMethod::query()->forStaff()->where('active', true)->orderBy('position')->orderBy('id')->pluck('name', 'id')->all();
     }
 
     protected function resetPayment(): void

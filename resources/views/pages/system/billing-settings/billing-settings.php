@@ -294,7 +294,7 @@ new #[Title('Billing')] class extends Component
     {
         $this->authorize('manage-billing');
         $this->resetErrorBag();
-        $method = PaymentMethod::query()->findOrFail($id);
+        $method = PaymentMethod::query()->forStaff()->findOrFail($id);
         $method->update(['active' => ! $method->active]);
         unset($this->methods);
     }
@@ -306,7 +306,7 @@ new #[Title('Billing')] class extends Component
     {
         $this->authorize('manage-billing');
         $this->resetErrorBag();
-        $method = PaymentMethod::query()->findOrFail($id);
+        $method = PaymentMethod::query()->forStaff()->findOrFail($id);
 
         if ($method->payments()->exists()) {
             throw ValidationException::withMessages(["method_names.{$id}" => __('Payments were made this way, so it stays. Turn it off instead.')]);
@@ -322,7 +322,7 @@ new #[Title('Billing')] class extends Component
     public function moveMethod(int $id, string $direction): void
     {
         $this->authorize('manage-billing');
-        $methods = PaymentMethod::query()->orderBy('position')->orderBy('id')->get()->values();
+        $methods = PaymentMethod::query()->forStaff()->orderBy('position')->orderBy('id')->get()->values();
         $index = $methods->search(fn (PaymentMethod $method): bool => $method->id === $id);
         $other = $index === false ? null : $methods->get($direction === 'up' ? $index - 1 : $index + 1);
 
@@ -400,7 +400,7 @@ new #[Title('Billing')] class extends Component
     #[Computed]
     public function methods(): array
     {
-        return PaymentMethod::query()->withExists('payments')->orderBy('position')->orderBy('id')->get()
+        return PaymentMethod::query()->forStaff()->withExists('payments')->orderBy('position')->orderBy('id')->get()
             ->map(fn (PaymentMethod $method): array => ['id' => $method->id, 'active' => $method->active, 'used' => (bool) $method->payments_exists])
             ->all();
     }
@@ -497,7 +497,7 @@ new #[Title('Billing')] class extends Component
     {
         $changed = [];
 
-        foreach (PaymentMethod::query()->whereKey(array_keys($this->method_names))->get() as $method) {
+        foreach (PaymentMethod::query()->forStaff()->whereKey(array_keys($this->method_names))->get() as $method) {
             $name = trim($this->method_names[$method->id]);
 
             if ($name !== $method->name) {
@@ -507,13 +507,13 @@ new #[Title('Billing')] class extends Component
         }
 
         foreach ($changed as $id => $name) {
-            PaymentMethod::query()->whereKey($id)->update(['name' => $name]);
+            PaymentMethod::query()->forStaff()->whereKey($id)->update(['name' => $name]);
         }
     }
 
     private function loadMethodNames(): void
     {
-        $this->method_names = PaymentMethod::query()->orderBy('position')->orderBy('id')->pluck('name', 'id')->all();
+        $this->method_names = PaymentMethod::query()->forStaff()->orderBy('position')->orderBy('id')->pluck('name', 'id')->all();
         unset($this->methods);
     }
 };
