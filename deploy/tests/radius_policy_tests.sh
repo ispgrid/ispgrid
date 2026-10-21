@@ -579,7 +579,7 @@ check "Expired IPoE, expire type 1 -> disabled pool" Accept "$(maclogin DE:AD:00
 check "Expired IPoE, expire type 0 -> reject"    Reject "$(maclogin DE:AD:00:00:00:24 10.99.0.24)" 'Account expired'
 check "IPoE without a plan -> disabled pool"     Accept "$(maclogin DE:AD:00:00:00:25 10.99.0.25)" \
       'Framed-Pool = "disabled_pool"' 'No plan assigned'
-used t_ipoe_q 2000 60 "NOW() - INTERVAL 1 MINUTE"
+used t_ipoe_q 2000 60 0
 check "IPoE over the limit, no fair usage -> disabled pool" Accept "$(maclogin DE:AD:00:00:00:26 10.99.0.26)" \
       'Framed-Pool = "disabled_pool"' 'Data limit reached'
 
