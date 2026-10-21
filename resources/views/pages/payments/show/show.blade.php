@@ -21,6 +21,10 @@
         </div>
     </div>
 
+    @if ($this->note)
+        <x-ui.alert>{{ __('Note (staff only): :note', ['note' => $this->note]) }}</x-ui.alert>
+    @endif
+
     @if ($this->printed['removed'])
         <x-ui.alert variant="danger">{{ __('Removed: :reason', ['reason' => $this->printed['remove_reason']]) }}</x-ui.alert>
     @endif
@@ -83,6 +87,9 @@
                     <x-ui.input wire:model="edit_paid_at" type="datetime-local" :label="__('Received at')" />
                     <div class="sm:col-span-2">
                         <x-ui.input wire:model="edit_reference" :label="__('Reference')" maxlength="100" :description="__('UPI transaction ID or cheque number.')" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-ui.input wire:model="edit_note" :label="__('Note')" maxlength="255" :description="__('For staff only. It is not printed on the receipt.')" />
                     </div>
                 </div>
                 <div class="flex justify-end gap-2">

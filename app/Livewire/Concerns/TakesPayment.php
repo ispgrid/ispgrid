@@ -12,7 +12,7 @@ use Livewire\Attributes\Computed;
 
 /**
  * The payment section of the recharge dialogs and New invoice: "Payment received now" with the method, the amount
- * (empty means the whole total), a reference and when. Off, the invoice stays unpaid, due by the payment terms.
+ * (empty means the whole total), a reference, when, and a note for staff. Off, the invoice stays unpaid, due by the payment terms.
  */
 trait TakesPayment
 {
@@ -25,6 +25,8 @@ trait TakesPayment
     public string $payment_reference = '';
 
     public string $payment_paid_at = '';
+
+    public string $payment_note = '';
 
     /**
      * The payment methods turned on, by id, in their order.
@@ -44,6 +46,7 @@ trait TakesPayment
         $this->payment_amount = '';
         $this->payment_reference = '';
         $this->payment_paid_at = now()->format('Y-m-d\TH:i');
+        $this->payment_note = '';
     }
 
     /**
@@ -65,6 +68,7 @@ trait TakesPayment
             }],
             'payment_reference' => ['nullable', 'string', 'max:100'],
             'payment_paid_at' => ['required', 'date_format:Y-m-d\TH:i', 'before_or_equal:now'],
+            'payment_note' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -78,6 +82,7 @@ trait TakesPayment
             'payment_amount' => __('amount received'),
             'payment_reference' => __('reference'),
             'payment_paid_at' => __('received at'),
+            'payment_note' => __('note'),
         ];
     }
 
@@ -91,13 +96,14 @@ trait TakesPayment
         }
 
         $reference = trim($this->payment_reference);
+        $note = trim($this->payment_note);
 
         return new PaymentInput(
             (int) $this->payment_method_id,
             trim($this->payment_amount) === '' ? $total : trim($this->payment_amount),
             $reference === '' ? null : $reference,
             Carbon::createFromFormat('!Y-m-d\TH:i', $this->payment_paid_at) ?: now(),
-            null,
+            $note === '' ? null : $note,
         );
     }
 

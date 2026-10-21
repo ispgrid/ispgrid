@@ -17,7 +17,8 @@ use Livewire\Component;
 
 /**
  * One payment's receipt as it prints, with Download PDF and Print. A removed payment's receipt still opens, marked
- * removed. Staff who record payments can correct its method, reference and received at (Edit payment).
+ * removed. Staff who record payments can correct its method, reference, received at and note (Edit payment). The
+ * note is for staff: it shows here, never on the PDF.
  */
 new #[Title('Receipt')] class extends Component
 {
@@ -37,6 +38,8 @@ new #[Title('Receipt')] class extends Component
     public string $edit_reference = '';
 
     public string $edit_paid_at = '';
+
+    public string $edit_note = '';
 
     public function mount(int $payment): void
     {
@@ -61,6 +64,15 @@ new #[Title('Receipt')] class extends Component
     public function printed(): array
     {
         return ReceiptView::for(Payment::withTrashed()->findOrFail($this->paymentId));
+    }
+
+    /**
+     * The staff note, shown on this page only.
+     */
+    #[Computed]
+    public function note(): ?string
+    {
+        return Payment::withTrashed()->findOrFail($this->paymentId)->note;
     }
 
     /**
@@ -96,6 +108,7 @@ new #[Title('Receipt')] class extends Component
         $this->edit_method_id = (string) $payment->payment_method_id;
         $this->edit_reference = (string) $payment->reference;
         $this->edit_paid_at = $payment->paid_at->format('Y-m-d\TH:i');
+        $this->edit_note = (string) $payment->note;
         $this->dispatch('modal-open', name: 'edit-payment');
     }
 
@@ -104,14 +117,17 @@ new #[Title('Receipt')] class extends Component
         unset($this->canEdit);
         abort_unless($this->canEdit, 403);
         $this->edit_reference = trim($this->edit_reference);
+        $this->edit_note = trim($this->edit_note);
         $this->validate([
             'edit_method_id' => ['required', Rule::in(array_map(strval(...), array_keys($this->editMethods)))],
             'edit_reference' => ['nullable', 'string', 'max:100'],
             'edit_paid_at' => ['required', 'date_format:Y-m-d\TH:i', 'before_or_equal:now'],
+            'edit_note' => ['nullable', 'string', 'max:255'],
         ], [], [
             'edit_method_id' => __('method'),
             'edit_reference' => __('reference'),
             'edit_paid_at' => __('received at'),
+            'edit_note' => __('note'),
         ]);
 
         $edit->handle(
@@ -119,9 +135,10 @@ new #[Title('Receipt')] class extends Component
             (int) $this->edit_method_id,
             $this->edit_reference,
             Carbon::createFromFormat('!Y-m-d\TH:i', $this->edit_paid_at) ?: now(),
+            $this->edit_note,
         );
 
-        unset($this->printed, $this->editMethods);
+        unset($this->printed, $this->editMethods, $this->note);
         $this->dispatch('modal-close', name: 'edit-payment');
         $this->toast(__('Payment changed.'));
     }

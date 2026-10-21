@@ -1291,5 +1291,7 @@
     "This invoice is already cancelled.": "यह इनवॉइस पहले ही रद्द है।",
     "Invoice :number issued, replacing :old.": "इनवॉइस :number जारी हुआ, :old की जगह।",
     "Invoice :number issued, :total, replacing :old.": "इनवॉइस :number बना, :total, :old की जगह।",
-    "Invoice :number cancelled and replaced by :new.": "इनवॉइस :number रद्द किया गया, इसकी जगह :new।"
+    "Invoice :number cancelled and replaced by :new.": "इनवॉइस :number रद्द किया गया, इसकी जगह :new।",
+    "Note (staff only): :note": "नोट (केवल स्टाफ के लिए): :note",
+    "For staff only. It is not printed on the receipt.": "केवल स्टाफ के लिए। यह रसीद पर नहीं छपता।"
 }
