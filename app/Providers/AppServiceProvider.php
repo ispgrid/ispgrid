@@ -23,6 +23,7 @@ use App\Notifications\Providers\WacrmWhatsApp;
 use App\Notifications\Triggers\AfterExpiry;
 use App\Notifications\Triggers\BeforeExpiry;
 use App\Notifications\Triggers\CustomerCreated;
+use App\Notifications\Triggers\OnlinePaymentReceived;
 use App\Notifications\Triggers\RechargeDone;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
@@ -86,7 +87,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
             $registry = new NotificationRegistry;
 
-            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class] as $trigger) {
+            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class, OnlinePaymentReceived::class] as $trigger) {
                 $registry->registerTrigger($trigger);
             }
 

@@ -1354,5 +1354,13 @@
     "renewal days": "नवीनीकरण के दिन",
     "test or live. Test keys work only with test, live keys only with live.": "test या live। test की चाबियाँ सिर्फ़ test के साथ, live की सिर्फ़ live के साथ चलती हैं।",
     "Paste it into the gateway's dashboard, so payments are confirmed even when the customer closes the page.": "इसे गेटवे के डैशबोर्ड में डालें, ताकि ग्राहक के पेज बंद करने पर भी भुगतान की पुष्टि हो जाए।",
-    "Payment gateway": "पेमेंट गेटवे"
+    "Payment gateway": "पेमेंट गेटवे",
+    "Payment amount": "भुगतान की रकम",
+    "Receipt number": "रसीद नंबर",
+    "Invoice number": "इनवॉइस नंबर",
+    "Payment method": "भुगतान का तरीका",
+    "Balance due": "बाकी रकम",
+    "Online payment received": "ऑनलाइन भुगतान मिला",
+    "When an online payment is received": "जब ऑनलाइन भुगतान मिले",
+    "Online (Paytm)": "ऑनलाइन (Paytm)"
 }

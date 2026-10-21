@@ -8,6 +8,8 @@ use App\Actions\Customers\RechargeAccount;
 use App\Billing\ChargeOptions;
 use App\Billing\Decimal;
 use App\Billing\PaymentInput;
+use App\Billing\Pdf\ReceiptView;
+use App\Billing\Statement;
 use App\Enums\InvoiceStatus;
 use App\Enums\OnlinePaymentStatus;
 use App\Enums\RechargeKind;
@@ -17,7 +19,11 @@ use App\Exceptions\RenewalAlreadyWaiting;
 use App\Models\Account;
 use App\Models\Invoice;
 use App\Models\OnlinePayment;
+use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Notifications\Notifier;
+use App\Notifications\PaymentNotice;
+use App\Notifications\Triggers\OnlinePaymentReceived;
 use App\Payments\GatewayResult;
 use App\Payments\GatewayStatus;
 use App\Payments\PaymentGateways;
@@ -42,6 +48,7 @@ final class SettleOnlinePayment
         private RecordPayment $recordPayment,
         private RechargeAccount $recharge,
         private BookAdvanceRenewal $bookRenewal,
+        private Notifier $notifier,
     ) {}
 
     public function handle(string $publicId): OnlinePayment
@@ -115,6 +122,30 @@ final class SettleOnlinePayment
             : ['status' => OnlinePaymentStatus::NeedsAttention, 'note' => mb_substr(__('Not used: :parts. Refund it or settle it by hand.', ['parts' => implode('; ', $unplaced)]), 0, 255)],
         )->save();
         $this->log($payment);
+        $this->confirm($payment, $method, $reference);
+    }
+
+    /**
+     * Messages the customer (Online payment received rules) about what was recorded, once per online payment.
+     */
+    private function confirm(OnlinePayment $payment, PaymentMethod $method, string $reference): void
+    {
+        $recorded = Payment::query()->with('invoice')->where('account_id', $payment->account_id)
+            ->where('payment_method_id', $method->id)->where('reference', $reference)->orderBy('id')->get();
+
+        if ($recorded->isEmpty()) {
+            return;
+        }
+
+        $account = Account::query()->findOrFail($payment->account_id);
+        $this->notifier->fire(OnlinePaymentReceived::key(), $account, null, new PaymentNotice(
+            $payment->public_id,
+            Decimal::round((string) $recorded->sum(fn (Payment $row): float => (float) $row->amount), 2),
+            $recorded->map(fn (Payment $row): string => ReceiptView::number($row))->implode(', '),
+            $recorded->map(fn (Payment $row): string => (string) $row->invoice?->number)->unique()->implode(', '),
+            $method->name,
+            Statement::dues($account),
+        ));
     }
 
     /**

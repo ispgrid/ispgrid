@@ -10,6 +10,7 @@ use App\Models\NotificationLog;
 use App\Models\NotificationProvider;
 use App\Models\NotificationRule;
 use App\Models\Recharge;
+use App\Notifications\Contracts\PaymentTrigger;
 use App\Notifications\Contracts\Trigger;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,7 +64,7 @@ final class Notifier
      * An event happened (a recharge, a new customer): message the customer for every enabled rule on it.
      * Called inside the caller's transaction; the job is queued after the commit.
      */
-    public function fire(string $triggerKey, Account $account, ?Recharge $recharge = null): void
+    public function fire(string $triggerKey, Account $account, ?Recharge $recharge = null, ?PaymentNotice $payment = null): void
     {
         $trigger = $this->registry->trigger($triggerKey);
 
@@ -84,7 +85,7 @@ final class Notifier
                 continue;
             }
 
-            $this->queue($rule, $trigger, $account, $recharge, $now);
+            $this->queue($rule, $trigger, $account, $recharge, $now, $payment);
         }
     }
 
@@ -94,7 +95,8 @@ final class Notifier
     public function sendTest(NotificationRule $rule, string $to): NotificationLog
     {
         $provider = $this->registry->providerClass($rule->provider);
-        $result = $this->placeholders->values($rule->values ?? [], self::sample(), null, CarbonImmutable::now());
+        $result = $this->placeholders->values($rule->values ?? [], self::sample(), null, CarbonImmutable::now(),
+            new PaymentNotice('test', '590.00', 'RCPT-1', 'INV-1', __('Online (Paytm)'), '0.00'));
 
         $log = NotificationLog::query()->create([
             'notification_rule_id' => $rule->id,
@@ -167,10 +169,12 @@ final class Notifier
             ->when($statuses !== [], fn (Builder $q) => $q->whereIn('status_id', $statuses));
     }
 
-    private function queue(NotificationRule $rule, Trigger $trigger, Account $account, ?Recharge $recharge, CarbonImmutable $now): ?NotificationLog
+    private function queue(NotificationRule $rule, Trigger $trigger, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null): ?NotificationLog
     {
         $provider = $this->registry->providerClass($rule->provider);
-        $key = $trigger->onceKey($rule->id, $account, $recharge);
+        $key = $trigger instanceof PaymentTrigger && $payment !== null
+            ? $trigger->paymentOnceKey($rule->id, $account, $payment)
+            : $trigger->onceKey($rule->id, $account, $recharge);
 
         if ($provider === null || NotificationLog::query()->where('once_key', $key)->exists()) {
             return null;
@@ -178,7 +182,7 @@ final class Notifier
 
         $raw = PhoneNumber::rawFor($account, $provider::channel());
         $to = PhoneNumber::fromSettings($raw);
-        $result = $this->placeholders->values($rule->values ?? [], $account, $recharge, $now);
+        $result = $this->placeholders->values($rule->values ?? [], $account, $recharge, $now, $payment);
         [$status, $error] = match (true) {
             trim((string) $raw) === '' => [NotificationStatus::Skipped, __('No mobile number.')],
             $to === null => [NotificationStatus::Skipped, __('Invalid number: :number', ['number' => $raw])],

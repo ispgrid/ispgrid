@@ -4,6 +4,7 @@ use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Plan;
 use App\Models\Recharge;
+use App\Notifications\PaymentNotice;
 use App\Notifications\Placeholders;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AppSettingSeeder;
@@ -25,7 +26,8 @@ it('fills every value a rule can use', function () {
     $recharge->forceFill(['created_at' => '2026-08-19 09:45:00'])->save();
 
     $keys = array_keys(Placeholders::labels());
-    $result = (new Placeholders)->values($keys, $account, $recharge, $now);
+    $payment = new PaymentNotice('ORDER1', '590', 'RCPT-7, RCPT-8', 'INV-3', 'Online (Paytm)', '100');
+    $result = (new Placeholders)->values($keys, $account, $recharge, $now, $payment);
 
     expect(array_combine($keys, $result['values']))->toBe([
         'customer_name' => 'Asha Rao',
@@ -44,6 +46,11 @@ it('fills every value a rule can use', function () {
         'days_left' => '3',
         'isp_name' => 'Fast Net',
         'support_number' => '1800 123',
+        'payment_amount' => '590.00',
+        'receipt_number' => 'RCPT-7, RCPT-8',
+        'invoice_number' => 'INV-3',
+        'payment_method' => 'Online (Paytm)',
+        'balance_due' => '100.00',
     ])->and($result['trimmed'])->toBeFalse();
 });
 
