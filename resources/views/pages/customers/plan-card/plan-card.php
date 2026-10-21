@@ -30,6 +30,7 @@ use App\Support\ExpiryCalculator;
 use App\Support\Money;
 use App\Support\PlanChoices;
 use App\Support\Units;
+use App\Support\Usage;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
@@ -166,7 +167,7 @@ new class extends Component
                 ? __('Override speed :speed', ['speed' => "{$account->override_upload}/{$account->override_download}"])
                 : __('Override speed :speed until :date', ['speed' => "{$account->override_upload}/{$account->override_download}", 'date' => $account->override_until->format($format)])),
             'data' => $plan?->monthly_data_gb === null ? null : __(':used of :limit this month', [
-                'used' => Units::bytes(Radacct::usage($account->username, now()->startOfMonth())['bytes']),
+                'used' => Units::bytes(Usage::since((string) $account->username, now()->startOfMonth())['bytes']),
                 'limit' => Units::bytes((int) $plan->monthly_data_gb * 1_073_741_824),
             ]),
             'online' => Radacct::query()->where('username', $account->username)->whereNull('acctstoptime')->exists(),

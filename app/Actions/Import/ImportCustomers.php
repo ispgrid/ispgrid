@@ -13,6 +13,7 @@ use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Models\UsagePeriod;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\IpAddress;
@@ -107,6 +108,10 @@ final class ImportCustomers implements Importer
 
         // One "Imported" entry below instead of the model's own "Created" one.
         $account = activity()->withoutLogging(fn (): Account => Account::query()->create($columns));
+
+        if ($account->usage_since !== null) {
+            UsagePeriod::restart($account->username, $account->usage_since);
+        }
         $this->sync->handle($account);
 
         // A device bound before the first login (app-integration.md section 6): FreeRADIUS reads it as bound.

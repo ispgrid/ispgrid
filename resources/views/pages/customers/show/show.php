@@ -43,6 +43,7 @@ use App\Support\Money;
 use App\Support\PlanChoices;
 use App\Support\TaxIdLabel;
 use App\Support\Units;
+use App\Support\Usage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -475,8 +476,8 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * Usage since the last recharge, today and this month (sessions that started in the period, as isp counts
-     * them), each against the plan's limit for that period when it has one.
+     * Usage since the last recharge, today and this month (the usage database FreeRADIUS checks limits against),
+     * each against the plan's limit for that period when it has one.
      *
      * @return list<array{period: string, data: string, time: string}>
      */
@@ -485,15 +486,15 @@ new #[Title('Customer')] class extends Component
     {
         $account = $this->account;
         $plan = $account->plan;
+        $username = (string) $account->username;
         $periods = [
-            [$account->usage_since === null ? __('All time') : __('Since the last recharge'), $account->usage_since, $plan?->limit_after, $plan?->time_limit_hours],
-            [__('Today'), now()->startOfDay(), $plan?->daily_data_gb, $plan?->daily_time_hours],
-            [__('This month'), now()->startOfMonth(), $plan?->monthly_data_gb, $plan?->monthly_time_hours],
+            [$account->usage_since === null ? __('All time') : __('Since the last recharge'), Usage::sinceRecharge($username), $plan?->limit_after, $plan?->time_limit_hours],
+            [__('Today'), Usage::since($username, now()->startOfDay()), $plan?->daily_data_gb, $plan?->daily_time_hours],
+            [__('This month'), Usage::since($username, now()->startOfMonth()), $plan?->monthly_data_gb, $plan?->monthly_time_hours],
         ];
 
-        return array_map(function (array $period) use ($account): array {
-            [$label, $since, $dataLimitGb, $timeLimitHours] = $period;
-            $used = Radacct::usage($account->username, $since);
+        return array_map(function (array $period): array {
+            [$label, $used, $dataLimitGb, $timeLimitHours] = $period;
 
             return [
                 'period' => $label,
@@ -501,6 +502,25 @@ new #[Title('Customer')] class extends Component
                 'time' => Units::duration($used['seconds']).($timeLimitHours === null ? '' : ' / '.Units::duration((int) $timeLimitHours * 3600)),
             ];
         }, $periods);
+    }
+
+    /**
+     * Usage per day, the last 31 days, newest first (days without usage left out).
+     *
+     * @return list<array{day: string, download: string, upload: string, total: string, time: string}>
+     */
+    #[Computed]
+    public function usageDays(): array
+    {
+        $format = (string) AppSetting::valueOf('date_format', 'd/m/Y');
+
+        return array_map(fn (array $day): array => [
+            'day' => $day['day']->format($format),
+            'download' => Units::bytes($day['download']),
+            'upload' => Units::bytes($day['upload']),
+            'total' => Units::bytes($day['download'] + $day['upload']),
+            'time' => Units::duration($day['seconds']),
+        ], Usage::days((string) $this->account->username, 31));
     }
 
     /**

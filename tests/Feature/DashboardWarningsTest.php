@@ -143,6 +143,8 @@ it('lists an auto renewal skipped in the last 7 days until the customer is recha
 });
 
 it('lists Active customers at or over their monthly data limit, from one query for the usage', function () {
+    $thisMonth = now()->startOfMonth()->toDateString();
+    $lastMonth = now()->startOfMonth()->subDay()->toDateString();
     $plan = Plan::factory()->create(['monthly_data_gb' => 10]);
     Account::factory()->create(['username' => 'heavy', 'plan_id' => $plan->id]);
     Account::factory()->create(['username' => 'light', 'plan_id' => $plan->id]);
@@ -150,18 +152,18 @@ it('lists Active customers at or over their monthly data limit, from one query f
     Account::factory()->create(['username' => 'unlimited', 'plan_id' => Plan::factory()->create()->id]);
     $gigabyte = 1_073_741_824;
     foreach (['heavy' => 10 * $gigabyte, 'light' => 10 * $gigabyte - 1, 'paused' => 20 * $gigabyte, 'unlimited' => 20 * $gigabyte] as $username => $bytes) {
-        Radacct::factory()->closed()->create(['username' => $username, 'acctstarttime' => '2026-10-02 00:00:00', 'acctinputoctets' => 0, 'acctoutputoctets' => $bytes]);
+        usageDay($username, $thisMonth, $bytes);
     }
-    Radacct::factory()->closed()->create(['username' => 'light', 'acctstarttime' => '2026-09-30 23:00:00', 'acctinputoctets' => 0, 'acctoutputoctets' => $gigabyte]);
+    usageDay('light', $lastMonth, $gigabyte);
 
     DB::enableQueryLog();
     $over = attention()->overDataLimit();
-    $radacctQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'radacct'))->count();
+    $usageQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'usage_daily'))->count();
 
     expect(array_column($over, 'username'))->toBe(['heavy'])
         ->and($over[0]['used'])->toBe('10.0 GB')
         ->and($over[0]['limit'])->toBe('10.0 GB')
-        ->and($radacctQueries)->toBe(1);
+        ->and($usageQueries)->toBe(1);
 });
 
 it('lists IP ranges with 90 percent or more of their addresses given out', function (int $given, bool $listed) {

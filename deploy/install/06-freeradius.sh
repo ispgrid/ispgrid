@@ -14,6 +14,7 @@ GRANT INSERT, UPDATE, DELETE ON radius.reject_counters TO 'freeradius'@'localhos
 GRANT INSERT, UPDATE, DELETE ON radius.nasreload TO 'freeradius'@'localhost';
 GRANT UPDATE (expiry, hotspot_first_login_at, hotspot_pending_validity) ON radius.accounts TO 'freeradius'@'localhost';
 GRANT UPDATE (attribute, value) ON radius.radcheck TO 'freeradius'@'localhost';
+GRANT SELECT ON ispgrid_usage.* TO 'freeradius'@'localhost';
 SQL
 
 stage=$(mktemp -d /tmp/ispgrid-raddb.XXXXXX)

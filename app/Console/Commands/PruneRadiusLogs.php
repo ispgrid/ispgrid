@@ -7,14 +7,14 @@ use App\Support\SessionKeepers;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
  * Keeps the FreeRADIUS logs bounded: login attempts (radpostauth) and closed sessions (radacct) older than the App
- * settings periods, and reject counters untouched for a day. FreeRADIUS only reads counters newer than Reject-Packet-Interval
+ * settings periods, reject counters untouched for a day, and usage per day older than 400 days (or the session
+ * history, when that is longer). Limits read the usage database, so old sessions are never kept for them. FreeRADIUS only reads counters newer than Reject-Packet-Interval
  * minutes, so removing day-old ones never changes a login decision.
  * Ages use the database clock (NOW()), not PHP's: FreeRADIUS writes the times in the server's local time,
  * which is the database's time on the same box, whatever the app timezone is.
@@ -29,6 +29,11 @@ class PruneRadiusLogs extends Command
     public const DEFAULT_LOGIN_LOG_DAYS = 90;
 
     public const DEFAULT_SESSION_HISTORY_DAYS = 365;
+
+    /**
+     * Days of usage per day kept at least (13 months: this month last year stays comparable).
+     */
+    public const USAGE_DAYS = 400;
 
     private SessionKeepers $keepers;
 
@@ -59,7 +64,9 @@ class PruneRadiusLogs extends Command
             ->whereRaw('last_update < NOW() - INTERVAL 1 DAY')
             ->delete();
 
-        $summary = "Login log: {$loginLog} rows removed. Reject counters: {$rejectCounters} rows removed. Sessions: {$sessions} rows removed.";
+        $usageDays = $this->pruneUsageDays(max(self::USAGE_DAYS, $this->sessionHistoryDays()), $chunk);
+
+        $summary = "Login log: {$loginLog} rows removed. Reject counters: {$rejectCounters} rows removed. Sessions: {$sessions} rows removed. Usage days: {$usageDays} rows removed.";
         Log::info($summary);
         $this->info($summary);
 
@@ -123,12 +130,6 @@ class PruneRadiusLogs extends Command
                 ->where('radacctid', '>', $afterId)
                 ->whereNotNull('acctstoptime')
                 ->whereRaw('acctstoptime < NOW() - INTERVAL ? DAY', [$days])
-                ->whereNotExists(fn (Builder $query) => $query->selectRaw('1')
-                    ->from('accounts')
-                    ->whereColumn('accounts.username', 'radacct.username')
-                    ->whereNull('accounts.deleted_at')
-                    ->whereNotNull('accounts.usage_since')
-                    ->whereColumn('radacct.acctstarttime', '>=', 'accounts.usage_since'))
                 ->orderBy('radacctid')
                 ->limit($chunk)
                 ->get();
@@ -145,6 +146,22 @@ class PruneRadiusLogs extends Command
                 $this->sessionsRemoved = $removed;
             }
         } while ($batch->count() === $chunk);
+
+        return $removed;
+    }
+
+    /**
+     * Usage rows older than $days, in chunks along the day index.
+     */
+    private function pruneUsageDays(int $days, int $chunk): int
+    {
+        $removed = 0;
+        $table = config('ispgrid.usage_database').'.usage_daily';
+
+        do {
+            $deleted = DB::table($table)->whereRaw('day < CURDATE() - INTERVAL ? DAY', [$days])->orderBy('day')->limit($chunk)->delete();
+            $removed += $deleted;
+        } while ($deleted === $chunk);
 
         return $removed;
     }

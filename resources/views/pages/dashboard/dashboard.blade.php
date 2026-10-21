@@ -54,6 +54,63 @@
         </div>
     @endif
 
+    @if ($this->usage !== null)
+        <div class="grid gap-3">
+            <x-ui.heading>{{ __('Usage') }}</x-ui.heading>
+            <div class="grid gap-4 lg:grid-cols-2">
+                <x-ui.card>
+                    <x-ui.heading>{{ __('Data usage') }}</x-ui.heading>
+                    <x-ui.table class="mt-3">
+                        <x-slot:head>
+                            <x-ui.th>{{ __('Date') }}</x-ui.th>
+                            <x-ui.th class="text-end">{{ __('Download') }}</x-ui.th>
+                            <x-ui.th class="text-end">{{ __('Upload') }}</x-ui.th>
+                            <x-ui.th class="text-end">{{ __('Total') }}</x-ui.th>
+                        </x-slot:head>
+                        @foreach ($this->usage['days'] as $day)
+                            <tr wire:key="usage-day-{{ $loop->index }}">
+                                <x-ui.td class="whitespace-nowrap">{{ $day['day'] }}</x-ui.td>
+                                <x-ui.td class="text-end tabular-nums">{{ $day['download'] }}</x-ui.td>
+                                <x-ui.td class="text-end tabular-nums">{{ $day['upload'] }}</x-ui.td>
+                                <x-ui.td class="text-end tabular-nums">{{ $day['total'] }}</x-ui.td>
+                            </tr>
+                        @endforeach
+                    </x-ui.table>
+                </x-ui.card>
+
+                <x-ui.card x-data="{ period: 'today' }">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <x-ui.heading>{{ __('Top 5 users') }}</x-ui.heading>
+                        <div class="flex gap-1" role="group" aria-label="{{ __('Period') }}">
+                            <x-ui.button size="sm" x-bind:class="period === 'today' ? 'bg-zinc-100 dark:bg-zinc-800' : ''" x-on:click="period = 'today'" variant="ghost" x-bind:aria-pressed="period === 'today'">{{ __('Today') }}</x-ui.button>
+                            <x-ui.button size="sm" x-bind:class="period === 'month' ? 'bg-zinc-100 dark:bg-zinc-800' : ''" x-on:click="period = 'month'" variant="ghost" x-bind:aria-pressed="period === 'month'">{{ __('This month') }}</x-ui.button>
+                        </div>
+                    </div>
+                    @foreach (['today', 'month'] as $period)
+                        <div x-show="period === '{{ $period }}'" @if ($period === 'month') x-cloak @endif class="mt-3">
+                            @if ($this->usage[$period] === [])
+                                <x-ui.text muted>{{ __('No usage yet.') }}</x-ui.text>
+                            @else
+                                <ol class="grid gap-2 text-sm">
+                                    @foreach ($this->usage[$period] as $row)
+                                        <li class="flex justify-between gap-4" wire:key="top-{{ $period }}-{{ $loop->index }}">
+                                            @if ($row['href'])
+                                                <x-ui.link href="{{ $row['href'] }}" wire:navigate>{{ $row['username'] }}</x-ui.link>
+                                            @else
+                                                <span>{{ $row['username'] }}</span>
+                                            @endif
+                                            <span class="tabular-nums">{{ $row['data'] }}</span>
+                                        </li>
+                                    @endforeach
+                                </ol>
+                            @endif
+                        </div>
+                    @endforeach
+                </x-ui.card>
+            </div>
+        </div>
+    @endif
+
     @php($attention = $this->attention)
     <div class="grid gap-4 lg:grid-cols-2">
         @if ($attention['looping'] !== [])

@@ -13,6 +13,7 @@
 SERVER="127.0.0.1"
 SECRET="${RADIUS_SECRET:-testing123}"   # the installer passes the localhost client's secret
 DB="${RADIUS_DB:-radius}"
+USAGE_DB="${USAGE_DB:-ispgrid_usage}"   # usage per day: the radacct triggers write it, the limits read it
 IPOE_USER="AA:BB:CC:00:00:01"
 PASS=0
 FAIL=0
@@ -35,7 +36,7 @@ FIXTURE_LIST="$(printf "'%s'," "${FIXTURE_USERS[@]}")"
 FIXTURE_LIST="${FIXTURE_LIST%,}"
 #  IN uses the username index; BINARY makes the match case-sensitive.
 FIXTURES="username IN ($FIXTURE_LIST) AND BINARY username IN ($FIXTURE_LIST)"
-FIXTURE_SESSIONS="BINARY acctsessionid IN ('t-ipoe-1', 't-ipoe-2', 't-sess-1')"
+FIXTURE_SESSIONS="BINARY acctsessionid IN ('t-ipoe-1', 't-ipoe-2', 't-sess-1', 't-usage-1')"
 FIXTURE_ROUTERS="BINARY shortname IN ('t_router_new', 't_router_old', 't_router_gone')"
 
 #  The test rows (the users above, test plan groups). Used before seeding and by CLEANUP=1.
@@ -47,6 +48,8 @@ delete_fixtures() {
        DELETE FROM account_macs WHERE $FIXTURES;
        DELETE FROM reject_counters WHERE $FIXTURES;
        DELETE FROM radacct WHERE $FIXTURES OR $FIXTURE_SESSIONS;
+       DELETE FROM $USAGE_DB.usage_daily WHERE $FIXTURES;
+       DELETE FROM $USAGE_DB.usage_period WHERE $FIXTURES;
        DELETE FROM radpostauth WHERE $FIXTURES;
        DELETE FROM ipoes WHERE $FIXTURES;
        DELETE FROM accounts WHERE $FIXTURES;"
@@ -241,13 +244,14 @@ probe() {
   result "$([[ "$got" == "$4" ]] && echo 1 || echo 0)" "$1" "(got $got, want $4)" "router $2, mode $3: $got (want $4)"
 }
 
-#  A finished session in radacct: used <user> <bytes> <seconds> <SQL start time>
+#  Usage booked as the radacct triggers book it: used <user> <bytes> <seconds> <days ago>
+#  (that day's row, and the period since the last recharge).
 used() {
-  local id="$1-$RANDOM$RANDOM"
-  sql "INSERT INTO radacct (acctsessionid, acctuniqueid, username, nasipaddress, acctstarttime, acctstoptime,
-         acctupdatetime, acctsessiontime, acctinputoctets, acctoutputoctets)
-       VALUES ('$id', '$id', '$1', '127.0.0.1', $4, $4 + INTERVAL $3 SECOND, $4 + INTERVAL $3 SECOND, $3, $2, 0)"
-  note "Setup: finished session for $1 in radacct: $2 bytes, $3 s, started $4"
+  sql "INSERT INTO $USAGE_DB.usage_daily (username, day, bytes_in, bytes_out, seconds) VALUES ('$1', CURDATE() - INTERVAL $4 DAY, $2, 0, $3)
+         ON DUPLICATE KEY UPDATE bytes_in = bytes_in + VALUES(bytes_in), seconds = seconds + VALUES(seconds);
+       INSERT INTO $USAGE_DB.usage_period (username, since, bytes, seconds) VALUES ('$1', NOW(), $2, $3)
+         ON DUPLICATE KEY UPDATE bytes = bytes + VALUES(bytes), seconds = seconds + VALUES(seconds)"
+  note "Setup: usage for $1: $2 bytes, $3 s, $4 days ago (usage_daily and usage_period)"
 }
 
 #  An open Hotspot session in radacct: online <user> <session id> <MAC>
@@ -575,7 +579,7 @@ check "Expired IPoE, expire type 1 -> disabled pool" Accept "$(maclogin DE:AD:00
 check "Expired IPoE, expire type 0 -> reject"    Reject "$(maclogin DE:AD:00:00:00:24 10.99.0.24)" 'Account expired'
 check "IPoE without a plan -> disabled pool"     Accept "$(maclogin DE:AD:00:00:00:25 10.99.0.25)" \
       'Framed-Pool = "disabled_pool"' 'No plan assigned'
-used t_ipoe_q 2000 60 "NOW() - INTERVAL 1 MINUTE"
+used t_ipoe_q 2000 60 0
 check "IPoE over the limit, no fair usage -> disabled pool" Accept "$(maclogin DE:AD:00:00:00:26 10.99.0.26)" \
       'Framed-Pool = "disabled_pool"' 'Data limit reached'
 
@@ -605,27 +609,29 @@ section "Usage limits"
 check "Plan data limit: router gets the data left" Accept "$(ppp t_q_fup pass $M2)" \
       'Mikrotik-Total-Limit = 1000000000' 'Mikrotik-Recv-Limit = 1000000000' 'Mikrotik-Xmit-Limit = 1000000000' \
       'Mikrotik-Rate-Limit = "40M/40M"' '!Isp-' '!Attr-' '!2M/2M'
-used t_q_fup 600000000 0 "NOW() - INTERVAL 1 DAY"
+used t_q_fup 600000000 0 1
 check "  600 MB used -> 400 MB left"             Accept "$(ppp t_q_fup pass $M2)" 'Mikrotik-Total-Limit = 400000000'
-used t_q_fup 500000000 0 "NOW() - INTERVAL 1 HOUR"
+used t_q_fup 500000000 0 0
 check "  over the limit -> fair usage speed"     Accept "$(ppp t_q_fup pass $M2)" \
       'Mikrotik-Rate-Limit = "2M/2M"' 'Data limit reached, fair usage speed' 'Framed-Pool = "pppoe"' '!Mikrotik-Total-Limit' '!Mikrotik-Recv-Limit' '!Mikrotik-Xmit-Limit'
-sql "INSERT INTO radcheck (username, attribute, op, value) VALUES ('t_q_fup', 'Isp-Usage-Since', ':=', '$(date -d '-10 minutes' '+%d %b %Y %H:%M')')"
-check "  recharge (Isp-Usage-Since) resets usage" Accept "$(ppp t_q_fup pass $M2)" 'Mikrotik-Total-Limit = 1000000000'
+sql "UPDATE $USAGE_DB.usage_period SET since = NOW(), bytes = 0, seconds = 0 WHERE username = 't_q_fup'"
+check "  recharge (new usage period) resets usage" Accept "$(ppp t_q_fup pass $M2)" 'Mikrotik-Total-Limit = 1000000000'
 check "User limit 10 GB overrides plan, gigawords" Accept "$(ppp t_q_big pass $M2)" \
       'Mikrotik-Total-Limit-Gigawords = 2' 'Mikrotik-Total-Limit = 1410065408' 'Mikrotik-Xmit-Limit-Gigawords = 2'
-used t_q_day 0 1000 "NOW() - INTERVAL 1 DAY"
-used t_q_day 0 1000 "NOW() - INTERVAL 1 MINUTE"
+used t_q_day 0 1000 1
+used t_q_day 0 1000 0
 if (( TO_MIDNIGHT > 2700 )); then
   check "Daily time: yesterday not counted, session ends when time runs out" Accept "$(ppp t_q_day pass $M2)" 'Session-Timeout = 2600'
 fi
-used t_q_day 0 3000 "NOW() - INTERVAL 1 MINUTE"
+used t_q_day 0 3000 0
 check "  daily time used up -> disabled pool"    Accept "$(ppp t_q_day pass $M2)" \
       'Framed-Pool = "disabled_pool"' 'Time limit reached' 'Mikrotik-Rate-Limit = "1M/1M"'
-used t_q_month 2000 60 "NOW() - INTERVAL 1 MINUTE"
+used t_q_month 2000 60 "DAYOFMONTH(CURDATE())"
+check "Monthly data: last month not counted"     Accept "$(ppp t_q_month pass $M2)" 'Mikrotik-Total-Limit = 1000' 'Framed-Pool = "pppoe"'
+used t_q_month 2000 60 0
 check "Monthly data used up, no fair usage -> disabled pool" Accept "$(ppp t_q_month pass $M2)" \
       'Framed-Pool = "disabled_pool"' 'Data limit reached'
-used t_q_hs 2000 60 "NOW() - INTERVAL 1 MINUTE"
+used t_q_hs 2000 60 0
 check "Hotspot over the limit -> reject"         Reject "$(login t_q_hs pass $M6)" 'Data limit reached'
 
 section "Time slots (now: $TODAY, hour $H)"
@@ -680,6 +686,28 @@ acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-s
 rows=$(sql "SELECT COUNT(*) FROM radacct WHERE username = 't_ppp' AND acctsessionid = 't-sess-1'")
 result "$(grep -q "Accounting-Response" <<<"$acct_out" && [[ "$rows" -ge 1 ]] && echo 1 || echo 0)" "Accounting Start stored in radacct" "" "$(grep -m1 "Received" <<<"$acct_out" | sed "s/ from.*//"); radacct rows for t-sess-1: $rows"
 sql "DELETE FROM radacct WHERE $FIXTURES"
+
+section "Usage per day (radacct triggers -> $USAGE_DB)"
+#  booked <user>: "<upload> <download> <seconds>" in today's row, then the period total
+booked() { sql "SELECT CONCAT_WS(' ', COALESCE(SUM(bytes_in), 0), COALESCE(SUM(bytes_out), 0), COALESCE(SUM(seconds), 0)) FROM $USAGE_DB.usage_daily WHERE username = '$1' AND day = CURDATE()"; }
+period() { sql "SELECT CONCAT_WS(' ', bytes, seconds) FROM $USAGE_DB.usage_period WHERE username = '$1'"; }
+session='User-Name=t_ppp2\nAcct-Session-Id=t-usage-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.8\n'
+acct "${session}Acct-Status-Type=Start\n"
+acct "${session}Acct-Status-Type=Interim-Update\nAcct-Input-Octets=1000\nAcct-Output-Octets=5000\nAcct-Session-Time=60\n"
+got=$(booked t_ppp2)
+result "$([[ "$got" == "1000 5000 60" ]] && echo 1 || echo 0)" "Interim update booked into today" "(got $got)" "usage_daily today: $got"
+acct "${session}Acct-Status-Type=Interim-Update\nAcct-Input-Octets=1000\nAcct-Output-Octets=5000\nAcct-Session-Time=60\n"
+got=$(booked t_ppp2)
+result "$([[ "$got" == "1000 5000 60" ]] && echo 1 || echo 0)" "  the same counters again book nothing" "(got $got)" "usage_daily today: $got"
+acct "${session}Acct-Status-Type=Interim-Update\nAcct-Input-Octets=1500\nAcct-Output-Octets=8000\nAcct-Output-Gigawords=1\nAcct-Session-Time=120\n"
+got=$(booked t_ppp2)
+result "$([[ "$got" == "1500 4294975296 120" ]] && echo 1 || echo 0)" "  only the growth is added, gigawords counted" "(got $got)" "usage_daily today: $got"
+acct "${session}Acct-Status-Type=Stop\nAcct-Input-Octets=100\nAcct-Output-Octets=200\nAcct-Session-Time=130\nAcct-Terminate-Cause=NAS-Reboot\n"
+got=$(booked t_ppp2)
+result "$([[ "$got" == "1600 4294975496 130" ]] && echo 1 || echo 0)" "  counters that went down count from zero" "(got $got)" "usage_daily today: $got"
+got=$(period t_ppp2)
+result "$([[ "$got" == "4294977096 130" ]] && echo 1 || echo 0)" "  the period total grows with it" "(got $got)" "usage_period: $got"
+sql "DELETE FROM radacct WHERE $FIXTURES OR $FIXTURE_SESSIONS"
 
 #  CLEANUP=1 (the installer): leave no test rows or test routers behind in a production database.
 if [[ "${CLEANUP:-}" == 1 ]]; then

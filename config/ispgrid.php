@@ -26,4 +26,16 @@ return [
 
     'addons' => env('ISPGRID_ADDONS', 'on') !== 'off',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Usage database
+    |--------------------------------------------------------------------------
+    |
+    | Usage per customer per day lives in its own database on the same server, filled by a trigger on radacct.
+    | FreeRADIUS reads it by this name (sites-available/isp): change it only in tests (phpunit.xml).
+    |
+    */
+
+    'usage_database' => env('USAGE_DATABASE', 'ispgrid_usage'),
+
 ];

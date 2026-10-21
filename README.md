@@ -184,7 +184,7 @@ its code was not reviewed, and every run says so.
 ## Backups and restore
 
 A backup runs every night at 02:30 and is kept for 14 days in `/var/backups/ispgrid`: the database
-(`radius-*.sql.gz`, and `ispgrid_*-*.sql.gz` for add-ons such as Session records), the invoice logos
+(`radius-*.sql.gz`, and `ispgrid_*-*.sql.gz`: usage per day, `ispgrid_usage`, and add-ons such as Session records), the invoice logos
 (`files-core-billing-*.tgz`) and the configuration that belongs to it (`config-*.tgz`: FreeRADIUS, the panel's `.env`, the add-on list, the tunnel keys). Run one now with `sudo ispgrid-backup`. **Copy `/var/backups/ispgrid` to another machine:** a backup on
 the same disk does not survive the disk.
 
@@ -194,6 +194,9 @@ To restore, on a server installed with the same ISPGrid version:
 sudo systemctl stop freeradius ispgrid-queue
 sudo runuser -u ispgrid -- php /opt/ispgrid/artisan down
 gunzip < /var/backups/ispgrid/radius-YYYYMMDD-HHMM.sql.gz | sudo mysql radius
+# usage per day:
+sudo mysql -e 'CREATE DATABASE IF NOT EXISTS ispgrid_usage'
+gunzip < /var/backups/ispgrid/ispgrid_usage-YYYYMMDD-HHMM.sql.gz | sudo mysql ispgrid_usage
 # each add-on database, e.g. Session records:
 sudo mysql -e 'CREATE DATABASE IF NOT EXISTS ispgrid_ipdr'
 gunzip < /var/backups/ispgrid/ispgrid_ipdr-YYYYMMDD-HHMM.sql.gz | sudo mysql ispgrid_ipdr
