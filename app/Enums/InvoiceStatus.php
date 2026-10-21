@@ -21,4 +21,17 @@ enum InvoiceStatus: string
             self::Cancelled => __('Cancelled'),
         };
     }
+
+    /**
+     * The badge colour: paid green, partly paid amber, unpaid red, cancelled grey.
+     */
+    public function color(): string
+    {
+        return match ($this) {
+            self::Paid => 'green',
+            self::PartlyPaid => 'amber',
+            self::Unpaid => 'red',
+            self::Cancelled => 'zinc',
+        };
+    }
 }

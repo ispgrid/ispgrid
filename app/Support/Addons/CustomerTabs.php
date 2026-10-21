@@ -17,7 +17,7 @@ final class CustomerTabs
     /**
      * Core's own tabs and their order.
      */
-    public const CORE_ORDERS = ['details' => 10, 'connection' => 20, 'recharges' => 70, 'messages' => 80, 'activity' => 90];
+    public const CORE_ORDERS = ['details' => 10, 'connection' => 20, 'recharges' => 70, 'billing' => 75, 'messages' => 80, 'activity' => 90];
 
     /**
      * @var array<string, array{label: Closure(): string, component: string, visible: Closure(User, Account): bool, order: int}>

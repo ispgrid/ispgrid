@@ -81,6 +81,7 @@ final class ActivityTimeline
             'terminated' => fn (): string => __('Terminated.'),
             'invoice-issued' => fn (): string => __('Invoice :number issued, :total.', ['number' => self::text($new['invoice'] ?? null) ?? '', 'total' => $money($new['total'] ?? null)]),
             'invoice-cancelled' => fn (): string => __('Invoice :number cancelled.', ['number' => self::text($new['invoice'] ?? null) ?? '']),
+            'invoice-downloaded' => fn (): string => __('Invoice :number PDF opened.', ['number' => self::text($new['invoice'] ?? null) ?? '']),
             'payment-recorded' => fn (): string => __('Payment of :amount by :method recorded for invoice :number.', [
                 'amount' => $money($new['amount'] ?? null), 'method' => self::text($new['method'] ?? null) ?? '', 'number' => self::text($new['invoice'] ?? null) ?? '',
             ]),

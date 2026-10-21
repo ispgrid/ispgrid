@@ -64,6 +64,23 @@ A trigger is a kind of event rules can send on.
 3. Test it like `tests/Feature/Notifications/TriggersTest.php`: who is due at a frozen time, the date edges, and that a
    second run sends nothing.
 
+## Add a country's tax
+
+Invoices work out tax through `App\Billing\Tax\TaxSetup`; core ships No tax, One tax (any country) and India GST. A
+country with its own rules (UK VAT with reverse charge, several rates) is one new class:
+
+1. Create `app/Billing/Tax/YourTax.php` implementing `TaxSetup`:
+   - `id()`: lowercase and stable (it is stored on every invoice), e.g. `uk-vat`. `label()`: the name on the settings page.
+   - `countries()`: the ISO codes it is offered for (`['GB']`), or null for every country.
+   - `components($config, $context)`: the taxes of one sale as `TaxComponent`s (name and rate). `$context` holds the
+     customer's place of supply when `usesPlaceOfSupply()` is true; India uses it to choose IGST or CGST and SGST.
+   - `configDefaults()` and `configRules()`: its settings fields (`tax.rate`, ...) with their defaults and rules.
+   - `totalRate()`, `totalName()`, `itemCodeLabel()` (a column such as SAC/HSN, or null), `invoiceTitle()`.
+2. Register it in `AppServiceProvider`, in the `TaxSetups` list next to the built-ins.
+3. Add its fields to the Tax card of `resources/views/pages/system/billing-settings/billing-settings.blade.php`.
+4. Test it like `tests/Unit/Billing/InvoiceCalculatorTest.php`: a sale at home, a sale elsewhere if that differs, and
+   the rounding of each tax line. Invoices, the PDF and the lists only read the tax lines, so nothing else changes.
+
 ## Write an add-on
 
 An add-on is a Composer package that adds a feature without changing core. Start from the
@@ -86,7 +103,8 @@ is a full example.
   `ShowsToasts`, the `x-ui.*` Blade components, and core actions such as `RechargeAccount`. Everything else in core
   is internal and may change in any release. Since core 0.1.4 `RechargeAccount::handle()` takes two optional
   trailing arguments, a `RechargeKind` and the id of the staff member the recharge is recorded for; calls with the
-  first six keep working.
+  first six keep working. Since core 0.1.6 it takes a ninth, `App\Billing\ChargeOptions` (an adjusted price, the
+  payment taken now, an invoice already issued); without it an invoiced recharge gets an unpaid invoice.
 - **Views:** Livewire multi-file components and core's `x-ui.*` components (no Flux, no logic in Blade). Core builds
   its CSS from its own views only, so a Tailwind class that core does not use has no CSS in an add-on view; menu and
   button icons are the names in `App\Support\Heroicons`.

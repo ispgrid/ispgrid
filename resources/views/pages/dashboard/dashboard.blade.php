@@ -30,6 +30,30 @@
         @endforeach
     </div>
 
+    @if ($this->moneyFigures !== [])
+        <div class="grid gap-3">
+            <x-ui.heading>{{ __('Money') }}</x-ui.heading>
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach ($this->moneyFigures as $figure)
+                    @if ($figure['href'])
+                        <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
+                            <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
+                            <span class="mt-2 block text-2xl font-semibold tabular-nums">{{ $figure['value'] }}</span>
+                        </a>
+                    @else
+                        <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+                            <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
+                            <span class="mt-2 block text-2xl font-semibold tabular-nums">{{ $figure['value'] }}</span>
+                            @if ($figure['hint'])
+                                <span class="mt-1 block text-xs text-zinc-600 dark:text-zinc-400">{{ $figure['hint'] }}</span>
+                            @endif
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     @php($attention = $this->attention)
     <div class="grid gap-4 lg:grid-cols-2">
         @if ($attention['looping'] !== [])
