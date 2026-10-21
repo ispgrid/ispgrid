@@ -45,6 +45,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('staff/roles/{role}/edit', 'pages::staff.role-form')->name('roles.edit');
     Route::livewire('system/app-settings', 'pages::system.app-settings')->name('app-settings.edit');
     Route::livewire('system/billing', 'pages::system.billing-settings')->name('billing-settings.edit');
+    Route::livewire('system/online-payments', 'pages::system.online-payments')->name('online-payments.edit');
     Route::livewire('system/addons', 'pages::system.addons')->name('addons.index');
     Route::livewire('system/freeradius', 'pages::system.radius-settings')->name('radius-settings.edit');
     Route::livewire('system/connection-types', 'pages::system.connection-types')->name('connection-types.index');

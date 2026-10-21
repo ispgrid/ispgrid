@@ -194,6 +194,7 @@ class AppServiceProvider extends ServiceProvider
         $menu->add(new NavItem('system', fn (): string => __('Roles'), 'roles.index', 'key', ['roles.*'], $can('manage-staff'), 20));
         $menu->add(new NavItem('system', fn (): string => __('App settings'), 'app-settings.edit', 'cog-6-tooth', ['app-settings.*'], $can('manage-app-settings'), 30));
         $menu->add(new NavItem('system', fn (): string => __('Billing'), 'billing-settings.edit', 'banknotes', ['billing-settings.*'], $can('manage-billing'), 32));
+        $menu->add(new NavItem('system', fn (): string => __('Online payments'), 'online-payments.edit', 'qr-code', ['online-payments.*'], $can('manage-billing'), 33));
         $menu->add(new NavItem('system', fn (): string => __('Add-ons'), 'addons.index', 'puzzle-piece', ['addons.*'], fn (User $user): bool => app(AddonSettings::class)->canOpenPage($user), 35));
         $menu->add(new NavItem('system', fn (): string => __('FreeRADIUS'), 'radius-settings.edit', 'adjustments-horizontal', ['radius-settings.*'], $can('manage-radius-settings'), 40));
         $menu->add(new NavItem('system', fn (): string => __('Connection types'), 'connection-types.index', 'wifi', ['connection-types.*'], $can('manage-connection-types'), 50));
