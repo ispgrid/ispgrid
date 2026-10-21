@@ -6,6 +6,9 @@ use App\Actions\Customers\ChangeExpiry;
 use App\Actions\Customers\RechargeAccount;
 use App\Actions\Customers\SetOverrideSpeed;
 use App\Actions\Customers\TerminateAccount;
+use App\Billing\BillingSettings;
+use App\Billing\ChargeOptions;
+use App\Billing\RechargePrice;
 use App\Enums\AccountStatus;
 use App\Enums\RechargeKind;
 use App\Exceptions\ExpiryChangedMeanwhile;
@@ -13,7 +16,9 @@ use App\Exceptions\RenewalAlreadyWaiting;
 use App\Exceptions\RenewalHasPayments;
 use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\PricesRecharges;
 use App\Livewire\Concerns\ShowsToasts;
+use App\Livewire\Concerns\TakesPayment;
 use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Plan;
@@ -40,7 +45,7 @@ use Livewire\Component;
  */
 new class extends Component
 {
-    use AuthorizesEveryRequest, ShowsToasts;
+    use AuthorizesEveryRequest, PricesRecharges, ShowsToasts, TakesPayment;
 
     #[Locked]
     public int $accountId;
@@ -201,6 +206,28 @@ new class extends Component
         return PlanChoices::for($this->account, firstLogin: false);
     }
 
+    /**
+     * The money side of Change plan for the chosen plan.
+     *
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     */
+    #[Computed]
+    public function changeCharge(): array
+    {
+        return $this->chargeSummary($this->account, $this->change_plan_id === '' ? null : Plan::query()->find((int) $this->change_plan_id));
+    }
+
+    /**
+     * The money side of Renew in advance for the chosen plan.
+     *
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     */
+    #[Computed]
+    public function advanceCharge(): array
+    {
+        return $this->chargeSummary($this->account, $this->advance_plan_id === '' ? null : Plan::query()->find((int) $this->advance_plan_id));
+    }
+
     public function openChangePlan(): void
     {
         $this->authorizeLive('recharge');
@@ -209,6 +236,7 @@ new class extends Component
         $this->change_plan_id = $plan === null || $plan->trashed() || $plan->hotspot_starts_at_first_login ? '' : (string) $plan->id;
         $this->change_note = '';
         $this->fillChangeDefaults();
+        $this->resetPayment();
         $this->dispatch('modal-open', name: 'change-plan');
     }
 
@@ -225,14 +253,17 @@ new class extends Component
     {
         $this->authorizeLive('recharge');
         $this->change_note = trim($this->change_note);
+        $charge = $this->changeCharge;
 
         $this->validate([
             'change_plan_id' => ['required', $this->planRule()],
             'change_expiry' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
-            'change_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            'change_amount' => $charge['mode'] === 'amount' ? ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'] : [],
             'change_note' => ['nullable', 'string', 'max:255'],
+            ...$this->moneyRules($charge),
         ], ['change_expiry.after' => __('The expiry must be in the future.')], [
             'change_plan_id' => __('plan'), 'change_expiry' => __('expiry'), 'change_amount' => __('amount'), 'change_note' => __('comment'),
+            ...$this->adjustAttributes(), ...$this->paymentAttributes(),
         ]);
 
         $wasInactive = $this->account->status_id === AccountStatus::Inactive;
@@ -240,7 +271,8 @@ new class extends Component
         try {
             $done = $recharge->handle(
                 $this->accountId, (int) $this->change_plan_id, Carbon::createFromFormat('!Y-m-d\TH:i', $this->change_expiry),
-                $this->change_amount, $this->nullIfEmpty($this->change_note), $this->change_base_expiry, RechargeKind::ChangePlan,
+                $charge['mode'] === 'amount' ? $this->change_amount : $charge['total'], $this->nullIfEmpty($this->change_note),
+                $this->change_base_expiry, RechargeKind::ChangePlan, charge: $this->moneyOptions($charge),
             );
         } catch (ExpiryChangedMeanwhile) {
             unset($this->account);
@@ -266,6 +298,7 @@ new class extends Component
         $this->advance_plan_id = $plan === null || $plan->trashed() || $plan->hotspot_starts_at_first_login ? '' : (string) $plan->id;
         $this->advance_note = '';
         $this->fillAdvanceDefaults();
+        $this->resetPayment();
         $this->dispatch('modal-open', name: 'renew-advance');
     }
 
@@ -282,19 +315,22 @@ new class extends Component
         $this->authorizeLive('recharge');
         $this->advance_note = trim($this->advance_note);
         $starts = $this->account->expiry;
+        $charge = $this->advanceCharge;
 
         $this->validate([
             'advance_plan_id' => ['required', $this->planRule()],
             'advance_expiry' => ['required', 'date_format:Y-m-d\TH:i', ...($starts === null ? [] : ['after:'.$starts->format('Y-m-d H:i:s')])],
-            'advance_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            'advance_amount' => $charge['mode'] === 'amount' ? ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'] : [],
             'advance_note' => ['nullable', 'string', 'max:255'],
+            ...$this->moneyRules($charge),
         ], ['advance_expiry.after' => __('The expiry must be after the start.')], [
             'advance_plan_id' => __('plan'), 'advance_expiry' => __('expiry'), 'advance_amount' => __('amount'), 'advance_note' => __('comment'),
+            ...$this->adjustAttributes(), ...$this->paymentAttributes(),
         ]);
 
         try {
             $renewal = $book->handle($this->accountId, (int) $this->advance_plan_id, Carbon::createFromFormat('!Y-m-d\TH:i', $this->advance_expiry),
-                $this->advance_amount, $this->nullIfEmpty($this->advance_note));
+                $charge['mode'] === 'amount' ? $this->advance_amount : $charge['total'], $this->nullIfEmpty($this->advance_note), $this->moneyOptions($charge));
         } catch (RenewalAlreadyWaiting) {
             $this->addError('advance_plan_id', __('An advance renewal is already waiting. Cancel it first.'));
 
@@ -479,21 +515,44 @@ new class extends Component
         return Rule::exists('plans', 'id')->withoutTrashed()->where('hotspot_starts_at_first_login', false);
     }
 
+    /**
+     * Adjust price and payment rules of an invoiced recharge.
+     *
+     * @param  array{mode: string, total: string}  $charge
+     * @return array<string, list<mixed>>
+     */
+    private function moneyRules(array $charge): array
+    {
+        return $charge['mode'] === 'invoice' ? [...$this->adjustRules(), ...$this->paymentRules($charge['total'])] : [];
+    }
+
+    /**
+     * @param  array{mode: string, total: string}  $charge
+     */
+    private function moneyOptions(array $charge): ChargeOptions
+    {
+        return $charge['mode'] === 'invoice' ? $this->chargeOptions($this->paymentInput($charge['total'])) : new ChargeOptions;
+    }
+
     private function fillChangeDefaults(): void
     {
+        unset($this->changeCharge);
+        $this->resetAdjust();
         $this->change_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->change_plan_id === '' ? null : Plan::query()->find((int) $this->change_plan_id);
         $this->change_expiry = $plan === null ? '' : ExpiryCalculator::fromSettings()->next(null, $plan->validity, $plan->validity_unit, now())->format('Y-m-d\TH:i');
-        $this->change_amount = $plan === null ? '' : (string) $plan->price;
+        $this->change_amount = $plan === null ? '' : RechargePrice::amount($this->account, $plan, BillingSettings::current());
     }
 
     private function fillAdvanceDefaults(): void
     {
+        unset($this->advanceCharge);
+        $this->resetAdjust();
         $plan = $this->advance_plan_id === '' ? null : Plan::query()->find((int) $this->advance_plan_id);
         $starts = $this->account->expiry;
         $this->advance_expiry = $plan === null || $starts === null ? ''
             : ExpiryCalculator::fromSettings()->next($starts, $plan->validity, $plan->validity_unit, $starts->copy()->subSecond())->format('Y-m-d\TH:i');
-        $this->advance_amount = $plan === null ? '' : (string) $plan->price;
+        $this->advance_amount = $plan === null ? '' : RechargePrice::amount($this->account, $plan, BillingSettings::current());
     }
 
     /**

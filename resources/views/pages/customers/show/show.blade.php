@@ -418,7 +418,7 @@
                 @else
                     <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
                 @endif
-                <x-ui.input wire:model="recharge_amount" inputmode="decimal" :label="__('Amount')" :description="__('The plan price. Change it for a discount or a part payment.')" />
+                @include('partials.billing-breakdown', ['charge' => $this->rechargeCharge, 'amountField' => 'recharge_amount', 'amountDescription' => __('The plan price less the customer discount. Change it for a part payment.')])
                 <x-ui.input wire:model="recharge_note" :label="__('Note')" maxlength="255" />
 
                 <div class="flex justify-end gap-2">

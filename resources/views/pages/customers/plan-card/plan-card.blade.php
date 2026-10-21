@@ -99,7 +99,7 @@
                 <x-ui.heading size="lg">{{ __('Change plan') }}</x-ui.heading>
                 <x-ui.text muted>{{ __('Starts now. The time left on the current plan ends, and an online customer is disconnected so the new plan applies at once.') }}</x-ui.text>
                 <x-ui.select wire:model.live="change_plan_id" :label="__('Plan')" :options="$this->plans" :placeholder="__('Choose a plan')" />
-                <x-ui.input wire:model="change_amount" inputmode="decimal" :label="__('Amount')" :description="__('The plan price. Change it for a discount or a part payment.')" />
+                @include('partials.billing-breakdown', ['charge' => $this->changeCharge, 'amountField' => 'change_amount', 'amountDescription' => __('The plan price less the customer discount. Change it for a part payment.')])
                 <x-ui.input wire:model="change_expiry" type="datetime-local" :label="__('Expires')" :description="__('From now, with the plan validity and the expiry mode in App settings. You can change it.')" />
                 <x-ui.input wire:model="change_note" :label="__('Comment')" maxlength="255" />
                 <div class="flex justify-end gap-2">
@@ -114,7 +114,7 @@
                 <x-ui.heading size="lg">{{ __('Renew in advance') }}</x-ui.heading>
                 <x-ui.text muted>{{ __('Starts when the current plan ends, on :date. Until then nothing changes for the customer.', ['date' => $this->details['expires'] ?? '']) }}</x-ui.text>
                 <x-ui.select wire:model.live="advance_plan_id" :label="__('Next plan')" :options="$this->plans" :placeholder="__('Choose a plan')" />
-                <x-ui.input wire:model="advance_amount" inputmode="decimal" :label="__('Amount')" />
+                @include('partials.billing-breakdown', ['charge' => $this->advanceCharge, 'amountField' => 'advance_amount', 'amountDescription' => null])
                 <x-ui.input wire:model="advance_expiry" type="datetime-local" :label="__('Expires')" />
                 <x-ui.input wire:model="advance_note" :label="__('Comment')" maxlength="255" />
                 <div class="flex justify-end gap-2">

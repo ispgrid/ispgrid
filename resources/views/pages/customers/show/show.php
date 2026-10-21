@@ -4,6 +4,9 @@ use App\Actions\Customers\RechargeAccount;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
+use App\Billing\BillingSettings;
+use App\Billing\ChargeOptions;
+use App\Billing\RechargePrice;
 use App\Enums\AccountStatus;
 use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
@@ -12,7 +15,9 @@ use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Jobs\DisconnectAccount;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
+use App\Livewire\Concerns\PricesRecharges;
 use App\Livewire\Concerns\ShowsToasts;
+use App\Livewire\Concerns\TakesPayment;
 use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\AddressList;
@@ -54,7 +59,7 @@ use Spatie\Activitylog\Models\Activity;
 
 new #[Title('Customer')] class extends Component
 {
-    use AuthorizesEveryRequest, ShowsToasts;
+    use AuthorizesEveryRequest, PricesRecharges, ShowsToasts, TakesPayment;
 
     #[Locked]
     public int $accountId;
@@ -817,6 +822,17 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * The money side of the Recharge dialog for the chosen plan (PricesRecharges::chargeSummary()).
+     *
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     */
+    #[Computed]
+    public function rechargeCharge(): array
+    {
+        return $this->chargeSummary($this->account, $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id));
+    }
+
+    /**
      * The status a recharge leaves alone (Suspended or Terminated), for the dialog's warning; null otherwise.
      */
     #[Computed]
@@ -841,6 +857,7 @@ new #[Title('Customer')] class extends Component
         $this->recharge_plan_id = $plan === null || $plan->trashed() ? '' : (string) $plan->id;
         $this->recharge_note = '';
         $this->fillRechargeDefaults();
+        $this->resetPayment();
 
         $this->dispatch('modal-open', name: 'recharge');
     }
@@ -865,12 +882,15 @@ new #[Title('Customer')] class extends Component
         }
 
         $waits = $this->rechargePending !== null;
+        $charge = $this->rechargeCharge;
+        $invoiced = $charge['mode'] === 'invoice';
 
         $this->validate([
             'recharge_plan_id' => ['required', Rule::exists('plans', 'id')->withoutTrashed()],
             'recharge_expiry' => $waits ? [] : ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
-            'recharge_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            'recharge_amount' => $charge['mode'] === 'amount' ? ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'] : [],
             'recharge_note' => ['nullable', 'string', 'max:255'],
+            ...($invoiced ? [...$this->adjustRules(), ...$this->paymentRules($charge['total'])] : []),
         ], [
             'recharge_expiry.after' => __('The expiry must be in the future.'),
         ], [
@@ -878,6 +898,8 @@ new #[Title('Customer')] class extends Component
             'recharge_expiry' => __('expiry'),
             'recharge_amount' => __('amount'),
             'recharge_note' => __('note'),
+            ...$this->adjustAttributes(),
+            ...$this->paymentAttributes(),
         ]);
 
         $wasInactive = $this->account->status_id === AccountStatus::Inactive;
@@ -887,9 +909,10 @@ new #[Title('Customer')] class extends Component
                 $this->accountId,
                 (int) $this->recharge_plan_id,
                 $waits ? null : Carbon::createFromFormat('!Y-m-d\TH:i', $this->recharge_expiry),
-                $this->recharge_amount,
+                $charge['mode'] === 'amount' ? $this->recharge_amount : $charge['total'],
                 $this->recharge_note === '' ? null : $this->recharge_note,
                 $this->recharge_base_expiry,
+                charge: $invoiced ? $this->chargeOptions($this->paymentInput($charge['total'])) : new ChargeOptions,
             );
         } catch (ExpiryChangedMeanwhile) {
             $this->refillAfterExpiryChange();
@@ -943,11 +966,13 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
-     * The expiry and amount the chosen plan gives. Staff can change both before saving.
+     * The expiry and amount the chosen plan gives (the amount less the customer's discount, for a recharge without
+     * an invoice). Staff can change both before saving; a one-off price goes back to the plan price.
      */
     private function fillRechargeDefaults(): void
     {
-        unset($this->rechargePending);
+        unset($this->rechargePending, $this->rechargeCharge);
+        $this->resetAdjust();
         $this->recharge_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
 
@@ -964,7 +989,7 @@ new #[Title('Customer')] class extends Component
             : ExpiryCalculator::fromSettings()
                 ->next($this->account->expiry, $plan->validity, $plan->validity_unit, now())
                 ->format('Y-m-d\TH:i');
-        $this->recharge_amount = (string) $plan->price;
+        $this->recharge_amount = RechargePrice::amount($this->account, $plan, BillingSettings::current());
     }
 
     /**
