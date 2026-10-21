@@ -3,7 +3,7 @@
     <x-ui.modal name="billing-record-payment">
         <form wire:submit="recordPayment" class="grid gap-5" novalidate>
             <x-ui.heading size="lg">{{ __('Record payment') }}</x-ui.heading>
-            @include('partials.payment-fields', ['total' => $this->payingBalance, 'withSwitch' => false])
+            @include('partials.payment-fields', ['total' => $this->payingBalance, 'withSwitch' => false, 'idPrefix' => 'record'])
             <div class="flex justify-end gap-2">
                 <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'billing-record-payment' })">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button type="submit">{{ __('Record payment') }}</x-ui.button>

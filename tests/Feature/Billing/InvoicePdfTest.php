@@ -117,3 +117,13 @@ it('links the invoice from the Billing and Recharges tabs', function () {
     Livewire::test('pages::customers.billing-tab', ['accountId' => $this->account->id])
         ->assertSeeHtml(route('invoices.show', $invoice));
 });
+
+it('leaves out an empty connectivity address and shows the status', function () {
+    $invoice = invoiceFor($this->account);
+
+    expect(InvoiceView::for($invoice)['customer']['connectivity_lines'])->toBe([]);
+    Livewire::test('pages::invoices.show', ['invoice' => $invoice->id])
+        ->assertDontSee(__('Connectivity address'))
+        ->assertSee(__('Unpaid'));
+    expect(view('pdf.invoice', ['invoice' => InvoiceView::for($invoice)])->render())->not->toContain('Connectivity address');
+});

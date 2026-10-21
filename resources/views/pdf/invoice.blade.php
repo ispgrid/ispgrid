@@ -95,10 +95,12 @@
                 @endif
             </td>
             <td>
-                <div class="label">Connectivity address</div>
-                @foreach ($invoice['customer']['connectivity_lines'] as $line)
-                    <div>{{ $line }}</div>
-                @endforeach
+                @if ($invoice['customer']['connectivity_lines'] !== [])
+                    <div class="label">Connectivity address</div>
+                    @foreach ($invoice['customer']['connectivity_lines'] as $line)
+                        <div>{{ $line }}</div>
+                    @endforeach
+                @endif
             </td>
         </tr>
     </table>

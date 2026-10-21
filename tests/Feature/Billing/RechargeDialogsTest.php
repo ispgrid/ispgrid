@@ -141,3 +141,15 @@ it('takes the payment in Change plan and Renew in advance', function () {
         ->and($renewal->amount)->toBe('590.00')
         ->and(Invoice::query()->where('id', '!=', $renewal->invoice_id)->sole()->status)->toBe(InvoiceStatus::Unpaid);
 });
+
+it('gives every field on the customer page its own id', function () {
+    turnInvoicingOn();
+    $this->actingAs(staffHolding(...Permission::cases()));
+
+    foreach (['details', 'billing'] as $tab) {
+        $html = (string) $this->get(route('customers.show', ['account' => $this->account->id, 'tab' => $tab]))->assertOk()->getContent();
+
+        preg_match_all('/\sid="([^"]+)"/', $html, $ids);
+        expect(array_keys(array_filter(array_count_values($ids[1]), fn (int $count): bool => $count > 1)))->toBe([]);
+    }
+});

@@ -1263,5 +1263,14 @@
     "Collected this month": "इस महीने की वसूली",
     "Invoiced this month": "इस महीने के इनवॉइस",
     "Hotspot sales this month": "इस महीने की हॉटस्पॉट बिक्री",
-    "Money": "पैसा"
+    "Money": "पैसा",
+    "Receipt": "रसीद",
+    "Receipt PDF opened": "रसीद PDF खोली गई",
+    "Receipt :number for invoice :invoice opened.": "इनवॉइस :invoice की रसीद :number खोली गई।",
+    "Empty means the whole balance. Less leaves the rest due.": "खाली छोड़ें तो पूरी बकाया राशि। कम राशि पर बाकी देय रहेगा।",
+    "Balance due after this payment": "इस भुगतान के बाद बकाया",
+    "Invoice total": "इनवॉइस कुल",
+    "Received from": "किससे प्राप्त",
+    "Removed": "हटाया गया",
+    "This payment": "यह भुगतान"
 }

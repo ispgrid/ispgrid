@@ -161,6 +161,26 @@ it('bill period starts at the old expiry while the plan runs', function () {
         ->and(Invoice::query()->where('account_id', $ended->id)->sole()->period_from->format('Y-m-d H:i'))->toBe('2026-10-21 10:00');
 });
 
+it('bills a plan change from now, since its validity starts again', function () {
+    turnInvoicingOn();
+    $account = Account::factory()->create(['expiry' => '2026-11-15 08:00:00']);
+
+    rechargeNow($account, $this->plan, kind: RechargeKind::ChangePlan);
+
+    $invoice = Invoice::query()->sole();
+    expect($invoice->period_from->format('Y-m-d H:i'))->toBe('2026-10-21 10:00')
+        ->and($invoice->lines()->sole()->sub_description)->toStartWith('Charges for period 21 Oct 2026 to 20 Nov 2026');
+});
+
+it('bills from now when staff set an expiry before the old one', function () {
+    turnInvoicingOn();
+    $account = Account::factory()->create(['expiry' => '2026-12-31 08:00:00']);
+
+    rechargeNow($account, $this->plan);
+
+    expect(Invoice::query()->sole()->period_from->format('Y-m-d H:i'))->toBe('2026-10-21 10:00');
+});
+
 it('describes a first-login validity instead of a bill period', function () {
     turnInvoicingOn();
     turnHotspotOn();
