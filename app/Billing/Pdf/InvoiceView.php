@@ -23,7 +23,7 @@ final class InvoiceView
     /**
      * @return array{
      *     title: string, number: string, date: string, due_date: string, terms: string, place_of_supply: ?string,
-     *     bill_period: ?string, validity: ?string, logo: ?string, cancelled: bool, cancel_reason: ?string,
+     *     bill_period: ?string, validity: ?string, logo: ?string, cancelled: bool, cancel_reason: ?string, replaces: ?string, replaced_by: ?string,
      *     company: array{name: string, lines: list<string>, tax: ?string, extra: list<string>, contact: list<string>},
      *     customer: array{username: string, billing_lines: list<string>, connectivity_lines: list<string>, tax_label: string, tax_number: ?string},
      *     item_code_label: ?string,
@@ -55,6 +55,8 @@ final class InvoiceView
             'logo' => self::logo(self::text($company, 'logo')),
             'cancelled' => $invoice->status === InvoiceStatus::Cancelled,
             'cancel_reason' => $invoice->cancel_reason,
+            'replaces' => $invoice->replaces?->number,
+            'replaced_by' => $invoice->replacedBy?->number,
             'company' => [
                 'name' => self::text($company, 'name'),
                 'lines' => self::companyLines($company),

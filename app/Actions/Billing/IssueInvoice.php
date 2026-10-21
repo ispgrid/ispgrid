@@ -56,6 +56,7 @@ final class IssueInvoice
         ?CarbonInterface $periodTo = null,
         ?string $validityText = null,
         ?int $rechargeId = null,
+        ?Invoice $replaces = null,
     ): Invoice {
         $settings = BillingSettings::current();
 
@@ -65,7 +66,7 @@ final class IssueInvoice
 
         $draft = self::draft($account, $lines, $roundOff, $settings);
 
-        return DB::transaction(function () use ($settings, $account, $draft, $kind, $issueDate, $payment, $periodFrom, $periodTo, $validityText, $rechargeId): Invoice {
+        return DB::transaction(function () use ($settings, $account, $draft, $kind, $issueDate, $payment, $periodFrom, $periodTo, $validityText, $rechargeId, $replaces): Invoice {
             $number = (new InvoiceNumbers($settings))->next($issueDate);
             $customer = CustomerSnapshot::of($account, $settings);
             $setup = $settings->tax();
@@ -77,6 +78,7 @@ final class IssueInvoice
                 'sequence' => $number['sequence'],
                 'account_id' => $account->id,
                 'recharge_id' => $rechargeId,
+                'replaces_invoice_id' => $replaces?->id,
                 'kind' => $kind,
                 'status' => InvoiceStatus::Unpaid,
                 'title' => $setup->invoiceTitle(),
@@ -133,7 +135,7 @@ final class IssueInvoice
             activity()
                 ->performedOn($account)
                 ->event('invoice-issued')
-                ->withChanges(['old' => [], 'attributes' => ['invoice' => $invoice->number, 'total' => $invoice->total]])
+                ->withChanges(['old' => [], 'attributes' => array_filter(['invoice' => $invoice->number, 'total' => $invoice->total, 'replaces' => $replaces?->number])])
                 ->log('invoice-issued');
 
             if ($payment !== null) {

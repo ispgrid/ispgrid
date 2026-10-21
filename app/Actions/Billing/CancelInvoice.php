@@ -13,9 +13,12 @@ use Illuminate\Support\Facades\DB;
  */
 final class CancelInvoice
 {
-    public function handle(int $invoiceId, string $reason): void
+    /**
+     * @param  ?string  $replacedBy  the number of the invoice that replaces it (Cancel and reissue)
+     */
+    public function handle(int $invoiceId, string $reason, ?string $replacedBy = null): void
     {
-        DB::transaction(function () use ($invoiceId, $reason): void {
+        DB::transaction(function () use ($invoiceId, $reason, $replacedBy): void {
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoiceId);
 
             if ($invoice->status === InvoiceStatus::Cancelled) {
@@ -37,7 +40,7 @@ final class CancelInvoice
             activity()
                 ->performedOn($invoice->account)
                 ->event('invoice-cancelled')
-                ->withChanges(['old' => [], 'attributes' => ['invoice' => $invoice->number, 'total' => $invoice->total, 'reason' => trim($reason)]])
+                ->withChanges(['old' => [], 'attributes' => array_filter(['invoice' => $invoice->number, 'total' => $invoice->total, 'reason' => trim($reason), 'replaced_by' => $replacedBy])])
                 ->log('invoice-cancelled');
         }, attempts: 3);
     }

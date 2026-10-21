@@ -28,3 +28,4 @@ parameters:
                 - app/Livewire/Concerns/PricesRecharges.php
                 - app/Livewire/Concerns/ShowsToasts.php
                 - app/Livewire/Concerns/TakesPayment.php
+                - app/Livewire/Concerns/WritesInvoices.php

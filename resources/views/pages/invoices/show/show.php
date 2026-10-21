@@ -7,6 +7,8 @@ use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ManagesInvoices;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Livewire\Concerns\TakesPayment;
+use App\Livewire\Concerns\WritesInvoices;
+use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -18,12 +20,12 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * One invoice as it prints, with Download PDF, Print, Record payment, Remove payment and Cancel (the Billing tab's
- * dialogs and permissions).
+ * One invoice as it prints, with Download PDF, Print, Record payment, Remove payment, Cancel and Cancel and reissue
+ * (the Billing tab's dialogs and permissions).
  */
 new #[Title('Invoice')] class extends Component
 {
-    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment;
+    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment, WritesInvoices;
 
     #[Locked]
     public int $invoiceId;
@@ -47,7 +49,26 @@ new #[Title('Invoice')] class extends Component
     #[Computed]
     public function invoice(): Invoice
     {
-        return Invoice::query()->with(['lines', 'taxLines', 'account'])->findOrFail($this->invoiceId);
+        return Invoice::query()->with(['lines', 'taxLines', 'account', 'replaces', 'replacedBy'])->findOrFail($this->invoiceId);
+    }
+
+    #[Computed]
+    public function account(): Account
+    {
+        return Account::withTrashed()->findOrFail($this->accountId);
+    }
+
+    /**
+     * The invoice this one replaced and the one that replaced it (Cancel and reissue).
+     *
+     * @return array{replaces: ?array{id: int, number: string}, replaced_by: ?array{id: int, number: string}}
+     */
+    #[Computed]
+    public function related(): array
+    {
+        $link = fn (?Invoice $invoice): ?array => $invoice === null ? null : ['id' => $invoice->id, 'number' => $invoice->number];
+
+        return ['replaces' => $link($this->invoice->replaces), 'replaced_by' => $link($this->invoice->replacedBy)];
     }
 
     /**
@@ -75,7 +96,7 @@ new #[Title('Invoice')] class extends Component
     /**
      * What staff may do: nothing on a deleted customer's invoice, and no new payment while invoicing is off.
      *
-     * @return array{record: bool, remove: bool, cancel: bool, open: bool, cancelled: bool}
+     * @return array{record: bool, remove: bool, cancel: bool, reissue: bool, open: bool, cancelled: bool}
      */
     #[Computed]
     public function can(): array
@@ -87,6 +108,7 @@ new #[Title('Invoice')] class extends Component
             'record' => $live && Gate::allows('record-payments') && BillingSettings::current()->enabled,
             'remove' => $live && Gate::allows('record-payments'),
             'cancel' => $live && Gate::allows('cancel-invoices'),
+            'reissue' => $live && Gate::allows('cancel-invoices') && Gate::allows('create-invoices') && BillingSettings::current()->canIssue(),
             'open' => $open,
             'cancelled' => $this->invoice->status === InvoiceStatus::Cancelled,
         ];
@@ -112,6 +134,11 @@ new #[Title('Invoice')] class extends Component
                 'removed' => $payment->trashed(),
                 'reason' => $payment->remove_reason,
             ])->all();
+    }
+
+    protected function invoiceReissued(Invoice $invoice, string $message): void
+    {
+        $this->redirectRoute('invoices.show', $invoice->id, navigate: true);
     }
 
     protected function invoiceChanged(string $dialog, string $message): void

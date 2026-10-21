@@ -1279,5 +1279,17 @@
     "Payment changed": "भुगतान बदला गया",
     "Payment changed.": "भुगतान बदल दिया गया।",
     "Payment :receipt on invoice :number changed.": "इनवॉइस :number पर भुगतान :receipt बदला गया।",
-    "The amount and the invoice stay as they are. For a wrong amount, remove the payment and record it again.": "राशि और इनवॉइस वैसे ही रहते हैं। गलत राशि हो तो भुगतान हटाकर फिर से दर्ज करें।"
+    "The amount and the invoice stay as they are. For a wrong amount, remove the payment and record it again.": "राशि और इनवॉइस वैसे ही रहते हैं। गलत राशि हो तो भुगतान हटाकर फिर से दर्ज करें।",
+    "Cancel and reissue": "रद्द करके फिर से जारी करें",
+    "Cancel and reissue :number": ":number रद्द करके फिर से जारी करें",
+    ":number is cancelled and keeps its number. The new invoice gets the next number and the customer's details as they are now.": ":number रद्द हो जाएगा और उसका नंबर वही रहेगा। नए इनवॉइस को अगला नंबर और ग्राहक का अभी का विवरण मिलेगा।",
+    "More details": "और जानकारी",
+    "more details": "और जानकारी",
+    "Optional second line, such as the period or speed.": "वैकल्पिक दूसरी पंक्ति, जैसे अवधि या स्पीड।",
+    "Replaces": "इसकी जगह लेता है",
+    "Replaced by": "इसकी जगह",
+    "This invoice is already cancelled.": "यह इनवॉइस पहले ही रद्द है।",
+    "Invoice :number issued, replacing :old.": "इनवॉइस :number जारी हुआ, :old की जगह।",
+    "Invoice :number issued, :total, replacing :old.": "इनवॉइस :number बना, :total, :old की जगह।",
+    "Invoice :number cancelled and replaced by :new.": "इनवॉइस :number रद्द किया गया, इसकी जगह :new।"
 }
