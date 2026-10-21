@@ -74,6 +74,7 @@
                         <x-ui.td class="text-end tabular-nums">{{ $payment['amount'] }}</x-ui.td>
                         <x-ui.td>{{ $payment['staff'] }}</x-ui.td>
                         <x-ui.td class="whitespace-nowrap text-end">
+                            <x-ui.button size="sm" variant="ghost" :href="route('payments.receipt', $payment['id'])">{{ __('Receipt') }}</x-ui.button>
                             @if ($payment['removed'])
                                 <span class="text-xs no-underline">{{ __('Removed: :reason', ['reason' => $payment['reason']]) }}</span>
                             @elseif ($this->can['remove'])
@@ -118,7 +119,9 @@
                 @foreach ($lines as $index => $line)
                     <div class="grid gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" wire:key="line-{{ $index }}">
                         <div class="flex items-end gap-2">
-                            <x-ui.input class="flex-1" wire:model="lines.{{ $index }}.description" :label="__('Description')" maxlength="255" />
+                            <div class="min-w-0 flex-1">
+                                <x-ui.input wire:model="lines.{{ $index }}.description" :label="__('Description')" maxlength="255" />
+                            </div>
                             @if (count($lines) > 1)
                                 <x-ui.button size="sm" variant="ghost" wire:click="removeLine({{ $index }})">{{ __('Remove') }}</x-ui.button>
                             @endif
@@ -155,7 +158,7 @@
 
                 <x-ui.input wire:model="invoice_date" type="date" :label="__('Invoice date')" :description="__('Any earlier date is allowed; not a future one.')" />
 
-                @include('partials.payment-fields', ['total' => $this->newInvoiceTotal])
+                @include('partials.payment-fields', ['total' => $this->newInvoiceTotal, 'idPrefix' => 'new-invoice'])
 
                 <div class="flex justify-end gap-2">
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'billing-new-invoice' })">{{ __('Cancel') }}</x-ui.button>

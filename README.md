@@ -39,7 +39,7 @@ a customer who is online is changed, their session is disconnected so the change
   disabled pool and a notice page.
 - **Invoices and payments:** off until you turn it on in System, then Billing. An invoice with every paid recharge
   and for manual charges (a CPE), payments by cash, UPI, bank or your own methods, discounts and Free customers, GST
-  (CGST/SGST or IGST by place of supply) or one tax of your country, a PDF, dues and a CSV export for filing.
+  (CGST/SGST or IGST by place of supply) or one tax of your country, invoice and receipt PDFs, dues and a CSV export for filing.
 - **Hotspot:** off until you turn it on in App settings (while it is off, FreeRADIUS refuses Hotspot page logins).
   A Hotspot plan can start its validity at the customer's first login instead of at the recharge.
 - **Online and Login log:** who is connected, from which NAS, IP and device, with traffic; every accepted and
@@ -290,7 +290,7 @@ ISPGrid stands on the work of these projects. Thank you to everyone who builds a
 - [Tailwind CSS](https://tailwindcss.com) and [Vite](https://vite.dev)
 - [Heroicons](https://heroicons.com): icons
 - [spatie/laravel-activitylog](https://github.com/spatie/laravel-activitylog): the activity log
-- [Dompdf](https://github.com/dompdf/dompdf) and [DejaVu fonts](https://dejavu-fonts.github.io): invoice PDFs
+- [Dompdf](https://github.com/dompdf/dompdf) and [DejaVu fonts](https://dejavu-fonts.github.io): invoice and receipt PDFs
 - [Geist](https://vercel.com/font), [JetBrains Mono](https://www.jetbrains.com/lp/mono/) and [Noto Sans Devanagari](https://fonts.google.com/noto/specimen/Noto+Sans+Devanagari): fonts
 
 **Testing and tooling**

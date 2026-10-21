@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Billing\BillingSettings;
 use App\Billing\Pdf\DompdfInvoicePdf;
+use App\Billing\Pdf\DompdfReceiptPdf;
 use App\Billing\Pdf\InvoicePdf;
+use App\Billing\Pdf\ReceiptPdf;
 use App\Billing\Tax\IndiaGst;
 use App\Billing\Tax\NoTax;
 use App\Billing\Tax\SingleTax;
@@ -57,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TaxSetups::class, fn (): TaxSetups => new TaxSetups([new NoTax, new SingleTax, new IndiaGst]));
         $this->app->bind(BillingSettings::class, fn (): BillingSettings => BillingSettings::current());
         $this->app->bind(InvoicePdf::class, DompdfInvoicePdf::class);
+        $this->app->bind(ReceiptPdf::class, DompdfReceiptPdf::class);
         $this->app->singleton(Navigation::class, fn (): Navigation => $this->coreNavigation());
 
         $this->app->singleton(Permissions::class, function (): Permissions {

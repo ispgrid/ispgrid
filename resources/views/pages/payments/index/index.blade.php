@@ -40,6 +40,7 @@
                     <x-ui.th>{{ __('Reference') }}</x-ui.th>
                     <x-ui.th class="text-end">{{ __('Amount') }}</x-ui.th>
                     <x-ui.th>{{ __('Recorded by') }}</x-ui.th>
+                    <x-ui.th><span class="sr-only">{{ __('Actions') }}</span></x-ui.th>
                 </x-slot:head>
                 @foreach ($this->rows as $row)
                     <tr wire:key="payment-{{ $row['id'] }}" @class(['text-zinc-500 dark:text-zinc-500' => $row['removed']])>
@@ -54,6 +55,9 @@
                             @if ($row['removed'])
                                 <span class="block text-xs">{{ __('Removed: :reason', ['reason' => $row['reason']]) }}</span>
                             @endif
+                        </x-ui.td>
+                        <x-ui.td class="whitespace-nowrap text-end">
+                            <x-ui.button size="sm" variant="ghost" :href="route('payments.receipt', $row['id'])">{{ __('Receipt') }}</x-ui.button>
                         </x-ui.td>
                     </tr>
                 @endforeach

@@ -15,7 +15,7 @@
     $required = (bool) $attributes->get('required', false);
 @endphp
 
-<div class="grid content-start gap-1.5" @if ($english) x-data="{ notEnglish: false }" @endif>
+<div class="grid min-w-0 grid-cols-1 content-start gap-1.5" @if ($english) x-data="{ notEnglish: false }" @endif>
     @if ($label)
         <label for="{{ $id }}" class="text-sm font-medium">{{ $label }}@if ($required)<span class="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>@endif</label>
     @endif

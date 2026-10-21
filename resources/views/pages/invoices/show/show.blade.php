@@ -1,7 +1,10 @@
 <section class="grid gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-            <x-ui.heading level="1" size="xl">{{ $this->printed['title'] }} {{ $this->printed['number'] }}</x-ui.heading>
+            <div class="flex flex-wrap items-center gap-3">
+                <x-ui.heading level="1" size="xl">{{ $this->printed['title'] }} {{ $this->printed['number'] }}</x-ui.heading>
+                <x-ui.badge :color="$this->status['color']">{{ $this->status['label'] }}</x-ui.badge>
+            </div>
             <x-ui.text muted class="mt-1">
                 <x-ui.link href="{{ route('customers.show', ['account' => $this->accountId, 'tab' => 'billing']) }}" wire:navigate>{{ $this->printed['customer']['billing_lines'][0] ?? $this->printed['customer']['username'] }}</x-ui.link>
                 ({{ $this->printed['customer']['username'] }})
@@ -56,12 +59,14 @@
                     <p>{{ $this->printed['customer']['tax_label'] }}: {{ $this->printed['customer']['tax_number'] }}</p>
                 @endif
             </div>
-            <div>
-                <p class="text-xs uppercase text-zinc-600 dark:text-zinc-400">{{ __('Connectivity address') }}</p>
-                @foreach ($this->printed['customer']['connectivity_lines'] as $line)
-                    <p>{{ $line }}</p>
-                @endforeach
-            </div>
+            @if ($this->printed['customer']['connectivity_lines'] !== [])
+                <div>
+                    <p class="text-xs uppercase text-zinc-600 dark:text-zinc-400">{{ __('Connectivity address') }}</p>
+                    @foreach ($this->printed['customer']['connectivity_lines'] as $line)
+                        <p>{{ $line }}</p>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         <x-ui.table>
@@ -131,6 +136,7 @@
                         <x-ui.td class="text-end tabular-nums">{{ $payment['amount'] }}</x-ui.td>
                         <x-ui.td>{{ $payment['staff'] }}</x-ui.td>
                         <x-ui.td class="whitespace-nowrap text-end">
+                            <x-ui.button size="sm" variant="ghost" :href="route('payments.receipt', $payment['id'])">{{ __('Receipt') }}</x-ui.button>
                             @if ($payment['removed'])
                                 <span class="text-xs">{{ __('Removed: :reason', ['reason' => $payment['reason']]) }}</span>
                             @elseif ($this->can['remove'])

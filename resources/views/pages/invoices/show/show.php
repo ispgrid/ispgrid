@@ -62,6 +62,17 @@ new #[Title('Invoice')] class extends Component
     }
 
     /**
+     * The status badge.
+     *
+     * @return array{label: string, color: string}
+     */
+    #[Computed]
+    public function status(): array
+    {
+        return ['label' => $this->invoice->status->label(), 'color' => $this->invoice->status->color()];
+    }
+
+    /**
      * What staff may do: nothing on a deleted customer's invoice, and no new payment while invoicing is off.
      *
      * @return array{record: bool, remove: bool, cancel: bool, open: bool, cancelled: bool}
@@ -105,7 +116,7 @@ new #[Title('Invoice')] class extends Component
 
     protected function invoiceChanged(string $dialog, string $message): void
     {
-        unset($this->invoice, $this->printed, $this->can, $this->payments);
+        unset($this->invoice, $this->printed, $this->status, $this->can, $this->payments);
         $this->dispatch('modal-close', name: $dialog);
         $this->toast($message);
     }

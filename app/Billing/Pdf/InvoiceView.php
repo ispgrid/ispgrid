@@ -37,8 +37,7 @@ final class InvoiceView
     {
         $company = $invoice->company;
         $customer = $invoice->customer;
-        $currency = is_array($company['currency'] ?? null) ? $company['currency'] : [];
-        $money = new Money(self::text($currency, 'symbol'), (int) ($currency['decimals'] ?? 2), self::text($currency, 'grouping') ?: 'international');
+        $money = self::money($invoice);
         $dateFormat = (string) AppSetting::valueOf('date_format', 'd/m/Y');
         $india = $invoice->tax_setup === 'india-gst';
         $taxLabel = $india ? 'GSTIN' : ((string) AppSetting::valueOf('tax_id_label', '') ?: 'Tax ID');
@@ -101,6 +100,28 @@ final class InvoiceView
             'signature' => (bool) ($company['show_signature'] ?? true),
             'signatory' => self::text($company, 'name'),
         ];
+    }
+
+    /**
+     * Amounts in the currency the invoice was issued in (symbol, decimals and grouping from its snapshot).
+     */
+    public static function money(Invoice $invoice): Money
+    {
+        $currency = self::currency($invoice);
+
+        return new Money(self::text($currency, 'symbol'), (int) ($currency['decimals'] ?? 2), self::text($currency, 'grouping') ?: 'international');
+    }
+
+    /**
+     * The invoice's currency snapshot: code, symbol, decimals, grouping.
+     *
+     * @return array<mixed>
+     */
+    public static function currency(Invoice $invoice): array
+    {
+        $company = $invoice->company;
+
+        return is_array($company['currency'] ?? null) ? $company['currency'] : [];
     }
 
     /**

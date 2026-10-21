@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\InvoicePdfController;
+use App\Http\Controllers\PaymentReceiptController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
@@ -15,6 +16,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('invoices/{invoice}', 'pages::invoices.show')->name('invoices.show');
     Route::livewire('payments', 'pages::payments.index')->name('payments.index');
     Route::get('invoices/{invoice}/pdf', InvoicePdfController::class)->name('invoices.pdf');
+    Route::get('payments/{payment}/receipt', PaymentReceiptController::class)->name('payments.receipt')->withTrashed();
     Route::livewire('online', 'pages::online.index')->name('online.index');
     Route::livewire('login-log', 'pages::login-log.index')->name('login-log.index');
     Route::livewire('plans', 'pages::plans.index')->name('plans.index');
