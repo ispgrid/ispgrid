@@ -70,7 +70,8 @@ final class RechargeAccount
                 throw new ExpiryChangedMeanwhile;
             }
 
-            $plan = Plan::query()->findOrFail($planId);
+            // Shared lock: a delete of this plan waits for the commit and then counts this customer.
+            $plan = Plan::query()->sharedLock()->findOrFail($planId);
 
             if ($plan->hotspot_starts_at_first_login && $account->service_type !== ServiceType::Hotspot) {
                 throw new FirstLoginPlanNeedsHotspot;

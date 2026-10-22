@@ -72,6 +72,20 @@ it('disables and restores another staff member', function () {
     expect($other->fresh()->trashed())->toBeFalse();
 });
 
+it('changes nothing when the other Admin took Admin from you a moment before', function (string $action) {
+    $other = User::factory()->create();
+    $technician = Role::findByName(Role::TECHNICIAN);
+    $page = Livewire::test('pages::staff.index')->call('editRole', $other->id)->set('role', (string) $technician->id);
+
+    // The other Admin demoted this one while the page was open: two Admins demoting each other at once.
+    User::query()->findOrFail($this->admin->id)->syncRoles([$technician]);
+
+    $page->call($action, ...($action === 'disable' ? [$other->id] : []))->assertDispatched('toast', variant: 'danger');
+
+    expect($other->fresh()->isAdmin())->toBeTrue()
+        ->and($other->fresh()->trashed())->toBeFalse();
+})->with(['saveRole', 'disable']);
+
 it('links the System menu to the staff screen', function () {
     $this->get(route('dashboard'))->assertSee(route('staff.index'));
 });

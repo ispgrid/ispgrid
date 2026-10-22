@@ -1400,5 +1400,6 @@
     "No sales yet this month.": "इस महीने अभी कोई बिक्री नहीं।",
     "Pay code": "भुगतान कोड",
     "That link is not valid. Search by username or mobile number.": "यह लिंक सही नहीं है। यूज़रनेम या मोबाइल नंबर से खोजें।",
-    "Pay code: write :address in the approved text, right before its variable.": "भुगतान कोड: स्वीकृत टेक्स्ट में इसके वेरिएबल से ठीक पहले :address लिखें।"
+    "Pay code: write :address in the approved text, right before its variable.": "भुगतान कोड: स्वीकृत टेक्स्ट में इसके वेरिएबल से ठीक पहले :address लिखें।",
+    "You are no longer an Admin.": "अब आप एडमिन नहीं हैं।"
 }

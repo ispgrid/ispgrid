@@ -99,6 +99,8 @@ new #[Title('Pools')] class extends Component
 
         $attributes = ['name' => $validated['name'], 'description' => $validated['description'] ?: null];
 
+        // Loaded again in each attempt: after a deadlock retry, the model updated by the rolled-back attempt would
+        // look unchanged and skip the rename.
         $renamed = DB::transaction(function () use ($pool, $attributes, $replace): bool {
             if ($pool === null) {
                 Pool::query()->create($attributes);
@@ -106,6 +108,7 @@ new #[Title('Pools')] class extends Component
                 return false;
             }
 
+            $pool = Pool::query()->lockForUpdate()->findOrFail($pool->id);
             $oldName = $pool->name;
             $pool->update($attributes);
 

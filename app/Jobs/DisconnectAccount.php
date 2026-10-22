@@ -59,6 +59,17 @@ class DisconnectAccount implements ShouldQueue
         $sessions = Radacct::query()->open()->where('username', $this->username)
             ->when($this->sessionId !== null, fn ($query) => $query->whereKey($this->sessionId))
             ->get();
+
+        // A router that does not answer holds each session for seconds, so a dozen would pass the worker's
+        // 60-second timeout: each session gets its own job, with its own tries.
+        if ($this->sessionId === null && $sessions->count() > 1) {
+            foreach ($sessions as $session) {
+                static::dispatch($this->username, $session->radacctid)->onConnection($this->connection)->onQueue($this->queue);
+            }
+
+            return;
+        }
+
         $problems = [];
 
         foreach ($sessions as $session) {

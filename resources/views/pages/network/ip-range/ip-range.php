@@ -6,6 +6,7 @@ use App\Models\Ip;
 use App\Models\IpRange;
 use App\Support\Ipv4Cidr;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -130,7 +131,11 @@ new #[Title('IP range')] class extends Component
             return;
         }
 
-        $ip->delete();
+        // The range row is locked first, so a delete of the whole range never shares this address's time.
+        DB::transaction(function () use ($ipId): void {
+            IpRange::withTrashed()->lockForUpdate()->findOrFail($this->rangeId);
+            Ip::query()->where('ip_range_id', $this->rangeId)->findOrFail($ipId)->delete();
+        }, attempts: 3);
 
         $this->toast(__(':address taken out of the inventory.', ['address' => $ip->address]));
     }

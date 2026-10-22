@@ -53,6 +53,20 @@ it('disconnects only the session it was given', function () {
     Process::assertRan(fn (PendingProcess $process): bool => str_contains((string) $process->input, 'bbbb0002'));
 });
 
+it('gives each of several open sessions its own job, so a silent router cannot pass the worker timeout', function () {
+    Process::fake();
+    Queue::fake();
+    $first = Radacct::factory()->create(['username' => 'alice']);
+    $second = Radacct::factory()->create(['username' => 'alice']);
+
+    (new DisconnectAccount('alice'))->handle();
+
+    Process::assertNothingRan();
+    Queue::assertPushed(DisconnectAccount::class, 2);
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->sessionId === $first->radacctid);
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->sessionId === $second->radacctid);
+});
+
 it('takes a NAK as done: the router has no such session', function () {
     routerAnswers('Received Disconnect-NAK Id 7 Error-Cause = Session-Context-Not-Found');
     Radacct::factory()->create(['username' => 'alice']);

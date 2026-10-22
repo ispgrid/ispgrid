@@ -164,11 +164,14 @@ new #[Title('NAS')] class extends Component
             'type' => 'mikrotik',
         ];
 
+        // Loaded again in each attempt: after a deadlock retry, the model updated by the rolled-back attempt would
+        // look unchanged and skip the new IP.
         $router = DB::transaction(function () use ($router, $attributes, $replace): Nas {
             if ($router === null) {
                 return Nas::query()->create($attributes);
             }
 
+            $router = Nas::query()->lockForUpdate()->findOrFail($router->id);
             $oldAddress = $router->nasname;
             $router->update($attributes);
 
