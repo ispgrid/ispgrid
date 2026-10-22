@@ -18,7 +18,7 @@ new #[Title('Login log')] class extends Component
 {
     use AuthorizesEveryRequest, WithPagination;
 
-    private const FILTERS = ['username', 'result', 'reason', 'router'];
+    private const FILTERS = ['username', 'result', 'reason', 'router', 'ip'];
 
     #[Url]
     public string $username = '';
@@ -34,6 +34,12 @@ new #[Title('Login log')] class extends Component
 
     #[Url]
     public string $router = '';
+
+    /**
+     * The IP a login was given, matched exactly.
+     */
+    #[Url]
+    public string $ip = '';
 
     public function mount(): void
     {
@@ -83,6 +89,7 @@ new #[Title('Login log')] class extends Component
     {
         $username = trim($this->username);
         $reason = trim($this->reason);
+        $ip = trim($this->ip);
         $result = LoginResult::tryFrom($this->result);
 
         return Radpostauth::query()
@@ -90,12 +97,13 @@ new #[Title('Login log')] class extends Component
             ->when($result !== null, fn (Builder $query) => $query->where('reply', $result->reply()))
             ->when($reason !== '', fn (Builder $query) => $query->where('reply_msg', 'like', "%{$reason}%"))
             ->when($this->router !== '', fn (Builder $query) => $query->where('nasipaddress', $this->router))
+            ->when($ip !== '', fn (Builder $query) => $query->where('framedipaddress', $ip))
             ->orderByDesc('id')
             ->simplePaginate(50);
     }
 
     /**
-     * @return list<array{id: int, username: string, account: ?int, when: string, result: string, color: string, reason: string, router: string, mac: string}>
+     * @return list<array{id: int, username: string, account: ?int, when: string, result: string, color: string, reason: string, router: string, mac: string, ip: string}>
      */
     #[Computed]
     public function rows(): array

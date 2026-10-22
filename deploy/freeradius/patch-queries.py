@@ -14,17 +14,19 @@ CLIENT_QUERY = """client_query = "\\
 \tFROM ${client_table} \\
 \tWHERE deleted_at IS NULL\""""
 
-#  Login log: no password (the pass column keeps its default ''), the real reject reason, the MAC.
+#  Login log: no password (the pass column keeps its default ''), the real reject reason, the MAC and the session id
+#  (a radacct trigger copies the session's IP onto the accept).
 POSTAUTH_QUERY = """query =\t"\\
 \t\tINSERT INTO ${..postauth_table} \\
-\t\t\t(username, reply, reply_msg, authdate, nasipaddress, mac) \\
+\t\t\t(username, reply, reply_msg, authdate, nasipaddress, mac, acctsessionid) \\
 \t\tVALUES ( \\
 \t\t\t'%{SQL-User-Name}', \\
 \t\t\t'%{reply:Packet-Type}', \\
 \t\t\t'%{%{control:Isp-Reject-Reason}:-%{reply:Reply-Message}}', \\
 \t\t\t'%S.%M', \\
 \t\t\t'%{NAS-IP-Address}', \\
-\t\t\t'%{Calling-Station-Id}')\""""
+\t\t\t'%{Calling-Station-Id}', \\
+\t\t\tNULLIF('%{Acct-Session-Id}', ''))\""""
 
 
 def replace(text, name, pattern, new, group=0):

@@ -59,6 +59,16 @@ it('filters by username, reason and router', function (string $filter, string $v
     'router' => ['router', '10.0.0.1'],
 ]);
 
+it('shows the IP a login was given and finds logins by it', function () {
+    Radpostauth::factory()->create(['username' => 'alice', 'framedipaddress' => '10.20.0.7']);
+    Radpostauth::factory()->create(['username' => 'bob', 'framedipaddress' => '10.20.0.70']);
+
+    Livewire::test('pages::login-log.index')
+        ->set('ip', ' 10.20.0.7 ')
+        ->assertSee(['alice', '10.20.0.7'])
+        ->assertDontSee('bob');
+});
+
 it('ignores a result it does not know', function () {
     Radpostauth::factory()->create(['username' => 'alice']);
 

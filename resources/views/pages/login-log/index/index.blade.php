@@ -4,11 +4,12 @@
         <x-ui.text muted class="mt-1">{{ __('Every login attempt FreeRADIUS answered, with the real reason. Dropped means no answer was sent (a NAS that must send Message-Authenticator did not).') }}</x-ui.text>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <x-ui.input wire:model.live.debounce.300ms="username" type="search" :label="__('Username')" autocomplete="off" />
         <x-ui.select wire:model.live="result" :label="__('Result')" :options="$this->results" :placeholder="__('All results')" />
         <x-ui.input wire:model.live.debounce.300ms="reason" type="search" :label="__('Reason')" :placeholder="__('Part of the reason')" autocomplete="off" />
         <x-ui.select wire:model.live="router" :label="__('NAS')" :options="$this->routers" :placeholder="__('All NAS')" />
+        <x-ui.input wire:model.live.debounce.300ms="ip" type="search" :label="__('IP')" :placeholder="__('Exact IP address')" autocomplete="off" />
     </div>
 
     <x-ui.table>
@@ -19,6 +20,7 @@
             <x-ui.th>{{ __('Reason') }}</x-ui.th>
             <x-ui.th>{{ __('NAS') }}</x-ui.th>
             <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
+            <x-ui.th>{{ __('IP') }}</x-ui.th>
         </x-slot:head>
 
         @forelse ($this->rows as $row)
@@ -35,10 +37,11 @@
                 <x-ui.td class="break-words">{{ $row['reason'] }}</x-ui.td>
                 <x-ui.td>{{ $row['router'] }}</x-ui.td>
                 <x-ui.td class="font-mono">{{ $row['mac'] }}</x-ui.td>
+                <x-ui.td class="font-mono">{{ $row['ip'] }}</x-ui.td>
             </tr>
         @empty
             <tr>
-                <x-ui.td colspan="6" class="py-8 text-center text-zinc-600 dark:text-zinc-400">{{ __('No login attempt matches these filters.') }}</x-ui.td>
+                <x-ui.td colspan="7" class="py-8 text-center text-zinc-600 dark:text-zinc-400">{{ __('No login attempt matches these filters.') }}</x-ui.td>
             </tr>
         @endforelse
     </x-ui.table>

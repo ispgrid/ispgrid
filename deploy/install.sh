@@ -58,7 +58,7 @@ Anything not given is asked; with --yes nothing is asked and the defaults are us
   --version=vX.Y.Z          the version to install or upgrade to (default: the newest release)
   --yes                     ask nothing
   --verbose                 show every command's output (it always goes to /var/log/ispgrid-install.log)
-  --skip-selftest           skip the FreeRADIUS self-test at the end (170 checks, about 3 minutes)
+  --skip-selftest           skip the FreeRADIUS self-test at the end (172 checks, about 3 minutes)
   --addon=PACKAGE[@VERSION] install an add-on from the ISPGrid add-on list (repeatable), e.g. --addon=ispgrid/ipdr;
                             @VERSION holds that version, otherwise upgrades move it to its newest listed version
   --allow-unlisted          with --addon: install an add-on that is not in the ISPGrid add-on list (its code was
