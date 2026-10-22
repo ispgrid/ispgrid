@@ -75,6 +75,15 @@ function radcheckOf(string $username): array
         ->map(fn (object $row): array => (array) $row)->all();
 }
 
+/**
+ * @return list<array{attribute: string, op: string, value: string}>
+ */
+function radreplyOf(string $username): array
+{
+    return DB::table('radreply')->where('username', $username)->orderBy('attribute')->orderBy('value')->get(['attribute', 'op', 'value'])
+        ->map(fn (object $row): array => (array) $row)->all();
+}
+
 it('imports a customer as Inactive without a plan, with the FreeRADIUS rows the form writes', function () {
     app(ImportCustomers::class)->import(importCustomerRows([]));
 
@@ -85,7 +94,7 @@ it('imports a customer as Inactive without a plan, with the FreeRADIUS rows the 
     expect(Account::query()->where('username', 'alice')->sole())
         ->status_id->toBe(AccountStatus::Inactive)->plan_id->toBeNull()->expiry->toBeNull()->usage_since->toBeNull()
         ->and(radcheckOf('alice'))->toBe(radcheckOf('bob'))
-        ->and(DB::table('radreply')->where('username', 'alice')->count())->toBe(DB::table('radreply')->where('username', 'bob')->count());
+        ->and(radreplyOf('alice'))->toBe(radreplyOf('bob'));
 });
 
 it('gives a customer the plan, expiry and status from the file, with the usage period starting now', function () {
@@ -237,9 +246,12 @@ it('checks the profile and service fields as the form does', function (array $va
     'password quote' => [['password' => 'pa"ss'], '2 password: Leave out quotes, backticks and backslashes: FreeRADIUS reads them as part of its own syntax.'],
     'no password' => [['password' => ''], '2 password: The password field is required.'],
     'service type' => [['service_type' => 'STATIC'], '2 service_type: Choose PPPoE or IPoE. Hotspot is turned off in App settings.'],
-    'device limit' => [['device_limit' => '101'], '2 device_limit: The mac type field must be between 0 and 100.'],
+    'device limit' => [['device_limit' => '101'], '2 device_limit: The device limit field must be between 0 and 100.'],
     'address without line 1' => [['city' => 'Kolkata'], '2 line1: Enter the first address line, or leave the whole address empty.'],
+    'postal code' => [['line1' => '12 Park Street', 'postal_code' => str_repeat('7', 21)], '2 postal_code: The postal code field must not be greater than 20 characters.'],
     'connection type' => [['connection_type' => 'Nowhere'], '2 connection_type: No connection type named Nowhere.'],
+    'name Excel could not save' => [['fullname' => '??? ???'], '2 fullname: Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.'],
+    'address Excel could not save' => [['line1' => '12 Park Street', 'city' => '?????'], '2 city: Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.'],
 ]);
 
 it('saves the address and the connection type', function () {
@@ -333,6 +345,13 @@ it('logs each customer as imported, with the address and never the password', fu
     expect($entry->event)->toBe('imported')
         ->and($entry->attribute_changes['attributes'])->toMatchArray(['username' => 'alice', 'address' => '12 Park Street, Kolkata'])
         ->and(json_encode($entry->attribute_changes))->not->toContain('secret12');
+});
+
+it('logs the device an imported customer is bound to', function () {
+    app(ImportCustomers::class)->import(importCustomerRows(['mac' => 'aa-bb-cc-dd-ee-01']));
+
+    expect(Activity::query()->where('subject_type', (new Account)->getMorphClass())->sole()->attribute_changes['attributes'])
+        ->toMatchArray(['mac' => 'AA:BB:CC:DD:EE:01']);
 });
 
 it('writes nothing when one row is wrong', function () {

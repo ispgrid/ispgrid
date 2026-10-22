@@ -18,6 +18,7 @@ use App\Models\Ip;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\UsagePeriod;
+use App\Support\CsvFile;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\IpAddress;
@@ -129,7 +130,7 @@ final class ImportCustomers implements Importer
             DB::table('account_macs')->insert(['username' => $account->username, 'mac_norm' => $row['mac'], 'learned_at' => now()]);
         }
 
-        $this->logImported($account, $row['address']);
+        $this->logImported($account, $row['address'], $row['mac']);
     }
 
     /**
@@ -172,6 +173,12 @@ final class ImportCustomers implements Importer
         $address = array_map(fn (string $value): ?string => $value === '' ? null : $value, Arr::only($values, self::ADDRESS));
         $hasAddress = array_filter($address, fn (?string $value): bool => $value !== null) !== [];
 
+        foreach (['fullname', 'company', 'billing_name', ...self::ADDRESS] as $column) {
+            if (CsvFile::lostLetters($values[$column])) {
+                $errors[$column] = CsvFile::lostLettersMessage();
+            }
+        }
+
         foreach ($isIpoe ? ['username', 'mobile', 'whatsapp', 'alt_number'] : ['username', 'password', 'mobile', 'whatsapp', 'alt_number'] as $column) {
             // Excel shows a long number such as 123456789012 as 1.23457E+11 and saves it that way.
             if (preg_match('/^\d+(\.\d+)?E\+\d+$/i', $values[$column]) === 1) {
@@ -213,7 +220,7 @@ final class ImportCustomers implements Importer
         ];
         $rules = CustomerRules::rules(true, $isIpoe, $hasAddress, $digits);
 
-        foreach (Validator::make($data, $rules, CustomerRules::messages($digits))->errors()->messages() as $field => $messages) {
+        foreach (Validator::make($data, $rules, CustomerRules::messages($digits), self::attributeNames())->errors()->messages() as $field => $messages) {
             $column = str_starts_with($field, 'address.') ? substr($field, 8) : (self::COLUMN_OF[$field] ?? $field);
             $errors[$column] ??= $messages[0];
         }
@@ -438,6 +445,18 @@ final class ImportCustomers implements Importer
     }
 
     /**
+     * The CSV column each message names, e.g. "The device limit field ..." rather than "The mac type field ...".
+     *
+     * @return array<string, string>
+     */
+    private static function attributeNames(): array
+    {
+        $columns = self::COLUMN_OF + array_combine(array_map(fn (string $column): string => 'address.'.$column, self::ADDRESS), self::ADDRESS);
+
+        return array_map(fn (string $column): string => str_replace('_', ' ', $column), $columns);
+    }
+
+    /**
      * "YYYY-MM-DD HH:MM" or "YYYY-MM-DD" (midnight). A date that does not exist (2026-02-30) is refused, not
      * rolled over.
      */
@@ -459,12 +478,12 @@ final class ImportCustomers implements Importer
     }
 
     /**
-     * One "Imported" entry with the customer's logged columns (never the password) and their address, like the
-     * form's "Created" entry.
+     * One "Imported" entry with the customer's logged columns (never the password), their address and the bound
+     * device, like the form's "Created" entry.
      *
      * @param  ?array<string, ?string>  $address
      */
-    private function logImported(Account $account, ?array $address): void
+    private function logImported(Account $account, ?array $address, ?string $mac): void
     {
         $attributes = [];
 
@@ -479,6 +498,10 @@ final class ImportCustomers implements Importer
 
         if ($address !== null) {
             $attributes['address'] = implode(', ', array_filter($address, fn (?string $value): bool => $value !== null));
+        }
+
+        if ($mac !== null) {
+            $attributes['mac'] = implode(':', str_split($mac, 2));
         }
 
         activity()->performedOn($account)->event('imported')->withChanges(['attributes' => $attributes])->log('imported');

@@ -61,6 +61,12 @@ final class CsvFile
         }
 
         $header = array_map(fn (?string $name): string => strtolower(trim((string) $name)), $header);
+
+        // Excel adds empty unnamed columns at the end when cells to the right were ever touched.
+        while ($header !== [] && end($header) === '') {
+            array_pop($header);
+        }
+
         $errors = self::headerErrors($header, $columns, $required);
 
         if ($errors !== []) {
@@ -78,8 +84,22 @@ final class CsvFile
                 continue;
             }
 
+            // Their cells stay empty too; a value there still counts as a stray comma below.
+            while (count($cells) > count($header) && end($cells) === '') {
+                array_pop($cells);
+            }
+
             if (count($cells) > count($header)) {
                 $errors[] = new RowError($line, null, __('This row has :cells cells but the header has :columns. Check for a stray comma.', [
+                    'cells' => count($cells),
+                    'columns' => count($header),
+                ]));
+
+                continue;
+            }
+
+            if (count($cells) < count($header)) {
+                $errors[] = new RowError($line, null, __('This row has :cells cells but the header has :columns. Check for a missing comma.', [
                     'cells' => count($cells),
                     'columns' => count($header),
                 ]));
@@ -90,7 +110,7 @@ final class CsvFile
             $values = array_fill_keys($columns, '');
 
             foreach ($header as $index => $name) {
-                $values[$name] = $cells[$index] ?? '';
+                $values[$name] = $cells[$index];
             }
 
             $rows[] = ['line' => $line, 'values' => $values];
@@ -134,6 +154,23 @@ final class CsvFile
         }
 
         return $errors;
+    }
+
+    /**
+     * Excel's plain "CSV" can't hold Bengali or Devanagari letters and saves each one as "?", in a file that still
+     * passes as UTF-8. Two in a row is the sign; a single "?" may be meant.
+     */
+    public static function lostLetters(string $value): bool
+    {
+        return str_contains($value, '??');
+    }
+
+    /**
+     * The problem to show for a text cell that lostLetters() flags.
+     */
+    public static function lostLettersMessage(): string
+    {
+        return __('Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.');
     }
 
     private static function failed(string $message): self
