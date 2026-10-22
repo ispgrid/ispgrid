@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Amount;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,10 +24,10 @@ class InvoiceLine extends Model
         return [
             'position' => 'integer',
             'quantity' => 'decimal:3',
-            'unit_price' => 'decimal:2',
+            'unit_price' => Amount::class,
             'discount_percent' => 'decimal:2',
-            'discount_amount' => 'decimal:2',
-            'taxable' => 'decimal:2',
+            'discount_amount' => Amount::class,
+            'taxable' => Amount::class,
             'taxed' => 'boolean',
         ];
     }

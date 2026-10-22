@@ -70,10 +70,10 @@ it('offers India GST only for India', function () {
         ->and($setups->get('none')->invoiceTitle())->toBe('INVOICE');
 });
 
-it('rounds invoices to two decimals at most', function () {
+it('rounds invoices to the currency decimals, three for dinars', function () {
     AppSetting::put('currency_decimals', '3');
 
-    expect(BillingSettings::current()->decimals)->toBe(2);
+    expect(BillingSettings::current()->decimals)->toBe(3);
 
     AppSetting::put('currency_decimals', '0');
 

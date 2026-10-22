@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Amount;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +23,7 @@ class InvoiceTaxLine extends Model
         return [
             'position' => 'integer',
             'rate' => 'decimal:3',
-            'amount' => 'decimal:2',
+            'amount' => Amount::class,
         ];
     }
 

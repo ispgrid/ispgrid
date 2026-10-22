@@ -26,6 +26,7 @@ use App\Models\AppSetting;
 use App\Models\Plan;
 use App\Models\Radacct;
 use App\Models\Recharge;
+use App\Support\Currency;
 use App\Support\ExpiryCalculator;
 use App\Support\Money;
 use App\Support\PlanChoices;
@@ -285,7 +286,7 @@ new class extends Component
         $this->validate([
             'change_plan_id' => ['required', $this->planRule(), Rule::notIn([(string) $this->account->plan_id])],
             'change_expiry' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
-            'change_amount' => $charge['mode'] === 'amount' ? ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'] : [],
+            'change_amount' => $charge['mode'] === 'amount' ? ['required', ...Currency::amountRules()] : [],
             'change_note' => ['nullable', 'string', 'max:255'],
             ...$this->moneyRules($charge),
         ], ['change_expiry.after' => __('The expiry must be in the future.'), 'change_plan_id.not_in' => __('This is the current plan. Use Recharge to renew it.')], [
@@ -347,7 +348,7 @@ new class extends Component
         $this->validate([
             'advance_plan_id' => ['required', $this->planRule()],
             'advance_expiry' => ['required', 'date_format:Y-m-d\TH:i', ...($starts === null ? [] : ['after:'.$starts->format('Y-m-d H:i:s')])],
-            'advance_amount' => $charge['mode'] === 'amount' ? ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'] : [],
+            'advance_amount' => $charge['mode'] === 'amount' ? ['required', ...Currency::amountRules()] : [],
             'advance_note' => ['nullable', 'string', 'max:255'],
             ...$this->moneyRules($charge),
         ], ['advance_expiry.after' => __('The expiry must be after the start.')], [

@@ -33,6 +33,7 @@ use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerFormTabs;
 use App\Support\Addons\CustomerTabs;
+use App\Support\Currency;
 use App\Support\Navigation\Navigation;
 use App\Support\Navigation\NavItem;
 use App\Support\Permissions;
@@ -60,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SessionKeepers::class);
+        $this->app->scoped(Currency::class, fn (): Currency => Currency::fromSettings());
         $this->app->singleton(AddonSettings::class);
         $this->app->singleton(CustomerFormTabs::class);
         $this->app->singleton(CustomerCards::class);

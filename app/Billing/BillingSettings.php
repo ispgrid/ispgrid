@@ -5,6 +5,7 @@ namespace App\Billing;
 use App\Billing\Tax\TaxSetup;
 use App\Billing\Tax\TaxSetups;
 use App\Models\AppSetting;
+use App\Support\Currency;
 
 /**
  * The Billing settings (billing.* in app_settings) with their defaults. Invoicing is off until an operator turns
@@ -25,7 +26,7 @@ final readonly class BillingSettings
         public bool $pricesIncludeTax,
         public int $defaultTermsDays,
         public string $logo,
-        public int $decimals, // invoice amounts: the currency's decimals, at most 2
+        public int $decimals, // invoice amounts: the currency's decimals
         public string $currencyCode,
     ) {}
 
@@ -63,7 +64,7 @@ final readonly class BillingSettings
             pricesIncludeTax: $value('prices_include_tax', '0') === '1',
             defaultTermsDays: (int) $value('default_terms_days', '0'),
             logo: $value('logo', ''),
-            decimals: min(2, (int) AppSetting::valueOf('currency_decimals', '2')),
+            decimals: Currency::decimals(),
             currencyCode: (string) AppSetting::valueOf('currency_code', 'INR'),
         );
     }

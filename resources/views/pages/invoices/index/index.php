@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceTaxLine;
 use App\Models\PaymentMethod;
 use App\Support\CsvExport;
+use App\Support\Currency;
 use App\Support\Money;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -175,10 +176,10 @@ new #[Title('Invoices')] class extends Component
                     (string) ($invoice->customer['tax_number'] ?? ''),
                     (string) ($invoice->customer['place_label'] ?? ''),
                     (string) $invoice->taxable_total,
-                    Decimal::round($tax['CGST'], 2),
-                    Decimal::round($tax['SGST'], 2),
-                    Decimal::round($tax['IGST'], 2),
-                    Decimal::round($tax['other'], 2),
+                    Decimal::round($tax['CGST'], Currency::decimals()),
+                    Decimal::round($tax['SGST'], Currency::decimals()),
+                    Decimal::round($tax['IGST'], Currency::decimals()),
+                    Decimal::round($tax['other'], Currency::decimals()),
                     (string) $invoice->round_off,
                     (string) $invoice->total,
                     (string) $invoice->paid_total,

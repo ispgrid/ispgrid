@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Amount;
 use App\Enums\SlotMode;
 use App\Enums\ValidityUnit;
 use Database\Factories\PlanFactory;
@@ -72,7 +73,7 @@ class Plan extends Model
             'validity' => 'integer',
             'validity_unit' => ValidityUnit::class,
             'hotspot_starts_at_first_login' => 'boolean',
-            'price' => 'decimal:2',
+            'price' => Amount::class,
             'charge_tax' => 'boolean',
             'round_off' => 'boolean',
             'burst_time' => 'integer',

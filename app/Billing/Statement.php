@@ -6,6 +6,7 @@ use App\Enums\InvoiceStatus;
 use App\Models\Account;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\Currency;
 use Carbon\CarbonInterface;
 
 /**
@@ -45,7 +46,7 @@ final class Statement
 
         foreach ($entries as $entry) {
             $balance = $entry['debit'] !== null ? Decimal::add($balance, $entry['debit']) : Decimal::sub($balance, (string) $entry['credit']);
-            $rows[] = ['date' => $entry['date'], 'text' => $entry['text'], 'debit' => $entry['debit'], 'credit' => $entry['credit'], 'balance' => Decimal::round($balance, 2)];
+            $rows[] = ['date' => $entry['date'], 'text' => $entry['text'], 'debit' => $entry['debit'], 'credit' => $entry['credit'], 'balance' => Decimal::round($balance, Currency::decimals())];
         }
 
         return $rows;
@@ -56,6 +57,6 @@ final class Statement
      */
     public static function dues(Account $account): string
     {
-        return Decimal::round((string) Invoice::query()->where('account_id', $account->id)->where('status', '!=', InvoiceStatus::Cancelled)->sum('balance'), 2);
+        return Decimal::round((string) Invoice::query()->where('account_id', $account->id)->where('status', '!=', InvoiceStatus::Cancelled)->sum('balance'), Currency::decimals());
     }
 }

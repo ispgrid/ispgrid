@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Amount;
 use App\Enums\OnlinePaymentStatus;
 use Database\Factories\OnlinePaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -35,9 +36,9 @@ class OnlinePayment extends Model
     {
         return [
             'status' => OnlinePaymentStatus::class,
-            'amount' => 'decimal:2',
-            'dues_amount' => 'decimal:2',
-            'renewal_amount' => 'decimal:2',
+            'amount' => Amount::class,
+            'dues_amount' => Amount::class,
+            'renewal_amount' => Amount::class,
             'gateway_response' => 'array',
             'paid_at' => 'datetime',
             'settled_at' => 'datetime',

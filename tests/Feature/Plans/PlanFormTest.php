@@ -6,6 +6,7 @@ use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AddressList;
+use App\Models\AppSetting;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\Radacct;
@@ -60,6 +61,15 @@ it('binds no field to a name the browser side of Livewire uses for file uploads'
 
 it('leaves the checks to the server, so a bad field on a hidden tab cannot silently block the save', function () {
     Livewire::test('pages::plans.form')->assertSeeHtml('<form wire:submit="save" novalidate');
+});
+
+it('takes a price to the fils only for a three-decimal currency', function () {
+    newPlanForm()->set('price', '12.375')->call('save')->assertHasErrors(['price']);
+
+    AppSetting::put('currency_decimals', '3');
+    newPlanForm()->set('price', '12.375')->call('save')->assertHasNoErrors();
+
+    expect(Plan::query()->sole()->price)->toBe('12.375');
 });
 
 it('refuses a slug FreeRADIUS cannot use as a group name', function (string $slug) {

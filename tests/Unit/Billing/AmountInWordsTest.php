@@ -29,3 +29,9 @@ it('says crores, zero and other currencies', function () {
         'Euro One Billion Only',
     ]);
 });
+
+it('writes three-digit fils for a three-decimal currency', function () {
+    expect(AmountInWords::format('12.375', 'KWD', false, 3))->toBe('Kuwaiti Dinar Twelve and Fils Three Hundred Seventy Five Only')
+        ->and(AmountInWords::format('7.050', 'OMR', false, 3))->toBe('Omani Rial Seven and Baisa Fifty Only')
+        ->and(AmountInWords::format('1500', 'JPY', false, 0))->toBe('JPY One Thousand Five Hundred Only');
+});

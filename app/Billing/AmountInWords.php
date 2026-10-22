@@ -17,6 +17,10 @@ final class AmountInWords
         'EUR' => ['Euro', 'Cents'],
         'GBP' => ['Pound Sterling', 'Pence'],
         'AED' => ['UAE Dirham', 'Fils'],
+        'KWD' => ['Kuwaiti Dinar', 'Fils'],
+        'BHD' => ['Bahraini Dinar', 'Fils'],
+        'OMR' => ['Omani Rial', 'Baisa'],
+        'JOD' => ['Jordanian Dinar', 'Fils'],
     ];
 
     private const ONES = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
@@ -24,10 +28,13 @@ final class AmountInWords
 
     private const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
-    public static function format(string $amount, string $currencyCode, bool $indianGrouping): string
+    /**
+     * @param  int  $decimals  the currency's decimals: 2 gives "and Paise Fifty", 3 gives "and Fils Five Hundred"
+     */
+    public static function format(string $amount, string $currencyCode, bool $indianGrouping, int $decimals = 2): string
     {
         [$wholeName, $fractionName] = self::CURRENCIES[$currencyCode] ?? [$currencyCode, 'Cents'];
-        [$whole, $fraction] = array_pad(explode('.', Decimal::round(ltrim($amount, '-'), 2), 2), 2, '00');
+        [$whole, $fraction] = array_pad(explode('.', Decimal::round(ltrim($amount, '-'), $decimals), 2), 2, '0');
 
         $words = $wholeName.' '.self::words($whole, $indianGrouping);
 

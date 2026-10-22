@@ -14,6 +14,7 @@ use App\Exceptions\InvoiceHasPayments;
 use App\Exceptions\InvoicingNotReady;
 use App\Models\Account;
 use App\Models\Invoice;
+use App\Support\Currency;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -266,7 +267,7 @@ trait WritesInvoices
             'lines.*.description' => ['required', 'string', 'max:255'],
             'lines.*.details' => ['nullable', 'string', 'max:255'],
             'lines.*.quantity' => ['required', 'regex:/^\d{1,6}(\.\d{1,2})?$/', 'not_regex:/^0+(\.0+)?$/'],
-            'lines.*.unit_price' => ['required', 'regex:/^\d{1,10}(\.\d{1,2})?$/'],
+            'lines.*.unit_price' => ['required', 'regex:'.Currency::amountPattern()],
             'lines.*.discount' => $this->canDiscount ? ['nullable', 'numeric', 'decimal:0,2', 'between:0,100'] : [],
             'lines.*.taxed' => ['boolean'],
             'lines.*.item_code' => ['nullable', 'string', 'max:20'],
@@ -346,7 +347,7 @@ trait WritesInvoices
         }
 
         foreach ($this->lines as $line) {
-            if (preg_match('/^\d{1,6}(\.\d{1,2})?$/', (string) $line['quantity']) !== 1 || preg_match('/^\d{1,10}(\.\d{1,2})?$/', (string) $line['unit_price']) !== 1
+            if (preg_match('/^\d{1,6}(\.\d{1,2})?$/', (string) $line['quantity']) !== 1 || preg_match(Currency::amountPattern(), (string) $line['unit_price']) !== 1
                 || ($this->canDiscount && $line['discount'] !== '' && preg_match('/^(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)$/', (string) $line['discount']) !== 1)) {
                 return null;
             }

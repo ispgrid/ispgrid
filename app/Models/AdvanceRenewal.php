@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Amount;
 use App\Enums\AdvanceRenewalStatus;
 use Database\Factories\AdvanceRenewalFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,7 +26,7 @@ class AdvanceRenewal extends Model
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount' => Amount::class,
             'starts_at' => 'datetime',
             'expiry' => 'datetime',
             'status' => AdvanceRenewalStatus::class,

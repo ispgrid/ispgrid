@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Billing\Decimal;
+use App\Casts\Amount;
 use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
+use App\Support\Currency;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -42,12 +44,12 @@ class Invoice extends Model
             'period_to' => 'immutable_datetime',
             'company' => 'array',
             'customer' => 'array',
-            'taxable_total' => 'decimal:2',
-            'tax_total' => 'decimal:2',
-            'round_off' => 'decimal:2',
-            'total' => 'decimal:2',
-            'paid_total' => 'decimal:2',
-            'balance' => 'decimal:2',
+            'taxable_total' => Amount::class,
+            'tax_total' => Amount::class,
+            'round_off' => Amount::class,
+            'total' => Amount::class,
+            'paid_total' => Amount::class,
+            'balance' => Amount::class,
             'cancelled_at' => 'immutable_datetime',
         ];
     }
@@ -126,8 +128,8 @@ class Invoice extends Model
             return;
         }
 
-        $paid = Decimal::round((string) $this->payments()->sum('amount'), 2);
-        $balance = Decimal::round(Decimal::sub((string) $this->total, $paid), 2);
+        $paid = Decimal::round((string) $this->payments()->sum('amount'), Currency::decimals());
+        $balance = Decimal::round(Decimal::sub((string) $this->total, $paid), Currency::decimals());
 
         $this->update([
             'paid_total' => $paid,

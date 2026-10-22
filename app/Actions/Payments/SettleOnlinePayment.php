@@ -29,6 +29,7 @@ use App\Payments\GatewayStatus;
 use App\Payments\PaymentGateways;
 use App\Payments\QuickPay;
 use App\Payments\RenewalOffer;
+use App\Support\Currency;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -140,7 +141,7 @@ final class SettleOnlinePayment
         $account = Account::withTrashed()->findOrFail($payment->account_id);
         $this->notifier->fire(OnlinePaymentReceived::key(), $account, null, new PaymentNotice(
             $payment->public_id,
-            Decimal::round((string) $recorded->sum(fn (Payment $row): float => (float) $row->amount), 2),
+            Decimal::round((string) $recorded->sum(fn (Payment $row): float => (float) $row->amount), Currency::decimals()),
             $recorded->map(fn (Payment $row): string => ReceiptView::number($row))->implode(', '),
             $recorded->map(fn (Payment $row): string => (string) $row->invoice?->number)->unique()->implode(', '),
             $method->name,
@@ -170,10 +171,10 @@ final class SettleOnlinePayment
             }
 
             $this->recordPayment->handle($invoice->id, new PaymentInput($method->id, $amount, $reference, $paidAt, null));
-            $left = Decimal::round(Decimal::sub($left, $amount), 2);
+            $left = Decimal::round(Decimal::sub($left, $amount), Currency::decimals());
         }
 
-        return Decimal::round($left, 2);
+        return Decimal::round($left, Currency::decimals());
     }
 
     /**

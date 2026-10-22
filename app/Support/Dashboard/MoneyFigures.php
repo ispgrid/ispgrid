@@ -13,6 +13,7 @@ use App\Models\PaymentMethod;
 use App\Models\Plan;
 use App\Models\Recharge;
 use App\Models\User;
+use App\Support\Currency;
 use App\Support\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -90,7 +91,7 @@ final class MoneyFigures
         return array_values(array_map(fn (object $row): array => [
             'plan' => (string) ($names[$row->plan_id] ?? ''),
             'recharges' => (int) $row->recharges,
-            'amount' => $money->format(Decimal::round((string) $row->sold, 2)),
+            'amount' => $money->format(Decimal::round((string) $row->sold, Currency::decimals())),
         ], $rows->all()));
     }
 
@@ -131,7 +132,7 @@ final class MoneyFigures
     {
         $names = PaymentMethod::query()->pluck('name', 'id');
         $sums = self::payments($since)->groupBy('payment_method_id')->selectRaw('payment_method_id, SUM(amount) AS received')->toBase()->get()
-            ->mapWithKeys(fn (object $row): array => [(string) ($names[$row->payment_method_id] ?? '') => $money->format(Decimal::round((string) $row->received, 2))])
+            ->mapWithKeys(fn (object $row): array => [(string) ($names[$row->payment_method_id] ?? '') => $money->format(Decimal::round((string) $row->received, Currency::decimals()))])
             ->sortKeys();
 
         return $sums->isEmpty() ? null : $sums->map(fn (string $amount, string $method): string => "{$method} {$amount}")->implode(', ');
@@ -142,6 +143,6 @@ final class MoneyFigures
      */
     private static function sum(Builder $query, string $column = 'amount'): string
     {
-        return Decimal::round((string) ($query->sum($column) ?: '0'), 2);
+        return Decimal::round((string) ($query->sum($column) ?: '0'), Currency::decimals());
     }
 }

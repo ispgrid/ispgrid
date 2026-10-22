@@ -12,6 +12,7 @@ use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Plan;
 use App\Notifications\PhoneNumber;
+use App\Support\Currency;
 use App\Support\ExpiryCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
@@ -84,7 +85,7 @@ final class QuickPay
 
         $dues = Statement::dues($account);
         $renewal = $this->renewal($account);
-        $total = Decimal::round(Decimal::add($dues, $renewal->price ?? '0'), 2);
+        $total = Decimal::round(Decimal::add($dues, $renewal->price ?? '0'), Currency::decimals());
 
         if (Decimal::compare($total, '0') <= 0) {
             return null;
