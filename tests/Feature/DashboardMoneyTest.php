@@ -10,6 +10,7 @@ use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
+use App\Models\Plan;
 use App\Models\Recharge;
 use App\Models\User;
 use App\Support\Dashboard\MoneyFigures;
@@ -43,6 +44,8 @@ function moneyInvoice(string $price, ?string $paid = null, string $method = 'Cas
 
 it('shows collected, invoiced and dues', function () {
     turnInvoicingOn();
+    $this->travelTo(Carbon::parse('2026-09-30 23:00:00'));
+    moneyInvoice('200', '236');
     $this->travelTo(Carbon::parse('2026-10-02 10:00:00'));
     moneyInvoice('100', '118');
     $this->travelTo(Carbon::parse('2026-10-21 10:00:00'));
@@ -54,11 +57,13 @@ it('shows collected, invoiced and dues', function () {
 
     $cards = moneyCards($this->boss);
 
-    expect(array_keys($cards))->toBe(['Collected today', 'Collected this month', 'Invoiced this month', 'Dues'])
+    expect(array_keys($cards))->toBe(['Collected today', 'Collected this month', 'Collected last month', 'Invoiced this month', 'Invoiced last month', 'Dues'])
         ->and($cards['Collected today']['value'])->toBe('1,090.00')
         ->and($cards['Collected this month']['value'])->toBe('1,208.00')
         ->and($cards['Collected this month']['hint'])->toBe('Cash 618.00, UPI 590.00')
+        ->and($cards['Collected last month']['value'])->toBe('236.00')
         ->and($cards['Invoiced this month']['value'])->toBe('1,947.00')
+        ->and($cards['Invoiced last month']['value'])->toBe('236.00')
         ->and($cards['Dues']['value'])->toBe('739.00')
         ->and($cards['Dues']['href'])->toBe(route('customers.index', ['dues' => 1]));
 });
@@ -67,12 +72,41 @@ it('shows sales from recharges when invoicing is off', function () {
     Recharge::factory()->create(['amount' => 500]);
     Recharge::factory()->create(['amount' => 250, 'created_at' => now()->subDays(3)]);
     Recharge::factory()->create(['amount' => 99, 'created_at' => now()->subMonth()]);
+    Recharge::factory()->create(['amount' => 40, 'created_at' => now()->subMonths(2)]);
 
     $cards = moneyCards($this->boss);
 
-    expect(array_keys($cards))->toBe(['Sales today', 'Sales this month'])
+    expect(array_keys($cards))->toBe(['Sales today', 'Sales this month', 'Sales last month'])
         ->and($cards['Sales today']['value'])->toBe('500.00')
-        ->and($cards['Sales this month']['value'])->toBe('750.00');
+        ->and($cards['Sales this month']['value'])->toBe('750.00')
+        ->and($cards['Sales last month']['value'])->toBe('99.00');
+});
+
+it('lists the top 5 plans by sales this month, with their recharges', function () {
+    $plans = collect(['Basic', 'Silver', 'Gold', 'Gold Plus', 'Fibre 200', 'Fibre 500'])
+        ->mapWithKeys(fn (string $name): array => [$name => Plan::factory()->create(['name' => $name])]);
+    $sell = fn (string $plan, string $amount, array $extra = []) => Recharge::factory()->create(['plan_id' => $plans[$plan]->id, 'amount' => $amount, ...$extra]);
+
+    $sell('Gold', '500');
+    $sell('Gold', '500');
+    $sell('Silver', '300');
+    $sell('Basic', '100');
+    $sell('Fibre 200', '800');
+    $sell('Fibre 500', '50');
+    $sell('Gold Plus', '200');
+    $sell('Basic', '5000', ['created_at' => now()->subMonth()]);
+    $sell('Silver', '900', ['account_id' => Account::factory()->create(['billing_free' => true])->id]);
+    $plans['Gold']->delete();
+
+    expect(MoneyFigures::topPlans($this->boss))->toBe([
+        ['plan' => 'Gold', 'recharges' => 2, 'amount' => '1,000.00'],
+        ['plan' => 'Fibre 200', 'recharges' => 1, 'amount' => '800.00'],
+        ['plan' => 'Silver', 'recharges' => 1, 'amount' => '300.00'],
+        ['plan' => 'Gold Plus', 'recharges' => 1, 'amount' => '200.00'],
+        ['plan' => 'Basic', 'recharges' => 1, 'amount' => '100.00'],
+    ])->and(MoneyFigures::topPlans(staffHolding(Permission::ViewCustomers)))->toBe([]);
+
+    Livewire::test('pages::dashboard')->assertSee(__('Sales per plan, this month'))->assertSee('Fibre 200');
 });
 
 it('leaves out Free customers', function () {

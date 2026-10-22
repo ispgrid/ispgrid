@@ -11,6 +11,7 @@ use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Support\Hotspot;
 use App\Support\NoticePage;
+use App\Support\RequiredCustomerFields;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\App;
@@ -68,15 +69,19 @@ new #[Title('App settings')] class extends Component
 
     public bool $hotspot_enabled = false;
 
+    /** @var list<string> */
+    public array $required_customer_fields = [];
+
     public function mount(): void
     {
         $this->authorizeAccess();
 
-        foreach (array_keys(Arr::except($this->rules(), Hotspot::SETTING)) as $key) {
+        foreach (array_keys(Arr::except($this->rules(), [Hotspot::SETTING, 'required_customer_fields', 'required_customer_fields.*'])) as $key) {
             $this->{$key} = (string) AppSetting::valueOf($key, '');
         }
 
         $this->hotspot_enabled = Hotspot::enabled();
+        $this->required_customer_fields = RequiredCustomerFields::saved();
 
         // Installs from before languages have no row until the next upgrade seeds it: they run in English.
         $this->locale = $this->locale !== '' ? $this->locale : config('app.fallback_locale');
@@ -122,6 +127,8 @@ new #[Title('App settings')] class extends Component
             'login_log_days' => ['required', 'integer', 'between:7,3650'],
             'session_history_days' => ['required', 'integer', 'between:31,3650'],
             'hotspot_enabled' => ['boolean'],
+            'required_customer_fields' => ['array'],
+            'required_customer_fields.*' => ['string', Rule::in(RequiredCustomerFields::FIELDS)],
         ];
     }
 
@@ -135,6 +142,15 @@ new #[Title('App settings')] class extends Component
             'default_pool_hotspot.exists' => __('This pool was deleted. Choose another one.'),
             'default_ip_range_ipoe.exists' => __('This range was deleted. Choose another one.'),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function requiredFieldOptions(): array
+    {
+        return RequiredCustomerFields::labels();
     }
 
     /**
@@ -166,10 +182,13 @@ new #[Title('App settings')] class extends Component
 
         $validated = $this->validate();
         $hotspot = (bool) Arr::pull($validated, Hotspot::SETTING);
+        /** @var list<string> $required */
+        $required = Arr::pull($validated, 'required_customer_fields', []);
         $languageChanged = $validated['locale'] !== AppSetting::valueOf('locale', config('app.fallback_locale'));
 
-        DB::transaction(function () use ($validated, $hotspot): void {
+        DB::transaction(function () use ($validated, $hotspot, $required): void {
             $this->saveHotspot($hotspot);
+            RequiredCustomerFields::save($required);
 
             foreach ($validated as $key => $value) {
                 AppSetting::put($key, (string) $value);

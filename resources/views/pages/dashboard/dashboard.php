@@ -46,6 +46,20 @@ new #[Title('Dashboard')] class extends Component
     }
 
     /**
+     * The top 5 plans by sales this month (View sales only; empty otherwise).
+     *
+     * @return list<array{plan: string, recharges: int, amount: string}>
+     */
+    #[Computed]
+    public function topPlans(): array
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return MoneyFigures::topPlans($user);
+    }
+
+    /**
      * Usage cards (staff who see customers): the network per day for the last 5 days, and the top 5 customers today
      * and this month. Null for staff who do not see customers.
      *

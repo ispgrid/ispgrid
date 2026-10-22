@@ -35,6 +35,7 @@ use App\Support\Hotspot;
 use App\Support\IpAddress;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
+use App\Support\RequiredCustomerFields;
 use App\Support\TaxIdLabel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
@@ -555,6 +556,17 @@ new #[Title('Customer')] class extends Component
         return $warnings;
     }
 
+    /**
+     * The fields the operator made required in App settings, for the star on their labels.
+     *
+     * @return array<string, true>
+     */
+    #[Computed]
+    public function requiredFields(): array
+    {
+        return array_fill_keys(RequiredCustomerFields::current(), true);
+    }
+
     #[Computed]
     public function businessIdLabel(): string
     {
@@ -947,7 +959,6 @@ new #[Title('Customer')] class extends Component
     {
         $isIpoe = $this->isIpoe;
         $speed = ['nullable', 'string', 'max:20'];
-        $phone = CustomerRules::phone($this->phoneDigits);
         $shared = CustomerRules::rules($this->accountId === null, $isIpoe, $this->hasAddress(), $this->phoneDigits);
 
         if ($this->keepsPassword) {
@@ -957,11 +968,6 @@ new #[Title('Customer')] class extends Component
         return [
             ...$shared,
             'title' => ['nullable', 'string', Rule::in(array_keys($this->titles))],
-            'company' => ['nullable', 'string', 'max:255'],
-            'whatsapp' => $phone,
-            'alt_number' => $phone,
-            'tax_id' => ['nullable', 'string', 'max:50'],
-            'business_id' => ['nullable', 'string', 'max:30'],
             'remarks' => ['nullable', 'string', 'max:2000'],
             'address.latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'address.longitude' => ['nullable', 'numeric', 'between:-180,180'],
@@ -1005,12 +1011,8 @@ new #[Title('Customer')] class extends Component
      */
     protected function messages(): array
     {
-        $digits = __('Enter :digits digits.', ['digits' => $this->phoneDigits]);
-
         return [
             ...CustomerRules::messages($this->phoneDigits),
-            'whatsapp.regex' => $digits,
-            'alt_number.regex' => $digits,
             'nas_id.exists' => __('This NAS was deleted. Choose another one.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),

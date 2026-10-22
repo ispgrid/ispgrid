@@ -1383,5 +1383,19 @@
     "The gateway could not be asked. Try again later.": "गेटवे से पूछा नहीं जा सका। बाद में फिर कोशिश करें।",
     "What was done": "क्या किया गया",
     "what was done": "क्या किया गया",
-    "Pay page": "भुगतान पेज"
+    "Pay page": "भुगतान पेज",
+    "Required customer fields": "ज़रूरी ग्राहक फ़ील्ड",
+    "The customer form and the import refuse a customer without these. Existing customers are asked for them on their next edit; logins are not affected.": "ग्राहक फ़ॉर्म और इंपोर्ट इनके बिना ग्राहक को नहीं लेते। मौजूदा ग्राहकों से अगली बार बदलाव करते समय ये माँगे जाते हैं; लॉगिन पर कोई असर नहीं पड़ता।",
+    "Enter the first address line.": "पते की पहली पंक्ति डालें।",
+    "Use yes or no.": "yes या no लिखें।",
+    "A place of supply is only used with India GST.": "आपूर्ति का स्थान सिर्फ़ भारत के GST के साथ इस्तेमाल होता है।",
+    "A place of supply needs a GSTIN.": "आपूर्ति के स्थान के लिए GSTIN ज़रूरी है।",
+    "No state named :name.": ":name नाम का कोई राज्य नहीं है।",
+    "You may not set customer pricing.": "आप ग्राहक की कीमत तय नहीं कर सकते।",
+    "You may not recharge customers, so auto renew stays off.": "आप ग्राहकों का रिचार्ज नहीं कर सकते, इसलिए ऑटो रिन्यू बंद रहता है।",
+    "Collected last month": "पिछले महीने की वसूली",
+    "Invoiced last month": "पिछले महीने के इनवॉइस",
+    "Sales last month": "पिछले महीने की बिक्री",
+    "Sales per plan, this month": "प्लान के हिसाब से बिक्री, इस महीने",
+    "No sales yet this month.": "इस महीने अभी कोई बिक्री नहीं।"
 }

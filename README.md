@@ -53,7 +53,7 @@ a customer who is online is changed, their session is disconnected so the change
   role (or your own) that set what each person may see and do; who changed what, newest first.
 - **Notifications:** expiry reminders, recharge and welcome messages by SMS (MSG91, DLT templates) and WhatsApp
   (wacrm), as rules you set up in the panel. Other providers can be added (see `CONTRIBUTING.md`).
-- **Import:** customers from CSV, checked by the same rules as the form.
+- **Import:** customers from CSV (contact and billing columns included), checked by the same rules as the form, with the customer fields you make required in App settings.
 - **Languages:** English and Hindi; each staff member picks their own. More can be added (see `CONTRIBUTING.md`).
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for NAS that
   are not on your network, and a FreeRADIUS self-test (164 checks) at the end of every install and upgrade.

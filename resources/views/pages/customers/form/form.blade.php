@@ -21,17 +21,17 @@
                             <x-ui.select wire:model="title" :label="__('Title')" :options="$this->titles" :placeholder="__('None')" />
                             <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required />
                             <div class="sm:col-span-2">
-                                <x-ui.input wire:model="company" :label="__('Company')" maxlength="255" />
+                                <x-ui.input wire:model="company" :label="__('Company')" maxlength="255" :required="isset($this->requiredFields['company'])" />
                             </div>
-                            <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" />
-                            <x-ui.input wire:model="whatsapp" type="tel" inputmode="numeric" :label="__('WhatsApp')" />
-                            <x-ui.input wire:model="alt_number" type="tel" inputmode="numeric" :label="__('Other number')" />
-                            <x-ui.input wire:model="email" type="email" :label="__('Email')" maxlength="100" />
+                            <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" :required="isset($this->requiredFields['mobile'])" />
+                            <x-ui.input wire:model="whatsapp" type="tel" inputmode="numeric" :label="__('WhatsApp')" :required="isset($this->requiredFields['whatsapp'])" />
+                            <x-ui.input wire:model="alt_number" type="tel" inputmode="numeric" :label="__('Other number')" :required="isset($this->requiredFields['alt_number'])" />
+                            <x-ui.input wire:model="email" type="email" :label="__('Email')" maxlength="100" :required="isset($this->requiredFields['email'])" />
                             @if ($this->taxIdLabel !== '')
-                                <x-ui.input wire:model.live.blur="tax_id" :label="$this->taxIdLabel" maxlength="50" />
+                                <x-ui.input wire:model.live.blur="tax_id" :label="$this->taxIdLabel" maxlength="50" :required="isset($this->requiredFields['tax_id'])" />
                             @endif
                             @if ($this->businessIdLabel !== '')
-                                <x-ui.input wire:model="business_id" :label="$this->businessIdLabel" maxlength="30" />
+                                <x-ui.input wire:model="business_id" :label="$this->businessIdLabel" maxlength="30" :required="isset($this->requiredFields['business_id'])" />
                             @endif
                         </div>
                         <x-ui.switch wire:model="notifications_off" :label="__('No reminders')" :description="__('No expiry reminders by SMS or WhatsApp. Recharge confirmations still go out.')" />
@@ -41,7 +41,7 @@
                         <x-ui.heading level="3" id="customer-address">{{ __('Installation address') }}</x-ui.heading>
                         <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <div class="sm:col-span-2">
-                                <x-ui.input wire:model="address.line1" :label="__('Address line 1')" maxlength="255" />
+                                <x-ui.input wire:model="address.line1" :label="__('Address line 1')" maxlength="255" :required="isset($this->requiredFields['address'])" />
                             </div>
                             <div class="sm:col-span-2">
                                 <x-ui.input wire:model="address.line2" :label="__('Address line 2')" maxlength="255" />

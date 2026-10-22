@@ -43,6 +43,18 @@
                     <x-ui.input wire:model="tax_id_label" :label="__('Tax ID label')" :description="__('e.g. GSTIN or VAT number. Leave empty to hide the field.')" />
                     <x-ui.input wire:model="business_id_label" :label="__('Business ID label')" :description="__('e.g. PAN. Leave empty to hide the field.')" />
                 </div>
+                <fieldset class="grid gap-2 border-t border-zinc-200 pt-5 dark:border-zinc-700">
+                    <legend class="text-sm font-medium">{{ __('Required customer fields') }}</legend>
+                    <x-ui.text muted>{{ __('The customer form and the import refuse a customer without these. Existing customers are asked for them on their next edit; logins are not affected.') }}</x-ui.text>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        @foreach ($this->requiredFieldOptions as $field => $label)
+                            <x-ui.checkbox wire:model="required_customer_fields" value="{{ $field }}" id="required-{{ $field }}" :label="$label" />
+                        @endforeach
+                    </div>
+                    @error('required_customer_fields.*')
+                        <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </fieldset>
             </x-ui.card>
 
             <x-ui.card class="grid content-start gap-5">
