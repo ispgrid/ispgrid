@@ -1399,6 +1399,7 @@
     "Sales per plan, this month": "प्लान के हिसाब से बिक्री, इस महीने",
     "No sales yet this month.": "इस महीने अभी कोई बिक्री नहीं।",
     "Pay code": "भुगतान कोड",
+    "Pay link": "भुगतान लिंक",
     "That link is not valid. Search by username or mobile number.": "यह लिंक सही नहीं है। यूज़रनेम या मोबाइल नंबर से खोजें।",
     "Pay code: write :address in the approved text, right before its variable.": "भुगतान कोड: स्वीकृत टेक्स्ट में इसके वेरिएबल से ठीक पहले :address लिखें।"
 }

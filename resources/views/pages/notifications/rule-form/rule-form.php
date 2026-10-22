@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountStatus;
+use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
 use App\Enums\ServiceType;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
@@ -95,13 +96,13 @@ new #[Title('Notification rule')] class extends Component
             $this->triggerSettings[$field->name] = (string) ($field->min ?? '');
         }
 
-        $offered = array_keys($this->placeholderOptions);
-        $this->values = array_values(array_filter($this->values, fn (string $key): bool => in_array($key, $offered, true)));
+        $this->dropValuesNotOffered();
     }
 
     public function updatedProvider(): void
     {
         $this->resetTemplate();
+        $this->dropValuesNotOffered();
     }
 
     public function addValue(): void
@@ -169,6 +170,8 @@ new #[Title('Notification rule')] class extends Component
     }
 
     /**
+     * The values the trigger can fill; a WhatsApp-only value (a whole link) only with a WhatsApp provider.
+     *
      * @return array<string, string>
      */
     #[Computed]
@@ -176,7 +179,18 @@ new #[Title('Notification rule')] class extends Component
     {
         $class = $this->registry()->triggers()[$this->trigger] ?? null;
 
-        return $class === null ? [] : array_intersect_key(Placeholders::labels(), array_flip($class::placeholders()));
+        if ($class === null) {
+            return [];
+        }
+
+        $keys = $class::placeholders();
+        $provider = $this->registry()->providerClass($this->provider);
+
+        if ($provider === null || $provider::channel() !== NotificationChannel::WhatsApp) {
+            $keys = array_diff($keys, Placeholders::WHATSAPP_ONLY);
+        }
+
+        return array_intersect_key(Placeholders::labels(), array_flip($keys));
     }
 
     /**
@@ -344,6 +358,12 @@ new #[Title('Notification rule')] class extends Component
         }
 
         return $names;
+    }
+
+    private function dropValuesNotOffered(): void
+    {
+        $offered = array_keys($this->placeholderOptions);
+        $this->values = array_values(array_filter($this->values, fn (string $key): bool => in_array($key, $offered, true)));
     }
 
     private function resetTemplate(): void
