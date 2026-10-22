@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-#  Step 11: the FreeRADIUS self-test (170 cases) against this server's database, then its test rows are removed.
+#  Step 11: the FreeRADIUS self-test (172 cases) against this server's database, then its test rows are removed.
 #  A run that fails is repeated once: a single case can miss its reply right after a burst of test requests.
 #  Its fixtures are users t_*, plan groups t_plan* and IPoE IPs 10.99.0.x, and it deletes such rows first: when the
 #  database already has them and no interrupted self-test left them, they are real, and the self-test is skipped.
@@ -8,7 +8,7 @@ install -m 755 "$ISPGRID_HOME/deploy/tests/radius_policy_tests.sh" /usr/local/bi
 install -m 755 "$ISPGRID_HOME/deploy/tests/radius_blast_probe.py" /usr/local/bin/radius_blast_probe.py
 local_secret=$(awk '/^client localhost \{/ { f = 1 } f && $1 == "secret" { print $3; exit }' /etc/freeradius/clients.conf)
 selftest_log=/var/log/ispgrid-selftest.log
-SELFTEST_CASES=170
+SELFTEST_CASES=172
 if [[ -n "${OPT_SKIP_SELFTEST:-}" ]]; then
   say "Self-test skipped (--skip-selftest)"
   SELFTEST_RESULT="skipped (--skip-selftest)"

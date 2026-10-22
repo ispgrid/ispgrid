@@ -36,7 +36,7 @@ FIXTURE_LIST="$(printf "'%s'," "${FIXTURE_USERS[@]}")"
 FIXTURE_LIST="${FIXTURE_LIST%,}"
 #  IN uses the username index; BINARY makes the match case-sensitive.
 FIXTURES="username IN ($FIXTURE_LIST) AND BINARY username IN ($FIXTURE_LIST)"
-FIXTURE_SESSIONS="BINARY acctsessionid IN ('t-ipoe-1', 't-ipoe-2', 't-sess-1', 't-usage-1')"
+FIXTURE_SESSIONS="BINARY acctsessionid IN ('t-ipoe-1', 't-ipoe-2', 't-sess-1', 't-usage-1', 't-ip-1')"
 FIXTURE_ROUTERS="BINARY shortname IN ('t_router_new', 't_router_old', 't_router_gone')"
 
 #  The test rows (the users above, test plan groups). Used before seeding and by CLEANUP=1.
@@ -685,6 +685,18 @@ section "Accounting"
 acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" 2>&1)"
 rows=$(sql "SELECT COUNT(*) FROM radacct WHERE username = 't_ppp' AND acctsessionid = 't-sess-1'")
 result "$(grep -q "Accounting-Response" <<<"$acct_out" && [[ "$rows" -ge 1 ]] && echo 1 || echo 0)" "Accounting Start stored in radacct" "" "$(grep -m1 "Received" <<<"$acct_out" | sed "s/ from.*//"); radacct rows for t-sess-1: $rows"
+#  The login keeps its session id; the session's first accounting row puts its IP on it (trigger radacct_login_ip).
+check "PPPoE login with its session id" Accept "$(ppp t_static pass $M2)Acct-Session-Id=t-ip-1
+" 'Framed-IP-Address = 10.10.10.123'
+acct "User-Name=t_static
+Acct-Status-Type=Start
+Acct-Session-Id=t-ip-1
+NAS-IP-Address=127.0.0.1
+Framed-IP-Address=10.10.10.123
+Calling-Station-Id=$M2
+"
+got=$(sql "SELECT CONCAT_WS(' ', acctsessionid, framedipaddress) FROM radpostauth WHERE username = 't_static' ORDER BY id DESC LIMIT 1")
+result "$([[ "$got" == "t-ip-1 10.10.10.123" ]] && echo 1 || echo 0)" "  the session's IP is put on the login" "(got $got)" "radpostauth session id and IP: $got"
 sql "DELETE FROM radacct WHERE $FIXTURES"
 
 section "Usage per day (radacct triggers -> $USAGE_DB)"

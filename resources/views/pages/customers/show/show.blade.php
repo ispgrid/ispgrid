@@ -256,6 +256,7 @@
                         <x-ui.th>{{ __('Reason') }}</x-ui.th>
                         <x-ui.th>{{ __('NAS') }}</x-ui.th>
                         <x-ui.th>{{ __('Device (MAC)') }}</x-ui.th>
+                        <x-ui.th>{{ __('IP') }}</x-ui.th>
                     </x-slot:head>
                     @foreach ($this->logins as $login)
                         <tr wire:key="login-{{ $login['id'] }}">
@@ -264,6 +265,7 @@
                             <x-ui.td class="break-words">{{ $login['reason'] }}</x-ui.td>
                             <x-ui.td>{{ $login['router'] }}</x-ui.td>
                             <x-ui.td class="font-mono">{{ $login['mac'] }}</x-ui.td>
+                            <x-ui.td class="font-mono">{{ $login['ip'] }}</x-ui.td>
                         </tr>
                     @endforeach
                 </x-ui.table>

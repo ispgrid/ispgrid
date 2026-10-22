@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * One login attempt as FreeRADIUS logged it (radpostauth): the result, the real reason, the router and the MAC.
+ * One login attempt as FreeRADIUS logged it (radpostauth): the result, the real reason, the router, the MAC and, for
+ * an accept, the IP its session was given (set by the radacct_login_ip trigger).
  * The pass column is never shown (app-integration.md section 5).
  */
 class Radpostauth extends Model
@@ -37,7 +38,7 @@ class Radpostauth extends Model
      * What the login tables show.
      *
      * @param  array<string, string>  $routers  router names by IP (Nas::names())
-     * @return array{id: int, username: string, when: string, result: string, color: string, reason: string, router: string, mac: string}
+     * @return array{id: int, username: string, when: string, result: string, color: string, reason: string, router: string, mac: string, ip: string}
      */
     public function forTable(array $routers, string $dateFormat): array
     {
@@ -52,6 +53,7 @@ class Radpostauth extends Model
             'reason' => (string) $this->reply_msg,
             'router' => $routers[(string) $this->nasipaddress] ?? (string) $this->nasipaddress,
             'mac' => (string) $this->mac,
+            'ip' => (string) $this->framedipaddress,
         ];
     }
 }
