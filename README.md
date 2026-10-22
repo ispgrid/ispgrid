@@ -49,7 +49,7 @@ a customer who is online is changed, their session is disconnected so the change
 - **Hotspot:** off until you turn it on in App settings (while it is off, FreeRADIUS refuses Hotspot page logins).
   A Hotspot plan can start its validity at the customer's first login instead of at the recharge.
 - **Online and Login log:** who is connected, from which NAS, IP and device, with traffic; every accepted and
-  refused login with the reason. Disconnect a session from the panel.
+  refused login with the reason, and the IP each accepted login was given. Disconnect a session from the panel.
 - **Network:** NAS, pools, IP ranges with an IP inventory, address lists.
 - **Staff, roles and Activity log:** staff accounts with two-factor login and passkeys; an Admin role and a Technician
   role (or your own) that set what each person may see and do; who changed what, newest first.
@@ -58,7 +58,7 @@ a customer who is online is changed, their session is disconnected so the change
 - **Import:** customers from CSV (contact and billing columns included), checked by the same rules as the form, with the customer fields you make required in App settings.
 - **Languages:** English and Hindi; each staff member picks their own. More can be added (see `CONTRIBUTING.md`).
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for NAS that
-  are not on your network, and a FreeRADIUS self-test (164 checks) at the end of every install and upgrade.
+  are not on your network, and a FreeRADIUS self-test (172 checks) at the end of every install and upgrade.
 
 ## Requirements
 

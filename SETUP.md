@@ -378,7 +378,7 @@ log.
 ## 9. Check that it works
 
 1. **Log in:** a test customer connects and shows up in **Online**. If a login is refused, the **Login log** says
-   why.
+   why. An accepted login shows the IP the customer got once the NAS sends its accounting (within a few seconds).
 2. **Internet:** from the customer, ping `8.8.8.8` and open a website. If it fails, check the NAT rule (section 4)
    and the PPPoE profile (section 3).
 3. **Disconnect:** click **Disconnect** on the customer in the panel. The connection drops and comes back within
