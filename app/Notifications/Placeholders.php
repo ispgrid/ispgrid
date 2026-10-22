@@ -12,7 +12,7 @@ use Carbon\CarbonInterface;
 
 /**
  * The values a rule can put into a template, in the order the rule lists them. Each is cut to 30 characters,
- * the DLT limit for one variable.
+ * the DLT limit for one variable, except a link (half a link does not open).
  */
 final class Placeholders
 {
@@ -20,7 +20,10 @@ final class Placeholders
 
     /** Values every customer has. */
     public const COMMON = ['customer_name', 'username', 'mobile', 'plan_name', 'plan_speed', 'plan_price',
-        'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number', 'pay_code'];
+        'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number', 'pay_code', 'pay_link'];
+
+    /** Values only WhatsApp rules get: never cut, so too long for a DLT variable. */
+    public const WHATSAPP_ONLY = ['pay_link'];
 
     /** Values only a recharge has. */
     public const RECHARGE = ['amount_paid', 'recharge_reference', 'recharge_note', 'recharge_date', 'recharge_datetime'];
@@ -59,6 +62,7 @@ final class Placeholders
             'payment_method' => __('Payment method'),
             'balance_due' => __('Balance due'),
             'pay_code' => __('Pay code'),
+            'pay_link' => __('Pay link'),
         ];
     }
 
@@ -74,7 +78,7 @@ final class Placeholders
         foreach ($keys as $key) {
             $value = $account === null ? '['.(self::labels()[$key] ?? $key).']' : $this->resolve($key, $account, $recharge, $now, $payment);
 
-            if (mb_strlen($value) > self::MAX_LENGTH) {
+            if (mb_strlen($value) > self::MAX_LENGTH && ! in_array($key, self::WHATSAPP_ONLY, true)) {
                 $value = mb_substr($value, 0, self::MAX_LENGTH);
                 $trimmed = true;
             }
@@ -134,6 +138,7 @@ final class Placeholders
             'payment_method' => (string) $payment?->method,
             'balance_due' => $payment === null ? '' : $this->amount($payment->balanceDue),
             'pay_code' => QuickPay::isOpen() ? PayCode::for($account->id) : '',
+            'pay_link' => QuickPay::isOpen() ? route('pay.code', PayCode::for($account->id)) : '',
             default => '',
         };
     }

@@ -9,6 +9,7 @@ use App\Notifications\Placeholders;
 use App\Payments\PayCode;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AppSettingSeeder;
+use Illuminate\Support\Facades\URL;
 
 beforeEach(function () {
     $this->seed(AppSettingSeeder::class);
@@ -53,7 +54,21 @@ it('fills every value a rule can use', function () {
         'payment_method' => 'Online (Paytm)',
         'balance_due' => '100.00',
         'pay_code' => '',
+        'pay_link' => '',
     ])->and($result['trimmed'])->toBeFalse();
+});
+
+it('gives the whole pay link, never cut, only while the pay page is open', function () {
+    URL::forceRootUrl('http://billing.fastnet-broadband.example');
+    $account = Account::factory()->create();
+    $payLink = fn (): array => (new Placeholders)->values(['pay_link'], $account, null, CarbonImmutable::now());
+
+    expect($payLink()['values'][0])->toBe('');
+
+    turnQuickPayOn();
+
+    expect($payLink()['values'][0])->toBe('http://billing.fastnet-broadband.example/p/'.PayCode::for($account->id))
+        ->and($payLink()['trimmed'])->toBeFalse();
 });
 
 it('gives the pay code only while the pay page is open', function () {

@@ -77,6 +77,19 @@ it('shows the address to put before the pay code in the approved text', function
         ->set('trigger', 'customer_created')->assertDontSee(url('p').'/');
 });
 
+it('offers the pay link to WhatsApp rules only', function () {
+    NotificationProvider::query()->create(['provider' => 'msg91', 'enabled' => true, 'settings' => ['auth_key' => 'k-1']]);
+    $form = ruleForm()->set('values', ['customer_name', 'pay_link']);
+
+    expect($form->instance()->placeholderOptions)->toHaveKey('pay_link');
+
+    $form->set('provider', 'msg91')->assertSet('values', ['customer_name']);
+
+    expect($form->instance()->placeholderOptions)->not->toHaveKey('pay_link')->toHaveKey('pay_code');
+
+    $form->set('values', ['pay_link'])->call('save')->assertHasErrors(['values.0']);
+});
+
 it('resets the settings and drops values the new trigger cannot fill', function () {
     ruleForm()->set('trigger', 'recharge_done')
         ->assertSet('triggerSettings', [])

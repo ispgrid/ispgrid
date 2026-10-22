@@ -45,6 +45,7 @@ a customer who is online is changed, their session is disconnected so the change
   Paytm (more gateways can be added). Payments land on their invoices, renewals are booked with their invoice, and
   the customer gets a confirmation message. Reminders can carry a pay link: the "Pay code" value (e.g. `1234-a8k2mq`)
   goes after `https://<your domain>/p/` in the approved template, and opens the page with the customer already found.
+  WhatsApp rules can use the "Pay link" value instead: the whole address in one variable.
 - **Hotspot:** off until you turn it on in App settings (while it is off, FreeRADIUS refuses Hotspot page logins).
   A Hotspot plan can start its validity at the customer's first login instead of at the recharge.
 - **Online and Login log:** who is connected, from which NAS, IP and device, with traffic; every accepted and
