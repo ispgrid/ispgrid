@@ -12,6 +12,7 @@
     ":count address of this range is given to a customer.|:count addresses of this range are given to customers.": "इस रेंज का :count पता एक ग्राहक को दिया गया है।|इस रेंज के :count पते ग्राहकों को दिए गए हैं।",
     ":count customer imported.|:count customers imported.": ":count ग्राहक इंपोर्ट हुआ।|:count ग्राहक इंपोर्ट हुए।",
     ":count customer is bound to this NAS. Change their NAS first.|:count customers are bound to this NAS. Change their NAS first.": ":count ग्राहक इस NAS से बँधा है। पहले उसका NAS बदलें।|:count ग्राहक इस NAS से बँधे हैं। पहले उनका NAS बदलें।",
+    ":count advance renewal waits to start on this plan. Cancel it first.|:count advance renewals wait to start on this plan. Cancel them first.": ":count एडवांस रिन्यूअल इस प्लान पर शुरू होने का इंतज़ार कर रहा है। पहले उसे रद्द करें।|:count एडवांस रिन्यूअल इस प्लान पर शुरू होने का इंतज़ार कर रहे हैं। पहले उन्हें रद्द करें।",
     ":count customer uses this plan. Move them to another plan first.|:count customers use this plan. Move them to another plan first.": ":count ग्राहक यह प्लान इस्तेमाल करता है। पहले उसे दूसरे प्लान पर ले जाएँ।|:count ग्राहक यह प्लान इस्तेमाल करते हैं। पहले उन्हें दूसरे प्लान पर ले जाएँ।",
     ":count customer|:count customers": ":count ग्राहक|:count ग्राहक",
     ":count day|:count days": ":count दिन|:count दिन",

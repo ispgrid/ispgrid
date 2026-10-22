@@ -38,7 +38,8 @@ final class BookAdvanceRenewal
     {
         return DB::transaction(function () use ($accountId, $planId, $expiry, $amount, $note, $charge): AdvanceRenewal {
             $account = Account::query()->lockForUpdate()->findOrFail($accountId);
-            $plan = Plan::query()->findOrFail($planId);
+            // Shared lock: a delete of this plan waits for the commit and then counts this renewal.
+            $plan = Plan::query()->sharedLock()->findOrFail($planId);
 
             if ($account->plan_id === null || $account->expiry === null || $account->expiry->lessThanOrEqualTo(now())) {
                 throw new InvalidArgumentException('An advance renewal needs a plan and an expiry in the future.');
