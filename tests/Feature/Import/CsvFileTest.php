@@ -77,13 +77,16 @@ it('still refuses an unnamed column with values, or one between named columns', 
         ->and(errorLines(readCsv("username,,fullname\nalice,,Alice\n")->errors))->toBe(['- -: Column 2 has no name.']);
 });
 
-it('tells whether Excel replaced letters it could not save with question marks', function (string $value, bool $lost) {
-    expect(CsvFile::lostLetters($value))->toBe($lost);
+it('takes English text only, and finds letters Excel turned into question marks', function (array $values, array $errors) {
+    expect(CsvFile::textErrors($values, ['fullname']))->toBe($errors);
 })->with([
-    'Bengali name saved as plain CSV' => ['??? ???', true],
-    'mixed' => ['Ram ??', true],
-    'Latin name' => ['Alice Rao', false],
-    'one question mark' => ['Is this right?', false],
+    'English' => [['fullname' => 'Alice Rao', 'password' => 'a?b'], []],
+    'one question mark' => [['fullname' => 'Is this right?'], []],
+    'Hindi' => [['fullname' => 'राम कुमार'], ['fullname' => 'Use English letters, digits and symbols only.']],
+    'accented letter in any column' => [['password' => 'café'], ['password' => 'Use English letters, digits and symbols only.']],
+    'line break' => [['fullname' => 'Alice'.PHP_EOL.'Rao'], ['fullname' => 'Use English letters, digits and symbols only.']],
+    'Bengali saved as plain CSV' => [['fullname' => '??? ???'], ['fullname' => 'Excel turned letters it could not save into ?. Type this in English letters.']],
+    'question marks outside the text columns' => [['password' => 'ab??cd'], []],
 ]);
 
 it('refuses an empty file and a file with only the header', function (string $content) {

@@ -1,7 +1,8 @@
 <section class="grid gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Import') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ __('Add plans and customers from CSV files made from the templates. Check a file first: nothing is saved until every row is right, and then all rows are saved together.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ __('Add plans and customers from CSV files made from the templates, in English letters, digits and symbols only. Check a file first: nothing is saved until every row is right, and then all rows are saved together.') }}</x-ui.text>
+        <x-ui.link href="https://github.com/ispgrid/ispgrid/blob/master/IMPORT.md" target="_blank" rel="noopener" class="mt-1 inline-block text-sm">{{ __('How to fill in the files, step by step') }}</x-ui.link>
     </div>
 
     @forelse ($this->cards as $card)

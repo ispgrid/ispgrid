@@ -71,7 +71,7 @@ final class ImportCustomers implements Importer
     public function example(): array
     {
         return [
-            'username' => 'alice', 'password' => 'secret12', 'service_type' => 'PPP', 'fullname' => 'Alice Rao',
+            'username' => 'alice', 'password' => 'secret12', 'service_type' => 'PPPoE', 'fullname' => 'Alice Rao',
             'mobile' => '9876543210', 'email' => 'alice@example.com', 'company' => '', 'whatsapp' => '9876543210',
             'alt_number' => '', 'tax_id' => '', 'business_id' => '', 'plan_slug' => 'home_25',
             'expiry' => '2026-11-30 23:59', 'status' => 'Active', 'device_limit' => '1', 'ip' => '', 'mac' => '',
@@ -166,18 +166,14 @@ final class ImportCustomers implements Importer
      */
     private function prepareRow(int $line, array $values, int $digits, Collection $plans, Collection $pools, Collection $types, BillingSettings $settings, array &$seen): array
     {
-        $errors = [];
-        $type = ServiceType::tryFrom(strtoupper($values['service_type']));
+        $errors = CsvFile::textErrors($values, ['fullname', 'company', 'billing_name', ...self::ADDRESS]);
+        // The panel says PPPoE, so the file may too; the stored value is PPP.
+        $serviceType = strtoupper($values['service_type']) === 'PPPOE' ? ServiceType::Ppp->value : strtoupper($values['service_type']);
+        $type = ServiceType::tryFrom($serviceType);
         $isIpoe = $type === ServiceType::Ipoe;
         $taxId = $settings->tax()->usesPlaceOfSupply() ? strtoupper($values['tax_id']) : $values['tax_id'];
         $address = array_map(fn (string $value): ?string => $value === '' ? null : $value, Arr::only($values, self::ADDRESS));
         $hasAddress = array_filter($address, fn (?string $value): bool => $value !== null) !== [];
-
-        foreach (['fullname', 'company', 'billing_name', ...self::ADDRESS] as $column) {
-            if (CsvFile::lostLetters($values[$column])) {
-                $errors[$column] = CsvFile::lostLettersMessage();
-            }
-        }
 
         foreach ($isIpoe ? ['username', 'mobile', 'whatsapp', 'alt_number'] : ['username', 'password', 'mobile', 'whatsapp', 'alt_number'] as $column) {
             // Excel shows a long number such as 123456789012 as 1.23457E+11 and saves it that way.
@@ -210,7 +206,7 @@ final class ImportCustomers implements Importer
             'tax_id' => $taxId,
             'business_id' => $values['business_id'],
             'address' => $address,
-            'service_type' => strtoupper($values['service_type']),
+            'service_type' => $serviceType,
             'username' => $values['username'],
             'password' => $isIpoe ? '' : $values['password'],
             'mac_type' => $values['device_limit'] === '' ? '1' : $values['device_limit'],

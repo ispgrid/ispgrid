@@ -13,6 +13,7 @@
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="SETUP.md">MikroTik setup</a> ·
+  <a href="IMPORT.md">Import</a> ·
   <a href="#upgrade">Upgrade</a> ·
   <a href="#backups-and-restore">Backups</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
@@ -55,7 +56,8 @@ a customer who is online is changed, their session is disconnected so the change
   role (or your own) that set what each person may see and do; who changed what, newest first.
 - **Notifications:** expiry reminders, recharge and welcome messages by SMS (MSG91, DLT templates) and WhatsApp
   (wacrm), as rules you set up in the panel. Other providers can be added (see `CONTRIBUTING.md`).
-- **Import:** customers from CSV (contact and billing columns included), checked by the same rules as the form, with the customer fields you make required in App settings.
+- **Import:** plans and customers from CSV files (contact and billing columns included), checked by the same rules as
+  the forms, in English only. [IMPORT.md](IMPORT.md) explains every column, step by step.
 - **Languages:** English and Hindi; each staff member picks their own. More can be added (see `CONTRIBUTING.md`).
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for NAS that
   are not on your network, and a FreeRADIUS self-test (172 checks) at the end of every install and upgrade.
@@ -151,6 +153,9 @@ The full order, with the MikroTik side, is in [SETUP.md](SETUP.md).
 3. **Plans:** create a plan with its speed, validity and pool.
 4. **Customers:** add a customer, then **Recharge** on their page to give them the plan. They can log in now; you
    see them in **Online**, and a refused login in **Login log** with the reason.
+
+Moving from another system, or have your customers in a spreadsheet? Import the plans and customers from CSV files
+instead of typing them in: [IMPORT.md](IMPORT.md) shows how.
 
 ## Upgrade
 

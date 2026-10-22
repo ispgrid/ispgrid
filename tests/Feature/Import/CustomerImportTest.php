@@ -97,6 +97,12 @@ it('imports a customer as Inactive without a plan, with the FreeRADIUS rows the 
         ->and(radreplyOf('alice'))->toBe(radreplyOf('bob'));
 });
 
+it('takes PPPoE, as the panel calls it, for the PPP service type', function (string $serviceType) {
+    app(ImportCustomers::class)->import(importCustomerRows(['service_type' => $serviceType]));
+
+    expect(Account::query()->sole()->service_type->value)->toBe('PPP');
+})->with(['PPPoE', 'pppoe', 'PPP']);
+
 it('gives a customer the plan, expiry and status from the file, with the usage period starting now', function () {
     $this->travelTo(Carbon::parse('2026-10-10 14:30:00'));
     $plan = Plan::factory()->create(['slug' => 'home_25']);
@@ -250,8 +256,9 @@ it('checks the profile and service fields as the form does', function (array $va
     'address without line 1' => [['city' => 'Kolkata'], '2 line1: Enter the first address line, or leave the whole address empty.'],
     'postal code' => [['line1' => '12 Park Street', 'postal_code' => str_repeat('7', 21)], '2 postal_code: The postal code field must not be greater than 20 characters.'],
     'connection type' => [['connection_type' => 'Nowhere'], '2 connection_type: No connection type named Nowhere.'],
-    'name Excel could not save' => [['fullname' => '??? ???'], '2 fullname: Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.'],
-    'address Excel could not save' => [['line1' => '12 Park Street', 'city' => '?????'], '2 city: Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.'],
+    'name Excel could not save' => [['fullname' => '??? ???'], '2 fullname: Excel turned letters it could not save into ?. Type this in English letters.'],
+    'address Excel could not save' => [['line1' => '12 Park Street', 'city' => '?????'], '2 city: Excel turned letters it could not save into ?. Type this in English letters.'],
+    'name in Hindi' => [['fullname' => 'राम कुमार'], '2 fullname: Use English letters, digits and symbols only.'],
 ]);
 
 it('saves the address and the connection type', function () {

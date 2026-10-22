@@ -90,8 +90,9 @@ it('refuses what the plan form refuses', function (array $values, string $line) 
     'price' => [['price' => '5.999'], '2 price: The price field must have 0-2 decimal places.'],
     'speed format' => [['upload' => '25 Mbps'], '2 upload: Enter a whole number with k or M, e.g. 512k or 25M.'],
     'no download' => [['download' => ''], '2 download: The download field is required.'],
-    'name Excel could not save' => [['name' => '??? ??'], '2 name: Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.'],
-    'description Excel could not save' => [['description' => 'Plan ????'], '2 description: Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.'],
+    'name Excel could not save' => [['name' => '??? ??'], '2 name: Excel turned letters it could not save into ?. Type this in English letters.'],
+    'description Excel could not save' => [['description' => 'Plan ????'], '2 description: Excel turned letters it could not save into ?. Type this in English letters.'],
+    'name in Hindi' => [['name' => 'घर 25'], '2 name: Use English letters, digits and symbols only.'],
     'unknown pool' => [['pool' => 'nowhere'], '2 pool: No pool named nowhere.'],
 ]);
 

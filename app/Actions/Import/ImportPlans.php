@@ -91,13 +91,7 @@ final class ImportPlans implements Importer
         $prepared = [];
 
         foreach ($rows as ['line' => $line, 'values' => $values]) {
-            $errors = [];
-
-            foreach (['name', 'description'] as $column) {
-                if (CsvFile::lostLetters($values[$column])) {
-                    $errors[$column] = CsvFile::lostLettersMessage();
-                }
-            }
+            $errors = CsvFile::textErrors($values, ['name', 'description']);
 
             $pool = $values['pool'] === '' ? null : $pools->get(strtolower($values['pool']));
 

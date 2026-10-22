@@ -21,8 +21,9 @@ function planCsv(string ...$rows): UploadedFile
     return UploadedFile::fake()->createWithContent('plans.csv', "slug,name,validity_days,price,upload,download\n".implode("\n", $rows)."\n");
 }
 
-it('opens the import screen', function () {
-    $this->get(route('import.index'))->assertOk()->assertSee('Download template')->assertSee('Import plans first');
+it('opens the import screen, with a link to the step-by-step guide', function () {
+    $this->get(route('import.index'))->assertOk()->assertSee('Download template')->assertSee('Import plans first')
+        ->assertSee('https://github.com/ispgrid/ispgrid/blob/master/IMPORT.md');
 });
 
 it('offers a template for each file', function () {

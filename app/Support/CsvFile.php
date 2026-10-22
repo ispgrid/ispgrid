@@ -157,20 +157,27 @@ final class CsvFile
     }
 
     /**
-     * Excel's plain "CSV" can't hold Bengali or Devanagari letters and saves each one as "?", in a file that still
-     * passes as UTF-8. Two in a row is the sign; a single "?" may be meant.
+     * The problem of each cell that is not plain English text, keyed by column. Imports take English letters, digits
+     * and symbols only. Excel's plain "CSV" can't hold Bengali or Devanagari letters and saves each one as "?", which
+     * is English, so the text columns are also checked for two in a row; a single "?" may be meant.
+     *
+     * @param  array<string, string>  $values
+     * @param  list<string>  $textColumns
+     * @return array<string, string>
      */
-    public static function lostLetters(string $value): bool
+    public static function textErrors(array $values, array $textColumns): array
     {
-        return str_contains($value, '??');
-    }
+        $errors = [];
 
-    /**
-     * The problem to show for a text cell that lostLetters() flags.
-     */
-    public static function lostLettersMessage(): string
-    {
-        return __('Excel turned letters it could not save into ?. Save the file as "CSV UTF-8" and check it again.');
+        foreach ($values as $column => $value) {
+            if (! RadiusText::isEnglish($value)) {
+                $errors[$column] = __('Use English letters, digits and symbols only.');
+            } elseif (in_array($column, $textColumns, true) && str_contains($value, '??')) {
+                $errors[$column] = __('Excel turned letters it could not save into ?. Type this in English letters.');
+            }
+        }
+
+        return $errors;
     }
 
     private static function failed(string $message): self
