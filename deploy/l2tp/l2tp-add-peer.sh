@@ -53,7 +53,7 @@ Router/NAS "$name" gets tunnel address $peer_ip. Paste on it (RouterOS 6 or 7):
 /radius incoming set accept=yes
 /ip firewall nat add chain=srcnat out-interface=l2tp-ispgrid action=masquerade comment="ISPGrid: notice page replies"
 
-Then add it in the panel (Network, Routers) with IP $peer_ip and the same secret.
+Then add it in the panel (Network, NAS) with IP $peer_ip and the same secret.
 EOF
 }
 

@@ -54,6 +54,41 @@ it('reports a row with more cells than the header instead of shifting them', fun
         ->and(array_column($csv->rows, 'line'))->toBe([3]);
 });
 
+it('reports a row with fewer cells than the header instead of shifting or blanking them', function () {
+    $csv = readCsv("username,fullname,city\nalice,Alice\nbob,Bob,Delhi\n");
+
+    expect(errorLines($csv->errors))->toBe(['2 -: This row has 2 cells but the header has 3. Check for a missing comma.'])
+        ->and(array_column($csv->rows, 'line'))->toBe([3]);
+});
+
+it('ignores the empty unnamed columns Excel adds after the last one', function () {
+    $csv = readCsv("username,fullname,,\nalice,Alice,,\nbob,Bob\n");
+
+    expect($csv->errors)->toBe([])
+        ->and(array_column($csv->rows, 'values'))->toBe([
+            ['username' => 'alice', 'fullname' => 'Alice', 'city' => ''],
+            ['username' => 'bob', 'fullname' => 'Bob', 'city' => ''],
+        ]);
+});
+
+it('still refuses an unnamed column with values, or one between named columns', function () {
+    expect(errorLines(readCsv("username,fullname,\nalice,Alice,Rao\n")->errors))
+        ->toBe(['2 -: This row has 3 cells but the header has 2. Check for a stray comma.'])
+        ->and(errorLines(readCsv("username,,fullname\nalice,,Alice\n")->errors))->toBe(['- -: Column 2 has no name.']);
+});
+
+it('takes English text only, and finds letters Excel turned into question marks', function (array $values, array $errors) {
+    expect(CsvFile::textErrors($values, ['fullname']))->toBe($errors);
+})->with([
+    'English' => [['fullname' => 'Alice Rao', 'password' => 'a?b'], []],
+    'one question mark' => [['fullname' => 'Is this right?'], []],
+    'Hindi' => [['fullname' => 'राम कुमार'], ['fullname' => 'Use English letters, digits and symbols only.']],
+    'accented letter in any column' => [['password' => 'café'], ['password' => 'Use English letters, digits and symbols only.']],
+    'line break' => [['fullname' => 'Alice'.PHP_EOL.'Rao'], ['fullname' => 'Use English letters, digits and symbols only.']],
+    'Bengali saved as plain CSV' => [['fullname' => '??? ???'], ['fullname' => 'Excel turned letters it could not save into ?. Type this in English letters.']],
+    'question marks outside the text columns' => [['password' => 'ab??cd'], []],
+]);
+
 it('refuses an empty file and a file with only the header', function (string $content) {
     expect(errorLines(readCsv($content)->errors))->toBe(['- -: The file has no rows.']);
 })->with(['empty' => '', 'header only' => "username,fullname\n"]);

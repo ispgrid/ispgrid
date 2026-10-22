@@ -1,10 +1,11 @@
 <section class="grid gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Import') }}</x-ui.heading>
-        <x-ui.text muted class="mt-1">{{ __('Add plans and customers from CSV files made from the templates. Check a file first: nothing is saved until every row is right, and then all rows are saved together.') }}</x-ui.text>
+        <x-ui.text muted class="mt-1">{{ __('Add plans and customers from CSV files made from the templates, in English letters, digits and symbols only. Check a file first: nothing is saved until every row is right, and then all rows are saved together.') }}</x-ui.text>
+        <x-ui.link href="https://github.com/ispgrid/ispgrid/blob/master/IMPORT.md" target="_blank" rel="noopener" class="mt-1 inline-block text-sm">{{ __('How to fill in the files, step by step') }}</x-ui.link>
     </div>
 
-    @foreach ($this->cards as $card)
+    @forelse ($this->cards as $card)
         <x-ui.card wire:key="import-{{ $card['kind'] }}" class="grid gap-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0 sm:flex-1">
@@ -16,13 +17,14 @@
 
             <form wire:submit="check('{{ $card['kind'] }}')" class="flex flex-wrap items-end gap-3">
                 <div class="min-w-60 flex-1">
-                    <x-ui.input type="file" wire:model="{{ $card['file'] }}" :label="__('CSV file')" accept=".csv,text/csv" />
+                    <x-ui.input type="file" wire:model="{{ $card['file'] }}" :label="__('CSV file')" accept=".csv,.txt,text/csv,text/plain" />
                 </div>
-                <x-ui.button type="submit" variant="secondary">{{ __('Check file') }}</x-ui.button>
+                <x-ui.button type="submit" variant="secondary" wire:loading.attr="disabled" wire:target="{{ $card['file'] }}">{{ __('Check file') }}</x-ui.button>
             </form>
 
             @if ($card['ready'] !== null)
-                <div class="flex flex-wrap items-center gap-3">
+                {{-- Hidden while another file uploads: until it arrives, Import would still read the checked one. --}}
+                <div class="flex flex-wrap items-center gap-3" wire:loading.remove wire:target="{{ $card['file'] }}">
                     <x-ui.alert variant="success" class="flex-1">{{ $card['readyText'] }}</x-ui.alert>
                     <x-ui.button icon="arrow-up-tray" wire:click="import('{{ $card['kind'] }}')" wire:loading.attr="disabled">{{ $card['importText'] }}</x-ui.button>
                 </div>
@@ -46,5 +48,7 @@
                 </x-ui.table>
             @endif
         </x-ui.card>
-    @endforeach
+    @empty
+        <x-ui.text muted>{{ __('Your role may import, but not add plans or customers, so there is nothing to import.') }}</x-ui.text>
+    @endforelse
 </section>

@@ -74,6 +74,9 @@ customers with a static IP. Go to **Network, IP ranges** and choose what the ran
 
 **Step 4. Add a plan.** Go to **Plans** and add one with its speed and validity.
 
+Already have many plans and customers in a spreadsheet or another system? You can import them from CSV files under
+**System, Import** instead of adding them one by one: [IMPORT.md](IMPORT.md) walks you through it.
+
 **Check:** you can now add a customer and **Recharge** them with the plan. They cannot log in yet: the NAS is
 set up in the next sections.
 

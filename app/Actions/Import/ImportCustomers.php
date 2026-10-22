@@ -18,6 +18,7 @@ use App\Models\Ip;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\UsagePeriod;
+use App\Support\CsvFile;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\IpAddress;
@@ -70,7 +71,7 @@ final class ImportCustomers implements Importer
     public function example(): array
     {
         return [
-            'username' => 'alice', 'password' => 'secret12', 'service_type' => 'PPP', 'fullname' => 'Alice Rao',
+            'username' => 'alice', 'password' => 'secret12', 'service_type' => 'PPPoE', 'fullname' => 'Alice Rao',
             'mobile' => '9876543210', 'email' => 'alice@example.com', 'company' => '', 'whatsapp' => '9876543210',
             'alt_number' => '', 'tax_id' => '', 'business_id' => '', 'plan_slug' => 'home_25',
             'expiry' => '2026-11-30 23:59', 'status' => 'Active', 'device_limit' => '1', 'ip' => '', 'mac' => '',
@@ -129,7 +130,7 @@ final class ImportCustomers implements Importer
             DB::table('account_macs')->insert(['username' => $account->username, 'mac_norm' => $row['mac'], 'learned_at' => now()]);
         }
 
-        $this->logImported($account, $row['address']);
+        $this->logImported($account, $row['address'], $row['mac']);
     }
 
     /**
@@ -165,8 +166,10 @@ final class ImportCustomers implements Importer
      */
     private function prepareRow(int $line, array $values, int $digits, Collection $plans, Collection $pools, Collection $types, BillingSettings $settings, array &$seen): array
     {
-        $errors = [];
-        $type = ServiceType::tryFrom(strtoupper($values['service_type']));
+        $errors = CsvFile::textErrors($values, ['fullname', 'company', 'billing_name', ...self::ADDRESS]);
+        // The panel says PPPoE, so the file may too; the stored value is PPP.
+        $serviceType = strtoupper($values['service_type']) === 'PPPOE' ? ServiceType::Ppp->value : strtoupper($values['service_type']);
+        $type = ServiceType::tryFrom($serviceType);
         $isIpoe = $type === ServiceType::Ipoe;
         $taxId = $settings->tax()->usesPlaceOfSupply() ? strtoupper($values['tax_id']) : $values['tax_id'];
         $address = array_map(fn (string $value): ?string => $value === '' ? null : $value, Arr::only($values, self::ADDRESS));
@@ -203,7 +206,7 @@ final class ImportCustomers implements Importer
             'tax_id' => $taxId,
             'business_id' => $values['business_id'],
             'address' => $address,
-            'service_type' => strtoupper($values['service_type']),
+            'service_type' => $serviceType,
             'username' => $values['username'],
             'password' => $isIpoe ? '' : $values['password'],
             'mac_type' => $values['device_limit'] === '' ? '1' : $values['device_limit'],
@@ -213,7 +216,7 @@ final class ImportCustomers implements Importer
         ];
         $rules = CustomerRules::rules(true, $isIpoe, $hasAddress, $digits);
 
-        foreach (Validator::make($data, $rules, CustomerRules::messages($digits))->errors()->messages() as $field => $messages) {
+        foreach (Validator::make($data, $rules, CustomerRules::messages($digits), self::attributeNames())->errors()->messages() as $field => $messages) {
             $column = str_starts_with($field, 'address.') ? substr($field, 8) : (self::COLUMN_OF[$field] ?? $field);
             $errors[$column] ??= $messages[0];
         }
@@ -438,6 +441,18 @@ final class ImportCustomers implements Importer
     }
 
     /**
+     * The CSV column each message names, e.g. "The device limit field ..." rather than "The mac type field ...".
+     *
+     * @return array<string, string>
+     */
+    private static function attributeNames(): array
+    {
+        $columns = self::COLUMN_OF + array_combine(array_map(fn (string $column): string => 'address.'.$column, self::ADDRESS), self::ADDRESS);
+
+        return array_map(fn (string $column): string => str_replace('_', ' ', $column), $columns);
+    }
+
+    /**
      * "YYYY-MM-DD HH:MM" or "YYYY-MM-DD" (midnight). A date that does not exist (2026-02-30) is refused, not
      * rolled over.
      */
@@ -459,12 +474,12 @@ final class ImportCustomers implements Importer
     }
 
     /**
-     * One "Imported" entry with the customer's logged columns (never the password) and their address, like the
-     * form's "Created" entry.
+     * One "Imported" entry with the customer's logged columns (never the password), their address and the bound
+     * device, like the form's "Created" entry.
      *
      * @param  ?array<string, ?string>  $address
      */
-    private function logImported(Account $account, ?array $address): void
+    private function logImported(Account $account, ?array $address, ?string $mac): void
     {
         $attributes = [];
 
@@ -479,6 +494,10 @@ final class ImportCustomers implements Importer
 
         if ($address !== null) {
             $attributes['address'] = implode(', ', array_filter($address, fn (?string $value): bool => $value !== null));
+        }
+
+        if ($mac !== null) {
+            $attributes['mac'] = implode(':', str_split($mac, 2));
         }
 
         activity()->performedOn($account)->event('imported')->withChanges(['attributes' => $attributes])->log('imported');

@@ -61,6 +61,12 @@ final class CsvFile
         }
 
         $header = array_map(fn (?string $name): string => strtolower(trim((string) $name)), $header);
+
+        // Excel adds empty unnamed columns at the end when cells to the right were ever touched.
+        while ($header !== [] && end($header) === '') {
+            array_pop($header);
+        }
+
         $errors = self::headerErrors($header, $columns, $required);
 
         if ($errors !== []) {
@@ -78,8 +84,22 @@ final class CsvFile
                 continue;
             }
 
+            // Their cells stay empty too; a value there still counts as a stray comma below.
+            while (count($cells) > count($header) && end($cells) === '') {
+                array_pop($cells);
+            }
+
             if (count($cells) > count($header)) {
                 $errors[] = new RowError($line, null, __('This row has :cells cells but the header has :columns. Check for a stray comma.', [
+                    'cells' => count($cells),
+                    'columns' => count($header),
+                ]));
+
+                continue;
+            }
+
+            if (count($cells) < count($header)) {
+                $errors[] = new RowError($line, null, __('This row has :cells cells but the header has :columns. Check for a missing comma.', [
                     'cells' => count($cells),
                     'columns' => count($header),
                 ]));
@@ -90,7 +110,7 @@ final class CsvFile
             $values = array_fill_keys($columns, '');
 
             foreach ($header as $index => $name) {
-                $values[$name] = $cells[$index] ?? '';
+                $values[$name] = $cells[$index];
             }
 
             $rows[] = ['line' => $line, 'values' => $values];
@@ -131,6 +151,30 @@ final class CsvFile
 
         foreach (array_diff($required, $header) as $name) {
             $errors[] = new RowError(null, null, __('Missing column: :name.', ['name' => $name]));
+        }
+
+        return $errors;
+    }
+
+    /**
+     * The problem of each cell that is not plain English text, keyed by column. Imports take English letters, digits
+     * and symbols only. Excel's plain "CSV" can't hold Bengali or Devanagari letters and saves each one as "?", which
+     * is English, so the text columns are also checked for two in a row; a single "?" may be meant.
+     *
+     * @param  array<string, string>  $values
+     * @param  list<string>  $textColumns
+     * @return array<string, string>
+     */
+    public static function textErrors(array $values, array $textColumns): array
+    {
+        $errors = [];
+
+        foreach ($values as $column => $value) {
+            if (! RadiusText::isEnglish($value)) {
+                $errors[$column] = __('Use English letters, digits and symbols only.');
+            } elseif (in_array($column, $textColumns, true) && str_contains($value, '??')) {
+                $errors[$column] = __('Excel turned letters it could not save into ?. Type this in English letters.');
+            }
         }
 
         return $errors;

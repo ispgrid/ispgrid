@@ -6,6 +6,7 @@ use App\Actions\Radius\SyncPlanToRadius;
 use App\Exceptions\ImportFailed;
 use App\Models\Plan;
 use App\Models\Pool;
+use App\Support\CsvFile;
 use App\Support\PlanRules;
 use App\Support\RateLimit;
 use BackedEnum;
@@ -90,7 +91,8 @@ final class ImportPlans implements Importer
         $prepared = [];
 
         foreach ($rows as ['line' => $line, 'values' => $values]) {
-            $errors = [];
+            $errors = CsvFile::textErrors($values, ['name', 'description']);
+
             $pool = $values['pool'] === '' ? null : $pools->get(strtolower($values['pool']));
 
             if ($values['pool'] !== '' && $pool === null) {
@@ -108,14 +110,15 @@ final class ImportPlans implements Importer
                 'pool_id' => $pool?->id,
             ];
 
-            foreach (Validator::make($data, PlanRules::rules(true), PlanRules::messages())->errors()->messages() as $field => $messages) {
+            $validator = Validator::make($data, PlanRules::rules(true), PlanRules::messages(), self::attributeNames());
+
+            foreach ($validator->errors()->messages() as $field => $messages) {
                 $errors[self::COLUMN_OF[$field] ?? $field] ??= $messages[0];
             }
 
-            if (! isset($errors['upload']) && ! isset($errors['download'])) {
-                foreach ((new RateLimit($values['upload'], $values['download']))->errors() as $field => $message) {
-                    $errors[$field] ??= $message;
-                }
+            // Each speed on its own, so a blank download does not hide a wrong upload.
+            foreach ((new RateLimit($values['upload'], $values['download']))->errors() as $field => $message) {
+                $errors[$field] ??= $message;
             }
 
             $slug = strtolower($values['slug']);
@@ -146,6 +149,16 @@ final class ImportPlans implements Importer
         }
 
         return $prepared;
+    }
+
+    /**
+     * The CSV column each message names, e.g. "The validity days field ..." rather than "The validity field ...".
+     *
+     * @return array<string, string>
+     */
+    private static function attributeNames(): array
+    {
+        return array_map(fn (string $column): string => str_replace('_', ' ', $column), self::COLUMN_OF);
     }
 
     /**

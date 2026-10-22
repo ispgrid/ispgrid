@@ -111,6 +111,12 @@ check "dollar and backslash kept" "$(env_get "$env" DB_PASSWORD)" 'a$b\c'
 check "added, quoted with space" "$(grep '^MAIL_FROM_NAME=' "$env")" 'MAIL_FROM_NAME="ISP Grid"'
 check "quoted value read back" "$(env_get "$env" MAIL_FROM_NAME)" 'ISP Grid'
 check "other lines kept" "$(env_get "$env" APP_URL)" http://localhost
+check "no temporary file left" "$(find "$tmp" -name '.env.*' | wc -l | tr -d ' ')" 0
+if [[ "$(uname -s)" == Linux ]]; then
+  chmod 640 "$env"
+  env_set "$env" APP_NAME ISPGrid
+  check "env keeps its mode" "$(stat -c %a "$env")" 640
+fi
 
 #  Arguments
 OPT_ROUTERS=""

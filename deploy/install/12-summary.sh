@@ -82,13 +82,13 @@ summary_rows() {
     echo "text|1. Open $url and log in."
   fi
   if [[ "$ROUTERS" == wireguard ]]; then
-    echo "text|2. For each router/NAS: run sudo $ISPGRID_HOME/deploy/wireguard/wg-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, Routers) with its tunnel IP."
+    echo "text|2. For each router/NAS: run sudo $ISPGRID_HOME/deploy/wireguard/wg-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, NAS) with its tunnel IP."
   elif [[ "$ROUTERS" == l2tp ]]; then
-    echo "text|2. For each router/NAS: run sudo $ISPGRID_HOME/deploy/l2tp/l2tp-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, Routers) with its tunnel IP."
+    echo "text|2. For each router/NAS: run sudo $ISPGRID_HOME/deploy/l2tp/l2tp-add-peer.sh NAME, paste the commands it prints on the router, then add it in the panel (Network, NAS) with its tunnel IP."
   elif [[ "$ROUTERS" == public ]]; then
-    echo "text|2. For each router/NAS: add it in the panel (Network, Routers) with the public IP it sends RADIUS from, and on the router point RADIUS at $radius_ip."
+    echo "text|2. For each router/NAS: add it in the panel (Network, NAS) with the public IP it sends RADIUS from, and on the router point RADIUS at $radius_ip."
   else
-    echo "text|2. For each router/NAS: add it in the panel (Network, Routers), and on the router point RADIUS at $radius_ip."
+    echo "text|2. For each router/NAS: add it in the panel (Network, NAS), and on the router point RADIUS at $radius_ip."
   fi
   echo "text|3. Create a plan, then a customer."
   echo "text|4. So that disabled customers see the notice page, the router/NAS sends their web traffic to $radius_ip:8088."

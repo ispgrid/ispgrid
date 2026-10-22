@@ -8,8 +8,11 @@ use App\Actions\Import\RowError;
 use App\Exceptions\ImportFailed;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
+use App\Models\Account;
+use App\Models\Plan;
 use App\Support\CsvFile;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -35,6 +38,7 @@ new #[Title('Import')] class extends Component
      *
      * @var array<string, list<array{row: ?int, column: ?string, message: string}>>
      */
+    #[Locked]
     public array $problems = ['plans' => [], 'customers' => []];
 
     /**
@@ -42,6 +46,7 @@ new #[Title('Import')] class extends Component
      *
      * @var array<string, ?int>
      */
+    #[Locked]
     public array $ready = ['plans' => null, 'customers' => null];
 
     public function mount(): void
@@ -85,7 +90,9 @@ new #[Title('Import')] class extends Component
         ]);
 
         $csv = $this->read($kind, $importer);
-        $problems = $csv->errors !== [] ? $csv->errors : $importer->check($csv->rows);
+        // A row CsvFile could not read hides nothing else: the readable rows are checked too, all in row order.
+        $problems = [...$csv->errors, ...$importer->check($csv->rows)];
+        usort($problems, fn (RowError $a, RowError $b): int => ($a->row ?? 0) <=> ($b->row ?? 0));
 
         $this->problems[$kind] = array_map(fn (RowError $error): array => $error->toArray(), $problems);
         $this->ready[$kind] = $problems === [] ? count($csv->rows) : null;
@@ -156,6 +163,8 @@ new #[Title('Import')] class extends Component
             'plans' => [__('Plans'), __('One plan per row. Speeds use k or M, e.g. 25M. The pool is a pool name and may be empty.')],
             'customers' => [__('Customers'), __('Import plans first: customers refer to plans by slug. Expiry is YYYY-MM-DD HH:MM; customers without a plan start Inactive. In Excel, format the username, password, mobile and expiry columns as Text before typing.')],
         ];
+        // Only what the staff member may also add through the forms.
+        $cards = array_filter($cards, fn (string $kind): bool => auth()->user()->can('create', $this->model($kind)), ARRAY_FILTER_USE_KEY);
 
         return array_map(function (string $kind, array $text): array {
             $ready = $this->ready[$kind];
@@ -179,11 +188,26 @@ new #[Title('Import')] class extends Component
         }, array_keys($cards), array_values($cards));
     }
 
+    /**
+     * The importer for the kind, once the staff member may also create what it adds, as the forms require.
+     */
     private function importer(string $kind): Importer
     {
+        $this->authorize('create', $this->model($kind));
+
+        return app($kind === 'plans' ? ImportPlans::class : ImportCustomers::class);
+    }
+
+    /**
+     * The model a kind of file adds rows of.
+     *
+     * @return class-string<Plan|Account>
+     */
+    private function model(string $kind): string
+    {
         return match ($kind) {
-            'plans' => app(ImportPlans::class),
-            'customers' => app(ImportCustomers::class),
+            'plans' => Plan::class,
+            'customers' => Account::class,
             default => abort(404),
         };
     }

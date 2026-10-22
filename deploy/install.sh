@@ -853,19 +853,22 @@ env_get() {
   printf '%s\n' "$value"
 }
 
-#  env_set <file> <key> <value>: set or add KEY=value; a value with spaces or # is quoted. Keeps the file's mode.
+#  env_set <file> <key> <value>: set or add KEY=value; a value with spaces or # is quoted. Keeps the file's owner and
+#  mode. Written next to the file and renamed over it, so the scheduler's cron run never reads a half-written .env
+#  (and falls back to the defaults) during an upgrade.
 env_set() {
   local file=$1 key=$2 value=$3 tmp
   [[ "$value" =~ [[:space:]#] ]] && value="\"$value\""
-  tmp=$(mktemp)
+  tmp=$(mktemp "$file.XXXXXX")
   if grep -q "^$key=" "$file"; then
     K=$key V=$value awk 'index($0, ENVIRON["K"] "=") == 1 { print ENVIRON["K"] "=" ENVIRON["V"]; next } { print }' "$file" > "$tmp"
   else
     cat "$file" > "$tmp"
     printf '%s=%s\n' "$key" "$value" >> "$tmp"
   fi
-  cat "$tmp" > "$file"
-  rm -f "$tmp"
+  chown --reference="$file" "$tmp" 2>/dev/null || true
+  chmod --reference="$file" "$tmp"
+  mv -f "$tmp" "$file"
 }
 
 #  ---- Arguments and questions ----

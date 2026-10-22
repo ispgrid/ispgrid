@@ -86,12 +86,22 @@ it('refuses what the plan form refuses', function (array $values, string $line) 
 })->with([
     'slug format' => [['slug' => 'Home 25'], '2 slug: Use lower-case letters, digits, - and _ only.'],
     'no name' => [['name' => ''], '2 name: The name field is required.'],
-    'validity' => [['validity_days' => '0'], '2 validity_days: The validity field must be between 1 and 3650.'],
+    'validity' => [['validity_days' => '0'], '2 validity_days: The validity days field must be between 1 and 3650.'],
     'price' => [['price' => '5.999'], '2 price: The price field must have 0-2 decimal places.'],
     'speed format' => [['upload' => '25 Mbps'], '2 upload: Enter a whole number with k or M, e.g. 512k or 25M.'],
-    'no download' => [['download' => ''], '2 download: The download speed field is required.'],
+    'no download' => [['download' => ''], '2 download: The download field is required.'],
+    'name Excel could not save' => [['name' => '??? ??'], '2 name: Excel turned letters it could not save into ?. Type this in English letters.'],
+    'description Excel could not save' => [['description' => 'Plan ????'], '2 description: Excel turned letters it could not save into ?. Type this in English letters.'],
+    'name in Hindi' => [['name' => 'घर 25'], '2 name: Use English letters, digits and symbols only.'],
     'unknown pool' => [['pool' => 'nowhere'], '2 pool: No pool named nowhere.'],
 ]);
+
+it('lists a wrong upload speed next to a missing download', function () {
+    expect(errorLines(app(ImportPlans::class)->check(importPlanRows(['upload' => '25 Mbps', 'download' => '']))))->toBe([
+        '2 download: The download field is required.',
+        '2 upload: Enter a whole number with k or M, e.g. 512k or 25M.',
+    ]);
+});
 
 it('refuses a slug in use, also by a deleted plan', function () {
     Plan::factory()->create(['slug' => 'home_25']);
