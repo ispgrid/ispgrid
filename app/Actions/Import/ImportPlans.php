@@ -116,10 +116,9 @@ final class ImportPlans implements Importer
                 $errors[self::COLUMN_OF[$field] ?? $field] ??= $messages[0];
             }
 
-            if (! isset($errors['upload']) && ! isset($errors['download'])) {
-                foreach ((new RateLimit($values['upload'], $values['download']))->errors() as $field => $message) {
-                    $errors[$field] ??= $message;
-                }
+            // Each speed on its own, so a blank download does not hide a wrong upload.
+            foreach ((new RateLimit($values['upload'], $values['download']))->errors() as $field => $message) {
+                $errors[$field] ??= $message;
             }
 
             $slug = strtolower($values['slug']);

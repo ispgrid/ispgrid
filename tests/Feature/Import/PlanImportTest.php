@@ -96,6 +96,13 @@ it('refuses what the plan form refuses', function (array $values, string $line) 
     'unknown pool' => [['pool' => 'nowhere'], '2 pool: No pool named nowhere.'],
 ]);
 
+it('lists a wrong upload speed next to a missing download', function () {
+    expect(errorLines(app(ImportPlans::class)->check(importPlanRows(['upload' => '25 Mbps', 'download' => '']))))->toBe([
+        '2 download: The download field is required.',
+        '2 upload: Enter a whole number with k or M, e.g. 512k or 25M.',
+    ]);
+});
+
 it('refuses a slug in use, also by a deleted plan', function () {
     Plan::factory()->create(['slug' => 'home_25']);
     Plan::factory()->create(['slug' => 'office'])->delete();
