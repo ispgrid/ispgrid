@@ -6,6 +6,7 @@ use App\Models\Plan;
 use App\Models\Recharge;
 use App\Notifications\PaymentNotice;
 use App\Notifications\Placeholders;
+use App\Payments\PayCode;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AppSettingSeeder;
 
@@ -51,7 +52,20 @@ it('fills every value a rule can use', function () {
         'invoice_number' => 'INV-3',
         'payment_method' => 'Online (Paytm)',
         'balance_due' => '100.00',
+        'pay_code' => '',
     ])->and($result['trimmed'])->toBeFalse();
+});
+
+it('gives the pay code only while the pay page is open', function () {
+    $account = Account::factory()->create();
+    $payCode = fn (): string => (new Placeholders)->values(['pay_code'], $account, null, CarbonImmutable::now())['values'][0];
+
+    expect($payCode())->toBe('');
+
+    turnQuickPayOn();
+
+    expect($payCode())->toBe(PayCode::for($account->id))
+        ->and(PayCode::for($account->id))->toMatch('/^'.$account->id.'-[0-9a-z]{6}$/');
 });
 
 it('cuts a value to the DLT limit of 30 characters and says so', function () {
