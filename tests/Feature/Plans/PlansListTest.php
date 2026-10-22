@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\AdvanceRenewalStatus;
 use App\Models\Account;
+use App\Models\AdvanceRenewal;
 use App\Models\Plan;
 use App\Models\User;
 use Database\Seeders\AppSettingSeeder;
@@ -32,6 +34,18 @@ it('refuses to delete a plan that customers use', function () {
     Livewire::test('pages::plans.index')
         ->call('delete', $plan->id)
         ->assertDispatched('toast', variant: 'danger', message: '3 customers use this plan. Move them to another plan first.');
+
+    expect($plan->fresh()->trashed())->toBeFalse();
+});
+
+it('refuses to delete a plan an advance renewal waits to start on', function () {
+    $plan = Plan::factory()->create();
+    AdvanceRenewal::factory()->create(['plan_id' => $plan->id, 'status' => AdvanceRenewalStatus::Waiting]);
+    AdvanceRenewal::factory()->create(['plan_id' => $plan->id, 'status' => AdvanceRenewalStatus::Started]);
+
+    Livewire::test('pages::plans.index')
+        ->call('delete', $plan->id)
+        ->assertDispatched('toast', variant: 'danger', message: '1 advance renewal waits to start on this plan. Cancel it first.');
 
     expect($plan->fresh()->trashed())->toBeFalse();
 });

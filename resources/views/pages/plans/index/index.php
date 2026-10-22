@@ -1,8 +1,10 @@
 <?php
 
 use App\Actions\Radius\SyncPlanToRadius;
+use App\Enums\AdvanceRenewalStatus;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
+use App\Models\AdvanceRenewal;
 use App\Models\Plan;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Collection;
@@ -67,30 +69,41 @@ new #[Title('Plans')] class extends Component
     }
 
     /**
-     * Soft delete, refused while live customers use the plan. Its radgroupreply rows stay: only an account
-     * loses its rows on delete (spec section 2), and no live customer points at the plan any more.
+     * Soft delete, refused while live customers use the plan or an advance renewal waits to start on it (it
+     * would fail on its start date). Its radgroupreply rows stay: only an account loses its rows on delete (spec
+     * section 2), and no live customer points at the plan any more.
      */
     public function delete(int $planId): void
     {
         $this->authorize('delete', Plan::query()->findOrFail($planId));
 
-        // The plan row is locked before customers are counted; a recharge holds a shared lock on it, so neither
-        // lands a customer on a plan that is being deleted.
-        $customers = DB::transaction(function () use ($planId): int {
+        // The plan row is locked before customers and renewals are counted; a recharge or a booking holds a shared
+        // lock on it, so neither lands on a plan that is being deleted.
+        [$customers, $renewals] = DB::transaction(function () use ($planId): array {
             $plan = Plan::query()->lockForUpdate()->findOrFail($planId);
             $customers = $plan->accounts()->count();
+            $renewals = AdvanceRenewal::query()->where('plan_id', $plan->id)->where('status', AdvanceRenewalStatus::Waiting)->count();
 
-            if ($customers === 0) {
+            if ($customers === 0 && $renewals === 0) {
                 $plan->delete();
             }
 
-            return $customers;
+            return [$customers, $renewals];
         }, attempts: 3);
 
         if ($customers > 0) {
             $this->toast(trans_choice(
                 ':count customer uses this plan. Move them to another plan first.|:count customers use this plan. Move them to another plan first.',
                 $customers,
+            ), 'danger');
+
+            return;
+        }
+
+        if ($renewals > 0) {
+            $this->toast(trans_choice(
+                ':count advance renewal waits to start on this plan. Cancel it first.|:count advance renewals wait to start on this plan. Cancel them first.',
+                $renewals,
             ), 'danger');
 
             return;
