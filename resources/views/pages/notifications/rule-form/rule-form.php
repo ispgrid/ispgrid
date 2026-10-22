@@ -180,6 +180,15 @@ new #[Title('Notification rule')] class extends Component
     }
 
     /**
+     * The address a DLT template writes before the pay code, while the trigger offers it.
+     */
+    #[Computed]
+    public function payCodeAddress(): ?string
+    {
+        return array_key_exists('pay_code', $this->placeholderOptions) ? url('p').'/' : null;
+    }
+
+    /**
      * @return array<int, string>
      */
     #[Computed]

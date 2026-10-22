@@ -5,6 +5,8 @@ namespace App\Notifications;
 use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Recharge;
+use App\Payments\PayCode;
+use App\Payments\QuickPay;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -18,7 +20,7 @@ final class Placeholders
 
     /** Values every customer has. */
     public const COMMON = ['customer_name', 'username', 'mobile', 'plan_name', 'plan_speed', 'plan_price',
-        'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number'];
+        'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number', 'pay_code'];
 
     /** Values only a recharge has. */
     public const RECHARGE = ['amount_paid', 'recharge_reference', 'recharge_note', 'recharge_date', 'recharge_datetime'];
@@ -56,6 +58,7 @@ final class Placeholders
             'invoice_number' => __('Invoice number'),
             'payment_method' => __('Payment method'),
             'balance_due' => __('Balance due'),
+            'pay_code' => __('Pay code'),
         ];
     }
 
@@ -130,6 +133,7 @@ final class Placeholders
             'invoice_number' => (string) $payment?->invoices,
             'payment_method' => (string) $payment?->method,
             'balance_due' => $payment === null ? '' : $this->amount($payment->balanceDue),
+            'pay_code' => QuickPay::isOpen() ? PayCode::for($account->id) : '',
             default => '',
         };
     }
