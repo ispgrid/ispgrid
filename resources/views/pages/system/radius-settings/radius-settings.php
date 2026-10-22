@@ -79,9 +79,8 @@ new #[Title('FreeRADIUS settings')] class extends Component
             'disabled_users_pool.regex' => __('Use letters, digits and . _ - only, as on the NAS.'),
         ]);
 
-        $settings = RadiusSetting::current();
-
-        DB::transaction(fn () => $settings->update([
+        // Loaded in each attempt, so a deadlock retry never reuses a model that already looks saved.
+        $settings = DB::transaction(fn (): RadiusSetting => tap(RadiusSetting::current())->update([
             'expire_type' => (int) $validated['expire_type'],
             'disabled_users_pool' => $validated['disabled_users_pool'],
             'default_session_timeout' => (int) $validated['default_session_timeout'],

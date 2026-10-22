@@ -83,6 +83,8 @@ new #[Title('Address lists')] class extends Component
 
         $attributes = ['name' => $validated['name'], 'description' => $validated['description'] ?: null];
 
+        // Loaded again in each attempt: after a deadlock retry, the model updated by the rolled-back attempt would
+        // look unchanged and skip the rename.
         $renamed = DB::transaction(function () use ($list, $attributes, $replace): bool {
             if ($list === null) {
                 AddressList::query()->create($attributes);
@@ -90,6 +92,7 @@ new #[Title('Address lists')] class extends Component
                 return false;
             }
 
+            $list = AddressList::query()->lockForUpdate()->findOrFail($list->id);
             $oldName = $list->name;
             $list->update($attributes);
 

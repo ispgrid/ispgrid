@@ -138,6 +138,20 @@ it('restores a range with only the addresses its delete removed', function () {
         ->and(Ip::onlyTrashed()->pluck('address')->all())->toBe(['10.23.0.3']);
 });
 
+it('keeps out an address taken out by hand in the same second as the range delete', function () {
+    addRange(['network' => '10.23.0.0/29', 'gateway' => '10.23.0.1']);
+    $range = IpRange::query()->sole();
+    $this->freezeTime();
+
+    Livewire::test('pages::network.ip-range', ['ipRange' => $range->id])
+        ->call('removeIp', Ip::query()->where('address', '10.23.0.3')->value('id'));
+    Livewire::test('pages::network.ip-ranges')->call('delete', $range->id);
+    Livewire::test('pages::network.ip-ranges')->call('restore', $range->id);
+
+    expect(Ip::query()->count())->toBe(4)
+        ->and(Ip::onlyTrashed()->pluck('address')->all())->toBe(['10.23.0.3']);
+});
+
 it('shows a range with the details a technician needs', function () {
     addRange(['network' => '10.24.0.0/29', 'gateway' => '10.24.0.1', 'dns1' => '1.1.1.1']);
 

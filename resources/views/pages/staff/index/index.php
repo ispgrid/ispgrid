@@ -119,17 +119,25 @@ new #[Title('Staff')] class extends Component
         $this->authorize('changeRole', $staff);
         $this->validateRole();
 
-        $old = $staff->staffRole();
         $new = Role::query()->findOrFail((int) $this->role);
 
-        if ($old?->isNot($new)) {
-            $staff->syncRoles([$new]);
+        $changed = $this->whileStillAdmin($staff, function () use ($staff, $new): void {
+            $staff->unsetRelation('roles');
+            $old = $staff->staffRole();
 
-            activity()
-                ->performedOn($staff)
-                ->event('role-changed')
-                ->withChanges(['attributes' => ['role' => $new->name], 'old' => ['role' => $old?->name]])
-                ->log('role-changed');
+            if ($old?->isNot($new)) {
+                $staff->syncRoles([$new]);
+
+                activity()
+                    ->performedOn($staff)
+                    ->event('role-changed')
+                    ->withChanges(['attributes' => ['role' => $new->name], 'old' => ['role' => $old?->name]])
+                    ->log('role-changed');
+            }
+        });
+
+        if (! $changed) {
+            return;
         }
 
         $this->reset('role', 'roleStaffId');
@@ -142,7 +150,9 @@ new #[Title('Staff')] class extends Component
         $staff = User::query()->findOrFail($staffId);
         $this->authorize('delete', $staff);
 
-        $staff->delete();
+        if (! $this->whileStillAdmin($staff, fn () => $staff->delete())) {
+            return;
+        }
 
         $this->toast(__(':name is disabled.', ['name' => $staff->name]));
     }
@@ -155,6 +165,33 @@ new #[Title('Staff')] class extends Component
         $staff->restore();
 
         $this->toast(__(':name can log in again.', ['name' => $staff->name]));
+    }
+
+    /**
+     * Runs a role change or disable with both staff rows locked, and only while the Admin acting is still an active
+     * Admin: two Admins demoting or disabling each other at the same moment would otherwise leave none.
+     *
+     * @return bool false when the Admin acting lost Admin meanwhile (nothing done)
+     */
+    private function whileStillAdmin(User $staff, Closure $change): bool
+    {
+        $done = DB::transaction(function () use ($staff, $change): bool {
+            User::withTrashed()->whereKey([auth()->id(), $staff->id])->orderBy('id')->lockForUpdate()->get();
+
+            if (! User::query()->whereKey(auth()->id())->role(Role::ADMIN)->exists()) {
+                return false;
+            }
+
+            $change();
+
+            return true;
+        }, attempts: 3);
+
+        if (! $done) {
+            $this->toast(__('You are no longer an Admin.'), 'danger');
+        }
+
+        return $done;
     }
 
     private function validateRole(): void

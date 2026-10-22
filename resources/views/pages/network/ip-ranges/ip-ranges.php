@@ -7,6 +7,7 @@ use App\Models\Ip;
 use App\Models\IpRange;
 use App\Support\IpAddress;
 use App\Support\Ipv4Block;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
@@ -167,8 +168,18 @@ new #[Title('IP ranges')] class extends Component
             return;
         }
 
-        DB::transaction(function () use ($range): void {
+        DB::transaction(function () use ($rangeId): void {
+            $range = IpRange::query()->lockForUpdate()->findOrFail($rangeId);
             $range->delete();
+
+            // Restore brings back the addresses with the range's time. One taken out by hand in this same second
+            // would share it, so the range takes the second after the last one taken out by hand.
+            $lastTakenOut = $range->ips()->onlyTrashed()->max('deleted_at');
+
+            if ($lastTakenOut !== null && $range->deleted_at->lessThanOrEqualTo($lastTakenOut)) {
+                $range->forceFill(['deleted_at' => Carbon::parse($lastTakenOut)->addSecond()])->saveQuietly();
+            }
+
             $range->ips()->update(['deleted_at' => $range->deleted_at]);
         }, attempts: 3);
 
@@ -247,7 +258,10 @@ new #[Title('IP ranges')] class extends Component
             return false;
         }
 
+        // Loaded again in each attempt: after a deadlock retry, the model updated by the rolled-back attempt would
+        // look unchanged and skip the gateway swap.
         DB::transaction(function () use ($range, $details, $oldGateway, $newGateway, $leaving, $coming): void {
+            $range = IpRange::query()->lockForUpdate()->findOrFail($range->id);
             $range->update($details);
 
             Ip::query()->whereIn('address', $leaving)->get()->each->delete();

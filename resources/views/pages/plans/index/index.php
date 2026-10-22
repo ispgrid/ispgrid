@@ -72,19 +72,29 @@ new #[Title('Plans')] class extends Component
      */
     public function delete(int $planId): void
     {
-        $plan = Plan::query()->withCount('accounts')->findOrFail($planId);
-        $this->authorize('delete', $plan);
+        $this->authorize('delete', Plan::query()->findOrFail($planId));
 
-        if ($plan->accounts_count > 0) {
+        // The plan row is locked before customers are counted; a recharge holds a shared lock on it, so neither
+        // lands a customer on a plan that is being deleted.
+        $customers = DB::transaction(function () use ($planId): int {
+            $plan = Plan::query()->lockForUpdate()->findOrFail($planId);
+            $customers = $plan->accounts()->count();
+
+            if ($customers === 0) {
+                $plan->delete();
+            }
+
+            return $customers;
+        }, attempts: 3);
+
+        if ($customers > 0) {
             $this->toast(trans_choice(
                 ':count customer uses this plan. Move them to another plan first.|:count customers use this plan. Move them to another plan first.',
-                $plan->accounts_count,
+                $customers,
             ), 'danger');
 
             return;
         }
-
-        $plan->delete();
 
         $this->toast(__('Plan deleted.'));
     }
