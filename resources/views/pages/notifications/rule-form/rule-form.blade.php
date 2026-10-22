@@ -29,6 +29,9 @@
 
                     <div class="grid gap-3">
                         <x-ui.text>{{ __('Values in order: value 1 fills the first variable of the template, and so on.') }}</x-ui.text>
+                        @if ($this->payCodeAddress !== null)
+                            <x-ui.text muted>{{ __('Pay code: write :address in the approved text, right before its variable.', ['address' => $this->payCodeAddress]) }}</x-ui.text>
+                        @endif
                         @foreach ($values as $index => $value)
                             <div class="flex items-end gap-2" wire:key="value-{{ $index }}">
                                 <div class="grow">

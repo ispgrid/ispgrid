@@ -72,6 +72,11 @@ it('previews the message for a real customer', function () {
     ruleForm()->assertSee('Dear Asha Rao, your plan ends on 22-Aug-2026.');
 });
 
+it('shows the address to put before the pay code in the approved text', function () {
+    ruleForm()->assertSee(url('p').'/')
+        ->set('trigger', 'customer_created')->assertDontSee(url('p').'/');
+});
+
 it('resets the settings and drops values the new trigger cannot fill', function () {
     ruleForm()->set('trigger', 'recharge_done')
         ->assertSet('triggerSettings', [])

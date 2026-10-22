@@ -8,9 +8,11 @@ use App\Enums\OnlinePaymentStatus;
 use App\Exceptions\GatewayUnavailable;
 use App\Exceptions\NothingToPay;
 use App\Exceptions\TooManyPaymentAttempts;
+use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\OnlinePayment;
 use App\Models\Payment;
+use App\Payments\PayCode;
 use App\Payments\PaymentGateways;
 use App\Payments\QuickPay;
 use App\Payments\QuickPayQuote;
@@ -46,17 +48,26 @@ class QuickPayController extends Controller
         abort_unless(QuickPay::isOpen(), 404);
         $who = trim((string) $request->string('who'));
         $request->merge(['who' => $who])->validate(['who' => ['required', 'string', 'max:100']], [], ['who' => __('username or mobile number')]);
-        $expires = now()->addMinutes(self::TOKEN_MINUTES)->getTimestamp();
 
-        $rows = array_map(fn (QuickPayQuote $quote): array => [
-            'username' => $quote->maskedUsername,
-            'dues' => $quote->dues,
-            'renewal' => $quote->renewal?->price,
-            'total' => $quote->total,
-            'token' => Crypt::encryptString((string) json_encode(['a' => $quote->accountId, 'x' => $expires])),
-        ], $quickPay->find($who));
+        return $this->page('pay.find', ['who' => $who, 'rows' => $this->rows($quickPay->find($who))]);
+    }
 
-        return $this->page('pay.find', ['who' => $who, 'rows' => $rows]);
+    /**
+     * The pay link of a reminder (/p/{code}): the search result for that one customer, nothing to type.
+     */
+    public function code(string $code, QuickPay $quickPay): View|RedirectResponse
+    {
+        abort_unless(QuickPay::isOpen(), 404);
+        $accountId = PayCode::accountId($code);
+
+        if ($accountId === null) {
+            return redirect()->route('pay.show')->with('pay_message', __('That link is not valid. Search by username or mobile number.'));
+        }
+
+        $account = Account::withTrashed()->find($accountId);
+        $quote = $account === null ? null : $quickPay->quote($account);
+
+        return $this->page('pay.find', ['who' => '', 'rows' => $this->rows($quote === null ? [] : [$quote])]);
     }
 
     public function start(Request $request, StartOnlinePayment $start, PaymentGateways $gateways): View|RedirectResponse
@@ -102,6 +113,25 @@ class QuickPayController extends Controller
         };
 
         return $this->page('pay.result', ['payment' => $payment, 'receipts' => $receipts, 'state' => $state]);
+    }
+
+    /**
+     * Search results for the page: a masked username, the amounts and a Pay token that expires.
+     *
+     * @param  list<QuickPayQuote>  $quotes
+     * @return list<array{username: string, dues: string, renewal: ?string, total: string, token: string}>
+     */
+    private function rows(array $quotes): array
+    {
+        $expires = now()->addMinutes(self::TOKEN_MINUTES)->getTimestamp();
+
+        return array_map(fn (QuickPayQuote $quote): array => [
+            'username' => $quote->maskedUsername,
+            'dues' => $quote->dues,
+            'renewal' => $quote->renewal?->price,
+            'total' => $quote->total,
+            'token' => Crypt::encryptString((string) json_encode(['a' => $quote->accountId, 'x' => $expires])),
+        ], $quotes);
     }
 
     /**

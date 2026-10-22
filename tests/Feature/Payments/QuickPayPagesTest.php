@@ -9,6 +9,7 @@ use App\Models\GatewaySetting;
 use App\Models\OnlinePayment;
 use App\Models\Payment;
 use App\Models\Plan;
+use App\Payments\PayCode;
 use Illuminate\Support\Carbon;
 use Tests\Fakes\FakeGateway;
 
@@ -41,6 +42,7 @@ it('is closed while quick pay, invoicing or every gateway is off', function (Clo
 
     $this->get(route('pay.show'))->assertNotFound();
     $this->post(route('pay.find'), ['who' => 'kushal'])->assertNotFound();
+    $this->get(route('pay.code', PayCode::for($this->account->id)))->assertNotFound();
 })->with([
     'quick pay off' => fn () => AppSetting::put('billing.quick_pay', '0'),
     'invoicing off' => fn () => AppSetting::put('billing.enabled', '0'),
@@ -65,6 +67,46 @@ it('shows only a masked username and the amount', function () {
         ->assertDontSee('Gold 100')
         ->assertDontSee('9876543210');
 });
+
+it('opens the pay link from a reminder with the customer already found', function () {
+    $this->get(route('pay.code', PayCode::for($this->account->id)))
+        ->assertOk()
+        ->assertSee('ku***al')
+        ->assertSee(__('Pay :amount', ['amount' => '₹118.00']))
+        ->assertDontSee('Kushal Example')
+        ->assertDontSee('9876543210');
+});
+
+it('pays from the pay link like from a search', function () {
+    $token = payToken($this->get(route('pay.code', PayCode::for($this->account->id)))->getContent());
+
+    $this->post(route('pay.start'), ['token' => $token, 'gateway' => 'fake'])->assertOk();
+
+    expect(OnlinePayment::query()->sole()->account_id)->toBe($this->account->id);
+});
+
+it('sends a wrong pay link to the search', function (Closure $code) {
+    $this->get('/p/'.$code($this->account->id))
+        ->assertRedirect(route('pay.show'))
+        ->assertSessionHas('pay_message', __('That link is not valid. Search by username or mobile number.'));
+})->with([
+    'changed check' => fn (int $id): string => $id.'-aaaaaa',
+    'other customer' => fn (int $id): string => ($id + 1).substr(PayCode::for($id), strlen((string) $id)),
+    'no check' => fn (int $id): string => (string) $id,
+    'not a code' => fn (int $id): string => 'hello',
+]);
+
+it('says nothing is due on the pay link of a paid-up or deleted customer', function (string $state) {
+    $other = Account::factory()->create(['username' => 'paidup']);
+
+    if ($state === 'deleted') {
+        $other->delete();
+    }
+
+    $this->get(route('pay.code', PayCode::for($other->id)))
+        ->assertOk()
+        ->assertSee(__('Nothing to pay for this username or number.'));
+})->with(['paid up', 'deleted']);
 
 it('answers an unknown name exactly as a customer with nothing to pay', function () {
     Account::factory()->create(['username' => 'paidup']);
