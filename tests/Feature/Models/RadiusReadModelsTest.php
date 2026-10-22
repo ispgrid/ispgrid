@@ -65,6 +65,7 @@ it('shows a login attempt the way the login tables need it', function () {
         'reason' => 'Account is suspended',
         'router' => '10.0.0.9',
         'mac' => 'BC:24:11:00:30:20',
+        'ip' => '',
     ]);
 });
 
