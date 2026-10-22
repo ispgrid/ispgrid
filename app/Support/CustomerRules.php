@@ -18,15 +18,31 @@ use Illuminate\Validation\Rule;
 final class CustomerRules
 {
     /**
+     * The fields the operator made required (RequiredCustomerFields) start with "required" instead of "nullable".
+     *
      * @return array<string, list<mixed>>
      */
     public static function rules(bool $isNew, bool $isIpoe, bool $hasAddress, int $phoneDigits): array
     {
+        $required = RequiredCustomerFields::current();
+        $contact = [
+            'company' => ['nullable', 'string', 'max:255'],
+            'mobile' => self::phone($phoneDigits),
+            'whatsapp' => self::phone($phoneDigits),
+            'alt_number' => self::phone($phoneDigits),
+            'email' => ['nullable', 'email', 'max:100'],
+            'tax_id' => ['nullable', 'string', 'max:50'],
+            'business_id' => ['nullable', 'string', 'max:30'],
+        ];
+
+        foreach (array_intersect(array_keys($contact), $required) as $field) {
+            $contact[$field][0] = 'required';
+        }
+
         return [
             'fullname' => ['required', 'string', 'max:100'],
-            'mobile' => self::phone($phoneDigits),
-            'email' => ['nullable', 'email', 'max:100'],
-            'address.line1' => [Rule::requiredIf($hasAddress), 'nullable', 'string', 'max:255'],
+            ...$contact,
+            'address.line1' => [Rule::requiredIf($hasAddress || in_array('address', $required, true)), 'nullable', 'string', 'max:255'],
             'address.line2' => ['nullable', 'string', 'max:255'],
             'address.area' => ['nullable', 'string', 'max:100'],
             'address.city' => ['nullable', 'string', 'max:100'],
@@ -59,12 +75,18 @@ final class CustomerRules
      */
     public static function messages(int $phoneDigits): array
     {
+        $digits = __('Enter :digits digits.', ['digits' => $phoneDigits]);
+
         return [
-            'mobile.regex' => __('Enter :digits digits.', ['digits' => $phoneDigits]),
+            'mobile.regex' => $digits,
+            'whatsapp.regex' => $digits,
+            'alt_number.regex' => $digits,
             'service_type.in' => Hotspot::enabled()
                 ? __('Choose PPPoE, Hotspot or IPoE.')
                 : __('Choose PPPoE or IPoE. Hotspot is turned off in App settings.'),
-            'address.line1.required' => __('Enter the first address line, or leave the whole address empty.'),
+            'address.line1.required' => in_array('address', RequiredCustomerFields::current(), true)
+                ? __('Enter the first address line.')
+                : __('Enter the first address line, or leave the whole address empty.'),
             'username.regex' => __('Use letters, digits, ., -, _ and @ only.'),
             'password.regex' => __('Use letters, digits and symbols, without spaces.'),
             'password.not_regex' => __('Leave out quotes, backticks and backslashes: FreeRADIUS reads them as part of its own syntax.'),

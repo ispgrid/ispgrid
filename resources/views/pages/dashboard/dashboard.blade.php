@@ -51,6 +51,29 @@
                     @endif
                 @endforeach
             </div>
+            <div class="grid gap-4 lg:grid-cols-2">
+                <x-ui.card>
+                    <x-ui.heading>{{ __('Sales per plan, this month') }}</x-ui.heading>
+                    @if ($this->topPlans === [])
+                        <x-ui.text muted class="mt-3">{{ __('No sales yet this month.') }}</x-ui.text>
+                    @else
+                        <x-ui.table class="mt-3">
+                            <x-slot:head>
+                                <x-ui.th>{{ __('Plan') }}</x-ui.th>
+                                <x-ui.th class="text-end">{{ __('Recharges') }}</x-ui.th>
+                                <x-ui.th class="text-end">{{ __('Amount') }}</x-ui.th>
+                            </x-slot:head>
+                            @foreach ($this->topPlans as $row)
+                                <tr wire:key="top-plan-{{ $loop->index }}">
+                                    <x-ui.td>{{ $row['plan'] }}</x-ui.td>
+                                    <x-ui.td class="text-end tabular-nums">{{ $row['recharges'] }}</x-ui.td>
+                                    <x-ui.td class="text-end tabular-nums">{{ $row['amount'] }}</x-ui.td>
+                                </tr>
+                            @endforeach
+                        </x-ui.table>
+                    @endif
+                </x-ui.card>
+            </div>
         </div>
     @endif
 

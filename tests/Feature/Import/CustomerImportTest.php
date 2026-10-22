@@ -2,6 +2,7 @@
 
 use App\Actions\Import\ImportCustomers;
 use App\Enums\AccountStatus;
+use App\Enums\Permission;
 use App\Exceptions\ImportFailed;
 use App\Models\Account;
 use App\Models\AppSetting;
@@ -255,6 +256,74 @@ it('saves the address and the connection type', function () {
         ->and($account->address->only(['line1', 'city', 'country', 'line2']))
         ->toBe(['line1' => '12 Park Street', 'city' => 'Kolkata', 'country' => 'India', 'line2' => null]);
 });
+
+it('imports the contact and billing columns', function () {
+    turnInvoicingOn();
+
+    app(ImportCustomers::class)->import(importCustomerRows([
+        'company' => 'Example Traders', 'whatsapp' => '9876500001', 'alt_number' => '9876500002', 'tax_id' => '09abcde1234f1z5',
+        'business_id' => 'ABCDE1234F', 'auto_renew' => 'Yes', 'free' => 'no', 'discount_percent' => '12.5',
+        'payment_terms_days' => '7', 'billing_name' => 'Example Traders Pvt Ltd', 'place_of_supply' => 'uttar pradesh',
+    ]));
+
+    expect(Account::query()->sole()->only(['company', 'whatsapp', 'alt_number', 'tax_id', 'business_id', 'auto_renew', 'billing_free', 'discount_percent', 'payment_terms_days', 'billing_name', 'place_of_supply']))->toBe([
+        'company' => 'Example Traders', 'whatsapp' => '9876500001', 'alt_number' => '9876500002', 'tax_id' => '09ABCDE1234F1Z5',
+        'business_id' => 'ABCDE1234F', 'auto_renew' => true, 'billing_free' => false, 'discount_percent' => '12.50',
+        'payment_terms_days' => 7, 'billing_name' => 'Example Traders Pvt Ltd', 'place_of_supply' => '09',
+    ]);
+});
+
+it('gives blank billing columns the defaults the form uses', function () {
+    turnInvoicingOn();
+    AppSetting::put('billing.default_terms_days', '15');
+
+    app(ImportCustomers::class)->import(importCustomerRows(['tax_id' => '09ABCDE1234F1Z5']));
+
+    expect(Account::query()->sole()->only(['auto_renew', 'billing_free', 'discount_percent', 'payment_terms_days', 'billing_name', 'place_of_supply']))->toBe([
+        'auto_renew' => false, 'billing_free' => false, 'discount_percent' => '0.00', 'payment_terms_days' => 15, 'billing_name' => null, 'place_of_supply' => '09',
+    ]);
+});
+
+it('takes the place of supply by its code', function () {
+    turnInvoicingOn();
+
+    app(ImportCustomers::class)->import(importCustomerRows(['tax_id' => '09ABCDE1234F1Z5', 'place_of_supply' => '7']));
+
+    expect(Account::query()->sole()->place_of_supply)->toBe('07');
+});
+
+it('checks the billing columns as the form does', function (array $values, string $line) {
+    turnInvoicingOn();
+
+    expect(customerCheck($values))->toBe([$line]);
+})->with([
+    'auto renew' => [['auto_renew' => 'maybe'], '2 auto_renew: Use yes or no.'],
+    'free' => [['free' => '1x'], '2 free: Use yes or no.'],
+    'discount' => [['discount_percent' => '101'], '2 discount_percent: The discount percent field must be between 0 and 100.'],
+    'terms' => [['payment_terms_days' => '400'], '2 payment_terms_days: The payment terms days field must be between 0 and 365.'],
+    'whatsapp digits' => [['whatsapp' => '12345'], '2 whatsapp: Enter 10 digits.'],
+    'gstin' => [['tax_id' => '09ABCDE1234F1X5'], '2 tax_id: Enter a valid GSTIN, e.g. 09ABCDE1234F1Z5.'],
+    'unknown state' => [['tax_id' => '09ABCDE1234F1Z5', 'place_of_supply' => 'Atlantis'], '2 place_of_supply: No state named Atlantis.'],
+    'state without gstin' => [['place_of_supply' => 'Delhi'], '2 place_of_supply: A place of supply needs a GSTIN.'],
+]);
+
+it('refuses a place of supply without India GST', function () {
+    expect(customerCheck(['tax_id' => 'GB123', 'place_of_supply' => 'Delhi']))
+        ->toBe(['2 place_of_supply: A place of supply is only used with India GST.']);
+});
+
+it('refuses pricing and auto renew columns from staff who may not set them', function (Permission $missing, array $values, string $line) {
+    turnInvoicingOn();
+    $this->actingAs(staffLacking($missing));
+
+    expect(customerCheck($values))->toBe([$line])
+        ->and(customerCheck(['auto_renew' => 'no', 'free' => 'no', 'discount_percent' => '0']))->toBe([]);
+})->with([
+    'free' => [Permission::SetCustomerPricing, ['free' => 'yes'], '2 free: You may not set customer pricing.'],
+    'discount' => [Permission::SetCustomerPricing, ['discount_percent' => '5'], '2 discount_percent: You may not set customer pricing.'],
+    'place of supply' => [Permission::SetCustomerPricing, ['tax_id' => '09ABCDE1234F1Z5', 'place_of_supply' => 'Delhi'], '2 place_of_supply: You may not set customer pricing.'],
+    'auto renew' => [Permission::RechargeCustomers, ['auto_renew' => 'yes'], '2 auto_renew: You may not recharge customers, so auto renew stays off.'],
+]);
 
 it('logs each customer as imported, with the address and never the password', function () {
     app(ImportCustomers::class)->import(importCustomerRows(['line1' => '12 Park Street', 'city' => 'Kolkata']));

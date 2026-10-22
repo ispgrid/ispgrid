@@ -3,7 +3,11 @@
 namespace App\Actions\Import;
 
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Billing\BillingSettings;
+use App\Billing\India\Gstin;
+use App\Billing\India\GstStates;
 use App\Enums\AccountStatus;
+use App\Enums\Permission;
 use App\Enums\ServiceType;
 use App\Exceptions\ImportFailed;
 use App\Models\Account;
@@ -25,12 +29,15 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 /**
  * Customers from the customers template (Plan 9 spec): the customer form's rules, plus plan, expiry, status and
  * a bound MAC from the file. Written through SyncAccountToRadius; nobody is disconnected, the accounts are new.
+ * The billing columns follow the form too: a blank one takes the form's default, and Free, discount and place of
+ * supply need Set customer pricing, auto renew the recharge permission.
  */
 final class ImportCustomers implements Importer
 {
@@ -64,10 +71,13 @@ final class ImportCustomers implements Importer
     {
         return [
             'username' => 'alice', 'password' => 'secret12', 'service_type' => 'PPP', 'fullname' => 'Alice Rao',
-            'mobile' => '9876543210', 'email' => 'alice@example.com', 'plan_slug' => 'home_25',
+            'mobile' => '9876543210', 'email' => 'alice@example.com', 'company' => '', 'whatsapp' => '9876543210',
+            'alt_number' => '', 'tax_id' => '', 'business_id' => '', 'plan_slug' => 'home_25',
             'expiry' => '2026-11-30 23:59', 'status' => 'Active', 'device_limit' => '1', 'ip' => '', 'mac' => '',
             'pool' => '', 'connection_type' => 'Home', 'line1' => '12 Park Street', 'line2' => '', 'area' => 'Salt Lake',
             'city' => 'Kolkata', 'state' => 'West Bengal', 'postal_code' => '700091', 'country' => 'India',
+            'auto_renew' => 'no', 'free' => 'no', 'discount_percent' => '0', 'payment_terms_days' => '7', 'billing_name' => '',
+            'place_of_supply' => '',
         ];
     }
 
@@ -134,11 +144,12 @@ final class ImportCustomers implements Importer
         $plans = Plan::query()->get(['id', 'slug'])->keyBy(fn (Plan $plan): string => strtolower($plan->slug));
         $pools = Pool::query()->get(['id', 'name'])->keyBy(fn (Pool $pool): string => strtolower($pool->name));
         $types = ConnectionType::query()->get(['id', 'name'])->keyBy(fn (ConnectionType $type): string => strtolower($type->name));
+        $settings = BillingSettings::current();
         $seen = ['username' => [], 'ip' => [], 'mac' => []];
         $prepared = [];
 
         foreach ($rows as ['line' => $line, 'values' => $values]) {
-            $prepared[] = $this->prepareRow($line, $values, $digits, $plans, $pools, $types, $seen);
+            $prepared[] = $this->prepareRow($line, $values, $digits, $plans, $pools, $types, $settings, $seen);
         }
 
         return $prepared;
@@ -152,15 +163,16 @@ final class ImportCustomers implements Importer
      * @param  array<string, array<string, int>>  $seen  the first row of each username, IP and MAC so far
      * @return array{errors: list<RowError>, columns: array<string, mixed>, address: ?array<string, ?string>, mac: ?string}
      */
-    private function prepareRow(int $line, array $values, int $digits, Collection $plans, Collection $pools, Collection $types, array &$seen): array
+    private function prepareRow(int $line, array $values, int $digits, Collection $plans, Collection $pools, Collection $types, BillingSettings $settings, array &$seen): array
     {
         $errors = [];
         $type = ServiceType::tryFrom(strtoupper($values['service_type']));
         $isIpoe = $type === ServiceType::Ipoe;
+        $taxId = $settings->tax()->usesPlaceOfSupply() ? strtoupper($values['tax_id']) : $values['tax_id'];
         $address = array_map(fn (string $value): ?string => $value === '' ? null : $value, Arr::only($values, self::ADDRESS));
         $hasAddress = array_filter($address, fn (?string $value): bool => $value !== null) !== [];
 
-        foreach ($isIpoe ? ['username', 'mobile'] : ['username', 'password', 'mobile'] as $column) {
+        foreach ($isIpoe ? ['username', 'mobile', 'whatsapp', 'alt_number'] : ['username', 'password', 'mobile', 'whatsapp', 'alt_number'] as $column) {
             // Excel shows a long number such as 123456789012 as 1.23457E+11 and saves it that way.
             if (preg_match('/^\d+(\.\d+)?E\+\d+$/i', $values[$column]) === 1) {
                 $errors[$column] = __('Excel turned this into a number. Format the column as Text in Excel and type it again.');
@@ -185,6 +197,11 @@ final class ImportCustomers implements Importer
             'fullname' => $values['fullname'],
             'mobile' => $values['mobile'],
             'email' => $values['email'],
+            'company' => $values['company'],
+            'whatsapp' => $values['whatsapp'],
+            'alt_number' => $values['alt_number'],
+            'tax_id' => $taxId,
+            'business_id' => $values['business_id'],
             'address' => $address,
             'service_type' => strtoupper($values['service_type']),
             'username' => $values['username'],
@@ -212,6 +229,8 @@ final class ImportCustomers implements Importer
         $expiry = $this->expiry($values['expiry']);
         $status = $values['status'] === '' ? AccountStatus::Inactive : (self::STATUSES[strtolower($values['status'])] ?? null);
         $errors = [...$errors, ...$this->planErrors($values, $plan, $expiry, $status)];
+        $billing = $this->billing($values, $taxId, $plan, $settings);
+        $errors = [...$errors, ...$billing['errors']];
 
         $mac = strtoupper(str_replace([':', '-', '.'], '', $values['mac']));
 
@@ -255,6 +274,12 @@ final class ImportCustomers implements Importer
                 'fullname' => $values['fullname'],
                 'mobile' => $values['mobile'] === '' ? null : $values['mobile'],
                 'email' => $values['email'] === '' ? null : $values['email'],
+                'company' => $values['company'] === '' ? null : $values['company'],
+                'whatsapp' => $values['whatsapp'] === '' ? null : $values['whatsapp'],
+                'alt_number' => $values['alt_number'] === '' ? null : $values['alt_number'],
+                'tax_id' => $taxId === '' ? null : $taxId,
+                'business_id' => $values['business_id'] === '' ? null : $values['business_id'],
+                ...$billing['columns'],
                 'service_type' => $type,
                 'mac_type' => $isIpoe ? 1 : (int) $data['mac_type'],
                 'plan_id' => $plan?->id,
@@ -268,6 +293,116 @@ final class ImportCustomers implements Importer
             'address' => $hasAddress ? $address : null,
             'mac' => $values['mac'] === '' ? null : $mac,
         ];
+    }
+
+    /**
+     * Auto renew, Free, discount, payment terms, billing name and place of supply, checked as the customer form
+     * checks them, with the form's defaults for blank cells. These replace earlier errors of the same columns.
+     *
+     * @param  array<string, string>  $values
+     * @return array{errors: array<string, string>, columns: array<string, mixed>}
+     */
+    private function billing(array $values, string $taxId, ?Plan $plan, BillingSettings $settings): array
+    {
+        $errors = [];
+        $autoRenew = $this->yesNo($values['auto_renew']);
+        $free = $this->yesNo($values['free']);
+        $discount = $values['discount_percent'] === '' ? '0' : $values['discount_percent'];
+        $terms = $values['payment_terms_days'] === '' ? (string) $settings->defaultTermsDays : $values['payment_terms_days'];
+        $usesGst = $settings->tax()->usesPlaceOfSupply();
+
+        foreach (['auto_renew' => $autoRenew, 'free' => $free] as $column => $value) {
+            if ($value === null) {
+                $errors[$column] = __('Use yes or no.');
+            }
+        }
+
+        $validator = Validator::make(['discount_percent' => $discount, 'payment_terms_days' => $terms, 'billing_name' => $values['billing_name']], [
+            'discount_percent' => ['required', 'numeric', 'between:0,100', 'decimal:0,2'],
+            'payment_terms_days' => ['required', 'integer', 'between:0,365'],
+            'billing_name' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        foreach ($validator->errors()->messages() as $field => $messages) {
+            $errors[$field] = $messages[0];
+        }
+
+        if ($usesGst && $taxId !== '' && ! Gstin::isValid($taxId)) {
+            $errors['tax_id'] = __('Enter a valid GSTIN, e.g. 09ABCDE1234F1Z5.');
+        }
+
+        $place = null;
+
+        if ($values['place_of_supply'] !== '' && ! $usesGst) {
+            $errors['place_of_supply'] = __('A place of supply is only used with India GST.');
+        } elseif ($values['place_of_supply'] !== '' && $taxId === '') {
+            $errors['place_of_supply'] = __('A place of supply needs a GSTIN.');
+        } elseif ($usesGst && $taxId !== '') {
+            $place = $values['place_of_supply'] === '' ? (string) ($settings->taxConfig['state'] ?? '') : $this->stateCode($values['place_of_supply']);
+
+            if ($place === null) {
+                $errors['place_of_supply'] = __('No state named :name.', ['name' => $values['place_of_supply']]);
+            }
+        }
+
+        if ($autoRenew === true && $plan?->hotspot_starts_at_first_login) {
+            $errors['auto_renew'] = __('This plan starts at the first Hotspot login, so it cannot renew by itself.');
+        }
+
+        $canPrice = Gate::allows(Permission::SetCustomerPricing->value);
+
+        if (! $canPrice) {
+            $set = ['free' => $free === true, 'discount_percent' => is_numeric($discount) && (float) $discount !== 0.0, 'place_of_supply' => $values['place_of_supply'] !== ''];
+
+            foreach (array_keys(array_filter($set)) as $column) {
+                $errors[$column] = __('You may not set customer pricing.');
+            }
+        }
+
+        if ($autoRenew === true && ! Gate::allows(Permission::RechargeCustomers->value)) {
+            $errors['auto_renew'] = __('You may not recharge customers, so auto renew stays off.');
+        }
+
+        return ['errors' => $errors, 'columns' => [
+            'auto_renew' => $autoRenew ?? false,
+            'billing_free' => $canPrice && $free === true,
+            'discount_percent' => $canPrice && is_numeric($discount) ? $discount : '0',
+            'payment_terms_days' => (int) $terms,
+            'billing_name' => $values['billing_name'] === '' ? null : $values['billing_name'],
+            'place_of_supply' => $canPrice && $place !== '' ? $place : null,
+        ]];
+    }
+
+    /**
+     * Yes or no in the usual spellings; a blank cell is no, anything else null.
+     */
+    private function yesNo(string $value): ?bool
+    {
+        return match (strtolower($value)) {
+            '', 'no', 'n', 'false', '0' => false,
+            'yes', 'y', 'true', '1' => true,
+            default => null,
+        };
+    }
+
+    /**
+     * A GST state by its code ("7" or "07") or by its name in any case, else null.
+     */
+    private function stateCode(string $value): ?string
+    {
+        if (ctype_digit($value)) {
+            $code = str_pad($value, 2, '0', STR_PAD_LEFT);
+
+            return GstStates::has($code) ? $code : null;
+        }
+
+        foreach (GstStates::options() as $state) {
+            if (strcasecmp($state['name'], $value) === 0) {
+                return $state['code'];
+            }
+        }
+
+        return null;
     }
 
     /**
