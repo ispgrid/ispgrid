@@ -107,7 +107,7 @@ final class IssueInvoice
                 'total' => $draft->total,
                 'paid_total' => '0',
                 'balance' => $draft->total,
-                'total_in_words' => AmountInWords::format($draft->total, $settings->currencyCode, $grouping === 'indian'),
+                'total_in_words' => AmountInWords::format($draft->total, $settings->currencyCode, $grouping === 'indian', $settings->decimals),
                 'user_id' => auth()->id(),
             ]);
 

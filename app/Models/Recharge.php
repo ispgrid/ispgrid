@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Amount;
 use App\Enums\RechargeKind;
 use Database\Factories\RechargeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,7 +29,7 @@ class Recharge extends Model
             'old_expiry' => 'datetime',
             'new_expiry' => 'datetime',
             'new_pending_validity' => 'integer',
-            'amount' => 'decimal:2',
+            'amount' => Amount::class,
             'kind' => RechargeKind::class,
         ];
     }

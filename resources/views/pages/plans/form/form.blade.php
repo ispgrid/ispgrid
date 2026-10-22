@@ -21,7 +21,7 @@
                             <x-ui.input wire:model="validity" type="number" min="1" :max="$validity_unit === 'hours' ? 720 : 3650" :label="__('Validity')" :description="__('How long a recharge lasts.')" required />
                             <x-ui.select wire:model.live="validity_unit" :label="__('Unit')" :options="$this->validityUnits" />
                         </div>
-                        <x-ui.input wire:model.live.debounce.400ms="price" type="number" min="0" step="0.01" :label="__('Price')" required />
+                        <x-ui.input wire:model.live.debounce.400ms="price" type="number" min="0" :step="$this->priceStep" :label="__('Price')" required />
                     </div>
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         @if ($this->chargesTax)

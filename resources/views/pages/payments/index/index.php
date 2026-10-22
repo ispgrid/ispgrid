@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Support\CsvExport;
+use App\Support\Currency;
 use App\Support\Money;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -107,7 +108,7 @@ new #[Title('Payments')] class extends Component
 
         return $this->filtered()->withoutTrashed()->reorder()->groupBy('payment_method_id')
             ->selectRaw('payment_method_id, SUM(amount) AS received')->toBase()->get()
-            ->mapWithKeys(fn (object $row): array => [(string) ($names[$row->payment_method_id] ?? '') => $money->format(Decimal::round((string) $row->received, 2))])
+            ->mapWithKeys(fn (object $row): array => [(string) ($names[$row->payment_method_id] ?? '') => $money->format(Decimal::round((string) $row->received, Currency::decimals()))])
             ->sortKeys()->all();
     }
 

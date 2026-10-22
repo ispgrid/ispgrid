@@ -35,6 +35,7 @@ use App\Support\ActivityFormatter;
 use App\Support\ActivityTimeline;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerTabs;
+use App\Support\Currency;
 use App\Support\CustomerDefaults;
 use App\Support\ExpiryCalculator;
 use App\Support\Hotspot;
@@ -921,7 +922,7 @@ new #[Title('Customer')] class extends Component
         $this->validate([
             'recharge_plan_id' => ['required', Rule::exists('plans', 'id')->withoutTrashed()],
             'recharge_expiry' => $waits ? [] : ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
-            'recharge_amount' => $charge['mode'] === 'amount' ? ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'] : [],
+            'recharge_amount' => $charge['mode'] === 'amount' ? ['required', ...Currency::amountRules()] : [],
             'recharge_note' => ['nullable', 'string', 'max:255'],
             ...($invoiced ? [...$this->adjustRules(), ...$this->paymentRules($charge['total'])] : []),
         ], [

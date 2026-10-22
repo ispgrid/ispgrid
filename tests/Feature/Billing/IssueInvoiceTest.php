@@ -114,6 +114,24 @@ it('records the payment taken when it was issued', function () {
         ->and($invoice->payments)->toHaveCount(1);
 });
 
+it('issues and settles a dinar invoice to the fils', function () {
+    AppSetting::put('currency_decimals', '3');
+    AppSetting::put('currency_code', 'KWD');
+    turnInvoicingOn('KW', 'single', ['name' => 'VAT', 'rate' => '5']);
+    $cash = PaymentMethod::query()->where('name', 'Cash')->firstOrFail();
+
+    $invoice = issue(customerInPrayagraj(), '12.375', new PaymentInput($cash->id, '12.994', null, now(), null));
+
+    expect($invoice->fresh())
+        ->total->toBe('12.994')
+        ->tax_total->toBe('0.619')
+        ->balance->toBe('0.000')
+        ->status->toBe(InvoiceStatus::Paid)
+        ->total_in_words->toBe('Kuwaiti Dinar Twelve and Fils Nine Hundred Ninety Four Only')
+        ->and($invoice->lines->sole()->unit_price)->toBe('12.375')
+        ->and($invoice->payments->sole()->fresh()->amount)->toBe('12.994');
+});
+
 it('marks an invoice with nothing to pay as paid', function () {
     $invoice = app(IssueInvoice::class)->handle(customerInPrayagraj(), billingLines('500.00', discount: '100'), false, InvoiceKind::Recharge, now());
 

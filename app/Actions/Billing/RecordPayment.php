@@ -8,6 +8,7 @@ use App\Exceptions\PaymentExceedsBalance;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Support\Currency;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,7 +21,7 @@ final class RecordPayment
     {
         return DB::transaction(function () use ($invoiceId, $input): Payment {
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoiceId);
-            $amount = Decimal::round($input->amount, 2);
+            $amount = Decimal::round($input->amount, Currency::decimals());
 
             if (Decimal::compare($amount, '0') <= 0 || Decimal::compare($amount, (string) $invoice->balance) > 0) {
                 throw new PaymentExceedsBalance("A payment must be more than nothing and at most {$invoice->balance}.");

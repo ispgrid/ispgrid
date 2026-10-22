@@ -5,6 +5,7 @@ namespace App\Livewire\Concerns;
 use App\Billing\Decimal;
 use App\Billing\PaymentInput;
 use App\Models\PaymentMethod;
+use App\Support\Currency;
 use Closure;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -60,8 +61,8 @@ trait TakesPayment
 
         return [
             'payment_method_id' => ['required', Rule::exists('payment_methods', 'id')->where('active', true)],
-            'payment_amount' => ['nullable', 'regex:/^\d{1,10}(\.\d{1,2})?$/', function (string $attribute, mixed $value, Closure $fail) use ($total): void {
-                if (is_string($value) && preg_match('/^\d{1,10}(\.\d{1,2})?$/', $value) === 1
+            'payment_amount' => ['nullable', 'regex:'.Currency::amountPattern(), function (string $attribute, mixed $value, Closure $fail) use ($total): void {
+                if (is_string($value) && preg_match(Currency::amountPattern(), $value) === 1
                     && (Decimal::compare($value, '0') <= 0 || Decimal::compare($value, $total) > 0)) {
                     $fail(__('The payment must be more than 0 and at most the total.'));
                 }

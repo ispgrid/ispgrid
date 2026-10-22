@@ -19,6 +19,7 @@ use App\Models\PlanAttribute;
 use App\Models\Pool;
 use App\Models\Radacct;
 use App\Models\RadiusAttribute;
+use App\Support\Currency;
 use App\Support\Hotspot;
 use App\Support\Money;
 use App\Support\PlanRules;
@@ -233,6 +234,15 @@ new #[Title('Plan')] class extends Component
     /**
      * The tax setup in Billing settings charges tax, so the plan's tax fields apply.
      */
+    /**
+     * The price field's step: one fils for a three-decimal currency, one paisa for two.
+     */
+    #[Computed]
+    public function priceStep(): string
+    {
+        return Currency::step();
+    }
+
     #[Computed]
     public function billingSettings(): BillingSettings
     {
@@ -264,7 +274,7 @@ new #[Title('Plan')] class extends Component
         $setup = $settings->tax();
         $taxed = $setup->id() !== 'none' && ! $this->do_not_charge_tax;
 
-        if ((! $taxed && ! $this->round_off) || preg_match('/^\d{1,10}(\.\d{1,2})?$/', trim($this->price)) !== 1) {
+        if ((! $taxed && ! $this->round_off) || preg_match(Currency::amountPattern(), trim($this->price)) !== 1) {
             return null;
         }
 

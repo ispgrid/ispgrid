@@ -26,7 +26,7 @@ final class PlanRules
             ] : [],
             'name' => ['required', 'string', 'max:255'],
             'validity' => ['required', 'integer', 'between:1,'.$unit->max()],
-            'price' => ['required', 'numeric', 'decimal:0,2', 'between:0,9999999999.99'],
+            'price' => ['required', ...Currency::amountRules()],
             'description' => ['nullable', 'string', 'max:1000'],
             'upload_speed' => ['required', 'string', 'max:20'],
             'download_speed' => ['required', 'string', 'max:20'],

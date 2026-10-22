@@ -11,6 +11,7 @@ use App\Billing\PaymentInput;
 use App\Billing\RechargeInvoice;
 use App\Models\Account;
 use App\Models\Plan;
+use App\Support\Currency;
 use App\Support\Money;
 use Illuminate\Support\Facades\Gate;
 
@@ -68,7 +69,7 @@ trait PricesRecharges
         abort_unless(Gate::allows('set-customer-pricing'), 403);
 
         return [
-            'adjust_price' => ['regex:/^\d{1,10}(\.\d{1,2})?$/'],
+            'adjust_price' => ['regex:'.Currency::amountPattern()],
             'adjust_reason' => ['required', 'string', 'max:255'],
         ];
     }
@@ -95,7 +96,7 @@ trait PricesRecharges
     {
         $price = trim($this->adjust_price);
 
-        return preg_match('/^\d{1,10}(\.\d{1,2})?$/', $price) === 1 ? $price : null;
+        return preg_match(Currency::amountPattern(), $price) === 1 ? $price : null;
     }
 
     /**

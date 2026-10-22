@@ -39,7 +39,7 @@ final class ReceiptView
             'reference' => $payment->reference === null || $payment->reference === '' ? null : $payment->reference,
             'amount' => $money->format((string) $payment->amount),
             'amount_in_words' => AmountInWords::format((string) $payment->amount, is_scalar($currency['code'] ?? null) ? (string) $currency['code'] : '',
-                ($currency['grouping'] ?? null) === 'indian'),
+                ($currency['grouping'] ?? null) === 'indian', (int) ($currency['decimals'] ?? 2)),
             'invoice_number' => $printed['number'],
             'invoice_date' => $printed['date'],
             'invoice_total' => $printed['total'],

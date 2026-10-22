@@ -4,6 +4,7 @@ namespace App\Billing;
 
 use App\Models\Account;
 use App\Models\Plan;
+use App\Support\Currency;
 
 /**
  * The amount a recharge records: 0 for a Free customer, the invoice total when the recharge is invoiced, otherwise
@@ -14,7 +15,7 @@ final class RechargePrice
     public static function amount(Account $account, Plan $plan, BillingSettings $settings, ?string $adjustedPrice = null): string
     {
         if ($account->billing_free) {
-            return Decimal::round('0', 2);
+            return Decimal::round('0', Currency::decimals());
         }
 
         if (InvoicePolicy::invoicesRecharge($account, $settings)) {
