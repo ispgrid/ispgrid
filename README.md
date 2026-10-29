@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="#screenshots">Screenshots</a> ·
   <a href="#install">Install</a> ·
   <a href="SETUP.md">MikroTik setup</a> ·
   <a href="IMPORT.md">Import</a> ·
@@ -61,6 +62,33 @@ a customer who is online is changed, their session is disconnected so the change
 - **Languages:** English and Hindi; each staff member picks their own. More can be added (see `CONTRIBUTING.md`).
 - **Installer:** firewall, nightly backups, HTTPS with Let's Encrypt, WireGuard or L2TP/IPsec tunnels for NAS that
   are not on your network, and a FreeRADIUS self-test (172 checks) at the end of every install and upgrade.
+
+## Screenshots
+
+The panel with made-up customers. Click a picture to see it full size.
+
+<p align="center">
+  <a href="art/screenshots/dashboard.png"><img src="art/screenshots/dashboard.png" alt="Dashboard: customers online, expiring and expired, money collected and dues"></a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><a href="art/screenshots/customers.png"><img src="art/screenshots/customers.png" alt="Customers list with filters"></a><br><sub><b>Customers:</b> search and filter by status, plan, type, NAS and expiry.</sub></td>
+    <td width="50%"><a href="art/screenshots/customer.png"><img src="art/screenshots/customer.png" alt="Customer page with the current plan"></a><br><sub><b>Customer:</b> the plan, expiry and speed, with recharge, change plan and override speed.</sub></td>
+  </tr>
+  <tr>
+    <td><a href="art/screenshots/customer-usage.png"><img src="art/screenshots/customer-usage.png" alt="Customer connection tab with the live session and usage"></a><br><sub><b>Connection:</b> the live session and data used per day.</sub></td>
+    <td><a href="art/screenshots/online.png"><img src="art/screenshots/online.png" alt="Online sessions"></a><br><sub><b>Online:</b> who is connected, from which NAS, IP and device.</sub></td>
+  </tr>
+  <tr>
+    <td><a href="art/screenshots/login-log.png"><img src="art/screenshots/login-log.png" alt="Login log with accepted and refused logins"></a><br><sub><b>Login log:</b> every login FreeRADIUS answered, with the real reason.</sub></td>
+    <td><a href="art/screenshots/invoice.png"><img src="art/screenshots/invoice.png" alt="GST invoice"></a><br><sub><b>Invoice:</b> GST invoice for a recharge, with its payment.</sub></td>
+  </tr>
+  <tr>
+    <td><a href="art/screenshots/dashboard-dark.png"><img src="art/screenshots/dashboard-dark.png" alt="Dashboard in dark mode"></a><br><sub><b>Dark mode:</b> light, dark or the system setting, chosen in each browser.</sub></td>
+    <td></td>
+  </tr>
+</table>
 
 ## Requirements
 
