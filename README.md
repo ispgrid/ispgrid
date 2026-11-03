@@ -81,7 +81,7 @@ The panel with made-up customers. Click a picture to see it full size.
     <td><a href="art/screenshots/online.png"><img src="art/screenshots/online.png" alt="Online sessions"></a><br><sub><b>Online:</b> who is connected, from which NAS, IP and device.</sub></td>
   </tr>
   <tr>
-    <td><a href="art/screenshots/login-log.png"><img src="art/screenshots/login-log.png" alt="Login log with accepted and refused logins"></a><br><sub><b>Login log:</b> every login FreeRADIUS answered, with the real reason.</sub></td>
+    <td><a href="art/screenshots/login-log.png"><img src="art/screenshots/login-log.png" alt="Login log with accepted and refused logins"></a><br><sub><b>Login log:</b> every login attempt FreeRADIUS saw, with the real reason.</sub></td>
     <td><a href="art/screenshots/invoice.png"><img src="art/screenshots/invoice.png" alt="GST invoice"></a><br><sub><b>Invoice:</b> GST invoice for a recharge, with its payment.</sub></td>
   </tr>
   <tr>
