@@ -219,3 +219,76 @@ it('is not found while selfcare is off', function () {
     $this->get(route('selfcare.password'))->assertNotFound();
     $this->post(route('selfcare.logout'))->assertNotFound();
 });
+
+it('checks one password hash on every failed login, so the time taken does not tell whether the username exists', function (Closure $make) {
+    $username = $make();
+    Hash::spy();
+
+    selfcareLogin($username, 'not-the-password')->assertHasErrors('username');
+
+    Hash::shouldHaveReceived('check')->once();
+})->with([
+    'unknown' => fn () => 'nobody-here',
+    'eligible, wrong password' => fn () => Account::factory()->selfcare()->create()->username,
+    'terminated' => fn () => Account::factory()->selfcare()->terminated()->create()->username,
+    'no selfcare password' => fn () => Account::factory()->create()->username,
+]);
+
+it('throttles one address after 50 failed tries across usernames', function () {
+    $account = Account::factory()->selfcare()->create();
+
+    foreach (range(1, 50) as $try) {
+        selfcareLogin('nobody-'.$try, 'wrong')->assertHasErrors('username');
+    }
+
+    expect(selfcareLogin($account->username, 'Selfcare-pass-1')->errors()->first('username'))->toContain(__('Too many tries.'))
+        ->and(Auth::guard('selfcare')->check())->toBeFalse();
+});
+
+it('clears the username limits after a successful login', function () {
+    $account = Account::factory()->selfcare()->create();
+
+    foreach (range(1, 4) as $try) {
+        selfcareLogin($account->username, 'wrong-'.$try)->assertHasErrors('username');
+    }
+
+    selfcareLogin($account->username, 'Selfcare-pass-1')->assertHasNoErrors();
+    Auth::guard('selfcare')->logout();
+
+    foreach (range(1, 4) as $try) {
+        selfcareLogin($account->username, 'wrong-'.$try)->assertHasErrors('username');
+    }
+
+    selfcareLogin($account->username, 'Selfcare-pass-1')->assertHasNoErrors();
+});
+
+it('limits wrong current passwords on the password page to 5 a minute', function () {
+    $account = Account::factory()->selfcare('Selfcare-pass-1')->create();
+    actingAsCustomer($account);
+    $change = fn (string $current) => Livewire::test('pages::selfcare.password')
+        ->set('current_password', $current)->set('password', 'My-own-pass-9')->set('password_confirmation', 'My-own-pass-9')
+        ->call('save');
+
+    foreach (range(1, 5) as $try) {
+        $change('wrong-'.$try)->assertHasErrors('current_password');
+    }
+
+    expect($change('Selfcare-pass-1')->errors()->first('current_password'))->toContain(__('Too many tries.'))
+        ->and(Hash::check('Selfcare-pass-1', $account->fresh()->selfcare_password))->toBeTrue();
+
+    $this->travel(61)->seconds();
+
+    $change('Selfcare-pass-1')->assertHasNoErrors();
+});
+
+it('reads the customer again only once per request', function () {
+    $account = Account::factory()->selfcare()->create();
+    actingAsCustomer($account);
+    DB::enableQueryLog();
+
+    $this->get(route('selfcare.dashboard'))->assertOk();
+
+    $reads = collect(DB::getQueryLog())->pluck('query')
+        ->filter(fn (string $sql): bool => str_starts_with($sql, 'select * from `accounts` where `id` = ?'));
+    expect($reads)->toHaveCount(1);
+});

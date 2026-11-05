@@ -16,7 +16,8 @@ use Livewire\Component;
 /**
  * The customer's Selfcare login on the customer page (Details tab): whether a password is set, the last login, and
  * Set selfcare password (random or typed). A new password is shown once in a dialog with the whole login to copy;
- * after closing it cannot be read back (only the hash is kept).
+ * after closing it cannot be read back (only the hash is kept). It is drawn only in the response that sets it and
+ * never kept in the component state, so the browser does not send it back with later requests.
  */
 new class extends Component
 {
@@ -26,10 +27,9 @@ new class extends Component
     public int $accountId;
 
     /**
-     * The password just set, shown in the dialog until it closes.
+     * The password just set, for this response only (a protected property is not kept between requests).
      */
-    #[Locked]
-    public ?string $shownPassword = null;
+    protected ?string $newPassword = null;
 
     public string $typed = '';
 
@@ -72,12 +72,21 @@ new class extends Component
     }
 
     /**
+     * The password just set, while the dialog shows it.
+     */
+    #[Computed]
+    public function shownPassword(): ?string
+    {
+        return $this->newPassword;
+    }
+
+    /**
      * The login to copy, while the dialog shows a new password.
      */
     #[Computed]
     public function details(): ?string
     {
-        return $this->shownPassword === null ? null : Selfcare::details($this->account, $this->shownPassword);
+        return $this->newPassword === null ? null : Selfcare::details($this->account, $this->newPassword);
     }
 
     /**
@@ -93,9 +102,9 @@ new class extends Component
             $this->validate(['typed' => ['required', 'string', 'max:255', Password::defaults()]], [], ['typed' => __('password')]);
         }
 
-        $this->shownPassword = app(SetSelfcarePassword::class)->handle($this->account, $typed === '' ? null : $typed);
+        $this->newPassword = app(SetSelfcarePassword::class)->handle($this->account, $typed === '' ? null : $typed);
         $this->reset('typed');
-        unset($this->account, $this->status, $this->details);
+        unset($this->account, $this->status, $this->shownPassword, $this->details);
         $this->dispatch('modal-open', name: 'selfcare-password');
     }
 
@@ -144,8 +153,8 @@ new class extends Component
 
     public function closeDialog(): void
     {
-        $this->shownPassword = null;
-        unset($this->details);
+        $this->newPassword = null;
+        unset($this->shownPassword, $this->details);
         $this->dispatch('modal-close', name: 'selfcare-password');
     }
 

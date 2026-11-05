@@ -11,6 +11,9 @@ use App\Notifications\Notifier;
 use App\Notifications\Triggers\SelfcareLogin;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The customer portal at /selfcare. Off on a new install (selfcare.enabled); while off, its pages are not found and
@@ -64,12 +67,36 @@ final class Selfcare
     }
 
     /**
+     * Checks the selfcare password a logged-in customer types again (password change, PPPoE password): 5 wrong tries
+     * a minute per customer, and a right one clears the count.
+     *
+     * @throws ValidationException
+     */
+    public static function confirmPassword(Account $account, string $given, string $field, string $wrongMessage): void
+    {
+        $key = 'selfcare-confirm|'.$account->id;
+
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            throw ValidationException::withMessages([$field => __('Too many tries. Try again in :minutes minutes.', ['minutes' => (int) ceil(RateLimiter::availableIn($key) / 60)])]);
+        }
+
+        if (! Hash::check($given, (string) $account->selfcare_password)) {
+            RateLimiter::hit($key, 60);
+
+            throw ValidationException::withMessages([$field => $wrongMessage]);
+        }
+
+        RateLimiter::clear($key);
+    }
+
+    /**
      * Sets a new random password and sends it by every enabled "Selfcare login" rule (SMS and WhatsApp get the same
-     * one). False, with nothing changed, while Selfcare is off or no such rule can send to this customer.
+     * one). False, with nothing changed, while Selfcare is off, the customer may not use it, or no such rule can send
+     * to this customer.
      */
     public static function sendLogin(Account $account): bool
     {
-        if (! self::isOpen() || ! self::canSendLogin($account)) {
+        if (! self::isOpen() || ! self::eligible($account) || ! self::canSendLogin($account)) {
             return false;
         }
 

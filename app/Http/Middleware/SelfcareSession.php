@@ -28,6 +28,9 @@ class SelfcareSession
 
     public const IDLE_MINUTES = 30;
 
+    /** The request attribute holding the account read fresh in this request. */
+    private const FRESH = 'selfcare.fresh_account';
+
     /**
      * Routes that open while a staff-set password waits to be replaced.
      */
@@ -61,16 +64,24 @@ class SelfcareSession
     }
 
     /**
-     * The logged-in customer, read again from the database (deleted ones included, so the checks can see it).
+     * The logged-in customer, read again from the database once per request (deleted ones included, so the checks
+     * can see it); the page reuses what this middleware read.
      */
     public static function account(): ?SelfcareAccount
     {
         $guard = Auth::guard(self::GUARD);
         $account = $guard->user();
+        $attributes = request()->attributes;
+
+        if ($account instanceof SelfcareAccount && $attributes->get(self::FRESH) === $account) {
+            return $account;
+        }
+
         $fresh = $account instanceof SelfcareAccount ? $account->fresh() : null;
 
         if ($fresh !== null) {
             $guard->setUser($fresh);
+            $attributes->set(self::FRESH, $fresh);
         }
 
         return $fresh;

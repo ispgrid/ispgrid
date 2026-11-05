@@ -785,10 +785,8 @@ new #[Title('Customer')] class extends Component
                     $this->logCreated($account);
                     app(Notifier::class)->fire(CustomerCreated::key(), $account);
 
-                    // With a "Selfcare login" rule on, a new customer gets a selfcare password by SMS/WhatsApp.
-                    if (in_array($account->service_type, Selfcare::SERVICE_TYPES, true)) {
-                        Selfcare::sendLogin($account);
-                    }
+                    // With a "Selfcare login" rule on, a new customer who may use Selfcare gets a password by SMS/WhatsApp.
+                    Selfcare::sendLogin($account);
                 } else {
                     $this->logRelationChanges($account, $before);
                     $this->logBillingChanges($account, $billingBefore);

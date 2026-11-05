@@ -58,7 +58,7 @@
             <div class="grid gap-4" x-data="{ copied: false, async copy() { try { await navigator.clipboard.writeText(@js($this->details)); this.copied = true; setTimeout(() => this.copied = false, 1500); } catch (e) { console.warn('Could not copy to clipboard'); } } }">
                 <x-ui.heading size="lg">{{ __('Selfcare password set') }}</x-ui.heading>
                 <x-ui.alert>{{ __('This password is shown only now.') }}</x-ui.alert>
-                <p class="font-mono text-2xl tracking-wider">{{ $shownPassword }}</p>
+                <p class="font-mono text-2xl tracking-wider">{{ $this->shownPassword }}</p>
                 <pre class="rounded-lg bg-zinc-100 p-3 text-sm whitespace-pre-wrap dark:bg-zinc-800">{{ $this->details }}</pre>
                 <div class="flex flex-wrap justify-end gap-2">
                     <x-ui.button variant="secondary" icon="document-duplicate" x-on:click="copy()">

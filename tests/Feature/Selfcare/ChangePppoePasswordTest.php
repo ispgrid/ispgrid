@@ -136,3 +136,14 @@ it('refuses a save posted from an open page once staff terminate the customer', 
         ->and(radiusPassword('kushal'))->toBe('old-pppoe-1');
     Queue::assertNothingPushed();
 });
+
+it('limits wrong selfcare passwords to 5 a minute', function () {
+    actingAsCustomer($this->account);
+
+    foreach (range(1, 5) as $try) {
+        changePppoe('wrong-'.$try, 'new-pppoe-9')->assertHasErrors('selfcare_password');
+    }
+
+    expect(changePppoe('Selfcare-pass-1', 'new-pppoe-9')->errors()->first('selfcare_password'))->toContain(__('Too many tries.'))
+        ->and(radiusPassword('kushal'))->toBe('old-pppoe-1');
+});
