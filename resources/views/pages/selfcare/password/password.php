@@ -3,6 +3,7 @@
 use App\Http\Middleware\SelfcareSession;
 use App\Models\SelfcareAccount;
 use App\Support\PublicPage;
+use App\Support\Selfcare;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -38,8 +39,8 @@ new class extends Component
             'password' => ['required', 'string', 'confirmed', Password::defaults()],
         ]);
 
-        if (! $mustChange && ! Hash::check($this->current_password, (string) $account->selfcare_password)) {
-            throw ValidationException::withMessages(['current_password' => __('The current password is wrong.')]);
+        if (! $mustChange) {
+            Selfcare::confirmPassword($account, $this->current_password, 'current_password', __('The current password is wrong.'));
         }
 
         if (Hash::check($this->password, (string) $account->selfcare_password)) {

@@ -262,3 +262,46 @@ it('needs the selfcare password among the values of a Selfcare login rule', func
     $form->call('save')->assertHasErrors(['values']);
     $form->set('values', ['username', 'selfcare_password'])->call('save')->assertHasNoErrors();
 });
+
+it('never sends the mask when the held password is gone', function () {
+    $log = NotificationLog::query()->create([
+        'notification_rule_id' => selfcareRule()->id, 'account_id' => Account::factory()->create()->id, 'provider' => 'fake',
+        'channel' => 'sms', 'to' => '+919876543210', 'template' => [], 'values' => ['alice', NotificationLog::SECRET_MASK],
+        'status' => NotificationStatus::Queued, 'once_key' => 'k1', 'secret' => null, 'has_secret' => true,
+    ]);
+
+    SendNotification::dispatchSync($log->id);
+
+    expect(FakeProvider::$sent)->toBe([])
+        ->and($log->fresh()->status)->toBe(NotificationStatus::Failed)
+        ->and($log->fresh()->error)->toBe(__('The password was no longer held, so the message was not sent.'));
+});
+
+it('empties the sample password of a test message that failed', function () {
+    FakeProvider::$next = SendResult::failed('rate_limited', retryable: true, retryAfterSeconds: 30);
+
+    $log = app(Notifier::class)->sendTest(selfcareRule(), '+919876543210');
+
+    expect($log->status)->toBe(NotificationStatus::Failed)
+        ->and(DB::table('notification_log')->where('id', $log->id)->value('secret'))->toBeNull();
+});
+
+it('sends no login to a customer who may not use Selfcare', function () {
+    Queue::fake();
+    selfcareRule();
+    $account = Account::factory()->terminated()->create(['mobile' => '9876543210']);
+
+    expect(Selfcare::sendLogin($account))->toBeFalse()
+        ->and($account->fresh()->selfcare_password)->toBeNull()
+        ->and(NotificationLog::query()->count())->toBe(0);
+});
+
+it('shows the last message on the card after its rule is deleted', function () {
+    Queue::fake();
+    $rule = selfcareRule();
+    $account = Account::factory()->create(['mobile' => '9876543210']);
+    Selfcare::sendLogin($account);
+    $rule->delete();
+
+    Livewire::test('pages::customers.selfcare-card', ['accountId' => $account->id])->assertSee(__('Last message'));
+});
