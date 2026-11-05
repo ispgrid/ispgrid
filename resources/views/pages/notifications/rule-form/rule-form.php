@@ -14,6 +14,7 @@ use App\Notifications\Notifier;
 use App\Notifications\PhoneNumber;
 use App\Notifications\Placeholders;
 use App\Notifications\SettingField;
+use App\Notifications\Triggers\SelfcareLogin;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -194,6 +195,15 @@ new #[Title('Notification rule')] class extends Component
     }
 
     /**
+     * The "Selfcare login" trigger, whose messages carry a new password.
+     */
+    #[Computed]
+    public function sendsPassword(): bool
+    {
+        return $this->trigger === SelfcareLogin::key();
+    }
+
+    /**
      * The address a DLT template writes before the pay code, while the trigger offers it.
      */
     #[Computed]
@@ -323,7 +333,11 @@ new #[Title('Notification rule')] class extends Component
             'name' => ['required', 'string', 'max:100', Rule::unique(NotificationRule::class, 'name')->withoutTrashed()->ignore($this->ruleId)],
             'trigger' => ['required', Rule::in(array_keys($this->registry()->triggers()))],
             'provider' => ['required', Rule::in(array_keys($this->providerOptions))],
-            'values' => ['array', 'max:10'],
+            'values' => ['array', 'max:10', function (string $attribute, mixed $value, Closure $fail): void {
+                if ($this->sendsPassword && ! in_array('selfcare_password', (array) $value, true)) {
+                    $fail(__('Add the selfcare password to the values, or the customer cannot log in.'));
+                }
+            }],
             'values.*' => ['required', Rule::in(array_keys($this->placeholderOptions))],
             'approved_text' => ['nullable', 'string', 'max:1000'],
             'plans' => ['array'],

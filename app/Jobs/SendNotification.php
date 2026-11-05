@@ -9,14 +9,17 @@ use App\Models\NotificationProvider;
 use App\Notifications\NotificationRegistry;
 use App\Notifications\Redactor;
 use App\Notifications\SendResult;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Crypt;
 use Throwable;
 
 /**
  * Sends one notification_log row through its provider. A retryable failure is tried again after the wait the
  * provider asked for, else after 1, 5, 15 and 60 minutes; the fifth failure is final. Any error text is stored
- * with the provider's secrets taken out.
+ * with the provider's secrets and the message's password taken out. A held password is emptied once the row is
+ * final (Sent or Failed).
  */
 class SendNotification implements ShouldQueue
 {
@@ -46,7 +49,7 @@ class SendNotification implements ShouldQueue
 
         // A customer message (not a test) stops when its rule is switched off or deleted, even mid-retry.
         if ($log->once_key !== null && ($log->rule === null || $log->rule->trashed() || ! $log->rule->enabled)) {
-            $log->update(['status' => NotificationStatus::Failed, 'error' => __('The rule is switched off or deleted.')]);
+            self::finish($log, ['status' => NotificationStatus::Failed, 'error' => __('The rule is switched off or deleted.')]);
 
             return;
         }
@@ -57,13 +60,13 @@ class SendNotification implements ShouldQueue
             $trigger = $registry->trigger($log->rule->trigger);
 
             if ($account === null || $account->trashed()) {
-                $log->update(['status' => NotificationStatus::Failed, 'error' => __('The customer was deleted.')]);
+                self::finish($log, ['status' => NotificationStatus::Failed, 'error' => __('The customer was deleted.')]);
 
                 return;
             }
 
             if ($account->notifications_off && $trigger !== null && $trigger::scheduled()) {
-                $log->update(['status' => NotificationStatus::Failed, 'error' => __('The customer has reminders switched off.')]);
+                self::finish($log, ['status' => NotificationStatus::Failed, 'error' => __('The customer has reminders switched off.')]);
 
                 return;
             }
@@ -73,7 +76,7 @@ class SendNotification implements ShouldQueue
         $provider = $config?->enabled ? $registry->makeProvider($log->provider, $config->settings ?? []) : null;
 
         if ($provider === null) {
-            $log->update(['status' => NotificationStatus::Failed, 'error' => __('The provider is switched off.')]);
+            self::finish($log, ['status' => NotificationStatus::Failed, 'error' => __('The provider is switched off.')]);
 
             return;
         }
@@ -87,12 +90,12 @@ class SendNotification implements ShouldQueue
         }
 
         if ($result->sent) {
-            $log->update(['status' => NotificationStatus::Sent, 'provider_message_id' => $result->providerMessageId, 'sent_at' => now(), 'error' => null]);
+            self::finish($log, ['status' => NotificationStatus::Sent, 'provider_message_id' => $result->providerMessageId, 'sent_at' => now(), 'error' => null]);
 
             return;
         }
 
-        $reason = mb_substr(Redactor::scrub($result->reason, $registry->secretValues($log->provider, $config->settings ?? [])), 0, 500);
+        $reason = mb_substr(Redactor::scrub($result->reason, [...$registry->secretValues($log->provider, $config->settings ?? []), ...self::heldSecret($log)]), 0, 500);
 
         if ($result->retryable && $this->attempts() < $this->tries) {
             $log->update(['error' => $reason]);
@@ -101,7 +104,7 @@ class SendNotification implements ShouldQueue
             return;
         }
 
-        $log->update(['status' => NotificationStatus::Failed, 'error' => $reason]);
+        self::finish($log, ['status' => NotificationStatus::Failed, 'error' => $reason]);
     }
 
     /**
@@ -117,11 +120,39 @@ class SendNotification implements ShouldQueue
         }
 
         try {
-            $secrets = app(NotificationRegistry::class)->secretValues($log->provider, NotificationProvider::settingsFor($log->provider));
+            $secrets = [...app(NotificationRegistry::class)->secretValues($log->provider, NotificationProvider::settingsFor($log->provider)), ...self::heldSecret($log)];
         } catch (Throwable) {
             $secrets = [];
         }
 
-        $log->update(['status' => NotificationStatus::Failed, 'error' => mb_substr(Redactor::scrub($exception->getMessage(), $secrets), 0, 500)]);
+        self::finish($log, ['status' => NotificationStatus::Failed, 'error' => mb_substr(Redactor::scrub($exception->getMessage(), $secrets), 0, 500)]);
+    }
+
+    /**
+     * A final status: the held password is not needed any more.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private static function finish(NotificationLog $log, array $attributes): void
+    {
+        $log->update([...$attributes, 'secret' => null]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function heldSecret(NotificationLog $log): array
+    {
+        $encrypted = $log->getRawOriginal('secret');
+
+        if ($encrypted === null) {
+            return [];
+        }
+
+        try {
+            return [Crypt::decryptString($encrypted)];
+        } catch (DecryptException) {
+            return [];
+        }
     }
 }

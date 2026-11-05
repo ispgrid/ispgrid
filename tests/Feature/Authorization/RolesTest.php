@@ -29,7 +29,7 @@ it('gives Technician the agreed defaults', function () {
 
     expect($allowed->map->value->values()->all())->toBe([
         'view-customers', 'add-customers', 'edit-customers', 'recharge-customers', 'change-customer-status',
-        'delete-customers', 'view-customer-passwords', 'reset-customer-devices',
+        'delete-customers', 'view-customer-passwords', 'reset-customer-devices', 'set-selfcare-passwords',
         'view-online-sessions', 'disconnect-sessions', 'view-login-log',
         'view-plans', 'view-network', 'view-notification-log',
         'view-invoices', 'create-invoices', 'record-payments',

@@ -19,7 +19,7 @@ class SetLocale
      */
     public function handle(Request $request, Closure $next): Response
     {
-        App::setLocale(self::resolve($request->user()?->locale));
+        App::setLocale(self::resolve($request->user('web')?->locale));
 
         return $next($request);
     }

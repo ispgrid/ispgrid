@@ -3,13 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Payments\StartOnlinePayment;
-use App\Billing\BillingSettings;
 use App\Enums\OnlinePaymentStatus;
 use App\Exceptions\GatewayUnavailable;
 use App\Exceptions\NothingToPay;
 use App\Exceptions\TooManyPaymentAttempts;
 use App\Models\Account;
-use App\Models\AppSetting;
 use App\Models\OnlinePayment;
 use App\Models\Payment;
 use App\Payments\PayCode;
@@ -17,11 +15,11 @@ use App\Payments\PaymentGateways;
 use App\Payments\QuickPay;
 use App\Payments\QuickPayQuote;
 use App\Support\Money;
+use App\Support\PublicPage;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
@@ -140,15 +138,9 @@ class QuickPayController extends Controller
      */
     private function page(string $view, array $data): View
     {
-        $settings = BillingSettings::current();
-        $phone = trim((string) AppSetting::valueOf('notice_phone', ''));
         $money = Money::fromSettings();
-        $disk = Storage::disk('billing');
-        $logo = $settings->logo !== '' && $disk->exists($settings->logo)
-            ? 'data:'.$disk->mimeType($settings->logo).';base64,'.base64_encode((string) $disk->get($settings->logo))
-            : null;
 
-        return view($view, [...$data, 'company' => $settings->company->name, 'logo' => $logo, 'phone' => $phone, 'phoneLink' => (string) preg_replace('/[^0-9+]/', '', $phone), 'money' => fn (?string $amount): string => $money->format((string) $amount),
+        return view($view, [...$data, ...PublicPage::data(), 'money' => fn (?string $amount): string => $money->format((string) $amount),
             'gateways' => array_map(fn (string $key): array => ['key' => $key, 'label' => (app(PaymentGateways::class)->class($key) ?? '')::label()], app(PaymentGateways::class)->enabled())]);
     }
 

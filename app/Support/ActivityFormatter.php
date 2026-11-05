@@ -108,7 +108,11 @@ final class ActivityFormatter
 
     public static function causerName(Activity $activity): string
     {
-        return $activity->causer instanceof User ? $activity->causer->name : __('System');
+        return match (true) {
+            $activity->causer instanceof User => $activity->causer->name,
+            $activity->causer instanceof Account => __('Customer (selfcare)'),
+            default => __('System'),
+        };
     }
 
     /**
@@ -159,6 +163,11 @@ final class ActivityFormatter
             'online-payment' => __('Online payment'),
             'online-payment-handled' => __('Online payment handled'),
             'quick-pay-settings' => __('Quick pay settings changed'),
+            'selfcare-login' => __('Selfcare login'),
+            'selfcare-login-failed' => __('Selfcare login failed'),
+            'selfcare-password-changed' => __('Selfcare password changed'),
+            'selfcare-password-set' => __('Selfcare password set'),
+            'pppoe-password-changed' => __('PPPoE password changed in selfcare'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }

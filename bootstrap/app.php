@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\NoticeController;
+use App\Http\Middleware\SelfcareSession;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [SetLocale::class]);
+        $middleware->alias(['selfcare' => SelfcareSession::class]);
         // Payment gateways post these from their own site; each request is checked by the gateway instead.
         $middleware->validateCsrfTokens(except: ['pay/return/*', 'pay/webhook/*']);
     })

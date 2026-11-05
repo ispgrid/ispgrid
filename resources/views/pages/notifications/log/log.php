@@ -83,7 +83,7 @@ new #[Title('Message log')] class extends Component
             'color' => $log->status->color(),
             'error' => $log->error,
             'preview' => $log->preview ?? implode(' | ', $log->values ?? []),
-            'canRetry' => $log->status === NotificationStatus::Failed,
+            'canRetry' => $log->canRetry(),
         ])->all();
     }
 
@@ -117,7 +117,7 @@ new #[Title('Message log')] class extends Component
     public function retry(int $logId, Notifier $notifier): void
     {
         $this->authorize('manage-notification-rules');
-        $log = NotificationLog::query()->where('status', NotificationStatus::Failed)->findOrFail($logId);
+        $log = NotificationLog::query()->where('status', NotificationStatus::Failed)->where('has_secret', false)->findOrFail($logId);
 
         $notifier->retry($log);
         $this->toast(__('Message queued again.'));

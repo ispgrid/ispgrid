@@ -42,8 +42,9 @@ it('stops an open customer page once its permission is taken away', function () 
 });
 
 it('makes every page behind a permission check it on every request', function () {
-    // Pages every logged-in staff member may use.
-    $open = ['dashboard', 'settings'];
+    // Pages every logged-in staff member may use, and the customers' own Selfcare pages (guarded by the
+    // SelfcareSession middleware on every request instead of a staff permission).
+    $open = ['dashboard', 'settings', 'selfcare'];
 
     $pages = collect(File::allFiles(resource_path('views/pages')))
         ->filter(fn ($file): bool => $file->getExtension() === 'php' && ! str_ends_with($file->getFilename(), '.blade.php'))

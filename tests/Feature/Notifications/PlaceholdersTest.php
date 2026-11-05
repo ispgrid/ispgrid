@@ -55,6 +55,8 @@ it('fills every value a rule can use', function () {
         'balance_due' => '100.00',
         'pay_code' => '',
         'pay_link' => '',
+        'selfcare_url' => url('/selfcare'),
+        'selfcare_password' => '********',
     ])->and($result['trimmed'])->toBeFalse();
 });
 

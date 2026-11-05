@@ -12,6 +12,7 @@ use App\Models\RadiusSetting;
 use App\Support\Hotspot;
 use App\Support\NoticePage;
 use App\Support\RequiredCustomerFields;
+use App\Support\Selfcare;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\App;
@@ -28,6 +29,16 @@ new #[Title('App settings')] class extends Component
     use AuthorizesEveryRequest, ShowsToasts;
 
     private const DATE_FORMATS = ['d/m/Y', 'm/d/Y', 'Y-m-d', 'd.m.Y', 'd-m-Y'];
+
+    /**
+     * On/off settings saved as '1' or '0' under their own key.
+     *
+     * @var array<string, string>
+     */
+    private const SWITCHES = [
+        'selfcare_enabled' => 'selfcare.enabled',
+        'selfcare_pppoe_password_change' => 'selfcare.pppoe_password_change',
+    ];
 
     public string $currency_code = '';
 
@@ -69,6 +80,10 @@ new #[Title('App settings')] class extends Component
 
     public bool $hotspot_enabled = false;
 
+    public bool $selfcare_enabled = false;
+
+    public bool $selfcare_pppoe_password_change = false;
+
     /** @var list<string> */
     public array $required_customer_fields = [];
 
@@ -76,11 +91,15 @@ new #[Title('App settings')] class extends Component
     {
         $this->authorizeAccess();
 
-        foreach (array_keys(Arr::except($this->rules(), [Hotspot::SETTING, 'required_customer_fields', 'required_customer_fields.*'])) as $key) {
+        foreach (array_keys(Arr::except($this->rules(), [Hotspot::SETTING, 'required_customer_fields', 'required_customer_fields.*', ...array_keys(self::SWITCHES)])) as $key) {
             $this->{$key} = (string) AppSetting::valueOf($key, '');
         }
 
         $this->hotspot_enabled = Hotspot::enabled();
+
+        foreach (self::SWITCHES as $property => $key) {
+            $this->{$property} = AppSetting::valueOf($key, '0') === '1';
+        }
         $this->required_customer_fields = RequiredCustomerFields::saved();
 
         // Installs from before languages have no row until the next upgrade seeds it: they run in English.
@@ -127,6 +146,8 @@ new #[Title('App settings')] class extends Component
             'login_log_days' => ['required', 'integer', 'between:7,3650'],
             'session_history_days' => ['required', 'integer', 'between:31,3650'],
             'hotspot_enabled' => ['boolean'],
+            'selfcare_enabled' => ['boolean'],
+            'selfcare_pppoe_password_change' => ['boolean'],
             'required_customer_fields' => ['array'],
             'required_customer_fields.*' => ['string', Rule::in(RequiredCustomerFields::FIELDS)],
         ];
@@ -191,7 +212,7 @@ new #[Title('App settings')] class extends Component
             RequiredCustomerFields::save($required);
 
             foreach ($validated as $key => $value) {
-                AppSetting::put($key, (string) $value);
+                AppSetting::put(self::SWITCHES[$key] ?? $key, array_key_exists($key, self::SWITCHES) ? ($value ? '1' : '0') : (string) $value);
             }
         }, attempts: 3);
 
@@ -294,6 +315,12 @@ new #[Title('App settings')] class extends Component
             'exact' => __('At the recharge time on the last day'),
             'midnight' => __('At midnight at the end of the last day'),
         ];
+    }
+
+    #[Computed]
+    public function selfcareUrl(): string
+    {
+        return Selfcare::url();
     }
 
     #[Computed]

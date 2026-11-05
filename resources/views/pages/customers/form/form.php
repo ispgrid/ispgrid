@@ -36,6 +36,7 @@ use App\Support\IpAddress;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
 use App\Support\RequiredCustomerFields;
+use App\Support\Selfcare;
 use App\Support\TaxIdLabel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
@@ -783,6 +784,11 @@ new #[Title('Customer')] class extends Component
                 if ($isNew) {
                     $this->logCreated($account);
                     app(Notifier::class)->fire(CustomerCreated::key(), $account);
+
+                    // With a "Selfcare login" rule on, a new customer gets a selfcare password by SMS/WhatsApp.
+                    if (in_array($account->service_type, Selfcare::SERVICE_TYPES, true)) {
+                        Selfcare::sendLogin($account);
+                    }
                 } else {
                     $this->logRelationChanges($account, $before);
                     $this->logBillingChanges($account, $billingBefore);

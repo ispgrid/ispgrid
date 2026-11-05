@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\SelfcareAccount;
 use App\Models\User;
 
 return [
@@ -42,6 +43,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Customers on /selfcare: their own session key, so a staff login and a customer login never mix.
+        'selfcare' => [
+            'driver' => 'session',
+            'provider' => 'selfcare_accounts',
+        ],
     ],
 
     /*
@@ -65,6 +72,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'selfcare_accounts' => [
+            'driver' => 'eloquent',
+            'model' => SelfcareAccount::class,
         ],
 
         // 'users' => [

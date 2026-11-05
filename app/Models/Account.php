@@ -7,6 +7,7 @@ use App\Enums\AdvanceRenewalStatus;
 use App\Enums\ServiceType;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +31,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'billing_address_id', 'place_of_supply', 'ip_id', 'pool_id', 'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
     'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
     'override_min_upload', 'override_min_download'])]
+#[Hidden(['selfcare_password'])]
 class Account extends Model
 {
     /** @use HasFactory<AccountFactory> */
@@ -50,6 +52,7 @@ class Account extends Model
         'billing_free' => false,
         'discount_percent' => '0.00',
         'payment_terms_days' => 0,
+        'selfcare_must_change' => false,
     ];
 
     /**
@@ -96,6 +99,9 @@ class Account extends Model
             'address_id' => 'integer',
             'override_burst_time' => 'integer',
             'override_priority' => 'integer',
+            'selfcare_must_change' => 'boolean',
+            'selfcare_password_set_at' => 'datetime',
+            'selfcare_last_login_at' => 'datetime',
         ];
     }
 

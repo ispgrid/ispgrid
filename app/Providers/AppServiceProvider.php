@@ -12,6 +12,7 @@ use App\Billing\Tax\NoTax;
 use App\Billing\Tax\SingleTax;
 use App\Billing\Tax\TaxSetups;
 use App\Enums\Permission;
+use App\Http\Middleware\SelfcareSession;
 use App\Models\Account;
 use App\Models\Invoice;
 use App\Models\OnlinePayment;
@@ -26,6 +27,7 @@ use App\Notifications\Triggers\BeforeExpiry;
 use App\Notifications\Triggers\CustomerCreated;
 use App\Notifications\Triggers\OnlinePaymentReceived;
 use App\Notifications\Triggers\RechargeDone;
+use App\Notifications\Triggers\SelfcareLogin;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
 use App\Payments\QuickPay;
@@ -52,6 +54,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View as ViewInstance;
 use Laravel\Passkeys\Passkeys;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -91,7 +94,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
             $registry = new NotificationRegistry;
 
-            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class, OnlinePaymentReceived::class] as $trigger) {
+            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class, OnlinePaymentReceived::class, SelfcareLogin::class] as $trigger) {
                 $registry->registerTrigger($trigger);
             }
 
@@ -110,9 +113,12 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureGates();
 
-        View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->user(), request())));
+        View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->guard('web')->user(), request())));
 
         Passkeys::usePasskeyModel(Passkey::class);
+
+        // Selfcare's session checks run again on every Livewire request of its pages.
+        Livewire::addPersistentMiddleware([SelfcareSession::class]);
 
         // The public pay page: searches and payment starts per visitor address.
         RateLimiter::for('quick-pay', fn (Request $request): array => [
