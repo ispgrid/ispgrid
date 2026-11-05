@@ -1,7 +1,12 @@
 <?php
 
+use App\Billing\BillingSettings;
+use App\Billing\Pdf\ReceiptView;
+use App\Enums\InvoiceStatus;
 use App\Http\Middleware\SelfcareSession;
 use App\Models\AppSetting;
+use App\Models\Invoice;
+use App\Models\Payment;
 use App\Models\Radacct;
 use App\Models\Radpostauth;
 use App\Models\SelfcareAccount;
@@ -171,6 +176,42 @@ new class extends Component
                 'result' => $login->result()->label(),
                 'color' => $login->result()->color(),
             ])->all();
+    }
+
+    /**
+     * The last 12 invoices (not cancelled) and receipts (payments not removed), while invoicing is on.
+     *
+     * @return ?array{invoices: list<array{number: string, date: string, total: string, status: string, color: string, url: string}>, receipts: list<array{number: string, date: string, amount: string, url: string}>}
+     */
+    #[Computed]
+    public function bills(): ?array
+    {
+        if (! BillingSettings::current()->canIssue()) {
+            return null;
+        }
+
+        $money = Money::fromSettings();
+        $accountId = $this->account->id;
+
+        return [
+            'invoices' => Invoice::query()->where('account_id', $accountId)->where('status', '!=', InvoiceStatus::Cancelled)
+                ->latest('issue_date')->latest('id')->limit(12)->get()
+                ->map(fn (Invoice $invoice): array => [
+                    'number' => $invoice->number,
+                    'date' => $invoice->issue_date->format($this->dateFormat()),
+                    'total' => $money->format((string) $invoice->total),
+                    'status' => $invoice->status->label(),
+                    'color' => $invoice->status->color(),
+                    'url' => route('selfcare.invoice', $invoice->id),
+                ])->all(),
+            'receipts' => Payment::query()->where('account_id', $accountId)->latest('paid_at')->latest('id')->limit(12)->get()
+                ->map(fn (Payment $payment): array => [
+                    'number' => ReceiptView::number($payment),
+                    'date' => $payment->paid_at->format($this->dateFormat()),
+                    'amount' => $money->format((string) $payment->amount),
+                    'url' => route('selfcare.receipt', $payment->id),
+                ])->all(),
+        ];
     }
 
     public function render(): View

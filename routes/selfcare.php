@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SelfcareDocumentController;
 use App\Http\Controllers\SelfcareLogoutController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,5 +12,7 @@ Route::prefix('selfcare')->name('selfcare.')->group(function () {
     Route::middleware('selfcare')->group(function () {
         Route::livewire('password', 'pages::selfcare.password')->name('password');
         Route::livewire('home', 'pages::selfcare.dashboard')->name('dashboard');
+        Route::get('invoices/{invoice}', [SelfcareDocumentController::class, 'invoice'])->whereNumber('invoice')->name('invoice');
+        Route::get('receipts/{payment}', [SelfcareDocumentController::class, 'receipt'])->whereNumber('payment')->name('receipt');
     });
 });

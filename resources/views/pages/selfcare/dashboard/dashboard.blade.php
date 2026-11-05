@@ -105,6 +105,36 @@
         </section>
     @endif
 
+    @if ($this->bills !== null && ($this->bills['invoices'] !== [] || $this->bills['receipts'] !== []))
+        <section class="grid gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+            <x-ui.heading>{{ __('Bills') }}</x-ui.heading>
+            @if ($this->bills['invoices'] !== [])
+                <ul class="grid gap-2 text-sm">
+                    @foreach ($this->bills['invoices'] as $invoice)
+                        <li class="flex flex-wrap items-center justify-between gap-2">
+                            <a href="{{ $invoice['url'] }}" class="font-medium underline-offset-2 hover:underline">{{ $invoice['number'] }}</a>
+                            <span class="text-zinc-600 tabular-nums dark:text-zinc-400">{{ $invoice['date'] }}</span>
+                            <span class="tabular-nums">{{ $invoice['total'] }}</span>
+                            <x-ui.badge :color="$invoice['color']">{{ $invoice['status'] }}</x-ui.badge>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+            @if ($this->bills['receipts'] !== [])
+                <x-ui.text muted class="text-sm">{{ __('Receipts') }}</x-ui.text>
+                <ul class="grid gap-2 text-sm">
+                    @foreach ($this->bills['receipts'] as $receipt)
+                        <li class="flex flex-wrap items-center justify-between gap-2">
+                            <a href="{{ $receipt['url'] }}" class="font-medium underline-offset-2 hover:underline">{{ $receipt['number'] }}</a>
+                            <span class="text-zinc-600 tabular-nums dark:text-zinc-400">{{ $receipt['date'] }}</span>
+                            <span class="tabular-nums">{{ $receipt['amount'] }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+    @endif
+
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
         <x-ui.link :href="route('selfcare.password')">{{ __('Change selfcare password') }}</x-ui.link>
         <form method="POST" action="{{ route('selfcare.logout') }}">
