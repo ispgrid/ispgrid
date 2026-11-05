@@ -3,6 +3,7 @@
 use App\Billing\BillingSettings;
 use App\Billing\Pdf\ReceiptView;
 use App\Enums\InvoiceStatus;
+use App\Enums\ServiceType;
 use App\Http\Middleware\SelfcareSession;
 use App\Models\AppSetting;
 use App\Models\Invoice;
@@ -14,6 +15,7 @@ use App\Payments\PayCode;
 use App\Payments\QuickPay;
 use App\Support\Money;
 use App\Support\PublicPage;
+use App\Support\Selfcare;
 use App\Support\SelfcareConnection;
 use App\Support\Units;
 use App\Support\Usage;
@@ -212,6 +214,15 @@ new class extends Component
                     'url' => route('selfcare.receipt', $payment->id),
                 ])->all(),
         ];
+    }
+
+    /**
+     * Whether this customer may change their PPPoE password here.
+     */
+    #[Computed]
+    public function canChangePppoePassword(): bool
+    {
+        return Selfcare::canChangePppoePassword() && $this->account->service_type === ServiceType::Ppp;
     }
 
     public function render(): View

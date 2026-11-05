@@ -136,7 +136,12 @@
     @endif
 
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-        <x-ui.link :href="route('selfcare.password')">{{ __('Change selfcare password') }}</x-ui.link>
+        <div class="flex flex-wrap gap-x-4 gap-y-2">
+            <x-ui.link :href="route('selfcare.password')">{{ __('Change selfcare password') }}</x-ui.link>
+            @if ($this->canChangePppoePassword)
+                <x-ui.link :href="route('selfcare.pppoe-password')">{{ __('Change PPPoE password') }}</x-ui.link>
+            @endif
+        </div>
         <form method="POST" action="{{ route('selfcare.logout') }}">
             @csrf
             <x-ui.button type="submit" variant="ghost" size="sm">{{ __('Log out') }}</x-ui.button>

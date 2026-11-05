@@ -167,6 +167,7 @@ final class ActivityFormatter
             'selfcare-login-failed' => __('Selfcare login failed'),
             'selfcare-password-changed' => __('Selfcare password changed'),
             'selfcare-password-set' => __('Selfcare password set'),
+            'pppoe-password-changed' => __('PPPoE password changed in selfcare'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }
