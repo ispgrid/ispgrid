@@ -166,6 +166,7 @@ final class ActivityFormatter
             'selfcare-login' => __('Selfcare login'),
             'selfcare-login-failed' => __('Selfcare login failed'),
             'selfcare-password-changed' => __('Selfcare password changed'),
+            'selfcare-password-set' => __('Selfcare password set'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }

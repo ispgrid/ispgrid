@@ -58,4 +58,17 @@ final class Selfcare
     {
         return url('/selfcare');
     }
+
+    /**
+     * The login to hand to the customer, as one message staff copy or read out.
+     */
+    public static function details(Account $account, string $password): string
+    {
+        return implode("\n", [
+            __('Selfcare: :url', ['url' => self::url()]),
+            __('Username: :username', ['username' => $account->username]),
+            __('Password: :password', ['password' => $password]),
+            __('Choose your own password when you first log in.'),
+        ]);
+    }
 }

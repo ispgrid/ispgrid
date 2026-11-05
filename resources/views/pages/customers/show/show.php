@@ -42,6 +42,7 @@ use App\Support\Hotspot;
 use App\Support\Ipv4Cidr;
 use App\Support\Money;
 use App\Support\PlanChoices;
+use App\Support\Selfcare;
 use App\Support\TaxIdLabel;
 use App\Support\Units;
 use App\Support\Usage;
@@ -239,6 +240,15 @@ new #[Title('Customer')] class extends Component
     public function addonTabs(): array
     {
         return app(CustomerTabs::class)->for(auth()->user(), $this->account);
+    }
+
+    /**
+     * The Selfcare card: Selfcare on, a customer who may use it, and the Set selfcare passwords box.
+     */
+    #[Computed]
+    public function showsSelfcareCard(): bool
+    {
+        return Selfcare::isOpen() && Selfcare::eligible($this->account) && Gate::allows('set-selfcare-passwords');
     }
 
     /**
