@@ -113,7 +113,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureGates();
 
-        View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->user(), request())));
+        View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->guard('web')->user(), request())));
 
         Passkeys::usePasskeyModel(Passkey::class);
 

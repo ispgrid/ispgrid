@@ -9,8 +9,10 @@ use App\Models\NotificationProvider;
 use App\Notifications\NotificationRegistry;
 use App\Notifications\Redactor;
 use App\Notifications\SendResult;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Crypt;
 use Throwable;
 
 /**
@@ -141,9 +143,15 @@ class SendNotification implements ShouldQueue
      */
     private static function heldSecret(NotificationLog $log): array
     {
+        $encrypted = $log->getRawOriginal('secret');
+
+        if ($encrypted === null) {
+            return [];
+        }
+
         try {
-            return $log->secret === null ? [] : [$log->secret];
-        } catch (Throwable) {
+            return [Crypt::decryptString($encrypted)];
+        } catch (DecryptException) {
             return [];
         }
     }
