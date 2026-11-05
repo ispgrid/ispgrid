@@ -17,6 +17,7 @@ enum Permission: string
     case DeleteCustomers = 'delete-customers';
     case ViewCustomerPasswords = 'view-customer-passwords';
     case ResetCustomerDevices = 'reset-customer-devices';
+    case SetSelfcarePasswords = 'set-selfcare-passwords';
 
     case ViewOnlineSessions = 'view-online-sessions';
     case DisconnectSessions = 'disconnect-sessions';
@@ -60,6 +61,7 @@ enum Permission: string
             self::DeleteCustomers => __('Delete and restore customers'),
             self::ViewCustomerPasswords => __('See customer passwords'),
             self::ResetCustomerDevices => __('Reset devices and unlock logins'),
+            self::SetSelfcarePasswords => __('Set selfcare passwords'),
             self::ViewOnlineSessions => __('View online sessions'),
             self::DisconnectSessions => __('Disconnect sessions'),
             self::ViewLoginLog => __('View login log'),
@@ -96,7 +98,7 @@ enum Permission: string
         return match ($this) {
             self::ViewCustomers, self::AddCustomers, self::EditCustomers, self::RechargeCustomers,
             self::ChangeCustomerStatus, self::DeleteCustomers, self::ViewCustomerPasswords,
-            self::ResetCustomerDevices => __('Customers'),
+            self::ResetCustomerDevices, self::SetSelfcarePasswords => __('Customers'),
             self::ViewOnlineSessions, self::DisconnectSessions, self::ViewLoginLog => __('Sessions'),
             self::ViewPlans, self::ManagePlans => __('Plans'),
             self::ViewNetwork, self::ManageNas, self::ManagePools, self::ManageIpRanges,
@@ -116,7 +118,8 @@ enum Permission: string
     {
         return match ($this) {
             self::AddCustomers, self::EditCustomers, self::RechargeCustomers, self::ChangeCustomerStatus,
-            self::DeleteCustomers, self::ViewCustomerPasswords, self::ResetCustomerDevices => self::ViewCustomers,
+            self::DeleteCustomers, self::ViewCustomerPasswords, self::ResetCustomerDevices,
+            self::SetSelfcarePasswords => self::ViewCustomers,
             self::ManagePlans => self::ViewPlans,
             self::ManageNas, self::ManagePools, self::ManageIpRanges, self::ManageAddressLists => self::ViewNetwork,
             self::ManageNotificationRules, self::ManageNotificationProviders => self::ViewNotificationLog,

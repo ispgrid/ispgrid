@@ -99,6 +99,12 @@
                 <x-ui.heading>{{ __('Services') }}</x-ui.heading>
                 <x-ui.switch wire:model.live="hotspot_enabled" :label="__('Hotspot')" :description="__('Customers who log in on the Hotspot login page. While it is off, FreeRADIUS refuses those logins. IPoE is not affected.')" />
             </x-ui.card>
+
+            <x-ui.card class="grid content-start gap-5">
+                <x-ui.heading>{{ __('Selfcare') }}</x-ui.heading>
+                <x-ui.switch wire:model.live="selfcare_enabled" :label="__('Selfcare for customers')" :description="__('Customers log in at :url', ['url' => $this->selfcareUrl])" />
+                <x-ui.switch wire:model="selfcare_pppoe_password_change" :label="__('Customers can change PPPoE password')" :description="__('A customer who changes it is disconnected and must put the new password in their router.')" />
+            </x-ui.card>
         </div>
 
         <x-ui.form-actions>
