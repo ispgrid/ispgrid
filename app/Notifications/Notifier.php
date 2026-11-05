@@ -73,21 +73,27 @@ final class Notifier
             return;
         }
 
-        $enabledProviders = NotificationProvider::enabledKeys();
         $now = CarbonImmutable::now();
         $account->loadMissing('plan');
 
-        foreach (NotificationRule::query()->where('enabled', true)->where('trigger', $triggerKey)->orderBy('id')->get() as $rule) {
-            if (! in_array($rule->provider, $enabledProviders, true)) {
-                continue;
-            }
-
-            if (! $this->filtered(Account::query()->whereKey($account->id), $rule)->exists()) {
-                continue;
-            }
-
+        foreach ($this->rulesFor($triggerKey, $account) as $rule) {
             $this->queue($rule, $trigger, $account, $recharge, $now, $payment, $secret);
         }
+    }
+
+    /**
+     * The enabled rules on this trigger, with an enabled provider, whose filters take this customer.
+     *
+     * @return Collection<int, NotificationRule>
+     */
+    public function rulesFor(string $triggerKey, Account $account): Collection
+    {
+        $enabledProviders = NotificationProvider::enabledKeys();
+
+        return NotificationRule::query()->where('enabled', true)->where('trigger', $triggerKey)->orderBy('id')->get()
+            ->filter(fn (NotificationRule $rule): bool => in_array($rule->provider, $enabledProviders, true)
+                && $this->filtered(Account::query()->whereKey($account->id), $rule)->exists())
+            ->values();
     }
 
     /**

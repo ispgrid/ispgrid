@@ -7,8 +7,6 @@ use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\AppSetting;
-use App\Models\NotificationProvider;
-use App\Models\NotificationRule;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\SelfcareLogin;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,11 +65,11 @@ final class Selfcare
 
     /**
      * Sets a new random password and sends it by every enabled "Selfcare login" rule (SMS and WhatsApp get the same
-     * one). False, with nothing changed, while Selfcare is off or no such rule can send.
+     * one). False, with nothing changed, while Selfcare is off or no such rule can send to this customer.
      */
     public static function sendLogin(Account $account): bool
     {
-        if (! self::isOpen() || ! self::canSendLogin()) {
+        if (! self::isOpen() || ! self::canSendLogin($account)) {
             return false;
         }
 
@@ -84,12 +82,12 @@ final class Selfcare
     }
 
     /**
-     * Whether an enabled "Selfcare login" rule has an enabled provider.
+     * Whether an enabled "Selfcare login" rule with an enabled provider takes this customer (its plan, service type
+     * and status filters), so a new password is never set without a message to carry it.
      */
-    public static function canSendLogin(): bool
+    public static function canSendLogin(Account $account): bool
     {
-        return NotificationRule::query()->where('enabled', true)->where('trigger', SelfcareLogin::key())
-            ->whereIn('provider', NotificationProvider::enabledKeys())->exists();
+        return app(Notifier::class)->rulesFor(SelfcareLogin::key(), $account)->isNotEmpty();
     }
 
     /**

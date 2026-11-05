@@ -333,7 +333,11 @@ new #[Title('Notification rule')] class extends Component
             'name' => ['required', 'string', 'max:100', Rule::unique(NotificationRule::class, 'name')->withoutTrashed()->ignore($this->ruleId)],
             'trigger' => ['required', Rule::in(array_keys($this->registry()->triggers()))],
             'provider' => ['required', Rule::in(array_keys($this->providerOptions))],
-            'values' => ['array', 'max:10'],
+            'values' => ['array', 'max:10', function (string $attribute, mixed $value, Closure $fail): void {
+                if ($this->sendsPassword && ! in_array('selfcare_password', (array) $value, true)) {
+                    $fail(__('Add the selfcare password to the values, or the customer cannot log in.'));
+                }
+            }],
             'values.*' => ['required', Rule::in(array_keys($this->placeholderOptions))],
             'approved_text' => ['nullable', 'string', 'max:1000'],
             'plans' => ['array'],

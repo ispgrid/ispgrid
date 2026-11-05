@@ -1490,5 +1490,6 @@
     "Customers can change PPPoE password": "ग्राहक PPPoE पासवर्ड बदल सकते हैं",
     "A customer who changes it is disconnected and must put the new password in their router.": "इसे बदलने वाले ग्राहक का कनेक्शन कट जाता है और उसे अपने राउटर में नया पासवर्ड डालना होगा।",
     "Selfcare is not available.": "सेल्फकेयर उपलब्ध नहीं है।",
-    "Call us for help with your connection.": "अपने कनेक्शन में मदद के लिए हमें कॉल करें।"
+    "Call us for help with your connection.": "अपने कनेक्शन में मदद के लिए हमें कॉल करें।",
+    "Add the selfcare password to the values, or the customer cannot log in.": "वैल्यू में सेल्फकेयर पासवर्ड जोड़ें, नहीं तो ग्राहक लॉग इन नहीं कर पाएगा।"
 }

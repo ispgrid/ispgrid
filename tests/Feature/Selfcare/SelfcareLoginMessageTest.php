@@ -237,3 +237,28 @@ it('tells the operator the DLT template needs the password variable', function (
         ->set('trigger', 'selfcare_login')
         ->assertSee(__('MSG91 needs a DLT-approved template that includes the password variable.'));
 });
+
+it('keeps the password when no rule matches this customer', function () {
+    Queue::fake();
+    selfcareRule()->update(['filters' => ['plans' => [], 'service_types' => ['PPP'], 'statuses' => []]]);
+    $account = Account::factory()->ipoe()->selfcare()->create(['mobile' => '9876543210']);
+    $hash = $account->selfcare_password;
+
+    expect(Selfcare::sendLogin($account))->toBeFalse();
+
+    Livewire::test('pages::customers.selfcare-card', ['accountId' => $account->id])
+        ->assertDontSee(__('Send by SMS/WhatsApp'))
+        ->call('send')->assertDispatched('toast', message: __('No Selfcare login message is switched on. Set a password and copy it instead.'));
+
+    expect($account->fresh()->selfcare_password)->toBe($hash)
+        ->and(NotificationLog::query()->count())->toBe(0);
+});
+
+it('needs the selfcare password among the values of a Selfcare login rule', function () {
+    $form = Livewire::test('pages::notifications.rule-form')
+        ->set('name', 'Selfcare login')->set('trigger', 'selfcare_login')->set('provider', 'fake')
+        ->set('template.template_id', 'tpl')->set('values', ['username']);
+
+    $form->call('save')->assertHasErrors(['values']);
+    $form->set('values', ['username', 'selfcare_password'])->call('save')->assertHasNoErrors();
+});

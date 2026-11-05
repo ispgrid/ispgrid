@@ -139,7 +139,7 @@ new class extends Component
     #[Computed]
     public function canSend(): bool
     {
-        return Selfcare::canSendLogin();
+        return Selfcare::canSendLogin($this->account);
     }
 
     public function closeDialog(): void
