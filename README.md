@@ -48,6 +48,10 @@ a customer who is online is changed, their session is disconnected so the change
   the customer gets a confirmation message. Reminders can carry a pay link: the "Pay code" value (e.g. `1234-a8k2mq`)
   goes after `https://<your domain>/p/` in the approved template, and opens the page with the customer already found.
   WhatsApp rules can use the "Pay link" value instead: the whole address in one variable.
+- **Selfcare for customers at `/selfcare`:** off until you turn it on in App settings. PPPoE and IPoE customers log
+  in with their username and a selfcare password (separate from the PPPoE password) that staff set on the customer
+  page and copy or send by SMS/WhatsApp. They see their plan, expiry, usage, sessions and connection details, renew
+  through quick pay, download invoices and receipts, and can change their PPPoE password when you allow it.
 - **Hotspot:** off until you turn it on in App settings (while it is off, FreeRADIUS refuses Hotspot page logins).
   A Hotspot plan can start its validity at the customer's first login instead of at the recharge.
 - **Online and Login log:** who is connected, from which NAS, IP and device, with traffic; every accepted and
