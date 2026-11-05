@@ -7,6 +7,7 @@ use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\Plan;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * @extends Factory<Account>
@@ -75,5 +76,13 @@ class AccountFactory extends Factory
     public function expired(): static
     {
         return $this->state(['expiry' => now()->subDay()]);
+    }
+
+    /**
+     * A customer who can log in to Selfcare with this password.
+     */
+    public function selfcare(string $password = 'Selfcare-pass-1', bool $mustChange = false): static
+    {
+        return $this->state(fn (): array => ['selfcare_password' => Hash::make($password), 'selfcare_must_change' => $mustChange, 'selfcare_password_set_at' => now()]);
     }
 }

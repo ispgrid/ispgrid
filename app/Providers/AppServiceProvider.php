@@ -12,6 +12,7 @@ use App\Billing\Tax\NoTax;
 use App\Billing\Tax\SingleTax;
 use App\Billing\Tax\TaxSetups;
 use App\Enums\Permission;
+use App\Http\Middleware\SelfcareSession;
 use App\Models\Account;
 use App\Models\Invoice;
 use App\Models\OnlinePayment;
@@ -52,6 +53,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View as ViewInstance;
 use Laravel\Passkeys\Passkeys;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -113,6 +115,9 @@ class AppServiceProvider extends ServiceProvider
         View::composer('partials.navigation', fn (ViewInstance $view) => $view->with('menu', app(Navigation::class)->forUser(auth()->user(), request())));
 
         Passkeys::usePasskeyModel(Passkey::class);
+
+        // Selfcare's session checks run again on every Livewire request of its pages.
+        Livewire::addPersistentMiddleware([SelfcareSession::class]);
 
         // The public pay page: searches and payment starts per visitor address.
         RateLimiter::for('quick-pay', fn (Request $request): array => [

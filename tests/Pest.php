@@ -3,14 +3,18 @@
 use App\Actions\Import\RowError;
 use App\Billing\LineInput;
 use App\Enums\Permission;
+use App\Http\Middleware\SelfcareSession;
+use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\GatewaySetting;
 use App\Models\RadiusSetting;
 use App\Models\Role;
+use App\Models\SelfcareAccount;
 use App\Models\User;
 use App\Payments\PaymentGateways;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Tests\Fakes\FakeGateway;
 use Tests\TestCase;
@@ -171,4 +175,25 @@ function turnQuickPayOn(?string $renewalDays = '7'): void
 function billingLines(string $price, string $quantity = '1', string $discount = '0'): array
 {
     return [new LineInput('Plan', null, null, $quantity, $price, $discount, true)];
+}
+
+/**
+ * Turns the Selfcare portal on, and with it the PPPoE password change when asked.
+ */
+function turnSelfcareOn(bool $pppoePasswordChange = false): void
+{
+    AppSetting::put('selfcare.enabled', '1');
+    AppSetting::put('selfcare.pppoe_password_change', $pppoePasswordChange ? '1' : '0');
+}
+
+/**
+ * Logs this customer in to Selfcare the way the login page does, without going through it.
+ */
+function actingAsCustomer(Account $account): SelfcareAccount
+{
+    $customer = SelfcareAccount::query()->findOrFail($account->id);
+    Auth::guard('selfcare')->login($customer);
+    SelfcareSession::remember($customer);
+
+    return $customer;
 }
