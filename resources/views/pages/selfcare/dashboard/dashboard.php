@@ -2,12 +2,16 @@
 
 use App\Http\Middleware\SelfcareSession;
 use App\Models\AppSetting;
+use App\Models\Radacct;
+use App\Models\Radpostauth;
 use App\Models\SelfcareAccount;
 use App\Payments\PayCode;
 use App\Payments\QuickPay;
 use App\Support\Money;
 use App\Support\PublicPage;
 use App\Support\SelfcareConnection;
+use App\Support\Units;
+use App\Support\Usage;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -105,6 +109,68 @@ new class extends Component
         }
 
         return $rows;
+    }
+
+    /**
+     * Data used since the last recharge and per day for the last 30 days, from the usage database FreeRADIUS checks
+     * limits against. Null when there is nothing to show.
+     *
+     * @return ?array{period: string, days: list<array{day: string, download: string, upload: string}>}
+     */
+    #[Computed]
+    public function usage(): ?array
+    {
+        $username = (string) $this->account->username;
+        $period = Usage::sinceRecharge($username);
+        $days = Usage::days($username, 30);
+
+        if ($period['bytes'] === 0 && $days === []) {
+            return null;
+        }
+
+        return [
+            'period' => Units::bytes($period['bytes']),
+            'days' => array_map(fn (array $day): array => [
+                'day' => $day['day']->format($this->dateFormat()),
+                'download' => Units::bytes($day['download']),
+                'upload' => Units::bytes($day['upload']),
+            ], $days),
+        ];
+    }
+
+    /**
+     * The customer's open sessions: when they started, the IP, how long and how much data. Never the NAS.
+     *
+     * @return list<array{started: string, ip: string, uptime: string, data: string}>
+     */
+    #[Computed]
+    public function sessions(): array
+    {
+        return Radacct::query()->open()->where('username', $this->account->username)->orderBy('acctstarttime')
+            ->get(['acctstarttime', 'framedipaddress', 'acctinputoctets', 'acctoutputoctets'])
+            ->map(fn (Radacct $session): array => [
+                'started' => $session->acctstarttime->format($this->dateFormat().' H:i'),
+                'ip' => (string) $session->framedipaddress,
+                'uptime' => Units::duration((int) $session->acctstarttime->diffInSeconds(now())),
+                'data' => Units::bytes((int) $session->acctinputoctets + (int) $session->acctoutputoctets),
+            ])->all();
+    }
+
+    /**
+     * The last 10 login attempts: when and the result in words. No reason text, router or MAC.
+     *
+     * @return list<array{when: string, result: string, color: string}>
+     */
+    #[Computed]
+    public function logins(): array
+    {
+        return Radpostauth::query()->where('username', $this->account->username)->orderByDesc('authdate')->orderByDesc('id')->limit(10)
+            ->get(['id', 'authdate', 'reply'])
+            ->map(fn (Radpostauth $login): array => [
+                'when' => $login->authdate->format($this->dateFormat().' H:i'),
+                'result' => $login->result()->label(),
+                'color' => $login->result()->color(),
+            ])->all();
     }
 
     public function render(): View
