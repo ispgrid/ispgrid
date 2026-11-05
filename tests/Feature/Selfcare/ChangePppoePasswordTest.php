@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
@@ -8,6 +9,7 @@ use App\Models\AppSetting;
 use App\Models\Radacct;
 use App\Support\Selfcare;
 use Database\Seeders\RadiusAttributeSeeder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
@@ -115,4 +117,22 @@ it('links the page from the dashboard for PPPoE customers', function () {
     actingAsCustomer($this->account);
 
     $this->get(route('selfcare.dashboard'))->assertSee(route('selfcare.pppoe-password'));
+});
+
+it('refuses a save posted from an open page once staff terminate the customer', function () {
+    actingAsCustomer($this->account);
+    $html = $this->get(route('selfcare.pppoe-password'))->assertOk()->getContent();
+    preg_match('/wire:snapshot="([^"]+)"/', $html, $match);
+    $this->account->update(['status_id' => AccountStatus::Terminated]);
+
+    // A real update request, so the persistent SelfcareSession middleware runs (Livewire::test skips it).
+    $this->withHeader('X-Livewire', '1')->postJson(app('livewire')->getUpdateUri(), ['components' => [[
+        'snapshot' => html_entity_decode($match[1]),
+        'updates' => ['selfcare_password' => 'Selfcare-pass-1', 'password' => 'new-pppoe-2', 'password_confirmation' => 'new-pppoe-2'],
+        'calls' => [['method' => 'save', 'params' => [], 'metadata' => []]],
+    ]]])->assertRedirect(route('selfcare.login'));
+
+    expect(Auth::guard('selfcare')->check())->toBeFalse()
+        ->and(radiusPassword('kushal'))->toBe('old-pppoe-1');
+    Queue::assertNothingPushed();
 });
