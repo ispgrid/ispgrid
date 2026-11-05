@@ -27,6 +27,7 @@ use App\Notifications\Triggers\BeforeExpiry;
 use App\Notifications\Triggers\CustomerCreated;
 use App\Notifications\Triggers\OnlinePaymentReceived;
 use App\Notifications\Triggers\RechargeDone;
+use App\Notifications\Triggers\SelfcareLogin;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
 use App\Payments\QuickPay;
@@ -93,7 +94,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
             $registry = new NotificationRegistry;
 
-            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class, OnlinePaymentReceived::class] as $trigger) {
+            foreach ([BeforeExpiry::class, AfterExpiry::class, RechargeDone::class, CustomerCreated::class, OnlinePaymentReceived::class, SelfcareLogin::class] as $trigger) {
                 $registry->registerTrigger($trigger);
             }
 

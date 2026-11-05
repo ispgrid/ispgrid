@@ -62,9 +62,10 @@ final class Notifier
 
     /**
      * An event happened (a recharge, a new customer): message the customer for every enabled rule on it.
-     * Called inside the caller's transaction; the job is queued after the commit.
+     * Called inside the caller's transaction; the job is queued after the commit. A secret (a new password) is held
+     * encrypted on each message, apart from its values, until that message is sent.
      */
-    public function fire(string $triggerKey, Account $account, ?Recharge $recharge = null, ?PaymentNotice $payment = null): void
+    public function fire(string $triggerKey, Account $account, ?Recharge $recharge = null, ?PaymentNotice $payment = null, ?string $secret = null): void
     {
         $trigger = $this->registry->trigger($triggerKey);
 
@@ -85,18 +86,20 @@ final class Notifier
                 continue;
             }
 
-            $this->queue($rule, $trigger, $account, $recharge, $now, $payment);
+            $this->queue($rule, $trigger, $account, $recharge, $now, $payment, $secret);
         }
     }
 
     /**
      * The saved rule to one number, with a real customer's values when there is one. Logged without a once-key.
+     * A password is never a real one: the test sends NotificationLog::SAMPLE_SECRET.
      */
     public function sendTest(NotificationRule $rule, string $to): NotificationLog
     {
         $provider = $this->registry->providerClass($rule->provider);
         $result = $this->placeholders->values($rule->values ?? [], self::sample(), null, CarbonImmutable::now(),
             new PaymentNotice('test', '590.00', 'RCPT-1', 'INV-1', __('Online (Paytm)'), '0.00'));
+        $hasSecret = in_array('selfcare_password', $rule->values ?? [], true);
 
         $log = NotificationLog::query()->create([
             'notification_rule_id' => $rule->id,
@@ -109,6 +112,8 @@ final class Notifier
             'preview' => Placeholders::preview($rule->approved_text, $result['values']),
             'status' => NotificationStatus::Queued,
             'user_id' => auth()->id(),
+            'secret' => $hasSecret ? NotificationLog::SAMPLE_SECRET : null,
+            'has_secret' => $hasSecret,
         ]);
 
         SendNotification::dispatchSync($log->id);
@@ -127,6 +132,10 @@ final class Notifier
      */
     public function retry(NotificationLog $log): void
     {
+        if (! $log->canRetry()) {
+            return;
+        }
+
         $rule = $log->rule;
         $template = $rule !== null && ! $rule->trashed() && $rule->provider === $log->provider ? $rule->template : $log->template;
 
@@ -169,7 +178,7 @@ final class Notifier
             ->when($statuses !== [], fn (Builder $q) => $q->whereIn('status_id', $statuses));
     }
 
-    private function queue(NotificationRule $rule, Trigger $trigger, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null): ?NotificationLog
+    private function queue(NotificationRule $rule, Trigger $trigger, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null, ?string $secret = null): ?NotificationLog
     {
         $provider = $this->registry->providerClass($rule->provider);
         $key = $trigger instanceof PaymentTrigger && $payment !== null
@@ -203,6 +212,9 @@ final class Notifier
                 'status' => $status,
                 'error' => $error,
                 'once_key' => $key,
+                // A message that is not going out (no number) never holds the password.
+                'secret' => $secret !== null && $status === NotificationStatus::Queued ? $secret : null,
+                'has_secret' => $secret !== null,
             ]);
         } catch (UniqueConstraintViolationException) {
             return null; // another run made it a moment ago

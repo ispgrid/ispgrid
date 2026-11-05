@@ -4,9 +4,11 @@ namespace App\Notifications;
 
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Models\NotificationLog;
 use App\Models\Recharge;
 use App\Payments\PayCode;
 use App\Payments\QuickPay;
+use App\Support\Selfcare;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -23,7 +25,7 @@ final class Placeholders
         'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number', 'pay_code', 'pay_link'];
 
     /** Values only WhatsApp rules get: never cut, so too long for a DLT variable. */
-    public const WHATSAPP_ONLY = ['pay_link'];
+    public const WHATSAPP_ONLY = ['pay_link', 'selfcare_url'];
 
     /** Values only a recharge has. */
     public const RECHARGE = ['amount_paid', 'recharge_reference', 'recharge_note', 'recharge_date', 'recharge_datetime'];
@@ -63,6 +65,8 @@ final class Placeholders
             'balance_due' => __('Balance due'),
             'pay_code' => __('Pay code'),
             'pay_link' => __('Pay link'),
+            'selfcare_url' => __('Selfcare address'),
+            'selfcare_password' => __('Selfcare password'),
         ];
     }
 
@@ -139,6 +143,9 @@ final class Placeholders
             'balance_due' => $payment === null ? '' : $this->amount($payment->balanceDue),
             'pay_code' => QuickPay::isOpen() ? PayCode::for($account->id) : '',
             'pay_link' => QuickPay::isOpen() ? route('pay.code', PayCode::for($account->id)) : '',
+            'selfcare_url' => Selfcare::url(),
+            // The password itself never enters the values: the log row holds it apart, encrypted (Notifier::fire).
+            'selfcare_password' => NotificationLog::SECRET_MASK,
             default => '',
         };
     }

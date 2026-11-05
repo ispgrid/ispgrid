@@ -14,6 +14,7 @@ use App\Notifications\Notifier;
 use App\Notifications\PhoneNumber;
 use App\Notifications\Placeholders;
 use App\Notifications\SettingField;
+use App\Notifications\Triggers\SelfcareLogin;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -191,6 +192,15 @@ new #[Title('Notification rule')] class extends Component
         }
 
         return array_intersect_key(Placeholders::labels(), array_flip($keys));
+    }
+
+    /**
+     * The "Selfcare login" trigger, whose messages carry a new password.
+     */
+    #[Computed]
+    public function sendsPassword(): bool
+    {
+        return $this->trigger === SelfcareLogin::key();
     }
 
     /**

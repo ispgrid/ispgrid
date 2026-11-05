@@ -5,6 +5,8 @@ use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Models\NotificationLog;
+use App\Notifications\Triggers\SelfcareLogin;
 use App\Support\Selfcare;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Computed;
@@ -95,6 +97,49 @@ new class extends Component
         $this->reset('typed');
         unset($this->account, $this->status, $this->details);
         $this->dispatch('modal-open', name: 'selfcare-password');
+    }
+
+    /**
+     * Sets a new password and sends it by the "Selfcare login" message rules.
+     */
+    public function send(): void
+    {
+        $this->authorizeSetting();
+
+        if (! Selfcare::sendLogin($this->account)) {
+            $this->toast(__('No Selfcare login message is switched on. Set a password and copy it instead.'));
+
+            return;
+        }
+
+        unset($this->account, $this->status, $this->lastMessage);
+        $this->toast(__('A new selfcare password is on its way to the customer.'));
+    }
+
+    /**
+     * The latest "Selfcare login" message to this customer, so staff see when it did not go out.
+     *
+     * @return ?array{when: string, status: string, color: string, error: ?string}
+     */
+    #[Computed]
+    public function lastMessage(): ?array
+    {
+        $log = NotificationLog::query()->where('account_id', $this->accountId)
+            ->whereHas('rule', fn ($query) => $query->where('trigger', SelfcareLogin::key()))
+            ->latest('id')->first();
+
+        return $log === null ? null : [
+            'when' => $log->created_at->format(AppSetting::valueOf('date_format', 'd/m/Y').' H:i'),
+            'status' => $log->status->label(),
+            'color' => $log->status->color(),
+            'error' => $log->error,
+        ];
+    }
+
+    #[Computed]
+    public function canSend(): bool
+    {
+        return Selfcare::canSendLogin();
     }
 
     public function closeDialog(): void

@@ -5,7 +5,12 @@
                 <x-ui.heading>{{ __('Selfcare') }}</x-ui.heading>
                 <x-ui.text muted class="mt-1 text-sm">{{ __('The customer logs in at :url with their username and this password.', ['url' => $this->selfcareUrl]) }}</x-ui.text>
             </div>
-            <x-ui.button size="sm" variant="secondary" icon="key" wire:click="setPassword">{{ __('Set selfcare password') }}</x-ui.button>
+            <div class="flex flex-wrap gap-2">
+                <x-ui.button size="sm" variant="secondary" icon="key" wire:click="setPassword">{{ __('Set selfcare password') }}</x-ui.button>
+                @if ($this->canSend)
+                    <x-ui.button size="sm" variant="secondary" wire:click="send" wire:confirm="{{ __('This sets a new password and sends it to the customer. The old one stops working.') }}">{{ __('Send by SMS/WhatsApp') }}</x-ui.button>
+                @endif
+            </div>
         </div>
 
         <dl class="grid gap-3 text-sm sm:grid-cols-2">
@@ -26,6 +31,18 @@
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Last login') }}</dt>
                 <dd>{{ $this->status['last_login'] ?? __('Never') }}</dd>
             </div>
+            @if ($this->lastMessage)
+                <div class="sm:col-span-2">
+                    <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Last message') }}</dt>
+                    <dd class="flex flex-wrap items-center gap-2">
+                        {{ $this->lastMessage['when'] }}
+                        <x-ui.badge :color="$this->lastMessage['color']">{{ $this->lastMessage['status'] }}</x-ui.badge>
+                        @if ($this->lastMessage['error'])
+                            <span class="text-zinc-600 dark:text-zinc-400">{{ $this->lastMessage['error'] }}</span>
+                        @endif
+                    </dd>
+                </div>
+            @endif
         </dl>
 
         <form wire:submit="setPassword($wire.typed)" class="flex flex-wrap items-end gap-2" novalidate>

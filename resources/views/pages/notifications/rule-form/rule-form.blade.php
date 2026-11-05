@@ -29,6 +29,9 @@
 
                     <div class="grid gap-3">
                         <x-ui.text>{{ __('Values in order: value 1 fills the first variable of the template, and so on.') }}</x-ui.text>
+                        @if ($this->sendsPassword)
+                            <x-ui.text muted>{{ __('Each message carries a new password, shown as ******** in the message log.') }} {{ __('MSG91 needs a DLT-approved template that includes the password variable.') }}</x-ui.text>
+                        @endif
                         @if ($this->payCodeAddress !== null)
                             <x-ui.text muted>{{ __('Pay code: write :address in the approved text, right before its variable.', ['address' => $this->payCodeAddress]) }}</x-ui.text>
                         @endif

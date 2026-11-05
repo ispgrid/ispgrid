@@ -2,11 +2,17 @@
 
 namespace App\Support;
 
+use App\Actions\Customers\SetSelfcarePassword;
 use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Models\NotificationProvider;
+use App\Models\NotificationRule;
+use App\Notifications\Notifier;
+use App\Notifications\Triggers\SelfcareLogin;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The customer portal at /selfcare. Off on a new install (selfcare.enabled); while off, its pages are not found and
@@ -57,6 +63,33 @@ final class Selfcare
     public static function url(): string
     {
         return url('/selfcare');
+    }
+
+    /**
+     * Sets a new random password and sends it by every enabled "Selfcare login" rule (SMS and WhatsApp get the same
+     * one). False, with nothing changed, while Selfcare is off or no such rule can send.
+     */
+    public static function sendLogin(Account $account): bool
+    {
+        if (! self::isOpen() || ! self::canSendLogin()) {
+            return false;
+        }
+
+        DB::transaction(function () use ($account): void {
+            $password = app(SetSelfcarePassword::class)->handle($account);
+            app(Notifier::class)->fire(SelfcareLogin::key(), $account, secret: $password);
+        }, attempts: 3);
+
+        return true;
+    }
+
+    /**
+     * Whether an enabled "Selfcare login" rule has an enabled provider.
+     */
+    public static function canSendLogin(): bool
+    {
+        return NotificationRule::query()->where('enabled', true)->where('trigger', SelfcareLogin::key())
+            ->whereIn('provider', NotificationProvider::enabledKeys())->exists();
     }
 
     /**
