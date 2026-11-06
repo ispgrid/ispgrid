@@ -144,13 +144,28 @@ class DisconnectAccount implements ShouldQueue
     }
 
     /**
+     * The secret goes to radclient in a file only this user can read (-S), never as an argument, which any local
+     * user could read in the process list.
+     *
      * @param  array<string, string>  $attributes
      */
     private function send(string $router, string $secret, array $attributes): ProcessResult
     {
         $request = collect($attributes)->map(fn (string $value, string $name): string => "{$name}={$value}")->implode(',');
+        $secretFile = tempnam(sys_get_temp_dir(), 'ispgrid-coa-');
 
-        return Process::timeout(30)->input($request)
-            ->run([config('radius.radclient'), '-x', '-r', '1', '-t', '5', "{$router}:3799", 'disconnect', $secret]);
+        if ($secretFile === false) {
+            throw new RuntimeException('Could not create a temporary file for the RADIUS secret.');
+        }
+
+        try {
+            chmod($secretFile, 0600);
+            file_put_contents($secretFile, $secret);
+
+            return Process::timeout(30)->input($request)
+                ->run([config('radius.radclient'), '-x', '-r', '1', '-t', '5', '-S', $secretFile, "{$router}:3799", 'disconnect']);
+        } finally {
+            @unlink($secretFile);
+        }
     }
 }
