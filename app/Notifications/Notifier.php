@@ -125,9 +125,9 @@ final class Notifier
         SendNotification::dispatchSync($log->id);
         $log->refresh();
 
-        // A test runs once, here: a retryable failure is not tried again, so it is final.
+        // A test runs once, here: a retryable failure is not tried again, so it is final (and holds no password).
         if ($log->status === NotificationStatus::Queued) {
-            $log->update(['status' => NotificationStatus::Failed]);
+            $log->update(['status' => NotificationStatus::Failed, 'secret' => null]);
         }
 
         return $log;

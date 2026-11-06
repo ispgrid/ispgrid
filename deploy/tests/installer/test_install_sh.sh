@@ -26,6 +26,22 @@ yes_no() { if "$@" >/dev/null; then echo yes; else echo no; fi; }
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+#  HTTPS
+self_signed_site "$here/../../nginx/ispgrid.conf" /etc/ispgrid/tls/panel.crt /etc/ispgrid/tls/panel.key > "$tmp/site"
+check "self-signed: port 80 redirects" "$(grep -c 'return 301 https://\$host\$request_uri;' "$tmp/site")" 1
+check "self-signed: panel on 443" "$(grep -c 'listen 443 ssl default_server;' "$tmp/site") $(grep -c 'listen \[::\]:443 ssl default_server;' "$tmp/site")" "1 1"
+check "self-signed: certificate" "$(grep -c 'ssl_certificate /etc/ispgrid/tls/panel.crt;' "$tmp/site") $(grep -c 'ssl_certificate_key /etc/ispgrid/tls/panel.key;' "$tmp/site")" "1 1"
+check "self-signed: the panel is not on 80" "$(grep -c 'fastcgi_pass' "$tmp/site") $(awk '/listen 80 default_server/ { inblock = 1 } inblock && /fastcgi_pass/ { print "leak" } /^}/ { inblock = 0 }' "$tmp/site")" "1 "
+check "self-signed: no placeholder" "$(grep -c __SERVER_NAME__ "$tmp/site")" 0
+check "self-signed: first run makes one" "$(yes_no self_signed_stale "" 203.0.113.7 no)" yes
+check "self-signed: kept across runs" "$(yes_no self_signed_stale 203.0.113.7 203.0.113.7 yes)" no
+check "self-signed: new address, new one" "$(yes_no self_signed_stale 203.0.113.7 198.51.100.9 yes)" yes
+check "san for an IP" "$(san_for 203.0.113.7)" IP:203.0.113.7
+check "san for a name" "$(san_for panel.example.com)" DNS:panel.example.com
+check "certbot fails, certificate kept" "$(certbot_failed_action yes yes)" keep
+check "certbot fails on a first install" "$(certbot_failed_action no no)" http
+check "certbot fails, certificate but no saved site" "$(certbot_failed_action yes no)" http
+
 #  OS
 check "24.04 supported" "$(yes_no os_supported ubuntu 24.04)" yes
 check "26.04 supported" "$(yes_no os_supported ubuntu 26.04)" yes

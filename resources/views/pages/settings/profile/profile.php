@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Http\Middleware\SetLocale;
 use App\Livewire\Concerns\ShowsToasts;
@@ -12,11 +13,17 @@ use Livewire\Component;
 
 new #[Title('Profile settings')] class extends Component
 {
-    use ProfileValidationRules, ShowsToasts;
+    use PasswordValidationRules, ProfileValidationRules, ShowsToasts;
 
     public string $name = '';
 
     public string $email = '';
+
+    /**
+     * Asked only when the email changes: the email is how the login is recovered, so a borrowed session must not
+     * be able to take it over.
+     */
+    public string $current_password = '';
 
     /**
      * The staff member's own language; empty follows the language in App settings.
@@ -39,8 +46,13 @@ new #[Title('Profile settings')] class extends Component
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
+        $emailChanges = mb_strtolower(trim($this->email)) !== mb_strtolower((string) $user->email);
+        $rules = $this->profileRules($user->id) + ($emailChanges ? ['current_password' => $this->currentPasswordRules()] : []);
+        $validated = $this->validate($rules);
+        unset($validated['current_password']);
 
-        $user->fill($this->validate($this->profileRules($user->id)))->save();
+        $user->fill($validated)->save();
+        $this->reset('current_password');
 
         $this->toast(__('Profile updated.'));
     }

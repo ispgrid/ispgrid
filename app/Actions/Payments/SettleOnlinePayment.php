@@ -170,7 +170,7 @@ final class SettleOnlinePayment
                 continue;
             }
 
-            $this->recordPayment->handle($invoice->id, new PaymentInput($method->id, $amount, $reference, $paidAt, null));
+            $this->recordPayment->handle($invoice->id, new PaymentInput($method->id, $amount, $reference, $paidAt, null, online: true));
             $left = Decimal::round(Decimal::sub($left, $amount), Currency::decimals());
         }
 
@@ -190,7 +190,7 @@ final class SettleOnlinePayment
             return false;
         }
 
-        $charge = new ChargeOptions(payment: new PaymentInput($method->id, $offer->price, $reference, $paidAt, null));
+        $charge = new ChargeOptions(payment: new PaymentInput($method->id, $offer->price, $reference, $paidAt, null, online: true));
 
         try {
             if ($offer->kind === RenewalOffer::RECHARGE) {

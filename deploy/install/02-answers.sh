@@ -71,7 +71,7 @@ fi
 if [[ -z "$ACCESS" ]]; then
   case "$(choose "How will you open the ISPGrid Radius Panel?" 1 \
     "On this network only   http://$LAN_IP   (no domain, no HTTPS)" \
-    "On a public IP         http://${DETECTED_IP:-<public IP>}   (no domain, no HTTPS: for trying it out)" \
+    "On a public IP         https://${DETECTED_IP:-<public IP>}   (self-signed certificate, the browser warns)" \
     "With a domain          https://<your domain>   (Let's Encrypt, recommended for real use)")" in
     2) ACCESS=public ;;
     3) ACCESS=domain ;;
@@ -97,7 +97,7 @@ case "$ACCESS" in
   local) PANEL_HOST=$LAN_IP ;;
   public)
     PANEL_HOST=$PUBLIC_IP
-    warn "The panel will be on plain HTTP at http://$PUBLIC_IP: logins cross the internet unencrypted. Fine for trying it out; use a domain for real customers."
+    warn "The panel will be on https://$PUBLIC_IP with a self-signed certificate: browsers warn that it is not trusted. Use a domain for a trusted certificate."
     ;;
   domain)
     DOMAIN=$(answer "${OPT_DOMAIN:-}" domain "Domain of the panel (its DNS must point at this server)" "")
@@ -160,7 +160,7 @@ if [[ -n "$DOMAIN" ]]; then
   conf_set domain "$DOMAIN"
 elif [[ -n "$(conf_get domain || true)" ]]; then
   #  Switched back from a domain (--access=local or public): forget it, or a later run would bring it back.
-  say "Domain $(conf_get domain) is no longer used; the panel is on http://$PANEL_HOST"
+  say "Domain $(conf_get domain) is no longer used; the panel is on $([[ "$ACCESS" == public ]] && echo https || echo http)://$PANEL_HOST"
   conf_set domain ""
 fi
 conf_set timezone "$TIMEZONE"

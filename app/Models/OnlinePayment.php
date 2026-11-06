@@ -17,13 +17,14 @@ use Illuminate\Support\Carbon;
  *
  * @property OnlinePaymentStatus $status
  * @property array<string, mixed>|null $gateway_response
+ * @property array<string, mixed>|null $gateway_start
  * @property Carbon|null $paid_at
  * @property Carbon|null $settled_at
  * @property Carbon|null $handled_at
  */
 #[Fillable(['public_id', 'account_id', 'gateway', 'amount', 'dues_amount', 'renewal_amount', 'currency', 'renewal_kind',
     'renewal_plan_id', 'renewal_expiry_key', 'status', 'gateway_txn_id', 'gateway_status', 'gateway_response', 'paid_at', 'settled_at', 'note',
-    'handled_at', 'handled_by', 'handled_note'])]
+    'handled_at', 'handled_by', 'handled_note', 'client_ip', 'gateway_start'])]
 class OnlinePayment extends Model
 {
     /** @use HasFactory<OnlinePaymentFactory> */
@@ -40,6 +41,7 @@ class OnlinePayment extends Model
             'dues_amount' => Amount::class,
             'renewal_amount' => Amount::class,
             'gateway_response' => 'array',
+            'gateway_start' => 'encrypted:array',
             'paid_at' => 'datetime',
             'settled_at' => 'datetime',
             'handled_at' => 'datetime',

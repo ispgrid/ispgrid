@@ -28,8 +28,30 @@ it('sends a Disconnect-Request for each open session of the customer', function 
     (new DisconnectAccount('alice'))->handle();
 
     Process::assertRanTimes(fn (PendingProcess $process): bool => true, 1);
-    Process::assertRan(fn (PendingProcess $process): bool => $process->command === ['radclient', '-x', '-r', '1', '-t', '5', '10.0.0.1:3799', 'disconnect', 's3cret']
+    Process::assertRan(fn (PendingProcess $process): bool => array_slice($process->command, 0, 6) === ['radclient', '-x', '-r', '1', '-t', '5']
+        && $process->command[6] === '-S' && array_slice($process->command, 8) === ['10.0.0.1:3799', 'disconnect']
         && $process->input === 'User-Name=alice,Acct-Session-Id=81a00001,Framed-IP-Address=10.10.10.5');
+});
+
+it('hands radclient the secret in a private file, never on the command line', function () {
+    $seen = [];
+    Process::fake(function (PendingProcess $process) use (&$seen) {
+        $file = $process->command[array_search('-S', $process->command, true) + 1];
+        $seen = ['file' => $file, 'secret' => file_get_contents($file), 'mode' => fileperms($file) & 0777, 'command' => implode(' ', $process->command)];
+
+        return Process::result(output: 'Received Disconnect-ACK Id 7');
+    });
+    Radacct::factory()->create(['username' => 'alice', 'nasipaddress' => '10.0.0.1']);
+
+    (new DisconnectAccount('alice'))->handle();
+
+    expect($seen['secret'])->toBe('s3cret')
+        ->and($seen['command'])->not->toContain('s3cret')
+        ->and(file_exists($seen['file']))->toBeFalse();
+
+    if (PHP_OS_FAMILY !== 'Windows') {
+        expect($seen['mode'])->toBe(0600);
+    }
 });
 
 it('leaves out User-Name for an IPoE customer', function () {

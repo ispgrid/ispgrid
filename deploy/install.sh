@@ -318,6 +318,48 @@ router_network_default() {
 #  its config and the system timezone only when it starts; a needless restart drops FreeRADIUS's connections
 mariadb_restart_needed() { [[ "$1" == yes || "$2" != "$3" || "$4" == no ]]; }
 
+#  self_signed_site <nginx template> <certificate> <key>: the panel site for --access=public: port 80 only redirects,
+#  the panel answers on 443 with the self-signed certificate (browsers warn, but logins no longer cross the
+#  internet in plain text)
+self_signed_site() {
+  cat <<'SITE'
+# ISPGrid panel on a public IP without a domain: HTTPS with a self-signed certificate (the installer made it).
+server {
+    server_tokens off;
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+
+SITE
+  awk -v crt="$2" -v key="$3" '
+    /^# ISPGrid panel\./ { next }
+    $1 == "listen" && $2 == "80" { print "    listen 443 ssl default_server;"; next }
+    $1 == "listen" && $2 == "[::]:80" {
+      print "    listen [::]:443 ssl default_server;"
+      print "    ssl_certificate " crt ";"
+      print "    ssl_certificate_key " key ";"
+      print "    ssl_protocols TLSv1.2 TLSv1.3;"
+      next
+    }
+    { gsub(/__SERVER_NAME__/, "_"); print }
+  ' "$1"
+}
+
+#  self_signed_stale <saved host> <panel host> <certificate present: yes|no>: a new certificate is made on the first
+#  run, and again when the panel's address changed
+self_signed_stale() { [[ "$3" != yes || "$1" != "$2" ]]; }
+
+#  san_for <host>: the certificate's subjectAltName for an IP or a name
+san_for() { if valid_ipv4 "$1"; then echo "IP:$1"; else echo "DNS:$1"; fi; }
+
+#  certbot_failed_action <Let's Encrypt certificate present: yes|no> <previous site saved: yes|no>: what a failed
+#  certbot run does. "keep": the server already had HTTPS, so its site file comes back and the panel stays on HTTPS
+#  (the old certificate keeps working until it expires). "http": a first install with no certificate yet falls back
+#  to plain HTTP until DNS is right.
+certbot_failed_action() { if [[ "$1" == yes && "$2" == yes ]]; then echo keep; else echo http; fi; }
+
 #  https_redirect_all <nginx site file> <domain>: certbot's port-80 block answers 404 for every name but the domain,
 #  so http://<IP> stopped working once HTTPS was on; send those to https://<domain> as well
 https_redirect_all() {
@@ -1187,7 +1229,8 @@ panel_rows() {
     echo "text|Lost the password? sudo runuser -u ispgrid -- php $ISPGRID_HOME/artisan staff:create --reset --email=EMAIL"
   fi
   if [[ "${ACCESS:-}" == public ]]; then
-    echo "text|Plain HTTP over the internet: logins travel unencrypted. Use a domain for real customers."
+    echo "text|HTTPS with a self-signed certificate: the browser warns that it is not trusted. Check the address and"
+    echo "text|continue. For a certificate browsers trust, use a domain (--access=domain, Let's Encrypt)."
   fi
   if [[ -n "${DOMAIN:-}" && -z "${HTTPS_OK:-}" ]]; then
     echo "text|HTTPS is not set up yet: point $DOMAIN at this server, then run the installer again."

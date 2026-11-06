@@ -27,7 +27,8 @@ it('sets a random password, shows it once and stores only a hash', function () {
     $account = Account::factory()->create();
 
     $card = selfcareCard($account)->call('setPassword')->assertHasNoErrors();
-    $shown = $card->get('shownPassword');
+    preg_match('/Password: ([A-Za-z0-9]+)/', $card->html(), $match);
+    $shown = $match[1] ?? '';
     $account->refresh();
 
     expect($shown)->toMatch('/^[A-HJ-NP-Za-km-z2-9]{10}$/')
@@ -37,7 +38,7 @@ it('sets a random password, shows it once and stores only a hash', function () {
         ->and($account->selfcare_password_set_at)->not->toBeNull();
     $card->assertSee($shown)->assertSee(__('This password is shown only now.'));
 
-    $card->call('closeDialog')->assertSet('shownPassword', null)->assertDontSee($shown);
+    $card->call('closeDialog')->assertDontSee($shown);
 
     $logged = Activity::query()->where('event', 'selfcare-password-set')->sole();
     expect($logged->subject_id)->toBe($account->id)
@@ -47,7 +48,7 @@ it('sets a random password, shows it once and stores only a hash', function () {
 it('accepts a typed password that meets the rules', function () {
     $account = Account::factory()->create();
 
-    selfcareCard($account)->call('setPassword', 'Typed-pass-1')->assertHasNoErrors()->assertSet('shownPassword', 'Typed-pass-1');
+    selfcareCard($account)->call('setPassword', 'Typed-pass-1')->assertHasNoErrors()->assertSee('Typed-pass-1');
 
     expect(Hash::check('Typed-pass-1', $account->fresh()->selfcare_password))->toBeTrue();
 });
@@ -55,7 +56,7 @@ it('accepts a typed password that meets the rules', function () {
 it('refuses a typed password that is too short', function () {
     $account = Account::factory()->create();
 
-    selfcareCard($account)->call('setPassword', 'short')->assertHasErrors('typed')->assertSet('shownPassword', null);
+    selfcareCard($account)->call('setPassword', 'short')->assertHasErrors('typed')->assertDontSee(__('Selfcare password set'));
 
     expect($account->fresh()->selfcare_password)->toBeNull();
 });
@@ -107,4 +108,12 @@ it('is hidden while selfcare is off and for hotspot customers', function () {
     AppSetting::put('selfcare.enabled', '0');
     $this->get(route('customers.show', $account))->assertDontSeeLivewire('pages::customers.selfcare-card');
     selfcareCard($account)->call('setPassword')->assertNotFound();
+});
+
+it('keeps the new password out of the state the browser sends back', function () {
+    $account = Account::factory()->create();
+
+    $card = selfcareCard($account)->call('setPassword', 'Typed-pass-1')->assertSee('Typed-pass-1');
+
+    expect(json_encode($card->snapshot))->not->toContain('Typed-pass-1');
 });

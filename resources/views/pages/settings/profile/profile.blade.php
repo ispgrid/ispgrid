@@ -6,6 +6,8 @@
             <div class="grid gap-5 lg:grid-cols-2">
                 <x-ui.input wire:model="name" :label="__('Name')" required autofocus autocomplete="name" />
                 <x-ui.input wire:model="email" type="email" :label="__('Email')" required autocomplete="email" />
+                <x-ui.input wire:model="current_password" type="password" :label="__('Current password')" autocomplete="current-password" viewable
+                    :description="__('Needed only when you change the email.')" />
             </div>
 
             <div>

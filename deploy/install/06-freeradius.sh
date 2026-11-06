@@ -43,11 +43,15 @@ fi
 
 #  Check the copy: point it at itself while freeradius -C reads it.
 sed -i "s|^raddbdir = .*|raddbdir = $stage|" "$stage/radiusd.conf"
-if ! freeradius -C -d "$stage" > /tmp/ispgrid-radius-check.log 2>&1; then
-  console "$(grep -iE 'error|fail' /tmp/ispgrid-radius-check.log | grep -viE 'password|secret' | tail -n 15 || true)"
+#  The log goes to a new private file (a fixed name in /tmp could be a link planted by another user); it is kept
+#  only when the check fails.
+check_log="$(mktemp /tmp/ispgrid-radius-check.XXXXXX)"
+if ! freeradius -C -d "$stage" > "$check_log" 2>&1; then
+  console "$(grep -iE 'error|fail' "$check_log" | grep -viE 'password|secret' | tail -n 15 || true)"
   rm -rf "$stage"
-  die "The new FreeRADIUS config does not pass freeradius -C (log: /tmp/ispgrid-radius-check.log). The live config was not changed."
+  die "The new FreeRADIUS config does not pass freeradius -C (log: $check_log). The live config was not changed."
 fi
+rm -f "$check_log"
 sed -i "s|^raddbdir = .*|raddbdir = /etc/freeradius|" "$stage/radiusd.conf"
 
 #  The marker outlives a run that stops between the copy and the restart, so the next run still restarts.

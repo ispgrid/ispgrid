@@ -54,7 +54,8 @@ final class PaytmGateway implements PaymentGateway
             new SettingField('mid', __('Merchant ID (MID)'), maxLength: 50),
             new SettingField('merchant_key', __('Merchant key'), 'secret', maxLength: 100),
             new SettingField('website_name', __('Website name'), required: false, help: __('Empty: WEBSTAGING for test, DEFAULT for live. Change it only if Paytm gave you another.'), maxLength: 50),
-            new SettingField('host', __('Paytm address'), 'url', required: false, help: __('Empty: the address Paytm documents for the environment. Set it only if Paytm moves.'), maxLength: 200),
+            // https only: the replies decide whether a payment counts as paid.
+            new SettingField('host', __('Paytm address'), 'url', required: false, help: __('Empty: the address Paytm documents for the environment. Set it only if Paytm moves.'), maxLength: 200, rules: ['url:https']),
         ];
     }
 
@@ -177,7 +178,8 @@ final class PaytmGateway implements PaymentGateway
     }
 
     /**
-     * POSTs {"body": ..., "head": {"signature": ...}} and returns the decoded answer.
+     * POSTs {"body": ..., "head": {"signature": ...}} and returns the decoded answer. The answer must carry Paytm's
+     * signature over its body, checked like a webhook's; one without it counts as Paytm not answering.
      *
      * @param  array<string, mixed>  $body
      * @return array<string, mixed>
@@ -197,6 +199,13 @@ final class PaytmGateway implements PaymentGateway
 
         if (! $response->successful() || ! is_array($decoded)) {
             throw new GatewayUnavailable('Paytm answered HTTP '.$response->status().'.');
+        }
+
+        $signature = $decoded['head']['signature'] ?? null;
+        $signedBody = self::rawBody($response->body());
+
+        if (! is_string($signature) || $signedBody === null || ! PaytmChecksum::verify($signedBody, $this->setting('merchant_key'), $signature)) {
+            throw new GatewayUnavailable('Paytm answered without a valid signature.');
         }
 
         return $decoded;

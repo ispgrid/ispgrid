@@ -181,6 +181,7 @@ it('flags the renewal when it can no longer be booked', function () {
 it('marks a refused payment failed and leaves a pending one pending', function () {
     quickPayInvoice($this->account, '100');
     $refused = startPayment($this->account);
+    $this->travel(11)->minutes(); // past the open attempt that Pay again reuses
     $waiting = startPayment($this->account);
     FakeGateway::$results[$refused->public_id] = new GatewayResult(GatewayStatus::Failed, providerStatus: 'TXN_FAILURE');
 
@@ -192,7 +193,7 @@ it('marks a refused payment failed and leaves a pending one pending', function (
 it('checks pending payments in the background and gives up after a day', function () {
     quickPayInvoice($this->account, '100');
     $old = startPayment($this->account);
-    $this->travel(10)->minutes();
+    $this->travel(11)->minutes(); // past the open attempt that Pay again reuses
     $fresh = startPayment($this->account);
     $this->travel(1)->minutes();
     FakeGateway::pay($old);
@@ -231,6 +232,7 @@ it('refuses to start with nothing to pay, a gateway that is off, or after five t
     GatewaySetting::query()->update(['enabled' => true]);
     foreach (range(1, 5) as $try) {
         startPayment($this->account);
+        $this->travel(11)->minutes(); // past the open attempt that Pay again reuses
     }
     expect(fn () => startPayment($this->account))->toThrow(TooManyPaymentAttempts::class);
 });

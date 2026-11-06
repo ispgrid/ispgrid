@@ -72,6 +72,13 @@ class SendNotification implements ShouldQueue
             }
         }
 
+        // A password message whose password is gone would send the mask in its place.
+        if ($log->has_secret && $log->getRawOriginal('secret') === null) {
+            self::finish($log, ['status' => NotificationStatus::Failed, 'error' => __('The password was no longer held, so the message was not sent.')]);
+
+            return;
+        }
+
         $config = NotificationProvider::query()->where('provider', $log->provider)->first();
         $provider = $config?->enabled ? $registry->makeProvider($log->provider, $config->settings ?? []) : null;
 

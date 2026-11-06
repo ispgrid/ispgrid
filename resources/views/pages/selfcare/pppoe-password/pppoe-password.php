@@ -10,8 +10,6 @@ use App\Support\PublicPage;
 use App\Support\Selfcare;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
@@ -45,9 +43,7 @@ new class extends Component
             ['password' => __('new PPPoE password')],
         );
 
-        if (! Hash::check($this->selfcare_password, (string) $account->selfcare_password)) {
-            throw ValidationException::withMessages(['selfcare_password' => __('The selfcare password is wrong.')]);
-        }
+        Selfcare::confirmPassword($account, $this->selfcare_password, 'selfcare_password', __('The selfcare password is wrong.'));
 
         app(ChangePppoePassword::class)->handle($account, $this->password);
 

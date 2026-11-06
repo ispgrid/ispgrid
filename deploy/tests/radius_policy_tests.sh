@@ -12,6 +12,11 @@
 
 SERVER="127.0.0.1"
 SECRET="${RADIUS_SECRET:-testing123}"   # the installer passes the localhost client's secret
+# radclient reads the secret from a private file (-S), so it never shows in the process list.
+SECRET_FILE="$(mktemp)"
+chmod 600 "$SECRET_FILE"
+printf '%s' "$SECRET" > "$SECRET_FILE"
+trap 'rm -f "$SECRET_FILE"' EXIT
 DB="${RADIUS_DB:-radius}"
 USAGE_DB="${USAGE_DB:-ispgrid_usage}"   # usage per day: the radacct triggers write it, the limits read it
 IPOE_USER="AA:BB:CC:00:00:01"
@@ -291,7 +296,7 @@ check() {
   local name="$1" want="$2" attrs="$3"; shift 3
   local out rc started
   started=$(date +%s%N)
-  out="$(printf '%b' "$attrs" | radclient -x -r 1 -t 3 "$SERVER:1812" auth "$SECRET" 2>&1)"; rc=$?
+  out="$(printf '%b' "$attrs" | radclient -x -r 1 -t 3 -S "$SECRET_FILE" "$SERVER:1812" auth 2>&1)"; rc=$?
   local reply="${out#*Received Access-}"
   local ok=1
   grep -q "Received Access-$want" <<<"$out" || ok=0
@@ -334,7 +339,7 @@ logged() {
 #  accept_with_timeout <name> <attrs> <min> <max>: Access-Accept with a Session-Timeout from <min> to <max> seconds
 accept_with_timeout() {
   local out t
-  out="$(printf '%b' "$2" | radclient -x -r 1 -t 3 "$SERVER:1812" auth "$SECRET" 2>&1)"
+  out="$(printf '%b' "$2" | radclient -x -r 1 -t 3 -S "$SECRET_FILE" "$SERVER:1812" auth 2>&1)"
   t=$(sed -n 's/^[[:space:]]*Session-Timeout = \([0-9][0-9]*\).*/\1/p' <<<"$out" | tail -1)
   result "$(grep -q 'Received Access-Accept' <<<"$out" && [[ -n "$t" && "$t" -ge "$3" && "$t" -le "$4" ]] && echo 1 || echo 0)" \
     "$1" "(got ${t:-no Session-Timeout}, want $3 to $4)"
@@ -360,7 +365,7 @@ minutes_left() {
 spam() {
   note "Setup: sent $1 more requests like the next test's (answers ignored)"
   for i in $(seq 1 "$1"); do
-    printf '%b' "$2" | radclient -r 1 -t 3 "$SERVER:1812" auth "$SECRET" >/dev/null 2>&1
+    printf '%b' "$2" | radclient -r 1 -t 3 -S "$SECRET_FILE" "$SERVER:1812" auth >/dev/null 2>&1
   done
 }
 
@@ -371,7 +376,7 @@ login() { echo "User-Name=$1\nUser-Password=$2\nService-Type=Login-User\nCalling
 #  maclogin <MAC> [device IP]: the Hotspot's MAC login for IPoE (User-Name = password = MAC)
 maclogin() { echo "User-Name=$1\nUser-Password=$1\nService-Type=Login-User\nCalling-Station-Id=$1\nCalled-Station-Id=hotspot-test\nNAS-IP-Address=127.0.0.1\n${2:+Framed-IP-Address=$2\nMikrotik-Host-IP=$2\n}"; }
 #  acct <attributes>: send one Accounting-Request, ignore the answer
-acct() { printf '%b' "$1" | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" >/dev/null 2>&1; }
+acct() { printf '%b' "$1" | radclient -r 1 -t 3 -S "$SECRET_FILE" "$SERVER:1813" acct >/dev/null 2>&1; }
 
 #  Time-slot fixtures are built around the current hour and weekday.
 DAYS=(Mo Tu We Th Fr Sa Su)
@@ -387,7 +392,7 @@ seed_routers
 #  The tests run with Hotspot on and turn it off for one section; the operator's value is put back on exit.
 HOTSPOT_WAS=$(sql "SELECT hotspot_enabled FROM settings LIMIT 1")
 set_hotspot() { sql "UPDATE settings SET hotspot_enabled = $1"; note "Setup: Hotspot switch set to $1"; }
-trap 'set_hotspot "${HOTSPOT_WAS:-0}"' EXIT
+trap 'set_hotspot "${HOTSPOT_WAS:-0}"; rm -f "$SECRET_FILE"' EXIT
 set_hotspot 1
 
 M1="D4:45:E8:00:00:01"; M2="D4:45:E8:00:00:02"; M3="D4-45-E8-00-00-03"; M4="d445.e800.0004"
@@ -415,14 +420,14 @@ logged "  reason logged"                         t_ppp2 'bound to another accoun
 packets=""
 for i in 01 02 03 04 05 06 07 08 09 10 11 12; do packets+="$(ppp t_race pass DE:AD:00:00:01:$i)
 "; done
-out="$(printf '%b' "$packets" | radclient -x -p 12 -r 1 -t 5 "$SERVER:1812" auth "$SECRET" 2>&1)"
+out="$(printf '%b' "$packets" | radclient -x -p 12 -r 1 -t 5 -S "$SECRET_FILE" "$SERVER:1812" auth 2>&1)"
 accepted=$(grep -c "Received Access-Accept" <<<"$out")
 bound=$(sql "SELECT COUNT(*) FROM account_macs WHERE username = 't_race'")
 result "$([[ "$accepted" -eq 1 && "$bound" -eq 1 ]] && echo 1 || echo 0)" "12 new devices at once, limit 1: one accepted and bound" "($accepted accepted, $bound bound)"
 packets=""
 for u in t_race1 t_race2 t_race3 t_race4 t_race5 t_race6; do packets+="$(ppp "$u" pass DE:AD:00:00:02:01)
 "; done
-out="$(printf '%b' "$packets" | radclient -x -p 6 -r 1 -t 5 "$SERVER:1812" auth "$SECRET" 2>&1)"
+out="$(printf '%b' "$packets" | radclient -x -p 6 -r 1 -t 5 -S "$SECRET_FILE" "$SERVER:1812" auth 2>&1)"
 accepted=$(grep -c "Received Access-Accept" <<<"$out")
 owners=$(sql "SELECT COUNT(*) FROM account_macs WHERE mac_norm = 'DEAD00000201'")
 result "$([[ "$accepted" -eq 1 && "$owners" -eq 1 ]] && echo 1 || echo 0)" "One new MAC on 6 accounts at once: one accepted and bound" "($accepted accepted, $owners bound)"
@@ -682,7 +687,7 @@ quoted=$(sql "SELECT COUNT(*) FROM radpostauth WHERE $FIXTURES AND reply_msg LIK
 result "$([[ "$quoted" -eq 0 ]] && echo 1 || echo 0)" "No escaped quotes in reasons" "($quoted rows with =3D27)"
 
 section "Accounting"
-acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 "$SERVER:1813" acct "$SECRET" 2>&1)"
+acct_out="$(printf 'User-Name=t_ppp\nAcct-Status-Type=Start\nAcct-Session-Id=t-sess-1\nNAS-IP-Address=127.0.0.1\nFramed-IP-Address=10.9.9.9\n' | radclient -r 1 -t 3 -S "$SECRET_FILE" "$SERVER:1813" acct 2>&1)"
 rows=$(sql "SELECT COUNT(*) FROM radacct WHERE username = 't_ppp' AND acctsessionid = 't-sess-1'")
 result "$(grep -q "Accounting-Response" <<<"$acct_out" && [[ "$rows" -ge 1 ]] && echo 1 || echo 0)" "Accounting Start stored in radacct" "" "$(grep -m1 "Received" <<<"$acct_out" | sed "s/ from.*//"); radacct rows for t-sess-1: $rows"
 #  The login keeps its session id; the session's first accounting row puts its IP on it (trigger radacct_login_ip).

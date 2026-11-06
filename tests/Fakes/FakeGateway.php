@@ -22,6 +22,9 @@ final class FakeGateway implements PaymentGateway
 
     public static bool $refuseStart = false;
 
+    /** How many times start() was asked to open a transaction. */
+    public static int $starts = 0;
+
     /** @var list<string> public_ids status() was asked about */
     public static array $asked = [];
 
@@ -35,6 +38,7 @@ final class FakeGateway implements PaymentGateway
         self::$results = [];
         self::$refuseStart = false;
         self::$asked = [];
+        self::$starts = 0;
     }
 
     public static function key(): string
@@ -62,6 +66,8 @@ final class FakeGateway implements PaymentGateway
 
     public function start(OnlinePayment $payment, string $returnUrl): GatewayStart
     {
+        self::$starts++;
+
         if (self::$refuseStart) {
             throw new GatewayUnavailable('The test gateway refused.');
         }
