@@ -1,10 +1,10 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Online payments') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Payments customers made on the pay page, newest first. Paid ones are already on their invoices and receipts; Needs attention ones took money that could not be used.') }}</x-ui.text>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-ui.select wire:model.live="status" :label="__('Status')" :options="$this->statusOptions" :placeholder="__('All')" />
     </div>
 
@@ -60,7 +60,7 @@
     </x-ui.card>
 
     <x-ui.modal name="handle-online-payment">
-        <form wire:submit="markHandled" class="grid gap-5" novalidate>
+        <form wire:submit="markHandled" class="grid grid-cols-1 gap-5" novalidate>
             <x-ui.heading size="lg">{{ __('Mark handled') }}</x-ui.heading>
             <x-ui.text>{{ __('Say what was done with the money: refunded in the gateway, or put on the customer by hand.') }}</x-ui.text>
             <x-ui.input wire:model="handled_note" :label="__('What was done')" maxlength="255" />

@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Billing') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Invoices, tax and payment methods. Invoices print in English.') }}</x-ui.text>
@@ -8,21 +8,21 @@
         <x-ui.alert variant="danger">{{ __('Nothing was saved. Fix the highlighted fields and save again.') }}</x-ui.alert>
     @endif
 
-    <form wire:submit="save" class="grid gap-6">
-        <div class="grid gap-6 xl:grid-cols-2">
-            <x-ui.card class="grid content-start gap-5">
+    <form wire:submit="save" class="grid grid-cols-1 gap-6">
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <x-ui.heading>{{ __('Invoices') }}</x-ui.heading>
                 <x-ui.switch wire:model="enabled" :label="__('Issue invoices')" :description="__('When it is off, recharges make no invoice at all. Turning it on needs the company name and country.')" />
                 <x-ui.switch wire:model="invoice_hotspot" :label="__('Invoice Hotspot recharges')" :description="__('When it is off, Hotspot recharges make no invoice; their amounts still count as Hotspot sales.')" />
                 <x-ui.input wire:model="default_terms_days" type="number" min="0" max="365" :label="__('Default payment terms (days)')" :description="__('New customers get this. 0 means due on receipt.')" />
             </x-ui.card>
 
-            <x-ui.card class="grid content-start gap-5">
+            <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <div>
                     <x-ui.heading>{{ __('Money and numbers') }}</x-ui.heading>
                     <x-ui.text muted class="mt-1">{{ __('Used everywhere amounts are shown, with invoicing on or off. Invoices already issued keep their own.') }}</x-ui.text>
                 </div>
-                <div class="grid gap-5 sm:grid-cols-3">
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
                     <x-ui.input wire:model="currency_code" :label="__('Currency code')" maxlength="3" :description="__('ISO code, e.g. INR, USD')" />
                     <x-ui.input wire:model="currency_symbol" :label="__('Currency symbol')" maxlength="8" />
                     <x-ui.input wire:model="currency_decimals" type="number" min="0" max="3" :label="__('Decimals')" />
@@ -30,9 +30,9 @@
                 <x-ui.select wire:model="number_grouping" :label="__('Number grouping')" :options="$this->groupings" />
             </x-ui.card>
 
-            <x-ui.card class="grid content-start gap-5">
+            <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <x-ui.heading>{{ __('Invoice numbering') }}</x-ui.heading>
-                <div class="grid gap-5 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <x-ui.input wire:model.live.debounce.400ms="numbering_format" :label="__('Format')" :description="__('{FY} financial year (26-27), {YYYY} year, {N} number.')" />
                     <x-ui.input wire:model.live.debounce.400ms="number_digits" type="number" min="0" max="10" :label="__('Digits')" :description="__('Pads the number with zeros: 4 gives 0001.')" />
                     <x-ui.input wire:model.live.debounce.400ms="next_number" type="number" min="1" :label="__('Next number')" :placeholder="__('Unchanged')" :description="__('To carry on from another system. It cannot go back to a number already used.')" />
@@ -44,9 +44,9 @@
                 @endif
             </x-ui.card>
 
-            <x-ui.card class="grid content-start gap-5 xl:col-span-2">
+            <x-ui.card class="grid grid-cols-1 content-start gap-5 xl:col-span-2">
                 <x-ui.heading>{{ __('Company details') }}</x-ui.heading>
-                <div class="grid gap-5 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <x-ui.input wire:model="company_name" :label="__('Legal name')" />
                     <x-ui.select wire:model.live="country" :label="__('Country')" :options="$this->countries" :placeholder="__('Choose a country')" />
                     <x-ui.input wire:model="address_line1" :label="__('Address line 1')" />
@@ -60,18 +60,18 @@
                     <x-ui.input wire:model="website" :label="__('Website')" />
                 </div>
 
-                <div class="grid gap-3">
+                <div class="grid grid-cols-1 gap-3">
                     <x-ui.text class="font-medium">{{ __('Extra lines under the address') }}</x-ui.text>
                     <x-ui.text muted>{{ __('For example CIN or MSME number. Up to four.') }}</x-ui.text>
                     @foreach ($extra_lines as $index => $line)
-                        <div class="grid gap-3 sm:grid-cols-2" wire:key="extra-line-{{ $index }}">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" wire:key="extra-line-{{ $index }}">
                             <x-ui.input wire:model="extra_lines.{{ $index }}.label" :label="__('Label')" />
                             <x-ui.input wire:model="extra_lines.{{ $index }}.value" :label="__('Value')" />
                         </div>
                     @endforeach
                 </div>
 
-                <div class="grid gap-5 sm:grid-cols-3">
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
                     <x-ui.textarea wire:model="notes" :label="__('Notes')" rows="4" />
                     <x-ui.textarea wire:model="bank_details" :label="__('Bank details')" rows="4" />
                     <x-ui.textarea wire:model="terms" :label="__('Terms and conditions')" rows="4" />
@@ -79,7 +79,7 @@
                 <x-ui.switch wire:model="show_signature" :label="__('Show a signature space')" />
             </x-ui.card>
 
-            <x-ui.card class="grid content-start gap-5">
+            <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <x-ui.heading>{{ __('Logo') }}</x-ui.heading>
                 @if ($this->logoPreview)
                     <div class="flex items-center gap-4">
@@ -90,16 +90,16 @@
                 <x-ui.file-upload wire:model="logo" accept="image/png,image/jpeg" :label="__('Upload a logo')" :description="__('PNG or JPG, 200 KB at most. Invoices already issued keep the logo they had.')" />
             </x-ui.card>
 
-            <x-ui.card class="grid content-start gap-5">
+            <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <x-ui.heading>{{ __('Tax') }}</x-ui.heading>
                 <x-ui.select wire:model.live="tax_setup" :label="__('Tax setup')" :options="$this->taxSetups" />
                 @if ($tax_setup === 'single')
-                    <div class="grid gap-5 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                         <x-ui.input wire:model="tax.name" :label="__('Tax name')" :description="__('e.g. VAT or Sales tax')" />
                         <x-ui.input wire:model="tax.rate" :label="__('Rate (%)')" />
                     </div>
                 @elseif ($tax_setup === 'india-gst')
-                    <div class="grid gap-5 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                         <x-ui.input wire:model="tax.rate" :label="__('GST rate (%)')" :description="__('Split into CGST and SGST in your state, IGST for other states.')" />
                         <x-ui.select wire:model="tax.state" :label="__('Company state')" :options="$this->gstStates" :placeholder="__('Choose a state')" />
                         <x-ui.input wire:model="tax.item_code" :label="__('Default SAC/HSN')" :description="__('Plans without their own code print this one.')" />
@@ -110,11 +110,11 @@
                 @endif
             </x-ui.card>
 
-            <x-ui.card class="grid content-start gap-5">
+            <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <x-ui.heading>{{ __('Payment methods') }}</x-ui.heading>
-                <ul class="grid gap-3">
+                <ul class="grid grid-cols-1 gap-3">
                     @foreach ($this->methods as $method)
-                        <li class="grid gap-2 sm:flex sm:items-start" wire:key="method-{{ $method['id'] }}">
+                        <li class="grid grid-cols-1 gap-2 sm:flex sm:items-start" wire:key="method-{{ $method['id'] }}">
                             <div class="sm:flex-1">
                                 <x-ui.input wire:model="method_names.{{ $method['id'] }}" :aria-label="__('Name')" />
                             </div>
@@ -129,7 +129,7 @@
                         </li>
                     @endforeach
                 </ul>
-                <div class="grid gap-2 sm:flex sm:items-start">
+                <div class="grid grid-cols-1 gap-2 sm:flex sm:items-start">
                     <div class="sm:flex-1">
                         <x-ui.input wire:model="new_method" :aria-label="__('New payment method')" :placeholder="__('New payment method')" />
                     </div>

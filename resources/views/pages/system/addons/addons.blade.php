@@ -1,11 +1,11 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Add-ons') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Add-ons are installed and removed on the server with sudo ispgrid addon. Each one keeps its settings here.') }}</x-ui.text>
     </div>
 
     @forelse ($this->addons as $addon)
-        <x-ui.card class="grid content-start gap-5" wire:key="addon-{{ $addon['key'] }}">
+        <x-ui.card class="grid grid-cols-1 content-start gap-5" wire:key="addon-{{ $addon['key'] }}">
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
                     <x-ui.heading>{{ $addon['name'] }}</x-ui.heading>

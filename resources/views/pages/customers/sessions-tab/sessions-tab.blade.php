@@ -1,4 +1,4 @@
-<x-ui.card class="grid gap-5">
+<x-ui.card class="grid grid-cols-1 gap-5">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
             <x-ui.heading>{{ __('Sessions') }}</x-ui.heading>

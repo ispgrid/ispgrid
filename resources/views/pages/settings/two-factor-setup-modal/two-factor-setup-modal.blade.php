@@ -1,17 +1,17 @@
 <x-ui.modal name="two-factor-setup-modal" x-on:close="$wire.closeModal()">
-    <div class="grid gap-6">
+    <div class="grid grid-cols-1 gap-6">
         <div class="flex flex-col items-center gap-4 text-center">
             <div class="flex size-14 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
                 <x-ui.icon name="qr-code" class="size-7" />
             </div>
-            <div class="grid gap-2">
+            <div class="grid grid-cols-1 gap-2">
                 <x-ui.heading size="lg">{{ $this->modalConfig['title'] }}</x-ui.heading>
                 <x-ui.text>{{ $this->modalConfig['description'] }}</x-ui.text>
             </div>
         </div>
 
         @if ($showVerificationStep)
-            <div class="grid gap-6" x-data x-init="$nextTick(() => $el.querySelector('input')?.focus())">
+            <div class="grid grid-cols-1 gap-6" x-data x-init="$nextTick(() => $el.querySelector('input')?.focus())">
                 <x-ui.input
                     wire:model="code"
                     :label="__('Authentication code')"
@@ -43,7 +43,7 @@
 
             <x-ui.button class="w-full" :disabled="$errors->has('setupData')" wire:click="showVerificationIfNecessary">{{ $this->modalConfig['buttonText'] }}</x-ui.button>
 
-            <div class="grid gap-3">
+            <div class="grid grid-cols-1 gap-3">
                 <p class="text-center text-sm text-zinc-600 dark:text-zinc-400">{{ __('or, enter the code manually') }}</p>
 
                 <div

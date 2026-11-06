@@ -1,6 +1,6 @@
 {{-- How a quick pay attempt went. Keyed by its random id; shows the amount and receipt numbers, nothing about the customer. --}}
 <x-layouts::public :title="__('Payment')" :company="$company" :logo="$logo" :phone="$phone" :phone-link="$phoneLink">
-    <div class="grid gap-4">
+    <div class="grid grid-cols-1 gap-4">
         @if ($state === 'received')
             <x-ui.alert variant="success">{{ __('Payment of :amount received. Thank you!', ['amount' => $money((string) $payment->amount)]) }}</x-ui.alert>
             @if ($receipts !== [])

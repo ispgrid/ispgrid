@@ -2,8 +2,8 @@
     @include('partials.settings-heading')
 
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
-        <form wire:submit="updateProfileInformation" class="grid gap-5">
-            <div class="grid gap-5 lg:grid-cols-2">
+        <form wire:submit="updateProfileInformation" class="grid grid-cols-1 gap-5">
+            <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <x-ui.input wire:model="name" :label="__('Name')" required autofocus autocomplete="name" />
                 <x-ui.input wire:model="email" type="email" :label="__('Email')" required autocomplete="email" />
                 <x-ui.input wire:model="current_password" type="password" :label="__('Current password')" autocomplete="current-password" viewable
@@ -15,7 +15,7 @@
             </div>
         </form>
 
-        <form wire:submit="updateLanguage" class="mt-10 grid gap-5">
+        <form wire:submit="updateLanguage" class="mt-10 grid grid-cols-1 gap-5">
             <x-ui.heading>{{ __('Language') }}</x-ui.heading>
             <x-ui.select
                 wire:model="locale"

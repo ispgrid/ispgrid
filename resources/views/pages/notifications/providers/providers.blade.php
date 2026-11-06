@@ -1,10 +1,10 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Notification providers') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('The services that deliver SMS and WhatsApp messages. Keys are stored encrypted and never shown again.') }}</x-ui.text>
     </div>
 
-    <div class="grid gap-6 xl:grid-cols-2">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         @foreach ($this->providers as $provider)
             <x-ui.card wire:key="provider-{{ $provider['key'] }}" class="flex flex-col">
                 <form wire:submit="save('{{ $provider['key'] }}')" class="flex flex-1 flex-col gap-5">
@@ -37,12 +37,12 @@
     </div>
 
     <x-ui.card>
-        <form wire:submit="saveMessageSettings" class="grid gap-5">
+        <form wire:submit="saveMessageSettings" class="grid grid-cols-1 gap-5">
             <div>
                 <x-ui.heading>{{ __('Message settings') }}</x-ui.heading>
                 <x-ui.text muted class="mt-1">{{ __('Expiry reminders wait for the sending hours. Recharge and new customer messages go out at once. The ISP name and support number come from App settings.') }}</x-ui.text>
             </div>
-            <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <x-ui.input wire:model="notify_hours_from" type="time" :label="__('Send from')" />
                 <x-ui.input wire:model="notify_hours_to" type="time" :label="__('Send until')" />
                 <x-ui.select wire:model="notify_date_format" :label="__('Date in messages')" :options="$this->dateFormats" />

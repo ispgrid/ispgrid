@@ -1,10 +1,10 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Login log') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Every login attempt FreeRADIUS answered, with the real reason. Dropped means no answer was sent (a NAS that must send Message-Authenticator did not).') }}</x-ui.text>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <x-ui.input wire:model.live.debounce.300ms="username" type="search" :label="__('Username')" autocomplete="off" />
         <x-ui.select wire:model.live="result" :label="__('Result')" :options="$this->results" :placeholder="__('All results')" />
         <x-ui.input wire:model.live.debounce.300ms="reason" type="search" :label="__('Reason')" :placeholder="__('Part of the reason')" autocomplete="off" />

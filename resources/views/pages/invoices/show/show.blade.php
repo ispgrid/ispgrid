@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <div class="flex flex-wrap items-center gap-3">
@@ -37,8 +37,8 @@
         </x-ui.alert>
     @endif
 
-    <x-ui.card class="grid gap-6">
-        <div class="grid gap-6 sm:grid-cols-2">
+    <x-ui.card class="grid grid-cols-1 gap-6">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div class="text-sm">
                 <p class="font-semibold">{{ $this->printed['company']['name'] }}</p>
                 @foreach ($this->printed['company']['lines'] as $line)
@@ -48,7 +48,7 @@
                     <p>{{ $this->printed['company']['tax'] }}</p>
                 @endif
             </div>
-            <dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-sm">
+            <dl class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Invoice date') }}</dt><dd>{{ $this->printed['date'] }}</dd>
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Due date') }}</dt><dd>{{ $this->printed['due_date'] }}</dd>
                 @if ($this->printed['place_of_supply'])
@@ -60,7 +60,7 @@
             </dl>
         </div>
 
-        <div class="grid gap-6 sm:grid-cols-2 text-sm">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 text-sm">
             <div>
                 <p class="text-xs uppercase text-zinc-600 dark:text-zinc-400">{{ __('Bill to') }}</p>
                 @foreach ($this->printed['customer']['billing_lines'] as $line)
@@ -110,9 +110,9 @@
             @endforeach
         </x-ui.table>
 
-        <div class="grid gap-6 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <p class="text-sm">{{ $this->printed['total_in_words'] }}</p>
-            <dl class="grid gap-1 text-sm">
+            <dl class="grid grid-cols-1 gap-1 text-sm">
                 <div class="flex justify-between gap-4"><dt class="text-zinc-600 dark:text-zinc-400">{{ __('Taxable') }}</dt><dd class="tabular-nums">{{ $this->printed['taxable_total'] }}</dd></div>
                 @foreach ($this->printed['tax_lines'] as $tax)
                     <div class="flex justify-between gap-4"><dt class="text-zinc-600 dark:text-zinc-400">{{ $tax['label'] }}</dt><dd class="tabular-nums">{{ $tax['amount'] }}</dd></div>

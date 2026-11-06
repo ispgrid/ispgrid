@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.link href="{{ route('plans.index') }}" wire:navigate class="text-sm">{{ __('Plans') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">{{ $planId ? __('Edit plan') : __('Add plan') }}</x-ui.heading>
@@ -9,12 +9,12 @@
         <x-ui.alert variant="danger">{{ __('Nothing was saved. Fix the fields on the marked tabs and save again.') }}</x-ui.alert>
     @endif
 
-    <form wire:submit="save" novalidate class="grid gap-6">
+    <form wire:submit="save" novalidate class="grid grid-cols-1 gap-6">
         <x-ui.card>
             <x-ui.tabs :tabs="$this->tabs" :invalid="$this->invalidTabs()">
                 {{-- Every tab lays its fields on the same four-column grid, so rows line up across the form. --}}
-                <x-ui.tab-panel name="general" class="grid gap-5">
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                <x-ui.tab-panel name="general" class="grid grid-cols-1 gap-5">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model.live.blur="name" :label="__('Name')" :description="__('Shown to staff, e.g. Home 25 Mbps.')" maxlength="255" required />
                         <x-ui.input wire:model="slug" english :label="__('Slug')" :description="$planId === null ? __('Made from the name; you may change it. The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.') : __('The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.')" maxlength="64" :readonly="$planId !== null" autocomplete="off" />
                         <div class="grid grid-cols-2 items-start gap-2">
@@ -23,7 +23,7 @@
                         </div>
                         <x-ui.input wire:model.live.debounce.400ms="price" type="number" min="0" :step="$this->priceStep" :label="__('Price')" required />
                     </div>
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         @if ($this->chargesTax)
                             <x-ui.switch wire:model.live="do_not_charge_tax" :label="__('Do not charge tax')" :description="__('Invoices for this plan carry no tax.')" />
                         @endif
@@ -46,9 +46,9 @@
                     <x-ui.textarea wire:model="description" :label="__('Description')" rows="2" maxlength="1000" />
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="speed" class="grid gap-5">
+                <x-ui.tab-panel name="speed" class="grid grid-cols-1 gap-5">
                     <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="upload_speed" english :label="__('Upload')" required autocomplete="off" />
                         <x-ui.input wire:model="download_speed" english :label="__('Download')" required autocomplete="off" />
                     </div>
@@ -57,7 +57,7 @@
                         <x-ui.heading>{{ __('Burst') }}</x-ui.heading>
                         <x-ui.text muted class="mt-1">{{ __('Optional. Fill in all five fields or none. The customer gets the burst speed until their average speed over the burst time reaches the threshold.') }}</x-ui.text>
                     </div>
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="burst_upload" english :label="__('Burst upload')" autocomplete="off" />
                         <x-ui.input wire:model="burst_download" english :label="__('Burst download')" autocomplete="off" />
                         <x-ui.input wire:model="threshold_upload" english :label="__('Threshold upload')" autocomplete="off" />
@@ -69,16 +69,16 @@
                         <x-ui.heading>{{ __('Priority and minimum speed') }}</x-ui.heading>
                         <x-ui.text muted class="mt-1">{{ __('Optional. Priority 1 is served first, 8 last (the NAS default). The minimum speed is kept for the customer when the link is busy.') }}</x-ui.text>
                     </div>
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="priority" type="number" min="1" max="8" :label="__('Priority')" />
                         <x-ui.input wire:model="min_upload" english :label="__('Minimum upload')" autocomplete="off" />
                         <x-ui.input wire:model="min_download" english :label="__('Minimum download')" autocomplete="off" />
                     </div>
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="limits" class="grid gap-5">
+                <x-ui.tab-panel name="limits" class="grid grid-cols-1 gap-5">
                     <x-ui.text muted>{{ __('Optional. Leave a field empty for no limit. Totals count from the last recharge; daily limits reset at midnight and monthly limits on the 1st (server time).') }}</x-ui.text>
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.input wire:model="limit_after" type="number" min="1" :label="__('Total data (GB)')" />
                         <x-ui.input wire:model="time_limit_hours" type="number" min="1" :label="__('Total time (hours)')" />
                         <x-ui.input wire:model="daily_data_gb" type="number" min="1" :label="__('Data per day (GB)')" />
@@ -87,7 +87,7 @@
                         <x-ui.input wire:model="monthly_time_hours" type="number" min="1" max="744" :label="__('Time per month (hours)')" />
                     </div>
 
-                    <div class="grid gap-2">
+                    <div class="grid grid-cols-1 gap-2">
                         <x-ui.switch wire:model.live="is_fup" :label="__('Fair usage speed')" :description="__('When a limit is reached, the customer keeps a reduced speed. Without it, PPPoE and IPoE customers go to the disabled pool and Hotspot logins are refused.')" />
                         @error('is_fup')
                             <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -95,22 +95,22 @@
                     </div>
 
                     @if ($is_fup)
-                        <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <x-ui.input wire:model="fup_upload" english :label="__('Fair usage upload')" required autocomplete="off" />
                             <x-ui.input wire:model="fup_download" english :label="__('Fair usage download')" required autocomplete="off" />
                         </div>
                     @endif
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="slot" class="grid gap-5">
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                <x-ui.tab-panel name="slot" class="grid grid-cols-1 gap-5">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="sm:col-span-2">
                             <x-ui.select wire:model.live="slot_mode" :label="__('Time slot')" :options="$this->slotModes" />
                         </div>
                     </div>
 
                     @if ($slot_mode !== '')
-                        <fieldset class="grid gap-2">
+                        <fieldset class="grid grid-cols-1 gap-2">
                             <legend class="text-sm font-medium">{{ __('Days') }}</legend>
                             <div class="flex flex-wrap gap-x-5 gap-y-2">
                                 @foreach ($this->days as $day => $label)
@@ -122,7 +122,7 @@
                             @enderror
                         </fieldset>
 
-                        <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <x-ui.select wire:model="slot_from" :label="__('From')" :options="$this->hours" :placeholder="__('Choose an hour')" />
                             <x-ui.select wire:model="slot_to" :label="__('To')" :options="$this->hours" :placeholder="__('Choose an hour')" :description="__('The slot ends when this hour starts: 22:00 to 06:00 runs until 05:59. The same hour in both means the whole day.')" />
                         </div>
@@ -130,7 +130,7 @@
                         <x-ui.checkbox wire:model="slot_full_days" :label="__('Count the days not ticked as one 24-hour slot')" />
 
                         @if ($slot_mode === 'boost')
-                            <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                            <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                                 <x-ui.input wire:model="slot_upload" english :label="__('Upload during the slot')" required autocomplete="off" />
                                 <x-ui.input wire:model="slot_download" english :label="__('Download during the slot')" required autocomplete="off" />
                             </div>
@@ -138,8 +138,8 @@
                     @endif
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="network" class="grid gap-5">
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                <x-ui.tab-panel name="network" class="grid grid-cols-1 gap-5">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="sm:col-span-2">
                             <x-ui.select wire:model.live="pool_id" :label="__('Pool')" :options="$this->pools" :placeholder="__('No pool')" :description="__('Sent as Framed-Pool. Leave it empty to use the pool set on the NAS.')" />
                         </div>
@@ -149,7 +149,7 @@
                         <x-ui.alert variant="warning">{{ trans_choice(':count Hotspot or IPoE customer uses this plan. The Hotspot takes their address from this pool (1:1 NAT), so a PPPoE pool here gives them PPPoE addresses and they lose their connection. Leave the pool empty for this plan, or use a pool made for the Hotspot.|:count Hotspot or IPoE customers use this plan. The Hotspot takes their address from this pool (1:1 NAT), so a PPPoE pool here gives them PPPoE addresses and they lose their connection. Leave the pool empty for this plan, or use a pool made for the Hotspot.', $this->hotspotCustomers) }}</x-ui.alert>
                     @endif
 
-                    <fieldset class="grid gap-2">
+                    <fieldset class="grid grid-cols-1 gap-2">
                         <legend class="text-sm font-medium">{{ __('Address lists') }}</legend>
                         <x-ui.text muted>{{ __('Optional. The NAS adds the customer to each list. A customer with lists of their own gets only those.') }}</x-ui.text>
                         @forelse ($this->addressLists as $id => $listName)
@@ -163,11 +163,11 @@
                     </fieldset>
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="attributes" class="grid gap-5">
+                <x-ui.tab-panel name="attributes" class="grid grid-cols-1 gap-5">
                     <x-ui.text muted>{{ __('For what the other tabs do not cover. FreeRADIUS sends each row to the NAS as it is, so only listed attributes are allowed.') }}</x-ui.text>
 
                     @foreach ($custom_attributes as $index => $row)
-                        <div wire:key="custom-attribute-{{ $index }}" class="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <div wire:key="custom-attribute-{{ $index }}" class="grid grid-cols-1 items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">
                             <x-ui.select wire:model="custom_attributes.{{ $index }}.attribute" :label="__('Attribute')" :options="$this->allowlist" :placeholder="__('Choose an attribute')" />
                             <x-ui.input wire:model="custom_attributes.{{ $index }}.value" english :label="__('Value')" maxlength="253" autocomplete="off" />
                             <x-ui.button variant="ghost" icon="trash" class="sm:mt-6" wire:click="removeAttribute({{ $index }})">{{ __('Remove') }}</x-ui.button>

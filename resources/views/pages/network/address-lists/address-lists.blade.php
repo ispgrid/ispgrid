@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Address lists') }}</x-ui.heading>
@@ -60,7 +60,7 @@
     </x-ui.table>
 
     <x-ui.modal name="address-list-form">
-        <form wire:submit="save" class="grid gap-5">
+        <form wire:submit="save" class="grid grid-cols-1 gap-5">
             <x-ui.heading size="lg">{{ $editingId ? __('Edit address list') : __('Add address list') }}</x-ui.heading>
 
             <x-ui.input wire:model="name" english :label="__('Name')" :description="__('Exactly as used in the NAS firewall rules.')" maxlength="64" required autocomplete="off" />

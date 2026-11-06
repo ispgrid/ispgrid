@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Invoices') }}</x-ui.heading>
@@ -9,7 +9,7 @@
         @endcan
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <x-ui.input wire:model.live.debounce.400ms="search" :label="__('Customer or number')" />
         <x-ui.input wire:model.live="from" type="date" :label="__('From')" />
         <x-ui.input wire:model.live="to" type="date" :label="__('To')" />

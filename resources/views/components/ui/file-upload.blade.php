@@ -14,7 +14,7 @@
 {{-- A Livewire upload (wire:model on a property of a component that uses WithFileUploads). The file goes up as soon
      as it is chosen; the bar shows how far, and the component's Save checks it. --}}
 <div
-    class="grid content-start gap-1.5"
+    class="grid grid-cols-1 content-start gap-1.5"
     x-data="{ uploading: false, progress: 0, failed: false }"
     x-on:livewire-upload-start="uploading = true; failed = false"
     x-on:livewire-upload-finish="uploading = false"

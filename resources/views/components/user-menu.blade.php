@@ -4,7 +4,7 @@
             <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-zinc-200 text-xs font-semibold dark:bg-zinc-700">
                 {{ auth()->user()->initials() }}
             </span>
-            <span class="grid min-w-0 flex-1 text-sm leading-tight">
+            <span class="grid grid-cols-1 min-w-0 flex-1 text-sm leading-tight">
                 <span class="truncate font-medium">{{ auth()->user()->name }}</span>
                 <span class="truncate text-xs text-zinc-600 dark:text-zinc-400">{{ auth()->user()->email }}</span>
             </span>

@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Customers') }}</x-ui.heading>
@@ -10,8 +10,11 @@
         @endcan
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div x-data="{ more: false }" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <x-ui.input wire:model.live.debounce.300ms="search" type="search" :label="__('Search')" :placeholder="__('Username, name, mobile, email or IP')" autocomplete="off" />
+        {{-- On a phone the other filters fold away behind one button, so the list starts on the first screen. --}}
+        <x-ui.button variant="secondary" size="sm" icon="adjustments-horizontal" class="justify-self-start sm:hidden" x-on:click="more = ! more" x-bind:aria-expanded="more">{{ __('Filters') }}</x-ui.button>
+        <div class="grid grid-cols-1 gap-3 max-sm:hidden sm:contents" x-bind:class="{ 'max-sm:hidden': ! more }">
         <x-ui.select wire:model.live="status" :label="__('Status')" :options="$this->statuses" />
         <x-ui.select wire:model.live="plan" :label="__('Plan')" :options="$this->plans" :placeholder="__('All plans')" />
         <x-ui.select wire:model.live="type" :label="__('Type')" :options="$this->types" :placeholder="__('All types')" />
@@ -19,6 +22,7 @@
         <x-ui.select wire:model.live="connection" :label="__('Connection type')" :options="$this->connectionTypes" :placeholder="__('All connection types')" />
         <x-ui.select wire:model.live="expiring" :label="__('Expiring')" :options="$this->expiringChoices" />
         <x-ui.select wire:model.live="expired" :label="__('Expired')" :options="$this->expiredChoices" />
+        </div>
     </div>
 
     @if ($this->extraFilters !== [])

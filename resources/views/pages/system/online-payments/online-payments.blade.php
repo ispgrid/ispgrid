@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Quick pay') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Quick pay: a public page where customers pay their dues and renew by username or mobile number, without logging in. It shows only a masked username and the amount.') }}</x-ui.text>
@@ -9,12 +9,12 @@
     @endunless
 
     <x-ui.card>
-        <form wire:submit="saveQuickPay" class="grid gap-5">
+        <form wire:submit="saveQuickPay" class="grid grid-cols-1 gap-5">
             <x-ui.heading>{{ __('Pay page') }}</x-ui.heading>
             <x-ui.switch wire:model="quick_pay" id="quick-pay" :label="__('Open the pay page')" :description="$this->page['invoicing'] ? null : __('Needs invoicing on in Billing.')" />
-            <div class="grid items-start gap-5 sm:grid-cols-2">
+            <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
                 <x-ui.input wire:model="renewal_days" type="number" min="0" max="60" :label="__('Offer renewal from (days before expiry)')" :description="__('Expired plans are always offered. Empty: dues only, no renewal.')" />
-                <div class="grid gap-1.5 text-sm">
+                <div class="grid grid-cols-1 gap-1.5 text-sm">
                     <span class="font-medium">{{ __('Pay page link') }}</span>
                     <x-ui.link href="{{ $this->page['link'] }}" target="_blank" rel="noopener" class="break-all">{{ $this->page['link'] }}</x-ui.link>
                     <x-ui.text muted>{{ __('Share it in messages or on your website.') }}</x-ui.text>
@@ -26,7 +26,7 @@
         </form>
     </x-ui.card>
 
-    <div class="grid gap-6 xl:grid-cols-2">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         @foreach ($this->gatewayCards as $gateway)
             <x-ui.card wire:key="gateway-{{ $gateway['key'] }}" class="flex flex-col">
                 <form wire:submit="save('{{ $gateway['key'] }}')" class="flex flex-1 flex-col gap-5">
@@ -51,7 +51,7 @@
                         />
                     @endforeach
 
-                    <div class="grid gap-1 text-sm">
+                    <div class="grid grid-cols-1 gap-1 text-sm">
                         <span class="font-medium">{{ __('Webhook address') }}</span>
                         <code class="break-all rounded bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800">{{ $gateway['webhook'] }}</code>
                         <x-ui.text muted>{{ __('Paste it into the gateway\'s dashboard, so payments are confirmed even when the customer closes the page.') }}</x-ui.text>

@@ -1557,5 +1557,6 @@
     "The login name: letters, digits, ., -, _ and @.": "लॉगिन नाम: अक्षर, अंक, ., -, _ और @।",
     "Change it with Change username on the customer page.": "इसे ग्राहक पेज पर 'यूज़रनेम बदलें' से बदलें।",
     "username changed": "यूज़रनेम बदला",
-    "Username changed": "यूज़रनेम बदला गया"
+    "Username changed": "यूज़रनेम बदला गया",
+    "Filters": "फ़िल्टर"
 }

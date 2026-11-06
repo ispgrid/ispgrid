@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Import') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Add plans and customers from CSV files made from the templates, in English letters, digits and symbols only. Check a file first: nothing is saved until every row is right, and then all rows are saved together.') }}</x-ui.text>
@@ -6,7 +6,7 @@
     </div>
 
     @forelse ($this->cards as $card)
-        <x-ui.card wire:key="import-{{ $card['kind'] }}" class="grid gap-4">
+        <x-ui.card wire:key="import-{{ $card['kind'] }}" class="grid grid-cols-1 gap-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0 sm:flex-1">
                     <x-ui.heading>{{ $card['title'] }}</x-ui.heading>

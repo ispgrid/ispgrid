@@ -1,4 +1,4 @@
-<div class="grid gap-6">
+<div class="grid grid-cols-1 gap-6">
     <x-ui.card>
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>

@@ -1,10 +1,10 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Online') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Sessions each NAS reports as open. A session the NAS stops reporting is closed after 15 minutes.') }}</x-ui.text>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <x-ui.input wire:model.live.debounce.300ms="search" type="search" :label="__('Search')" :placeholder="__('Username, IP or MAC')" autocomplete="off" />
         <x-ui.select wire:model.live="router" :label="__('NAS')" :options="$this->routers" :placeholder="__('All NAS')" />
     </div>

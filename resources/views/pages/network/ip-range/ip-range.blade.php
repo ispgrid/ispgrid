@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.link href="{{ route('ip-ranges.index') }}" wire:navigate class="text-sm">{{ __('IP ranges') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">
@@ -10,7 +10,7 @@
     </div>
 
     <x-ui.card>
-        <dl class="grid gap-4 text-sm sm:grid-cols-3">
+        <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
             <div>
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Network') }}</dt>
                 <dd class="font-medium tabular-nums">{{ $this->summary['network'] }}</dd>

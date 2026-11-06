@@ -1,6 +1,6 @@
 {{-- New invoice and Cancel and reissue (WritesInvoices): one dialog, its mode set by reissuing_invoice_id. --}}
 <x-ui.modal name="billing-new-invoice" width="lg">
-    <form wire:submit="saveInvoice" class="grid gap-5" novalidate>
+    <form wire:submit="saveInvoice" class="grid grid-cols-1 gap-5" novalidate>
         @if ($this->reissuing_invoice_id)
             <x-ui.heading size="lg">{{ __('Cancel and reissue :number', ['number' => $this->reissuingNumber]) }}</x-ui.heading>
             <x-ui.text>{{ __(':number is cancelled and keeps its number. The new invoice gets the next number and the customer\'s details as they are now.', ['number' => $this->reissuingNumber]) }}</x-ui.text>
@@ -9,7 +9,7 @@
         @endif
 
         @foreach ($lines as $index => $line)
-            <div class="grid gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" wire:key="line-{{ $index }}">
+            <div class="grid grid-cols-1 gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" wire:key="line-{{ $index }}">
                 <div class="flex items-end gap-2">
                     <div class="min-w-0 flex-1">
                         <x-ui.input wire:model="lines.{{ $index }}.description" :label="__('Description')" maxlength="255" />
@@ -19,7 +19,7 @@
                     @endif
                 </div>
                 <x-ui.input wire:model="lines.{{ $index }}.details" :label="__('More details')" maxlength="255" :description="__('Optional second line, such as the period or speed.')" />
-                <div class="grid gap-3 sm:grid-cols-4">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <x-ui.input wire:model.live.blur="lines.{{ $index }}.quantity" inputmode="decimal" :label="__('Quantity')" />
                     <x-ui.input wire:model.live.blur="lines.{{ $index }}.unit_price" inputmode="decimal" :label="__('Unit price')" />
                     @if ($this->canDiscount)
@@ -39,7 +39,7 @@
         </div>
 
         @if ($this->newInvoiceTotals !== [])
-            <dl class="grid gap-1 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700">
+            <dl class="grid grid-cols-1 gap-1 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700">
                 @foreach ($this->newInvoiceTotals as $row)
                     <div @class(['flex justify-between gap-4', 'mt-1 border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-700' => $row['total']])>
                         <dt @class(['text-zinc-600 dark:text-zinc-400' => ! $row['total']])>{{ $row['label'] }}</dt>

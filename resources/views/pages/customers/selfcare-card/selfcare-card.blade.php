@@ -1,5 +1,5 @@
 <div>
-    <x-ui.card class="grid gap-4">
+    <x-ui.card class="grid grid-cols-1 gap-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <x-ui.heading>{{ __('Selfcare') }}</x-ui.heading>
@@ -13,7 +13,7 @@
             </div>
         </div>
 
-        <dl class="grid gap-3 text-sm sm:grid-cols-2">
+        <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <div>
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Password') }}</dt>
                 <dd>
@@ -55,7 +55,7 @@
 
     <x-ui.modal name="selfcare-password" x-on:close="$wire.closeDialog()">
         @if ($this->details !== null)
-            <div class="grid gap-4" x-data="{ copied: false, async copy() { try { await navigator.clipboard.writeText(@js($this->details)); this.copied = true; setTimeout(() => this.copied = false, 1500); } catch (e) { console.warn('Could not copy to clipboard'); } } }">
+            <div class="grid grid-cols-1 gap-4" x-data="{ copied: false, async copy() { try { await navigator.clipboard.writeText(@js($this->details)); this.copied = true; setTimeout(() => this.copied = false, 1500); } catch (e) { console.warn('Could not copy to clipboard'); } } }">
                 <x-ui.heading size="lg">{{ __('Selfcare password set') }}</x-ui.heading>
                 <x-ui.alert>{{ __('This password is shown only now.') }}</x-ui.alert>
                 <p class="font-mono text-2xl tracking-wider">{{ $this->shownPassword }}</p>

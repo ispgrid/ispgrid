@@ -12,12 +12,12 @@
             @endif
         </div>
 
-        <dl class="mt-4 grid gap-3 text-sm">
-            <div class="grid grid-cols-[9rem_1fr] gap-3">
+        <dl class="mt-4 grid grid-cols-1 gap-3 text-sm">
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Started') }}</dt>
                 <dd>{{ $this->details['started'] ?? __('Not recharged yet') }}</dd>
             </div>
-            <div class="grid grid-cols-[9rem_1fr] gap-3">
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Expires') }}</dt>
                 <dd>
                     @if ($this->details['expires'])
@@ -28,7 +28,7 @@
                     @endif
                 </dd>
             </div>
-            <div class="grid grid-cols-[9rem_1fr] gap-3">
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Auto renew') }}</dt>
                 <dd>
                     <x-ui.badge :color="$this->details['auto_renew'] ? 'green' : 'zinc'">{{ $this->details['auto_renew'] ? __('On') : __('Off') }}</x-ui.badge>
@@ -37,7 +37,7 @@
                     @endif
                 </dd>
             </div>
-            <div class="grid grid-cols-[9rem_1fr] gap-3">
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Advance renewal') }}</dt>
                 <dd>
                     @if ($this->details['waiting'])
@@ -52,7 +52,7 @@
                     @endif
                 </dd>
             </div>
-            <div class="grid grid-cols-[9rem_1fr] gap-3">
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Speed') }}</dt>
                 <dd>
                     {{ $this->details['speed'] }}
@@ -62,13 +62,13 @@
                 </dd>
             </div>
             @if ($this->details['data'])
-                <div class="grid grid-cols-[9rem_1fr] gap-3">
+                <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                     <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Data') }}</dt>
                     <dd>{{ $this->details['data'] }}</dd>
                 </div>
             @endif
             @if ($this->details['dues'])
-                <div class="grid grid-cols-[9rem_1fr] gap-3">
+                <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                     <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Dues') }}</dt>
                     <dd class="font-semibold tabular-nums text-red-700 dark:text-red-300">{{ $this->details['dues'] }}</dd>
                 </div>
@@ -101,7 +101,7 @@
 
     @if ($this->buttons['change_plan'])
         <x-ui.modal name="change-plan">
-            <form wire:submit="changePlan" class="grid gap-5" novalidate>
+            <form wire:submit="changePlan" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Change plan') }}</x-ui.heading>
                 <x-ui.text muted>{{ __('Starts now. The time left on the current plan ends, and an online customer is disconnected so the new plan applies at once.') }}</x-ui.text>
                 @if ($this->timeLeft !== null)
@@ -119,7 +119,7 @@
         </x-ui.modal>
 
         <x-ui.modal name="renew-advance">
-            <form wire:submit="bookRenewal" class="grid gap-5" novalidate>
+            <form wire:submit="bookRenewal" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Renew in advance') }}</x-ui.heading>
                 <x-ui.text muted>{{ __('Starts when the current plan ends, on :date. Until then nothing changes for the customer.', ['date' => $this->details['expires'] ?? '']) }}</x-ui.text>
                 <x-ui.select wire:model.live="advance_plan_id" :label="__('Next plan')" :options="$this->plans" :placeholder="__('Choose a plan')" />
@@ -134,7 +134,7 @@
         </x-ui.modal>
 
         <x-ui.modal name="change-expiry" width="sm">
-            <form wire:submit="changeExpiry" class="grid gap-5" novalidate>
+            <form wire:submit="changeExpiry" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Change expiry') }}</x-ui.heading>
                 <x-ui.input wire:model="new_expiry" type="datetime-local" :label="__('Expires')" />
                 <x-ui.input wire:model="expiry_note" :label="__('Comment')" maxlength="255" />
@@ -149,7 +149,7 @@
 
     @if ($this->buttons['own_speed'])
         <x-ui.modal name="override-speed" width="sm">
-            <form wire:submit="saveOverrideSpeed" class="grid gap-5" novalidate>
+            <form wire:submit="saveOverrideSpeed" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Override speed') }}</x-ui.heading>
                 <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
                 <div class="grid grid-cols-2 gap-3">
@@ -171,7 +171,7 @@
 
     @if ($this->buttons['terminate'])
         <x-ui.modal name="terminate" width="sm">
-            <form wire:submit="terminate" class="grid gap-5" novalidate>
+            <form wire:submit="terminate" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Terminate') }}</x-ui.heading>
                 <x-ui.text>{{ __('Removes the plan and sets the customer to Terminated. They can no longer log in and are disconnected now. Auto renew and a waiting renewal are cancelled.') }}</x-ui.text>
                 <x-ui.textarea wire:model="terminate_note" :label="__('Comment')" :description="__('Why the customer is terminated. It is kept in the activity log.')" rows="2" maxlength="500" required />
