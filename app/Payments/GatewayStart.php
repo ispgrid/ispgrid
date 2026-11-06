@@ -38,4 +38,30 @@ final readonly class GatewayStart
     {
         return new self('script', $src, $data);
     }
+
+    /**
+     * @return array{kind: string, url: string, fields: array<string, string>}
+     */
+    public function toArray(): array
+    {
+        return ['kind' => $this->kind, 'url' => $this->url, 'fields' => $this->fields];
+    }
+
+    /**
+     * A start kept with its attempt, or null when it is not one this class makes.
+     *
+     * @param  array<mixed>  $stored
+     */
+    public static function fromArray(array $stored): ?self
+    {
+        $kind = $stored['kind'] ?? null;
+        $url = $stored['url'] ?? null;
+        $fields = $stored['fields'] ?? [];
+
+        if (! in_array($kind, ['redirect', 'form', 'script'], true) || ! is_string($url) || ! is_array($fields)) {
+            return null;
+        }
+
+        return new self($kind, $url, array_map(strval(...), array_filter($fields, is_scalar(...))));
+    }
 }

@@ -79,7 +79,7 @@ class QuickPayController extends Controller
         }
 
         try {
-            $started = $start->handle($accountId, (string) $request->string('gateway'));
+            $started = $start->handle($accountId, (string) $request->string('gateway'), $request->ip());
         } catch (NothingToPay) {
             return redirect()->route('pay.show')->with('pay_message', __('Nothing to pay for this username or number.'));
         } catch (TooManyPaymentAttempts) {
