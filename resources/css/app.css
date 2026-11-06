@@ -3,6 +3,8 @@
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/livewire/src/Features/SupportPagination/views/*.blade.php';
+/* Installed add-ons: the installer builds the CSS again after every add-on change, so their classes exist too. */
+@source '../../vendor/ispgrid/*/resources/views';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
