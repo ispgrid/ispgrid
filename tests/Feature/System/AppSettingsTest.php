@@ -24,34 +24,34 @@ it('shows the saved settings and the server timezone', function () {
     config(['app.timezone' => 'Asia/Kolkata']);
 
     Livewire::test('pages::system.app-settings')
-        ->assertSet('currency_code', 'INR')
+        ->assertSet('date_format', 'd/m/Y')
         ->assertSet('expiry_mode', 'exact')
         ->assertSee('Asia/Kolkata');
 });
 
 it('saves the settings and records each change', function () {
     Livewire::test('pages::system.app-settings')
-        ->set('currency_code', 'USD')
-        ->set('currency_symbol', '$')
-        ->set('number_grouping', 'international')
+        ->set('phone_country_code', '+1')
+        ->set('date_format', 'Y-m-d')
+        ->set('tax_id_label', 'VAT number')
         ->set('expiry_mode', 'midnight')
         ->call('save')
         ->assertHasNoErrors()
         ->assertDispatched('toast', message: 'Settings saved.');
 
-    expect(AppSetting::valueOf('currency_code'))->toBe('USD')
+    expect(AppSetting::valueOf('phone_country_code'))->toBe('+1')
         ->and(AppSetting::valueOf('expiry_mode'))->toBe('midnight')
         ->and(Activity::query()->where('event', 'updated')->count())->toBe(4);
 });
 
 it('saves nothing when one field is invalid', function () {
     Livewire::test('pages::system.app-settings')
-        ->set('currency_code', 'USD')
-        ->set('currency_decimals', '7')
+        ->set('phone_country_code', '+1')
+        ->set('phone_digits', '16')
         ->call('save')
-        ->assertHasErrors(['currency_decimals']);
+        ->assertHasErrors(['phone_digits']);
 
-    expect(AppSetting::valueOf('currency_code'))->toBe('INR');
+    expect(AppSetting::valueOf('phone_country_code'))->toBe('+91');
 });
 
 it('rejects values outside the allowed lists', function (string $field, string $value) {
@@ -60,11 +60,9 @@ it('rejects values outside the allowed lists', function (string $field, string $
         ->call('save')
         ->assertHasErrors([$field]);
 })->with([
-    'unknown grouping' => ['number_grouping', 'chinese'],
     'unknown date format' => ['date_format', 'Y/d/m'],
     'unknown expiry mode' => ['expiry_mode', 'weekly'],
     'phone code without plus' => ['phone_country_code', '91'],
-    'lowercase currency' => ['currency_code', 'usd'],
     'too many phone digits' => ['phone_digits', '16'],
     'empty notice message' => ['notice_message', ''],
     'language the panel does not ship' => ['locale', 'fr'],
@@ -170,38 +168,38 @@ it('refuses to turn Hotspot off while Hotspot customers exist, and saves nothing
     Account::factory()->count(2)->hotspot()->create();
 
     Livewire::test('pages::system.app-settings')
-        ->set('currency_code', 'USD')
+        ->set('phone_country_code', '+1')
         ->set('hotspot_enabled', false)
         ->call('save')
         ->assertHasErrors(['hotspot_enabled'])
         ->assertSee('2 Hotspot customers exist. Delete them or change their type first.');
 
     expect(Hotspot::enabled())->toBeTrue()
-        ->and(AppSetting::valueOf('currency_code'))->toBe('INR');
+        ->and(AppSetting::valueOf('phone_country_code'))->toBe('+91');
 });
 
 it('saves the settings on a server without the FreeRADIUS settings row while Hotspot stays off', function () {
     RadiusSetting::query()->delete();
 
     Livewire::test('pages::system.app-settings')
-        ->set('currency_code', 'USD')
+        ->set('phone_country_code', '+1')
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(AppSetting::valueOf('currency_code'))->toBe('USD');
+    expect(AppSetting::valueOf('phone_country_code'))->toBe('+1');
 });
 
 it('refuses to turn Hotspot on without the FreeRADIUS settings row, and saves nothing', function () {
     RadiusSetting::query()->delete();
 
     Livewire::test('pages::system.app-settings')
-        ->set('currency_code', 'USD')
+        ->set('phone_country_code', '+1')
         ->set('hotspot_enabled', true)
         ->call('save')
         ->assertHasErrors(['hotspot_enabled'])
         ->assertSee('The FreeRADIUS settings are missing. Run the installer again to restore them.');
 
-    expect(AppSetting::valueOf('currency_code'))->toBe('INR');
+    expect(AppSetting::valueOf('phone_country_code'))->toBe('+91');
 });
 
 it('turns Hotspot off when only deleted Hotspot customers are left', function () {

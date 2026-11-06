@@ -23,14 +23,11 @@
             </x-ui.card>
 
             <x-ui.card class="grid content-start gap-5">
-                <x-ui.heading>{{ __('Money and numbers') }}</x-ui.heading>
-                <div class="grid gap-5 sm:grid-cols-3">
-                    <x-ui.input wire:model="currency_code" :label="__('Currency code')" maxlength="3" :description="__('ISO code, e.g. INR, USD')" />
-                    <x-ui.input wire:model="currency_symbol" :label="__('Currency symbol')" maxlength="8" />
-                    <x-ui.input wire:model="currency_decimals" type="number" min="0" max="3" :label="__('Decimals')" />
+                <div>
+                    <x-ui.heading>{{ __('Dates') }}</x-ui.heading>
+                    <x-ui.text muted class="mt-1">{{ __('Currency and number grouping are in Billing settings.') }}</x-ui.text>
                 </div>
                 <div class="grid gap-5 sm:grid-cols-2">
-                    <x-ui.select wire:model="number_grouping" :label="__('Number grouping')" :options="$this->groupings" />
                     <x-ui.select wire:model="date_format" :label="__('Date format')" :options="$this->dateFormats" />
                 </div>
             </x-ui.card>

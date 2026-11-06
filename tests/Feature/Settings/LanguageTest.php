@@ -96,7 +96,7 @@ it('refuses a language the panel does not ship on the profile', function () {
 it('shows Laravel\'s validation messages in Hindi, with the field named as the form labels it', function () {
     App::setLocale('hi');
 
-    Livewire::actingAs(User::factory()->create())->test('pages::system.app-settings')
+    Livewire::actingAs(User::factory()->create())->test('pages::system.billing-settings')
         ->set('currency_code', '')
         ->call('save')
         ->assertHasErrors(['currency_code' => 'मुद्रा कोड ज़रूरी है।']);

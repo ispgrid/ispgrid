@@ -18,6 +18,19 @@
             </x-ui.card>
 
             <x-ui.card class="grid content-start gap-5">
+                <div>
+                    <x-ui.heading>{{ __('Money and numbers') }}</x-ui.heading>
+                    <x-ui.text muted class="mt-1">{{ __('Used everywhere amounts are shown, with invoicing on or off. Invoices already issued keep their own.') }}</x-ui.text>
+                </div>
+                <div class="grid gap-5 sm:grid-cols-3">
+                    <x-ui.input wire:model="currency_code" :label="__('Currency code')" maxlength="3" :description="__('ISO code, e.g. INR, USD')" />
+                    <x-ui.input wire:model="currency_symbol" :label="__('Currency symbol')" maxlength="8" />
+                    <x-ui.input wire:model="currency_decimals" type="number" min="0" max="3" :label="__('Decimals')" />
+                </div>
+                <x-ui.select wire:model="number_grouping" :label="__('Number grouping')" :options="$this->groupings" />
+            </x-ui.card>
+
+            <x-ui.card class="grid content-start gap-5">
                 <x-ui.heading>{{ __('Invoice numbering') }}</x-ui.heading>
                 <div class="grid gap-5 sm:grid-cols-2">
                     <x-ui.input wire:model.live.debounce.400ms="numbering_format" :label="__('Format')" :description="__('{FY} financial year (26-27), {YYYY} year, {N} number.')" />
