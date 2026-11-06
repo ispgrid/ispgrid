@@ -1,7 +1,8 @@
 # Setting up ISPGrid and your MikroTik NAS
 
-This guide takes you from a fresh install to your first customer online. You set up the panel first, then your
-NAS, then check that everything works. Follow the sections in order.
+This guide takes you from a fresh install to your first customer online, in the order you do the work. Each step
+says where a value comes from at the moment you need it, so nothing has to be remembered from an earlier section.
+Follow the sections in order.
 
 > [!NOTE]
 > **NAS = your MikroTik router.** ISPGrid calls the MikroTik that your customers connect through a **NAS**
@@ -12,6 +13,7 @@ NAS, then check that everything works. Follow the sections in order.
 
 - ISPGrid is installed, and you can log in to the panel.
 - You can open a terminal on the NAS: in Winbox, click **New Terminal**.
+- Keep the panel and Winbox open side by side: most steps use both.
 - The commands are for RouterOS 7. Where RouterOS 6 needs something different, the guide says so.
 
 **About the commands:** each command block is followed by a **Change** line that lists the values you must replace
@@ -20,6 +22,7 @@ with your own. Everything else can be pasted as it is. The examples in this guid
 | What | Example used in this guide |
 |---|---|
 | The ISPGrid server, as the NAS reaches it | `10.250.0.1` (the WireGuard tunnel) |
+| The NAS, as the server sees it | `10.250.0.2` (its tunnel address) |
 | The NAS's internet port | `ether1` |
 | The port or bridge your PPPoE customers are on | `bridge1` |
 | The port your IPoE customers are on | `ether10` |
@@ -32,9 +35,9 @@ Pick your own networks so that none of them overlaps another, your office LAN, o
 
 **Contents**
 
-1. [Set up the panel](#1-set-up-the-panel)
-2. [Connect the NAS to ISPGrid](#2-connect-the-nas-to-ispgrid)
-3. [Set up PPPoE](#3-set-up-pppoe)
+1. [Connect the NAS to ISPGrid](#1-connect-the-nas-to-ispgrid)
+2. [Set up PPPoE](#2-set-up-pppoe)
+3. [Add a plan and a test customer](#3-add-a-plan-and-a-test-customer)
 4. [Give customers internet (NAT)](#4-give-customers-internet-nat)
 5. [Show expired customers a notice page](#5-show-expired-customers-a-notice-page)
 6. [Set up IPoE](#6-set-up-ipoe)
@@ -43,71 +46,44 @@ Pick your own networks so that none of them overlaps another, your office LAN, o
 9. [Check that it works](#9-check-that-it-works)
 10. [If something does not work](#if-something-does-not-work)
 
-## 1. Set up the panel
+## 1. Connect the NAS to ISPGrid
 
-Do these four steps in the panel before you add your first customer.
-
-**Step 1. Add your NAS.** Go to **Network, NAS** and add it:
-
-- **IP address:** the address the NAS sends its requests from. With a WireGuard or L2TP install this is the
-  NAS's tunnel address, for example `10.250.0.2`. With a LAN install it is the NAS's LAN address.
-- **Secret:** make up a long random password. You will type the same secret on the NAS in section 2.
-- **RouterOS version:** you find it on the NAS under **System, Resources**.
-
-**Step 2. Add the pool for PPPoE customers.** Go to **Network, Pools** and add a pool named `pppoe`. Then go to
-**System, App settings** and choose it as **Pool for PPPoE customers**. Every new PPPoE customer gets it.
-
-The name must match the pool on the NAS exactly (you create it in section 3).
-
-**Step 3. Add IP ranges (you can skip this for now).** You only need IP ranges for IPoE customers and for PPPoE
-customers with a static IP. Go to **Network, IP ranges** and choose what the range is used for:
-
-- **IPoE:** a network on a port of the NAS, for example `10.60.1.0/24` with gateway `10.60.1.1`. Then in **System, App
-  settings**, choose it as **IP range for IPoE customers**: each new IPoE customer gets the next free address.
-- **PPPoE:** static IPs for PPPoE customers. Every address of the range can be given to a customer, so a block
-  like `203.0.113.0/29` gives you 8 static IPs. You can also enter a first and last address, for example
-  `10.70.0.100-10.70.0.200`.
-  - If some of your customers' routers do not accept addresses ending in `.0` or `.255`, tick **Leave out the
-    first and last address**.
-  - A public block must be routed to your NAS by your upstream provider. A private block needs a NAT rule
-    (section 4).
-
-**Step 4. Add a plan.** Go to **Plans** and add one with its speed and validity.
-
-Already have many plans and customers in a spreadsheet or another system? You can import them from CSV files under
-**System, Import** instead of adding them one by one: [IMPORT.md](IMPORT.md) walks you through it.
-
-**Check:** you can now add a customer and **Recharge** them with the plan. They cannot log in yet: the NAS is
-set up in the next sections.
-
-## 2. Connect the NAS to ISPGrid
-
-The NAS asks ISPGrid whether each customer may log in. These steps tell the NAS where ISPGrid is.
+The NAS asks ISPGrid whether each customer may log in. Both sides need the same secret, so you add the NAS in the
+panel and on the NAS in one go: the secret goes straight from one to the other.
 
 ### If you installed with WireGuard or L2TP
 
-1. Log in to the ISPGrid server over SSH and run the script for your NAS. Use any name you like for the
-   NAS:
+1. **On the ISPGrid server**, log in over SSH and run the script for your NAS. Use any name you like for the NAS:
 
    ```bash
    sudo /opt/ispgrid/deploy/wireguard/wg-add-peer.sh office-nas   # RouterOS 7
    sudo /opt/ispgrid/deploy/l2tp/l2tp-add-peer.sh office-nas      # RouterOS 6
    ```
 
-2. The script prints a set of commands. In them, replace `THE-SECRET-OF-THIS-NAS-IN-ISPGRID` with the secret you
-   entered in the panel (section 1, step 1).
-3. Paste the commands into the NAS's terminal. They create the tunnel, point the NAS at ISPGrid and add a
+   It prints the NAS's tunnel address (for example `10.250.0.2`) and a set of commands. Leave them on the
+   screen: you paste them in step 3.
+2. **In the panel**, go to **Network, NAS** and click **Add NAS**:
+   - **IP address:** the tunnel address the script printed.
+   - **Secret:** click **Generate a secret**, then click the eye icon and copy it.
+   - **RouterOS version:** you find it on the NAS under **System, Resources**.
+
+   Save.
+3. **On the NAS**, take the commands from step 1, replace `THE-SECRET-OF-THIS-NAS-IN-ISPGRID` with the secret you
+   just copied, and paste them into the NAS's terminal. They create the tunnel, point the NAS at ISPGrid and add a
    NAT rule for the notice page.
 
 ### If the NAS and the server are on the same LAN
 
-```
-/radius add address=SERVER-LAN-IP secret="THE-SECRET" service=ppp,hotspot timeout=3s comment="ISPGrid"
-/radius incoming set accept=yes
-```
+1. **In the panel**, go to **Network, NAS** and click **Add NAS**: the **IP address** is the NAS's LAN address.
+   Click **Generate a secret**, then the eye icon, and copy it. Save.
+2. **On the NAS**, paste:
 
-**Change:** `SERVER-LAN-IP` to the ISPGrid server's LAN address, `THE-SECRET` to the secret you entered in the
-panel.
+   ```
+   /radius add address=SERVER-LAN-IP secret="THE-SECRET" service=ppp,hotspot timeout=3s comment="ISPGrid"
+   /radius incoming set accept=yes
+   ```
+
+   **Change:** `SERVER-LAN-IP` to the ISPGrid server's LAN address, `THE-SECRET` to the secret you just copied.
 
 ### For every NAS
 
@@ -126,9 +102,12 @@ Three things to know:
 - Keep `interim-update` at 5 minutes or less. The panel treats a session it has not heard from for 15 minutes as
   closed.
 
+**Lost the secret?** You never need to type it from memory: in the panel, **Network, NAS**, edit the NAS and click
+the eye icon next to **Secret**.
+
 **Check:** in Winbox, **RADIUS** lists the ISPGrid server.
 
-## 3. Set up PPPoE
+## 2. Set up PPPoE
 
 ### Give the NAS its own address for PPPoE
 
@@ -151,15 +130,23 @@ RouterOS 6 has no `lo`. Create an empty bridge and use that instead:
 > first customer connects, the NAS takes that address as its own, and nobody can reach the internet any more,
 > the NAS included.
 
-### Create the pools
+### Create the pools, on the NAS and in the panel
 
-```
-/ip pool add name=pppoe ranges=10.50.1.2-10.50.1.254
-/ip pool add name=disabled_pool ranges=10.0.0.2-10.0.7.254
-```
+ISPGrid tells the NAS which pool a customer gets by its name, so each pool exists twice with exactly the same
+name: on the NAS (with its addresses) and in the panel.
 
-**Change:** the address ranges to your own. The names must be exactly the same as in the panel: `pppoe` as in
-**Network, Pools**, and `disabled_pool` as in **System, FreeRADIUS, Disabled pool**.
+1. **On the NAS:**
+
+   ```
+   /ip pool add name=pppoe ranges=10.50.1.2-10.50.1.254
+   /ip pool add name=disabled_pool ranges=10.0.0.2-10.0.7.254
+   ```
+
+   **Change:** the address ranges to your own. Keep the names, or change them in the panel too.
+2. **In the panel**, go to **Network, Pools** and add a pool named `pppoe`. Then go to **System, App settings** and
+   choose it as **Pool for PPPoE customers**: every new PPPoE customer gets it.
+3. **In the panel**, check **System, FreeRADIUS, Disabled pool**: it must say `disabled_pool`, the name on the
+   NAS.
 
 You do not need to add these networks under **IP, Addresses**: each connection gets its own route. They do need a
 NAT rule (section 4), except the disabled pool.
@@ -173,7 +160,7 @@ the DNS servers.
 /ppp profile set default local-address=10.255.255.1 remote-address=pppoe dns-server=8.8.8.8,1.1.1.1 change-tcp-mss=yes
 ```
 
-**Change:** `dns-server` if you use other DNS servers.
+**Change:** `10.255.255.1` to the address you gave `lo` above, `dns-server` if you use other DNS servers.
 
 Do not leave out `local-address` (logins then fail with "could not determine remote IP address") or `dns-server`
 (customers then connect but cannot open websites).
@@ -189,7 +176,28 @@ Do not leave out `local-address` (logins then fail with "could not determine rem
 You can also leave the service name empty (`service-name=""`): some customers' routers only connect to a server
 without one.
 
-**Check:** a test customer's router can connect, and the customer shows up in **Online** in the panel.
+### Static IPs for PPPoE customers (you can skip this for now)
+
+To give some PPPoE customers a fixed address, go to **Network, IP ranges** in the panel and add a **PPPoE** range.
+Every address of the range can be given to a customer, so a block like `203.0.113.0/29` gives you 8 static IPs. You
+can also enter a first and last address, for example `10.70.0.100-10.70.0.200`.
+
+- If some of your customers' routers do not accept addresses ending in `.0` or `.255`, tick **Leave out the
+  first and last address**.
+- A public block must be routed to your NAS by your upstream provider. A private block needs a NAT rule
+  (section 4).
+
+## 3. Add a plan and a test customer
+
+1. **In the panel**, go to **Plans** and add a plan with its speed and validity. The slug fills itself in from the
+   name.
+2. Go to **Customers**, add a test customer with service type **PPPoE**, and **Recharge** them with the plan.
+3. On a test customer's router (or a laptop with a PPPoE client), connect with that username and password.
+
+Already have many plans and customers in a spreadsheet or another system? You can import them from CSV files under
+**System, Import** instead of adding them one by one: [IMPORT.md](IMPORT.md) walks you through it.
+
+**Check:** the customer shows up in **Online** in the panel. If not, the **Login log** says why.
 
 ## 4. Give customers internet (NAT)
 
@@ -226,18 +234,21 @@ When a customer expires, or you set them to inactive or suspended, ISPGrid moves
 these rules, any web page they open shows your notice page instead (served by ISPGrid on port 8088). Secure
 `https://` sites cannot be redirected: they just fail to open.
 
+First, in the panel, under **System, App settings**, fill in your ISP name, phone number and message for the
+notice page. Then on the NAS:
+
 ```
 /ip firewall nat add chain=dstnat src-address=10.0.0.0/21 protocol=tcp dst-port=80 action=dst-nat to-addresses=10.250.0.1 to-ports=8088 comment="ISPGrid: notice page"
 /ip firewall nat add chain=srcnat src-address=10.0.0.0/21 protocol=udp dst-port=53 out-interface-list=WAN action=masquerade comment="ISPGrid: DNS for disabled customers"
 ```
 
-**Change:** `10.250.0.1` to the ISPGrid server's address as the NAS reaches it (its tunnel address, or its
-LAN address). `10.0.0.0/21` to your disabled pool's network.
+**Change:** `10.250.0.1` to the ISPGrid server's address as the NAS reaches it: the `address=` of the `/radius`
+entry from section 1 (in Winbox, **RADIUS**). `10.0.0.0/21` to your disabled pool's network (section 2).
 
 - The first rule sends their web pages to the notice page.
 - The second lets them look up website names (and nothing else), so their browser gets as far as the notice
   page.
-- With a WireGuard or L2TP install, the script from section 2 already added the rule that brings the notice page
+- With a WireGuard or L2TP install, the commands from section 1 already added the rule that brings the notice page
   back to them. With a LAN install, add it yourself:
 
   ```
@@ -245,8 +256,6 @@ LAN address). `10.0.0.0/21` to your disabled pool's network.
   ```
 
   **Change:** `SERVER-LAN-IP` to the ISPGrid server's LAN address.
-
-In the panel, under **System, App settings**, fill in your ISP name, phone number and message for the notice page.
 
 **Check:** set a test customer to **Inactive**. After they reconnect, opening any `http://` website shows your
 notice page.
@@ -289,7 +298,9 @@ the commands above:
 
 ### Add the customer
 
-1. In the panel, make sure there is an **IPoE** range for this network (section 1, step 3).
+1. In the panel, go to **Network, IP ranges** and add an **IPoE** range for this network: `10.60.1.0/24` with
+   gateway `10.60.1.1`, the same as on the port above. Then in **System, App settings**, choose it as **IP range
+   for IPoE customers**: each new IPoE customer gets the next free address.
 2. Add a customer with service type **IPoE**. The panel gives them an IP address.
 3. On the customer's router, set that IP address, with gateway `10.60.1.1` and your DNS servers.
 4. Add a NAT rule for the IPoE network (section 4).
@@ -383,7 +394,7 @@ log.
 1. **Log in:** a test customer connects and shows up in **Online**. If a login is refused, the **Login log** says
    why. An accepted login shows the IP the customer got once the NAS sends its accounting (within a few seconds).
 2. **Internet:** from the customer, ping `8.8.8.8` and open a website. If it fails, check the NAT rule (section 4)
-   and the PPPoE profile (section 3).
+   and the PPPoE profile (section 2).
 3. **Disconnect:** click **Disconnect** on the customer in the panel. The connection drops and comes back within
    seconds.
 4. **Notice page:** set the test customer to **Inactive**. After they reconnect, an `http://` website shows your
@@ -393,12 +404,13 @@ log.
 
 | What you see | Why | What to do |
 |---|---|---|
-| The internet stops for everyone when the first customer connects | The PPPoE profile's local address is your upstream gateway's address | Give the NAS its own address on `lo` (section 3) |
-| Logins fail with "could not determine remote IP address" | The PPPoE profile has no local address | Section 3 |
+| The internet stops for everyone when the first customer connects | The PPPoE profile's local address is your upstream gateway's address | Give the NAS its own address on `lo` (section 2) |
+| Logins fail with "could not determine remote IP address" | The PPPoE profile has no local address | Section 2 |
 | Customers connect but nothing opens | No NAT rule for their network, or a typo in its address | Section 4 |
-| Customers can ping `8.8.8.8` but websites do not open | No DNS servers in the PPPoE profile | Section 3 |
-| A customer gets "address pool not found" | A pool in the panel, or the disabled pool, is missing on the NAS | Create it with the same name (sections 1 and 3) |
+| Customers can ping `8.8.8.8` but websites do not open | No DNS servers in the PPPoE profile | Section 2 |
+| A customer gets "address pool not found" | A pool in the panel, or the disabled pool, is missing on the NAS | Create it with the same name (section 2) |
 | Expired customers get nothing, not even the notice page | No notice page rule, or for IPoE no route for the disabled pool | Sections 5 and 6 |
+| A login is refused with a wrong secret, or the NAS gets no answer | The secret on the NAS differs from the panel | Copy it again from **Network, NAS** (eye icon) into `/radius` on the NAS (section 1) |
 | An IPoE device sees a Hotspot login page | Its IP is not the one the panel gave the customer | Fix the IP; set up the message page (section 6) |
-| **Disconnect** in the panel does nothing | `/radius incoming` is off, or the firewall drops it | Sections 2 and 8 |
+| **Disconnect** in the panel does nothing | `/radius incoming` is off, or the firewall drops it | Sections 1 and 8 |
 | A Hotspot customer cannot log in on a second device | The Hotspot user profile allows one device | Section 7, step 3 |
