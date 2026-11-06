@@ -239,3 +239,17 @@ it('takes no new payment once invoicing is off, but still lets staff correct mis
 
     expect($paid->fresh()->status)->toBe(InvoiceStatus::Unpaid);
 });
+
+it('refuses a gateway payment method sent by a crafted request', function () {
+    $online = PaymentMethod::query()->create(['name' => 'Online (Paytm)', 'active' => true, 'position' => 99, 'gateway' => 'paytm']);
+    $invoice = issueFor($this->account, '500');
+
+    billingTab($this->account)
+        ->call('openRecordPayment', $invoice->id)
+        ->set('payment_method_id', (string) $online->id)
+        ->call('recordPayment')
+        ->assertHasErrors('payment_method_id');
+
+    expect($invoice->fresh()->status)->toBe(InvoiceStatus::Unpaid)
+        ->and(Payment::query()->count())->toBe(0);
+});

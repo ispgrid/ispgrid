@@ -27,7 +27,9 @@ final class RecordPayment
                 throw new PaymentExceedsBalance("A payment must be more than nothing and at most {$invoice->balance}.");
             }
 
-            $method = PaymentMethod::query()->where('active', true)->findOrFail($input->methodId);
+            $method = PaymentMethod::query()->where('active', true)
+                ->when(! $input->online, fn ($query) => $query->whereNull('gateway'))
+                ->findOrFail($input->methodId);
 
             $payment = $invoice->payments()->create([
                 'account_id' => $invoice->account_id,

@@ -60,7 +60,8 @@ trait TakesPayment
         }
 
         return [
-            'payment_method_id' => ['required', Rule::exists('payment_methods', 'id')->where('active', true)],
+            // A gateway's own method is never offered to staff, so a request naming one is crafted.
+            'payment_method_id' => ['required', Rule::exists('payment_methods', 'id')->where('active', true)->whereNull('gateway')],
             'payment_amount' => ['nullable', 'regex:'.Currency::amountPattern(), function (string $attribute, mixed $value, Closure $fail) use ($total): void {
                 if (is_string($value) && preg_match(Currency::amountPattern(), $value) === 1
                     && (Decimal::compare($value, '0') <= 0 || Decimal::compare($value, $total) > 0)) {

@@ -54,7 +54,7 @@ it('never offers the gateway method to staff', function () {
     $online = app(PaymentGateways::class)->method('fake');
     $account = Account::factory()->create();
     $invoice = app(IssueInvoice::class)->handle($account, billingLines('500'), false, InvoiceKind::Manual, now());
-    $payment = app(RecordPayment::class)->handle($invoice->id, new PaymentInput($online->id, '100', 'TXN1', now(), null));
+    $payment = app(RecordPayment::class)->handle($invoice->id, new PaymentInput($online->id, '100', 'TXN1', now(), null, online: true));
     $cash = PaymentMethod::query()->where('name', 'Cash')->sole();
     $staffPayment = app(RecordPayment::class)->handle($invoice->id, new PaymentInput($cash->id, '100', null, now(), null));
 

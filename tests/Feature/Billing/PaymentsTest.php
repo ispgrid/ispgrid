@@ -116,3 +116,9 @@ it('refuses a payment method that was turned off', function () {
 
     pay(unpaidInvoice(), '100.00', 'Cheque');
 })->throws(ModelNotFoundException::class);
+
+it('refuses a gateway payment method for a payment staff record', function () {
+    $online = PaymentMethod::query()->create(['name' => 'Online (Paytm)', 'active' => true, 'position' => 99, 'gateway' => 'paytm']);
+
+    app(RecordPayment::class)->handle(unpaidInvoice()->id, new PaymentInput($online->id, '100.00', 'REF1', now(), null));
+})->throws(ModelNotFoundException::class);
