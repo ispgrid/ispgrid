@@ -317,6 +317,10 @@
         </x-ui.card>
     @endif
 
+    @if ($this->activeTab === 'sessions')
+        <livewire:pages::customers.sessions-tab :account-id="$this->account->id" :key="'sessions-tab-'.$this->account->id" />
+    @endif
+
     @if ($this->activeTab === 'billing')
         <livewire:pages::customers.billing-tab :account-id="$this->account->id" :key="'billing-tab-'.$this->account->id" />
     @endif

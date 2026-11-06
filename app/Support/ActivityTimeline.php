@@ -138,7 +138,7 @@ final class ActivityTimeline
             'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'billing-changed', 'payment-edited' => 'adjustments-horizontal',
             'password-changed', 'unlocked' => 'key',
             'online-payment', 'online-payment-handled' => 'qr-code',
-            'disconnected' => 'x-circle',
+            'disconnected', 'session-disconnected' => 'x-circle',
             default => 'list-bullet',
         };
     }

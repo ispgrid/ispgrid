@@ -8,6 +8,7 @@ use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
 use App\Billing\RechargePrice;
 use App\Enums\AccountStatus;
+use App\Enums\DisconnectReason;
 use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
@@ -190,6 +191,7 @@ new #[Title('Customer')] class extends Component
         $core = [
             'details' => __('Details'),
             'connection' => __('Connection'),
+            'sessions' => __('Sessions'),
             'recharges' => __('Recharges'),
             'billing' => $this->showsBilling() ? __('Billing') : null,
             'messages' => Gate::allows('view-notification-log') ? __('Messages') : null,
@@ -813,7 +815,7 @@ new #[Title('Customer')] class extends Component
         unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity);
         $this->dispatch('modal-close', name: 'change-status');
         $this->dispatch('account-changed')->to('pages::customers.plan-card');
-        $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username)
+        $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::StatusChanged)
             ? __('Status changed. The customer is disconnected so it applies now.')
             : __('Status changed.'));
     }
@@ -979,7 +981,7 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username);
+        $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::Recharged);
         unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity, $this->recharges);
         $this->status = (string) $this->account->status_id->value;
         $this->dispatch('modal-close', name: 'recharge');
@@ -1055,7 +1057,7 @@ new #[Title('Customer')] class extends Component
 
         unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity);
         // radacct is kept on delete, so the job still finds the open sessions after the commit.
-        $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username)
+        $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::Deleted)
             ? __('Customer deleted. Their open session is disconnected.')
             : __('Customer deleted. They can no longer log in.'));
     }

@@ -9,6 +9,7 @@ use App\Billing\ChargeOptions;
 use App\Billing\RechargePrice;
 use App\Enums\AccountStatus;
 use App\Enums\AdvanceRenewalStatus;
+use App\Enums\DisconnectReason;
 use App\Enums\RechargeKind;
 use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Jobs\DisconnectAccount;
@@ -184,7 +185,7 @@ class RunRenewals extends Command
                 foreach ($accounts as $account) {
                     $this->safely(function () use ($overrideSpeed, $account): void {
                         $overrideSpeed->handle($account->id, null, null, null, null, 'own-speed-ended');
-                        DisconnectAccount::dispatchIfOnline($account->username);
+                        DisconnectAccount::dispatchIfOnline($account->username, DisconnectReason::OverrideEnded);
                     });
                 }
             });

@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\DisconnectReason;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\Nas;
 use App\Models\Radacct;
+use App\Models\User;
 use App\Support\ActivityFormatter;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Process;
@@ -155,4 +157,45 @@ it('tries again without User-Name when the router does not know the session by n
 
     Process::assertRanTimes(fn (PendingProcess $process): bool => true, 2);
     Process::assertRan(fn (PendingProcess $process): bool => $process->input === 'Acct-Session-Id=81a00003,Framed-IP-Address=172.16.30.20');
+});
+
+it('logs why and who for each session the router confirmed ending, when the disconnect has a reason', function () {
+    routerAnswers('Received Disconnect-ACK Id 7');
+    $staff = User::factory()->create(['name' => 'Asha']);
+    $this->actingAs($staff);
+    $account = Account::factory()->create(['username' => 'alice']);
+    $session = Radacct::factory()->create(['username' => 'alice', 'nasipaddress' => '10.0.0.1']);
+
+    $job = new DisconnectAccount('alice', null, DisconnectReason::PlanChanged);
+    auth()->logout();
+    $job->handle();
+
+    $log = Activity::query()->where('event', 'session-disconnected')->sole();
+    expect($log->subject_id)->toBe($account->id)
+        ->and($log->causer_id)->toBe($staff->id)
+        ->and($log->attribute_changes['attributes'])->toBe(['reason' => 'plan-changed', 'session' => $session->radacctid]);
+});
+
+it('logs no end for a NAK or for a disconnect without a reason', function (string $answer, ?DisconnectReason $reason) {
+    routerAnswers($answer);
+    Account::factory()->create(['username' => 'alice']);
+    Radacct::factory()->create(['username' => 'alice', 'nasipaddress' => '10.0.0.1']);
+
+    (new DisconnectAccount('alice', null, $reason))->handle();
+
+    expect(Activity::query()->where('event', 'session-disconnected')->exists())->toBeFalse();
+})->with([
+    'NAK' => ['Received Disconnect-NAK Id 7', DisconnectReason::PlanChanged],
+    'no reason' => ['Received Disconnect-ACK Id 7', null],
+]);
+
+it('passes the reason on when it splits the sessions into jobs', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    Radacct::factory()->count(2)->create(['username' => 'alice']);
+
+    (new DisconnectAccount('alice', null, DisconnectReason::StatusChanged))->handle();
+
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->sessionId !== null
+        && $job->reason === DisconnectReason::StatusChanged && $job->causerId === auth()->id());
 });

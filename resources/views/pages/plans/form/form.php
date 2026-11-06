@@ -6,6 +6,7 @@ use App\Billing\Decimal;
 use App\Billing\InvoiceCalculator;
 use App\Billing\LineInput;
 use App\Billing\Tax\TaxContext;
+use App\Enums\DisconnectReason;
 use App\Enums\ServiceType;
 use App\Enums\SlotMode;
 use App\Enums\ValidityUnit;
@@ -509,7 +510,7 @@ new #[Title('Plan')] class extends Component
             ->pluck('username');
 
         foreach ($usernames as $username) {
-            DisconnectAccount::dispatch($username);
+            DisconnectAccount::dispatch($username, null, DisconnectReason::PlanEdited);
         }
 
         return $usernames->count();

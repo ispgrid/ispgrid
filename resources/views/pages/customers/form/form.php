@@ -9,6 +9,7 @@ use App\Billing\India\GstStates;
 use App\Billing\LatinText;
 use App\Contracts\CustomerFormTab;
 use App\Enums\AccountStatus;
+use App\Enums\DisconnectReason;
 use App\Enums\IpRangeKind;
 use App\Enums\Permission;
 use App\Enums\ServiceType;
@@ -803,7 +804,7 @@ new #[Title('Customer')] class extends Component
             throw ValidationException::withMessages($this->takenErrors());
         }
 
-        $disconnected = $saved['radius_changed'] && DisconnectAccount::dispatchIfOnline($saved['username']);
+        $disconnected = $saved['radius_changed'] && DisconnectAccount::dispatchIfOnline($saved['username'], DisconnectReason::CustomerEdited);
         $saidSaved = $disconnected
             ? __('Customer saved. They are disconnected so the change applies now.')
             : __('Customer saved.');
