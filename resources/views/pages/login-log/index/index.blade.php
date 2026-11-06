@@ -12,6 +12,11 @@
         <x-ui.input wire:model.live.debounce.300ms="ip" type="search" :label="__('IP')" :placeholder="__('Exact IP address')" autocomplete="off" />
     </div>
 
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <x-ui.text muted>{{ $this->summary }}</x-ui.text>
+        <x-ui.checkbox wire:model.live="grouped" :label="__('Group repeated attempts')" />
+    </div>
+
     <x-ui.table>
         <x-slot:head>
             <x-ui.th>{{ __('When') }}</x-ui.th>
@@ -25,7 +30,12 @@
 
         @forelse ($this->rows as $row)
             <tr wire:key="login-{{ $row['id'] }}">
-                <x-ui.td class="tabular-nums whitespace-nowrap">{{ $row['when'] }}</x-ui.td>
+                <x-ui.td class="tabular-nums whitespace-nowrap">
+                    {{ $row['when'] }}
+                    @if ($row['since'])
+                        <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ __(':count times since :when', ['count' => number_format($row['repeats']), 'when' => $row['since']]) }}</span>
+                    @endif
+                </x-ui.td>
                 <x-ui.td>
                     @if ($row['account'])
                         <x-ui.link href="{{ route('customers.show', $row['account']) }}" wire:navigate class="font-medium">{{ $row['username'] }}</x-ui.link>

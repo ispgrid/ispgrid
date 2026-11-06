@@ -258,7 +258,7 @@
     "Exactly as used in the NAS firewall rules.": "ठीक वैसा ही जैसा NAS के फ़ायरवॉल नियमों में है।",
     "Excel turned letters it could not save into ?. Type this in English letters.": "Excel जिन अक्षरों को सेव नहीं कर सका, उन्हें ? बना दिया। इसे अंग्रेज़ी अक्षरों में लिखें।",
     "Use English letters, digits and symbols only.": "सिर्फ़ अंग्रेज़ी अक्षर (A-Z), अंक और चिह्न इस्तेमाल करें।",
-    "Excel turned this into a number. Format the column as Text in Excel and type it again.":"Excel ने इसे संख्या बना दिया। Excel में कॉलम को Text फ़ॉर्मैट करें और फिर से टाइप करें।",
+    "Excel turned this into a number. Format the column as Text in Excel and type it again.": "Excel ने इसे संख्या बना दिया। Excel में कॉलम को Text फ़ॉर्मैट करें और फिर से टाइप करें।",
     "Expired": "एक्सपायर",
     "Expired and disabled customers": "एक्सपायर और बंद ग्राहक",
     "Expiring within 7 days": "7 दिन में एक्सपायर होने वाले",
@@ -639,7 +639,7 @@
     "This range was deleted. Choose another one.": "यह रेंज हटा दी गई है। कोई दूसरी चुनें।",
     "This row has :cells cells but the header has :columns. Check for a stray comma.": "इस पंक्ति में :cells सेल हैं पर हेडर में :columns हैं। कहीं फालतू कॉमा तो नहीं, जाँचें।",
     "Your role may import, but not add plans or customers, so there is nothing to import.": "आपका रोल इम्पोर्ट कर सकता है, पर प्लान या ग्राहक नहीं जोड़ सकता, इसलिए इम्पोर्ट करने को कुछ नहीं है।",
-    "This row has :cells cells but the header has :columns. Check for a missing comma.":"इस पंक्ति में :cells सेल हैं पर हेडर में :columns हैं। कहीं कॉमा छूट तो नहीं गया, जाँचें।",
+    "This row has :cells cells but the header has :columns. Check for a missing comma.": "इस पंक्ति में :cells सेल हैं पर हेडर में :columns हैं। कहीं कॉमा छूट तो नहीं गया, जाँचें।",
     "This session has already ended.": "यह सेशन पहले ही खत्म हो चुका है।",
     "Threshold download": "थ्रेशोल्ड डाउनलोड",
     "Threshold upload": "थ्रेशोल्ड अपलोड",
@@ -1434,7 +1434,7 @@
     "The customer logs in at :url with their username and this password.": "ग्राहक :url पर अपने यूज़रनेम और इस पासवर्ड से लॉग इन करता है।",
     "Set selfcare password": "सेल्फकेयर पासवर्ड सेट करें",
     "This sets a new password and sends it to the customer. The old one stops working.": "इससे नया पासवर्ड सेट होकर ग्राहक को भेजा जाएगा। पुराना पासवर्ड काम करना बंद कर देगा।",
-    "Send by SMS\/WhatsApp": "SMS\/WhatsApp से भेजें",
+    "Send by SMS/WhatsApp": "SMS/WhatsApp से भेजें",
     "No selfcare password yet.": "अभी कोई सेल्फकेयर पासवर्ड नहीं है।",
     "Set on :date": ":date को सेट किया गया",
     "the customer has not chosen their own yet": "ग्राहक ने अभी अपना पासवर्ड नहीं चुना है",
@@ -1493,5 +1493,9 @@
     "A customer who changes it is disconnected and must put the new password in their router.": "इसे बदलने वाले ग्राहक का कनेक्शन कट जाता है और उसे अपने राउटर में नया पासवर्ड डालना होगा।",
     "Selfcare is not available.": "सेल्फकेयर उपलब्ध नहीं है।",
     "Call us for help with your connection.": "अपने कनेक्शन में मदद के लिए हमें कॉल करें।",
-    "Add the selfcare password to the values, or the customer cannot log in.": "वैल्यू में सेल्फकेयर पासवर्ड जोड़ें, नहीं तो ग्राहक लॉग इन नहीं कर पाएगा।"
+    "Add the selfcare password to the values, or the customer cannot log in.": "वैल्यू में सेल्फकेयर पासवर्ड जोड़ें, नहीं तो ग्राहक लॉग इन नहीं कर पाएगा।",
+    "More than :count attempts": ":count से ज़्यादा प्रयास",
+    ":count attempt|:count attempts": ":count प्रयास|:count प्रयास",
+    "Group repeated attempts": "दोहराए गए प्रयास एक साथ दिखाएँ",
+    ":count times since :when": ":when से :count बार"
 }
