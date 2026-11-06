@@ -15,13 +15,26 @@ beforeEach(function () {
     $this->payment = OnlinePayment::factory()->create(['public_id' => '01JQUICKPAYTESTORDER000001', 'amount' => '708.5', 'currency' => 'INR']);
 });
 
+/**
+ * A reply as Paytm sends it: the body signed with the merchant key in head.signature.
+ *
+ * @param  array<string, mixed>  $body
+ */
+function paytmReply(array $body, ?string $key = PAYTM_KEY): string
+{
+    $json = (string) json_encode($body, JSON_UNESCAPED_SLASHES);
+    $head = $key === null ? '{}' : '{"signature":"'.PaytmChecksum::sign($json, $key).'"}';
+
+    return '{"head":'.$head.',"body":'.$json.'}';
+}
+
 function paytm(array $settings = []): PaytmGateway
 {
     return new PaytmGateway([...['environment' => 'test', 'mid' => 'TESTMID', 'merchant_key' => PAYTM_KEY, 'website_name' => '', 'host' => ''], ...$settings]);
 }
 
 it('starts a transaction on the test host with a signed body and posts the customer to the payment page', function () {
-    Http::fake(['*' => Http::response(['head' => [], 'body' => ['resultInfo' => ['resultStatus' => 'S', 'resultCode' => '0000'], 'txnToken' => 'TOKEN123']])]);
+    Http::fake(['*' => Http::response(paytmReply(['resultInfo' => ['resultStatus' => 'S', 'resultCode' => '0000'], 'txnToken' => 'TOKEN123']))]);
 
     $start = paytm()->start($this->payment, 'https://isp.example/pay/return/paytm');
 
@@ -44,7 +57,7 @@ it('starts a transaction on the test host with a signed body and posts the custo
 });
 
 it('uses the live host and website by default, or the host set in the settings', function () {
-    Http::fake(['*' => Http::response(['body' => ['resultInfo' => ['resultStatus' => 'S'], 'txnToken' => 'T']])]);
+    Http::fake(['*' => Http::response(paytmReply(['resultInfo' => ['resultStatus' => 'S'], 'txnToken' => 'T']))]);
 
     paytm(['environment' => 'live'])->start($this->payment, 'https://isp.example/r');
     paytm(['host' => 'https://pg.example.net/'])->start($this->payment, 'https://isp.example/r');
@@ -56,17 +69,17 @@ it('uses the live host and website by default, or the host set in the settings',
 });
 
 it('reports a refused start without the merchant key', function () {
-    Http::fake(['*' => Http::response(['body' => ['resultInfo' => ['resultStatus' => 'F', 'resultCode' => '501', 'resultMsg' => 'System Error']]])]);
+    Http::fake(['*' => Http::response(paytmReply(['resultInfo' => ['resultStatus' => 'F', 'resultCode' => '501', 'resultMsg' => 'System Error']]))]);
 
     expect(fn () => paytm()->start($this->payment, 'https://isp.example/r'))
         ->toThrow(GatewayUnavailable::class, 'Paytm refused the transaction: 501 System Error');
 });
 
 it('reads the order status', function (string $status, GatewayStatus $expected) {
-    Http::fake(['*/v3/order/status' => Http::response(['head' => ['signature' => 'x'], 'body' => [
+    Http::fake(['*/v3/order/status' => Http::response(paytmReply([
         'resultInfo' => ['resultStatus' => $status, 'resultCode' => '01', 'resultMsg' => 'Txn Success'],
         'txnId' => '2026102111212800110168', 'orderId' => '01JQUICKPAYTESTORDER000001', 'txnAmount' => '708.50', 'txnDate' => '2026-10-21 11:05:00.0', 'paymentMode' => 'UPI',
-    ]])]);
+    ]))]);
 
     $result = paytm()->status($this->payment);
 
@@ -89,6 +102,20 @@ it('reads the order status', function (string $status, GatewayStatus $expected) 
     ['PENDING', GatewayStatus::Pending],
     ['NO_RECORD_FOUND', GatewayStatus::Pending],
 ]);
+
+it('never takes a status reply without a valid signature as paid', function (?string $key) {
+    Http::fake(['*/v3/order/status' => Http::response(paytmReply([
+        'resultInfo' => ['resultStatus' => 'TXN_SUCCESS'], 'txnId' => 'T1', 'orderId' => '01JQUICKPAYTESTORDER000001', 'txnAmount' => '708.50',
+    ], $key))]);
+
+    expect(paytm()->status($this->payment)->status)->toBe(GatewayStatus::Pending);
+})->with(['unsigned' => [null], 'signed with another key' => ['wrong-key-0000000']]);
+
+it('refuses a start reply without a valid signature', function () {
+    Http::fake(['*' => Http::response(paytmReply(['resultInfo' => ['resultStatus' => 'S'], 'txnToken' => 'T'], null))]);
+
+    expect(fn () => paytm()->start($this->payment, 'https://isp.example/r'))->toThrow(GatewayUnavailable::class);
+});
 
 it('treats an unreachable gateway as pending', function () {
     Http::fake(['*' => Http::response('down', 503)]);

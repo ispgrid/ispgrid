@@ -55,6 +55,14 @@ it('checks the Paytm fields and the currency', function () {
         ->assertHasErrors('enabled.paytm');
 });
 
+it('takes only an https Paytm address', function () {
+    Livewire::test('pages::system.online-payments')
+        ->set('settings.paytm.environment', 'test')->set('settings.paytm.mid', 'M')->set('settings.paytm.merchant_key', 'K')
+        ->set('settings.paytm.host', 'http://securestage.paytmpayments.com')
+        ->call('save', 'paytm')
+        ->assertHasErrors('settings.paytm.host');
+});
+
 it('opens the pay page only with invoicing and a gateway on', function () {
     Livewire::test('pages::system.online-payments')
         ->set('quick_pay', true)
