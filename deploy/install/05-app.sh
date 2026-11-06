@@ -181,6 +181,10 @@ if (( ${#addons[@]} > 0 )); then
     COMPOSER_ALLOW_SUPERUSER=1 composer require "$name:$constraint" --no-update --no-interaction
     addon_names+=("$name")
   done
+  declare -A addon_before=()
+  for name in "${addon_names[@]}"; do
+    addon_before[$name]=$([[ -f vendor/composer/installed.json ]] && addon_version vendor/composer/installed.json "$name" || true)
+  done
   COMPOSER_ALLOW_SUPERUSER=1 composer update "${addon_names[@]}" --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
   #  Before any add-on code can run (package:discover): Composer installed exactly the reviewed commit
   for line in ${reviewed[@]+"${reviewed[@]}"}; do
@@ -216,14 +220,12 @@ if (( ${#addons[@]} > 0 )); then
   done
   for name in "${addon_names[@]}"; do
     version=$(addon_version vendor/composer/installed.json "$name")
-    if [[ " ${OPT_ADDONS[*]%%@*} " == *" $name "* ]]; then
-      note "Add-on $name $version installed"
-    else
-      note "Add-on $name $version kept"
-    fi
+    change=$(addon_change "${addon_before[$name]:-}" "$version")
+    note "Add-on $name $version: $change"
     if [[ " ${reviewed[*]+${reviewed[*]}} " != *" $name "* ]]; then
       version+=" (not reviewed)"
     fi
+    [[ "$change" == unchanged ]] || version+=" ($change)"
     ADDONS_INSTALLED+="${ADDONS_INSTALLED:+, }$name $version"
   done
 fi

@@ -11,6 +11,8 @@
 ISPGRID_REPO_DEFAULT="https://github.com/ispgrid/ispgrid.git"
 ISPGRID_HOME="/opt/ispgrid"
 ISPGRID_CONF="/etc/ispgrid/install.conf"
+#  While it exists nginx shows the static maintenance page (deploy/nginx/ispgrid.conf names the same path).
+ISPGRID_MAINTENANCE_FLAG=${ISPGRID_MAINTENANCE_FLAG:-/etc/ispgrid/maintenance}
 ISPGRID_LOG="/var/log/ispgrid-install.log"
 ISPGRID_BACKUPS="/var/backups/ispgrid"
 ISPGRID_REGISTRY_DEFAULT="https://github.com/ispgrid/addons.git"
@@ -437,6 +439,31 @@ addon_version() {
   php -r '$i = json_decode(file_get_contents($argv[1]), true);
     foreach ($i["packages"] ?? [] as $p) { if ($p["name"] === $argv[2]) { echo $p["version"], "\n"; } }' "$1" "$2"
 }
+#  addon_change <version before, empty if none> <version now>: what happened to an
+#  add-on in this run, for its line and the summary box
+addon_change() {
+  if [[ -z "$1" ]]; then
+    echo "installed"
+  elif [[ "$1" != "$2" ]]; then
+    echo "updated from $1 to $2"
+  else
+    echo "unchanged"
+  fi
+}
+
+#  run_title <target> <installed version or empty> <add-ons only: yes|no>: the first line of a run
+run_title() {
+  if [[ "$3" == yes && -n "$2" ]]; then
+    echo "Changing add-ons (ISPGrid $2 stays as it is)"
+  elif [[ -z "$2" ]]; then
+    echo "Installing ISPGrid $1"
+  elif [[ "$1" == "$2" ]]; then
+    echo "Reinstalling ISPGrid $1"
+  else
+    echo "Upgrading ISPGrid from $2 to $1"
+  fi
+}
+
 #  Add-on data: an add-on lists the databases it creates in extra.ispgrid.databases, and its migrations live in
 #  database/migrations. At install the installer saves both in the data file (/etc/ispgrid/addon-data.json), which
 #  outlives the add-on: after a removal its code is gone, and --delete-data still knows what to delete.
@@ -1309,9 +1336,10 @@ bootstrap() {
   if [[ -f "$ISPGRID_HOME/deploy/install/addons.php" ]] && command -v php >/dev/null; then
     addons_ready_for "$target"
   fi
-  say "Installing ISPGrid $target${installed:+ (installed: $installed)}"
+  title=$(run_title "$target" "$installed" "$([[ -n "${OPT_ADDONS_ONLY:-}" ]] && echo yes || echo no)")
+  say "$title"
   clear_line
-  printf '  %s\n' "$(paint 2 "Installing ISPGrid $target${installed:+ (installed: $installed)}")" >&3
+  printf '  %s\n' "$(paint 2 "$title")" >&3
 
   if [[ -n "$installed" && -x /usr/local/sbin/ispgrid-backup ]]; then
     CURRENT_STEP="Backup before upgrade"
@@ -1319,6 +1347,10 @@ bootstrap() {
     say "Backup: $ISPGRID_RUN_BACKUP"
   fi
   if [[ -f "$ISPGRID_HOME/artisan" && -f "$ISPGRID_HOME/.env" ]] && id ispgrid >/dev/null 2>&1; then
+    #  nginx answers with deploy/nginx/maintenance.html while this file exists: PHP may not start while Composer
+    #  changes vendor/, and a bare HTTP 500 makes operators panic. Step 8 removes it with artisan up.
+    install -d -m 755 "$(dirname "$ISPGRID_MAINTENANCE_FLAG")"
+    touch "$ISPGRID_MAINTENANCE_FLAG"
     artisan down --retry=30 || true
   fi
 
