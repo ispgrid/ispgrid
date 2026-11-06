@@ -27,6 +27,7 @@ class ProfileUpdateTest extends TestCase
         $response = Livewire::test('pages::settings.profile')
             ->set('name', 'Test User')
             ->set('email', 'test@example.com')
+            ->set('current_password', 'password')
             ->call('updateProfileInformation')
             ->assertDispatched('toast', message: 'Profile updated.');
 
