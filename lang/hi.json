@@ -1539,5 +1539,13 @@
     "a change": "कोई बदलाव",
     "Disconnected by ISPGrid: :why": "ISPGrid ने डिस्कनेक्ट किया: :why",
     "Disconnected by ISPGrid: :why (:who)": "ISPGrid ने डिस्कनेक्ट किया: :why (:who)",
-    "Disconnected by ISPGrid": "ISPGrid ने डिस्कनेक्ट किया"
+    "Disconnected by ISPGrid": "ISPGrid ने डिस्कनेक्ट किया",
+    "Expiry reminder, 3 days before": "एक्सपायरी याद दिलाना, 3 दिन पहले",
+    "Expiry reminder": "एक्सपायरी याद दिलाना",
+    "Plan expired, on the day": "प्लान एक्सपायर, उसी दिन",
+    "Welcome, when a customer is added": "स्वागत, जब ग्राहक जोड़ा जाए",
+    "Welcome": "स्वागत",
+    "Start from a common rule": "किसी आम नियम से शुरू करें",
+    "Blank rule": "खाली नियम",
+    "Fills in when to send, the values and a suggested text. You still choose the template your provider approved.": "कब भेजना है, वैल्यू और एक सुझाया गया टेक्स्ट भर देता है। आपके प्रोवाइडर का मंज़ूर किया गया टेम्पलेट आपको ही चुनना है।"
 }

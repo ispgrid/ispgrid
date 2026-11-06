@@ -13,6 +13,9 @@
             <div class="grid content-start gap-6">
                 <x-ui.card class="grid content-start gap-5">
                     <x-ui.heading>{{ __('When') }}</x-ui.heading>
+                    @if ($ruleId === null)
+                        <x-ui.select wire:model.live="preset" :label="__('Start from a common rule')" :options="$this->presetOptions" :placeholder="__('Blank rule')" :description="__('Fills in when to send, the values and a suggested text. You still choose the template your provider approved.')" />
+                    @endif
                     <x-ui.input wire:model="name" :label="__('Name')" maxlength="100" required />
                     <x-ui.select wire:model.live="trigger" :label="__('Send on')" :options="$this->triggerOptions" />
                     @foreach ($this->triggerFields as $field)
