@@ -54,7 +54,7 @@ it('a paid recharge makes a paid invoice', function () {
         ->amount->toBe('590.00')
         ->and($invoice->lines()->sole())
         ->description->toBe('Home 30')
-        ->sub_description->toBe('Charges for period 21 Oct 2026 to 20 Nov 2026 · 30 Mbps down / 6 Mbps up')
+        ->sub_description->toBe('Charges for period 21 Oct 2026 to 20 Nov 2026')
         ->item_code->toBe('998422');
 });
 
@@ -192,7 +192,7 @@ it('describes a first-login validity instead of a bill period', function () {
     $invoice = Invoice::query()->sole();
     expect($invoice->period_from)->toBeNull()
         ->and($invoice->validity_text)->toBe('Validity: 3 hours from the first login')
-        ->and($invoice->lines()->sole()->sub_description)->toBe('Validity: 3 hours from the first login · 2 Mbps down / 2 Mbps up');
+        ->and($invoice->lines()->sole()->sub_description)->toBe('Validity: 3 hours from the first login');
 });
 
 it('two recharges in one second get consecutive numbers', function () {

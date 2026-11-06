@@ -10,8 +10,8 @@ use Carbon\CarbonInterface;
 
 /**
  * The one line of a recharge invoice: the plan name, then the bill period (or the validity waiting for the first
- * login) and the plan speed, at the plan price (or the adjusted one) less the customer's discount. The text is
- * English, as the invoice prints it.
+ * login), at the plan price (or the adjusted one) less the customer's discount. No speed: the plan name usually says
+ * it, and the real speed can differ. The text is English, as the invoice prints it.
  */
 final class RechargeInvoice
 {
@@ -34,7 +34,7 @@ final class RechargeInvoice
 
         return [new LineInput(
             description: $plan->name,
-            subDescription: implode(' · ', array_filter([$when, self::speedText($plan)])) ?: null,
+            subDescription: $when,
             itemCode: $itemCode,
             quantity: '1',
             unitPrice: $adjustedPrice ?? (string) $plan->price,
@@ -55,19 +55,5 @@ final class RechargeInvoice
             : $hours.($hours === 1 ? ' hour' : ' hours');
 
         return "Validity: {$text} from the first login";
-    }
-
-    /**
-     * "30 Mbps down / 6 Mbps up" from the plan's MikroTik speeds (25M, 512k).
-     */
-    private static function speedText(Plan $plan): ?string
-    {
-        $speed = fn (?string $value): string => preg_replace(['/^(\d+)M$/', '/^(\d+)k$/'], ['$1 Mbps', '$1 kbps'], (string) $value) ?? (string) $value;
-
-        if (trim((string) $plan->download) === '' || trim((string) $plan->upload) === '') {
-            return null;
-        }
-
-        return $speed($plan->download).' down / '.$speed($plan->upload).' up';
     }
 }

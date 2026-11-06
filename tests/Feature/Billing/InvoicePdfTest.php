@@ -127,3 +127,22 @@ it('leaves out an empty connectivity address and shows the status', function () 
         ->assertSee(__('Unpaid'));
     expect(view('pdf.invoice', ['invoice' => InvoiceView::for($invoice)])->render())->not->toContain('Connectivity address');
 });
+
+it('shows the unit price before tax when prices include tax', function (string $quantity, string $discount, string $rate, ?string $discountText, string $amount) {
+    AppSetting::put('billing.prices_include_tax', '1');
+    $invoice = app(IssueInvoice::class)->handle($this->account, billingLines('2499', $quantity, $discount), false, InvoiceKind::Manual, now());
+
+    $line = InvoiceView::for($invoice->fresh())['lines'][0];
+
+    expect([$line['rate'], $line['discount'], $line['amount']])->toBe([$rate, $discountText, $amount]);
+})->with([
+    'one, no discount' => ['1', '0', '₹2,117.80', null, '₹2,117.80'],
+    'one, 10% off' => ['1', '10', '₹2,117.80', '₹211.78 (10%)', '₹1,906.02'],
+    'two, no discount' => ['2', '0', '₹2,117.80', null, '₹4,235.59'],
+]);
+
+it('keeps the unit price as entered when prices do not include tax', function () {
+    $line = InvoiceView::for(invoiceFor($this->account, '2499')->fresh())['lines'][0];
+
+    expect([$line['rate'], $line['amount']])->toBe(['₹2,499.00', '₹2,499.00']);
+});
