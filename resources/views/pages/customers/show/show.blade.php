@@ -23,6 +23,9 @@
                 @can('changeStatus', $this->account)
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
                 @endcan
+                @can('update', $this->account)
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'rename' })">{{ __('Change username') }}</x-ui.button>
+                @endcan
                 @if ($this->sessions !== [])
                     @can('disconnect-sessions')
                         <x-ui.button variant="secondary" icon="x-circle" wire:click="disconnect" wire:confirm="{{ __('Disconnect every session of :name?', ['name' => $this->account->username]) }}">{{ __('Disconnect') }}</x-ui.button>
@@ -434,6 +437,21 @@
     @if ($this->addonTab)
         <livewire:dynamic-component :is="$this->addonTab" :account-id="$this->account->id" :key="'addon-tab-'.$this->activeTab" />
     @endif
+
+    @can('update', $this->account)
+        <x-ui.modal name="rename" width="sm">
+            <form wire:submit="rename" class="grid gap-5">
+                <x-ui.heading size="lg">{{ __('Change username') }}</x-ui.heading>
+                <x-ui.text>{{ __('Now: :username', ['username' => $this->account->username]) }}</x-ui.text>
+                <x-ui.input wire:model="new_username" english :label="__('New username')" maxlength="64" required autocomplete="off" />
+                <x-ui.alert variant="warning">{{ __('An online customer is disconnected, and their router must log in with the new username: change it in their router too. Sessions and the login log keep the old username.') }}</x-ui.alert>
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'rename' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Change username') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.modal>
+    @endcan
 
     @can('changeStatus', $this->account)
         <x-ui.modal name="change-status" width="sm">

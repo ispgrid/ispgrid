@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Customers\RechargeAccount;
+use App\Actions\Customers\RenameAccount;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
@@ -38,6 +39,7 @@ use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerTabs;
 use App\Support\Currency;
 use App\Support\CustomerDefaults;
+use App\Support\CustomerRules;
 use App\Support\ExpiryCalculator;
 use App\Support\Hotspot;
 use App\Support\Ipv4Cidr;
@@ -51,10 +53,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -85,6 +89,8 @@ new #[Title('Customer')] class extends Component
      * Why the status changes (required, recorded in the activity log).
      */
     public string $remark = '';
+
+    public string $new_username = '';
 
     /**
      * The Recharge dialog: plan, expiry (datetime-local, Y-m-d\TH:i), amount and note.
@@ -782,6 +788,37 @@ new #[Title('Customer')] class extends Component
         activity()->performedOn($account)->event('unlocked')->log('unlocked');
 
         $this->toast(__('Unlocked. The customer can log in again.'));
+    }
+
+    /**
+     * Gives the customer a new username (RenameAccount), checked like a new customer's: free among customers, deleted
+     * ones too.
+     */
+    public function rename(RenameAccount $rename): void
+    {
+        $this->authorize('update', $this->account);
+        $this->new_username = trim($this->new_username);
+        $this->validate(['new_username' => CustomerRules::username()], [
+            'new_username.regex' => __('Use letters, digits, ., -, _ and @ only.'),
+        ], ['new_username' => __('New username')]);
+
+        try {
+            $disconnected = $rename->handle($this->account, $this->new_username);
+        } catch (ModelNotFoundException) {
+            $this->toastDeletedMeanwhile();
+
+            return;
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['new_username' => __('Another customer was just saved with this username. Choose another.')]);
+        }
+
+        $this->reset('new_username');
+        unset($this->account, $this->heading, $this->activityRows, $this->timeline, $this->hasMoreActivity);
+        $this->dispatch('modal-close', name: 'rename');
+        $this->dispatch('account-changed')->to('pages::customers.plan-card');
+        $this->toast($disconnected
+            ? __('Username changed. The customer is disconnected: their router must log in with the new username.')
+            : __('Username changed. Their router must log in with the new username.'));
     }
 
     /**

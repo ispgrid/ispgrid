@@ -19,6 +19,7 @@ enum DisconnectReason: string
     case CustomerEdited = 'customer-edited';
     case PlanEdited = 'plan-edited';
     case PppoePasswordChanged = 'pppoe-password-changed';
+    case UsernameChanged = 'username-changed';
 
     public function label(): string
     {
@@ -34,6 +35,7 @@ enum DisconnectReason: string
             self::CustomerEdited => __('customer details changed'),
             self::PlanEdited => __('plan edited'),
             self::PppoePasswordChanged => __('PPPoE password changed in Selfcare'),
+            self::UsernameChanged => __('username changed'),
         };
     }
 }

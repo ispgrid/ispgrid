@@ -62,7 +62,7 @@
                 <x-ui.tab-panel name="service" class="grid gap-5">
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.select wire:model.live="service_type" :label="__('Type')" :options="$this->serviceTypes" required />
-                        <x-ui.input wire:model="username" english :label="__('Username')" :description="__('The login name: letters, digits, ., -, _ and @. It cannot change after saving.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
+                        <x-ui.input wire:model="username" english :label="__('Username')" :description="$accountId === null ? __('The login name: letters, digits, ., -, _ and @.') : __('Change it with Change username on the customer page.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
                         @unless ($this->isIpoe)
                             @if ($keepsPassword)
                                 <x-ui.input wire:model="password" english :label="__('Password')" :description="__('Leave empty to keep the current password.')" viewable maxlength="64" autocomplete="off" />

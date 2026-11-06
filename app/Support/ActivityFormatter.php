@@ -135,6 +135,7 @@ final class ActivityFormatter
             'devices-reset' => __('Devices reset'),
             'unlocked' => __('Unlocked'),
             'password-changed' => __('Password changed'),
+            'username-changed' => __('Username changed'),
             'recharged' => __('Recharged'),
             'disconnected' => __('Disconnected'),
             'session-disconnected' => __('Disconnected by ISPGrid'),

@@ -1547,5 +1547,15 @@
     "Welcome": "स्वागत",
     "Start from a common rule": "किसी आम नियम से शुरू करें",
     "Blank rule": "खाली नियम",
-    "Fills in when to send, the values and a suggested text. You still choose the template your provider approved.": "कब भेजना है, वैल्यू और एक सुझाया गया टेक्स्ट भर देता है। आपके प्रोवाइडर का मंज़ूर किया गया टेम्पलेट आपको ही चुनना है।"
+    "Fills in when to send, the values and a suggested text. You still choose the template your provider approved.": "कब भेजना है, वैल्यू और एक सुझाया गया टेक्स्ट भर देता है। आपके प्रोवाइडर का मंज़ूर किया गया टेम्पलेट आपको ही चुनना है।",
+    "Change username": "यूज़रनेम बदलें",
+    "Now: :username": "अभी: :username",
+    "New username": "नया यूज़रनेम",
+    "An online customer is disconnected, and their router must log in with the new username: change it in their router too. Sessions and the login log keep the old username.": "ऑनलाइन ग्राहक डिस्कनेक्ट हो जाता है, और उसके राउटर को नए यूज़रनेम से लॉग इन करना होगा: इसे राउटर में भी बदलें। सेशन और लॉगिन लॉग में पुराना यूज़रनेम ही रहता है।",
+    "Username changed. The customer is disconnected: their router must log in with the new username.": "यूज़रनेम बदल गया। ग्राहक डिस्कनेक्ट हो गया है: उसके राउटर को नए यूज़रनेम से लॉग इन करना होगा।",
+    "Username changed. Their router must log in with the new username.": "यूज़रनेम बदल गया। उसके राउटर को नए यूज़रनेम से लॉग इन करना होगा।",
+    "The login name: letters, digits, ., -, _ and @.": "लॉगिन नाम: अक्षर, अंक, ., -, _ और @।",
+    "Change it with Change username on the customer page.": "इसे ग्राहक पेज पर 'यूज़रनेम बदलें' से बदलें।",
+    "username changed": "यूज़रनेम बदला",
+    "Username changed": "यूज़रनेम बदला गया"
 }
