@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Pools') }}</x-ui.heading>
@@ -63,7 +63,7 @@
     </x-ui.table>
 
     <x-ui.modal name="pool-form">
-        <form wire:submit="save" class="grid gap-5">
+        <form wire:submit="save" class="grid grid-cols-1 gap-5">
             <x-ui.heading size="lg">{{ $editingId ? __('Edit pool') : __('Add pool') }}</x-ui.heading>
 
             <x-ui.input wire:model="name" english :label="__('Name')" :description="__('Exactly as in /ip pool on the NAS.')" maxlength="64" required autocomplete="off" />

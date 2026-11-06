@@ -3,6 +3,7 @@
 namespace App\Actions\Customers;
 
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Enums\DisconnectReason;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,6 @@ final class ChangePppoePassword
             return (string) $row->username;
         }, attempts: 3);
 
-        DisconnectAccount::dispatchIfOnline($username);
+        DisconnectAccount::dispatchIfOnline($username, DisconnectReason::PppoePasswordChanged);
     }
 }

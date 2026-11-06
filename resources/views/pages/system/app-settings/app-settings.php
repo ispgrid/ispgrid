@@ -40,14 +40,6 @@ new #[Title('App settings')] class extends Component
         'selfcare_pppoe_password_change' => 'selfcare.pppoe_password_change',
     ];
 
-    public string $currency_code = '';
-
-    public string $currency_symbol = '';
-
-    public string $currency_decimals = '';
-
-    public string $number_grouping = '';
-
     public string $date_format = '';
 
     public string $phone_country_code = '';
@@ -126,10 +118,6 @@ new #[Title('App settings')] class extends Component
     protected function rules(): array
     {
         return [
-            'currency_code' => ['required', 'string', 'size:3', 'alpha', 'uppercase'],
-            'currency_symbol' => ['required', 'string', 'max:8'],
-            'currency_decimals' => ['required', 'integer', 'between:0,3'],
-            'number_grouping' => ['required', Rule::in(array_keys($this->groupings()))],
             'date_format' => ['required', Rule::in(self::DATE_FORMATS)],
             'phone_country_code' => ['required', 'regex:/^\+[1-9][0-9]{0,3}$/'],
             'phone_digits' => ['required', 'integer', 'between:4,15'],
@@ -278,18 +266,6 @@ new #[Title('App settings')] class extends Component
     public function languages(): array
     {
         return config('app.locales');
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    #[Computed]
-    public function groupings(): array
-    {
-        return [
-            'indian' => __('12,34,567.00 (Indian)'),
-            'international' => __('1,234,567.00 (International)'),
-        ];
     }
 
     /**

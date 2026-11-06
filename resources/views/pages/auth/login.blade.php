@@ -11,7 +11,7 @@
 
             <x-ui.input name="email" type="email" :label="__('Email address')" :value="old('email')" required autofocus autocomplete="email" placeholder="email@example.com" />
 
-            <div class="grid gap-1.5">
+            <div class="grid grid-cols-1 gap-1.5">
                 <x-ui.input name="password" type="password" :label="__('Password')" required autocomplete="current-password" viewable />
 
                 @if (Route::has('password.request'))

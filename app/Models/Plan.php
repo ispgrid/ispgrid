@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -145,5 +146,29 @@ class Plan extends Model
     public function radiusAttributes(): HasMany
     {
         return $this->hasMany(PlanAttribute::class);
+    }
+
+    /**
+     * A slug for a new plan made from its name ("Home 25 Mbps" is home_25_mbps), with _2, _3, ... when a plan,
+     * deleted ones too, already has it. Empty when the name has no letters or digits to use.
+     */
+    public static function slugFor(string $name): string
+    {
+        $base = Str::limit(Str::slug(Str::ascii($name), '_'), 60, '');
+        $base = trim($base, '_-');
+
+        if ($base === '') {
+            return '';
+        }
+
+        $taken = static::withTrashed()->where('slug', $base)->orWhere('slug', 'like', $base.'\\_%')->pluck('slug')
+            ->map(fn (string $slug): string => strtolower($slug))->all();
+        $slug = $base;
+
+        for ($number = 2; in_array($slug, $taken, true); $number++) {
+            $slug = $base.'_'.$number;
+        }
+
+        return $slug;
     }
 }

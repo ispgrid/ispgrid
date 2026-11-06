@@ -172,7 +172,7 @@ new class extends Component
     public function logins(): array
     {
         return Radpostauth::query()->where('username', $this->account->username)->orderByDesc('authdate')->orderByDesc('id')->limit(10)
-            ->get(['id', 'authdate', 'reply'])
+            ->get(['id', 'authdate', 'reply', 'reply_msg'])
             ->map(fn (Radpostauth $login): array => [
                 'when' => $login->authdate->format($this->dateFormat().' H:i'),
                 'result' => $login->result()->label(),

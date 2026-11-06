@@ -6,6 +6,7 @@ use App\Billing\Decimal;
 use App\Billing\InvoiceCalculator;
 use App\Billing\LineInput;
 use App\Billing\Tax\TaxContext;
+use App\Enums\DisconnectReason;
 use App\Enums\ServiceType;
 use App\Enums\SlotMode;
 use App\Enums\ValidityUnit;
@@ -82,6 +83,12 @@ new #[Title('Plan')] class extends Component
     public ?int $planId = null;
 
     public string $slug = '';
+
+    /**
+     * The slug last made from the name: while the slug still equals it, a new name makes a new one. A slug staff
+     * typed themselves is kept.
+     */
+    public string $madeSlug = '';
 
     public string $name = '';
 
@@ -423,6 +430,16 @@ new #[Title('Plan')] class extends Component
     }
 
     /**
+     * A new plan gets its slug from the name, unique among all plans, until staff type their own.
+     */
+    public function updatedName(): void
+    {
+        if ($this->planId === null && ($this->slug === '' || $this->slug === $this->madeSlug)) {
+            $this->slug = $this->madeSlug = Plan::slugFor($this->name);
+        }
+    }
+
+    /**
      * Validates every tab, then saves the plan, its address lists and custom attributes and rewrites its
      * radgroupreply rows in one transaction. A failure anywhere leaves the plan and FreeRADIUS as they were.
      */
@@ -432,6 +449,11 @@ new #[Title('Plan')] class extends Component
         $this->authorize($plan === null ? 'create' : 'update', $plan ?? Plan::class);
 
         $this->trimInput();
+
+        if ($this->planId === null && $this->slug === '') {
+            $this->slug = Plan::slugFor($this->name);
+        }
+
         $this->withValidator(function (Validator $validator): void {
             $validator->after(function (Validator $validator): void {
                 foreach ([...$this->speedErrors(), ...$this->fairUsageErrors(), ...$this->attributeErrors()] as $field => $message) {
@@ -488,7 +510,7 @@ new #[Title('Plan')] class extends Component
             ->pluck('username');
 
         foreach ($usernames as $username) {
-            DisconnectAccount::dispatch($username);
+            DisconnectAccount::dispatch($username, null, DisconnectReason::PlanEdited);
         }
 
         return $usernames->count();

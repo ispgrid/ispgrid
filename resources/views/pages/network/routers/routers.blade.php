@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('NAS') }}</x-ui.heading>
@@ -77,15 +77,15 @@
     </x-ui.table>
 
     <x-ui.modal name="router-form" width="lg">
-        <form wire:submit="save" class="grid gap-5">
+        <form wire:submit="save" class="grid grid-cols-1 gap-5">
             <x-ui.heading size="lg">{{ $editingId ? __('Edit NAS') : __('Add NAS') }}</x-ui.heading>
 
-            <div class="grid gap-5 sm:grid-cols-2">
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <x-ui.input wire:model="shortname" english :label="__('Name')" maxlength="32" required autocomplete="off" />
                 <x-ui.input wire:model="nasname" english :label="__('IP address')" :description="__('The address the NAS sends RADIUS from.')" required autocomplete="off" />
             </div>
 
-            <div class="grid gap-2">
+            <div class="grid grid-cols-1 gap-2">
                 <x-ui.input wire:model="secret" english type="password" viewable :label="__('Secret')" :description="__('The same secret as in /radius on the NAS, 8 to 60 characters.')" maxlength="60" required autocomplete="off" />
                 <div>
                     <x-ui.button size="sm" variant="secondary" icon="key" wire:click="generateSecret">{{ __('Generate a secret') }}</x-ui.button>

@@ -7,7 +7,7 @@
 @endphp
 
 <label for="{{ $id }}" class="flex cursor-pointer items-start justify-between gap-4">
-    <span class="grid gap-0.5">
+    <span class="grid grid-cols-1 gap-0.5">
         <span class="text-sm font-medium">{{ $label }}</span>
         @if ($description)
             <span class="text-xs text-zinc-600 dark:text-zinc-400">{{ $description }}</span>

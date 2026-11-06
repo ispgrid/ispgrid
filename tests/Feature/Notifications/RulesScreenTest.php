@@ -146,3 +146,26 @@ it('shows the fields of the rule\'s own provider when another provider comes fir
         ->assertDontSee('MSG91 template ID')
         ->assertSet('template', ['name' => 'recharge_success', 'language' => 'en']);
 });
+
+it('fills a new rule from a common rule, leaving the provider template to staff', function () {
+    $form = Livewire::test('pages::notifications.rule-form')
+        ->set('preset', 'recharge-done')
+        ->assertSet('name', 'Recharge done')
+        ->assertSet('trigger', 'recharge_done')
+        ->assertSet('values', ['customer_name', 'plan_name', 'amount_paid', 'expiry_date', 'isp_name'])
+        ->assertSet('approved_text', 'Dear {1}, your {2} plan is recharged. Paid {3}, valid till {4}. Thank you, {5}')
+        ->assertSet('template.name', '');
+
+    $form->call('save')->assertHasErrors(['template.name']);
+    $form->set('template.name', 'recharge_done')->set('template.language', 'en')->call('save')->assertHasNoErrors();
+
+    expect(NotificationRule::query()->sole())->trigger->toBe('recharge_done')->enabled->toBeFalse();
+});
+
+it('offers only common rules whose trigger, timing and values are valid', function (string $preset) {
+    Livewire::test('pages::notifications.rule-form')
+        ->set('preset', $preset)
+        ->set('template.name', 'any_template')->set('template.language', 'en')
+        ->call('save')
+        ->assertHasNoErrors();
+})->with(['expiry-reminder', 'expired', 'recharge-done', 'payment-received', 'welcome']);

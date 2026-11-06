@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <div class="flex flex-wrap items-center gap-3">
@@ -29,8 +29,8 @@
         <x-ui.alert variant="danger">{{ __('Removed: :reason', ['reason' => $this->printed['remove_reason']]) }}</x-ui.alert>
     @endif
 
-    <x-ui.card class="grid gap-6">
-        <div class="grid gap-6 sm:grid-cols-2">
+    <x-ui.card class="grid grid-cols-1 gap-6">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div class="text-sm">
                 <p class="font-semibold">{{ $this->printed['company']['name'] }}</p>
                 @foreach ($this->printed['company']['lines'] as $line)
@@ -40,7 +40,7 @@
                     <p>{{ $this->printed['company']['tax'] }}</p>
                 @endif
             </div>
-            <dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-sm">
+            <dl class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Received at') }}</dt><dd>{{ $this->printed['date'] }}</dd>
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Method') }}</dt><dd>{{ $this->printed['method'] }}</dd>
                 @if ($this->printed['reference'])
@@ -51,7 +51,7 @@
             </dl>
         </div>
 
-        <div class="grid gap-6 sm:grid-cols-2 text-sm">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 text-sm">
             <div>
                 <p class="text-xs uppercase text-zinc-600 dark:text-zinc-400">{{ __('Received from') }}</p>
                 @foreach ($this->printed['customer']['billing_lines'] as $line)
@@ -68,7 +68,7 @@
             </div>
         </div>
 
-        <dl class="grid gap-1 text-sm sm:ms-auto sm:w-1/2">
+        <dl class="grid grid-cols-1 gap-1 text-sm sm:ms-auto sm:w-1/2">
             <div class="flex justify-between gap-4"><dt class="text-zinc-600 dark:text-zinc-400">{{ __('Invoice total') }}</dt><dd class="tabular-nums">{{ $this->printed['invoice_total'] }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-zinc-600 dark:text-zinc-400">{{ __('This payment') }}</dt><dd class="tabular-nums">{{ $this->printed['amount'] }}</dd></div>
             @if ($this->printed['balance_after'] !== null)
@@ -79,10 +79,10 @@
 
     @if ($this->canEdit)
         <x-ui.modal name="edit-payment">
-            <form wire:submit="editPayment" class="grid gap-5" novalidate>
+            <form wire:submit="editPayment" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Edit payment') }}</x-ui.heading>
                 <x-ui.text>{{ __('The amount and the invoice stay as they are. For a wrong amount, remove the payment and record it again.') }}</x-ui.text>
-                <div class="grid gap-5 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <x-ui.select wire:model="edit_method_id" :label="__('Method')" :options="$this->editMethods" />
                     <x-ui.input wire:model="edit_paid_at" type="datetime-local" :label="__('Received at')" />
                     <div class="sm:col-span-2">

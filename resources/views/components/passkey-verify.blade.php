@@ -46,7 +46,7 @@
 >
     <template x-if="supported">
         <div>
-            <div class="grid gap-2">
+            <div class="grid grid-cols-1 gap-2">
                 <x-ui.button
                     variant="secondary"
                     icon="finger-print"

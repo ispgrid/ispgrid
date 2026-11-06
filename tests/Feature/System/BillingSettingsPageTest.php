@@ -285,3 +285,30 @@ it('swaps the names of two payment methods', function () {
 it('refuses a GST rate whose half needs more than three decimals', function () {
     billingPageForIndia()->set('tax.rate', '18.125')->call('save')->assertHasErrors(['tax.rate']);
 });
+
+it('saves the currency and number grouping as app settings, with invoicing off', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->assertSet('currency_code', 'INR')
+        ->set('currency_code', 'USD')
+        ->set('currency_symbol', '$')
+        ->set('currency_decimals', '3')
+        ->set('number_grouping', 'international')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(AppSetting::valueOf('currency_code'))->toBe('USD')
+        ->and(AppSetting::valueOf('currency_symbol'))->toBe('$')
+        ->and(AppSetting::valueOf('currency_decimals'))->toBe('3')
+        ->and(AppSetting::valueOf('number_grouping'))->toBe('international')
+        ->and(BillingSettings::current()->enabled)->toBeFalse();
+});
+
+it('refuses a currency or grouping it does not know', function (string $field, string $value) {
+    Livewire::test('pages::system.billing-settings')->set($field, $value)->call('save')->assertHasErrors([$field]);
+
+    expect(AppSetting::valueOf('currency_code', 'INR'))->toBe('INR');
+})->with([
+    'lowercase currency' => ['currency_code', 'usd'],
+    'too many decimals' => ['currency_decimals', '7'],
+    'unknown grouping' => ['number_grouping', 'chinese'],
+]);

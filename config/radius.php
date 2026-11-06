@@ -27,4 +27,16 @@ return [
 
     'radclient' => env('RADIUS_RADCLIENT', 'radclient'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Login log
+    |--------------------------------------------------------------------------
+    |
+    | radpostauth grows by every attempt of every router. The Login log counts (and groups repeats in) at most this
+    | many of the newest matching attempts, so a page change never reads the whole table.
+    |
+    */
+
+    'login_log_cap' => (int) env('RADIUS_LOGIN_LOG_CAP', 100000),
+
 ];

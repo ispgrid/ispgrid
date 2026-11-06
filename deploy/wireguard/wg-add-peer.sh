@@ -47,7 +47,10 @@ add_peer() {
 
   cat <<EOF
 
-Router/NAS "$name" gets tunnel address $peer_ip. Paste on it (RouterOS 7):
+Router/NAS "$name" gets tunnel address $peer_ip.
+
+First, in the panel: Network, NAS, Add NAS, IP address $peer_ip, click Generate a secret and copy it.
+Then replace THE-SECRET-OF-THIS-NAS-IN-ISPGRID below with it and paste the commands on the NAS (RouterOS 7):
 
 /interface wireguard add name=wg-ispgrid private-key="$private" comment="ISPGrid"
 /interface wireguard peers add interface=wg-ispgrid public-key="$server_pub" endpoint-address=$endpoint endpoint-port=$port allowed-address=$tunnel_ip/32 persistent-keepalive=25s comment="ISPGrid server"
@@ -56,7 +59,7 @@ Router/NAS "$name" gets tunnel address $peer_ip. Paste on it (RouterOS 7):
 /radius incoming set accept=yes
 /ip firewall nat add chain=srcnat out-interface=wg-ispgrid action=masquerade comment="ISPGrid: notice page replies"
 
-Then add it in the panel (Network, NAS) with IP $peer_ip and the same secret.
+Lost the secret later? Network, NAS, edit the NAS, eye icon next to Secret.
 The private key above is not kept on this server.
 EOF
 }

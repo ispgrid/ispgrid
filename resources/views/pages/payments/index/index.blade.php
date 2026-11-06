@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Payments') }}</x-ui.heading>
@@ -9,7 +9,7 @@
         @endcan
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-ui.input wire:model.live="from" type="date" :label="__('From')" />
         <x-ui.input wire:model.live="to" type="date" :label="__('To')" />
         <x-ui.select wire:model.live="method" :label="__('Method')" :options="$this->methodOptions" :placeholder="__('All')" />
@@ -17,7 +17,7 @@
     </div>
 
     @if ($this->methodTotals !== [])
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             @foreach ($this->methodTotals as $method => $amount)
                 <x-ui.card wire:key="method-total-{{ $loop->index }}">
                     <x-ui.text muted>{{ $method }}</x-ui.text>

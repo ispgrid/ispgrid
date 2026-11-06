@@ -29,6 +29,22 @@ new #[Title('Billing')] class extends Component
 
     private const EXTRA_LINES = 4;
 
+    /**
+     * App settings under their own keys (currency_code, ...), not billing.*: payments, the dashboard and
+     * notifications use them with invoicing off too.
+     *
+     * @var array<string, string>
+     */
+    private const MONEY = ['currency_code' => 'INR', 'currency_symbol' => '₹', 'currency_decimals' => '2', 'number_grouping' => 'indian'];
+
+    public string $currency_code = '';
+
+    public string $currency_symbol = '';
+
+    public string $currency_decimals = '';
+
+    public string $number_grouping = '';
+
     public bool $enabled = false;
 
     public bool $invoice_hotspot = true;
@@ -100,6 +116,10 @@ new #[Title('Billing')] class extends Component
         $settings = BillingSettings::current();
         $company = $settings->company;
 
+        foreach (self::MONEY as $key => $default) {
+            $this->{$key} = (string) AppSetting::valueOf($key, $default);
+        }
+
         $this->enabled = $settings->enabled;
         $this->invoice_hotspot = $settings->invoiceHotspot;
         $this->company_name = $company->name;
@@ -138,6 +158,18 @@ new #[Title('Billing')] class extends Component
     }
 
     /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function groupings(): array
+    {
+        return [
+            'indian' => __('12,34,567.00 (Indian)'),
+            'international' => __('1,234,567.00 (International)'),
+        ];
+    }
+
+    /**
      * A country the current tax setup does not cover puts the setup back to no tax.
      */
     public function updatedCountry(): void
@@ -166,6 +198,10 @@ new #[Title('Billing')] class extends Component
     protected function rules(): array
     {
         return array_merge([
+            'currency_code' => ['required', 'string', 'size:3', 'alpha', 'uppercase'],
+            'currency_symbol' => ['required', 'string', 'max:8'],
+            'currency_decimals' => ['required', 'integer', 'between:0,3'],
+            'number_grouping' => ['required', Rule::in(array_keys($this->groupings()))],
             'enabled' => ['boolean'],
             'invoice_hotspot' => ['boolean'],
             'company_name' => ['nullable', 'string', 'max:150'],
@@ -236,6 +272,10 @@ new #[Title('Billing')] class extends Component
             : null;
 
         DB::transaction(function () use ($logo): void {
+            foreach (array_keys(self::MONEY) as $key) {
+                AppSetting::put($key, $this->{$key});
+            }
+
             foreach ($this->settingValues() as $key => $value) {
                 AppSetting::put("billing.{$key}", $value);
             }

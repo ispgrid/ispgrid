@@ -1,4 +1,4 @@
-<div class="grid gap-5">
+<div class="grid grid-cols-1 gap-5">
     <div>
         <x-ui.heading size="lg">{{ $this->mustChange ? __('Choose your own password') : __('Change selfcare password') }}</x-ui.heading>
         @if ($this->mustChange)
@@ -6,7 +6,7 @@
         @endif
     </div>
 
-    <form wire:submit="save" class="grid gap-4" novalidate>
+    <form wire:submit="save" class="grid grid-cols-1 gap-4" novalidate>
         @unless ($this->mustChange)
             <x-ui.input wire:model="current_password" type="password" :label="__('Current password')" autocomplete="current-password" required viewable />
         @endunless

@@ -74,3 +74,54 @@ it('ignores a result it does not know', function () {
 
     Livewire::test('pages::login-log.index')->set('result', 'everything')->assertSee('alice');
 });
+
+it('shows a run of the same refused attempt as one line with a count', function () {
+    Radpostauth::factory()->rejected('User not found')->count(3)->sequence(
+        ['authdate' => '2026-10-23 19:33:00'], ['authdate' => '2026-10-23 19:34:00'], ['authdate' => '2026-10-23 19:35:00'],
+    )->create(['username' => 'link_priyankesh', 'mac' => 'AA:BB:CC:00:00:01']);
+    Radpostauth::factory()->create(['username' => 'link_priyankesh', 'mac' => 'AA:BB:CC:00:00:01', 'authdate' => '2026-10-23 19:36:00']);
+    Radpostauth::factory()->rejected('User not found')->create(['username' => 'link_priyankesh', 'mac' => 'AA:BB:CC:00:00:01', 'authdate' => '2026-10-23 19:37:00']);
+
+    $page = Livewire::test('pages::login-log.index');
+
+    expect($page->instance()->rows)->toHaveCount(3)
+        ->and(array_column($page->instance()->rows, 'repeats'))->toBe([1, 1, 3]);
+    $page->assertSee('3 times since 23/10/2026 19:33')->assertSee('5 attempts');
+
+    $page->set('grouped', false);
+    expect($page->instance()->rows)->toHaveCount(5);
+});
+
+it('numbers the pages and stops counting at the cap', function () {
+    config(['radius.login_log_cap' => 60]);
+    Radpostauth::factory()->rejected()->count(61)->sequence(fn ($sequence): array => ['username' => 'user'.$sequence->index])->create();
+
+    Livewire::test('pages::login-log.index')
+        ->assertSee('More than 60 attempts')
+        ->assertSeeHtml('wire:click="gotoPage(2, \'page\')"');
+
+    config(['radius.login_log_cap' => 100]);
+
+    Livewire::test('pages::login-log.index')->assertSee('61 attempts');
+});
+
+it('shows an accept into the disabled pool as its own result', function () {
+    Radpostauth::factory()->create(['username' => 'inactiveuser', 'reply_msg' => 'Account is inactive']);
+    Radpostauth::factory()->create(['username' => 'throttleduser', 'reply_msg' => 'Throttled after: Wrong Password']);
+    Radpostauth::factory()->create(['username' => 'newdeviceuser', 'reply_msg' => 'New device AA:BB:CC:00:00:02 registered']);
+    Radpostauth::factory()->create(['username' => 'plainuser']);
+
+    Livewire::test('pages::login-log.index')->set('result', 'disabled-pool')
+        ->assertSee(['inactiveuser', 'throttleduser', 'Disabled pool'])
+        ->assertDontSee(['newdeviceuser', 'plainuser']);
+
+    Livewire::test('pages::login-log.index')->set('result', 'accepted')
+        ->assertSee(['newdeviceuser', 'plainuser'])
+        ->assertDontSee(['inactiveuser', 'throttleduser']);
+});
+
+it('shows Wrong Password from the server in sentence case', function () {
+    Radpostauth::factory()->rejected('Wrong Password')->create(['username' => 'alice']);
+
+    Livewire::test('pages::login-log.index')->assertSee('Wrong password')->assertDontSee('Wrong Password');
+});

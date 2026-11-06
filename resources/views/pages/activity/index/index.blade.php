@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Activity log') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Who changed what, newest first.') }}</x-ui.text>
@@ -32,7 +32,7 @@
                     <span class="font-medium">{{ $row['name'] }}</span>
                 </x-ui.td>
                 <x-ui.td>
-                    <dl class="grid gap-0.5 text-xs">
+                    <dl class="grid grid-cols-1 gap-0.5 text-xs">
                         @foreach ($row['changes'] as $change)
                             <div class="flex flex-wrap gap-1">
                                 <dt class="text-zinc-600 dark:text-zinc-400">{{ $change['field'] }}:</dt>

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Billing\India\GstStates;
 use App\Enums\AccountStatus;
+use App\Enums\DisconnectReason;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;
@@ -134,8 +135,10 @@ final class ActivityFormatter
             'devices-reset' => __('Devices reset'),
             'unlocked' => __('Unlocked'),
             'password-changed' => __('Password changed'),
+            'username-changed' => __('Username changed'),
             'recharged' => __('Recharged'),
             'disconnected' => __('Disconnected'),
+            'session-disconnected' => __('Disconnected by ISPGrid'),
             'disconnect-failed' => __('Disconnect failed'),
             'imported' => __('Imported'),
             'role-changed' => __('Role changed'),
@@ -252,6 +255,7 @@ final class ActivityFormatter
             'pool_id' => self::name(Pool::class, $text, 'name'),
             'connection_type_id' => self::name(ConnectionType::class, $text, 'name'),
             'ip_id' => self::name(Ip::class, $text, 'address'),
+            'reason' => DisconnectReason::tryFrom($text)?->label(),
             default => null,
         };
 

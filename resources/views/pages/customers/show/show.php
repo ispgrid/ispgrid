@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Customers\RechargeAccount;
+use App\Actions\Customers\RenameAccount;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
@@ -8,6 +9,7 @@ use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
 use App\Billing\RechargePrice;
 use App\Enums\AccountStatus;
+use App\Enums\DisconnectReason;
 use App\Enums\IpRangeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
@@ -37,6 +39,7 @@ use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerTabs;
 use App\Support\Currency;
 use App\Support\CustomerDefaults;
+use App\Support\CustomerRules;
 use App\Support\ExpiryCalculator;
 use App\Support\Hotspot;
 use App\Support\Ipv4Cidr;
@@ -50,10 +53,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -84,6 +89,8 @@ new #[Title('Customer')] class extends Component
      * Why the status changes (required, recorded in the activity log).
      */
     public string $remark = '';
+
+    public string $new_username = '';
 
     /**
      * The Recharge dialog: plan, expiry (datetime-local, Y-m-d\TH:i), amount and note.
@@ -190,6 +197,7 @@ new #[Title('Customer')] class extends Component
         $core = [
             'details' => __('Details'),
             'connection' => __('Connection'),
+            'sessions' => __('Sessions'),
             'recharges' => __('Recharges'),
             'billing' => $this->showsBilling() ? __('Billing') : null,
             'messages' => Gate::allows('view-notification-log') ? __('Messages') : null,
@@ -783,6 +791,37 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * Gives the customer a new username (RenameAccount), checked like a new customer's: free among customers, deleted
+     * ones too.
+     */
+    public function rename(RenameAccount $rename): void
+    {
+        $this->authorize('update', $this->account);
+        $this->new_username = trim($this->new_username);
+        $this->validate(['new_username' => CustomerRules::username()], [
+            'new_username.regex' => __('Use letters, digits, ., -, _ and @ only.'),
+        ], ['new_username' => __('New username')]);
+
+        try {
+            $disconnected = $rename->handle($this->account, $this->new_username);
+        } catch (ModelNotFoundException) {
+            $this->toastDeletedMeanwhile();
+
+            return;
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['new_username' => __('Another customer was just saved with this username. Choose another.')]);
+        }
+
+        $this->reset('new_username');
+        unset($this->account, $this->heading, $this->activityRows, $this->timeline, $this->hasMoreActivity);
+        $this->dispatch('modal-close', name: 'rename');
+        $this->dispatch('account-changed')->to('pages::customers.plan-card');
+        $this->toast($disconnected
+            ? __('Username changed. The customer is disconnected: their router must log in with the new username.')
+            : __('Username changed. Their router must log in with the new username.'));
+    }
+
+    /**
      * Sets the status and logs one "Status changed" entry with the old and new status and the remark (the
      * model's own log is switched off for this save).
      */
@@ -813,7 +852,7 @@ new #[Title('Customer')] class extends Component
         unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity);
         $this->dispatch('modal-close', name: 'change-status');
         $this->dispatch('account-changed')->to('pages::customers.plan-card');
-        $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username)
+        $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::StatusChanged)
             ? __('Status changed. The customer is disconnected so it applies now.')
             : __('Status changed.'));
     }
@@ -979,7 +1018,7 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username);
+        $disconnected = DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::Recharged);
         unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity, $this->recharges);
         $this->status = (string) $this->account->status_id->value;
         $this->dispatch('modal-close', name: 'recharge');
@@ -1055,7 +1094,7 @@ new #[Title('Customer')] class extends Component
 
         unset($this->account, $this->devices, $this->failedLogins, $this->technician, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity);
         // radacct is kept on delete, so the job still finds the open sessions after the commit.
-        $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username)
+        $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::Deleted)
             ? __('Customer deleted. Their open session is disconnected.')
             : __('Customer deleted. They can no longer log in.'));
     }

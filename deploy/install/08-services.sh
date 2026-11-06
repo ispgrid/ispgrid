@@ -126,4 +126,5 @@ visudo -cqf "$deploy/sudoers/ispgrid" || die "deploy/sudoers/ispgrid does not pa
 install -m 440 "$deploy/sudoers/ispgrid" /etc/sudoers.d/ispgrid
 
 artisan up >/dev/null 2>&1 || true
+rm -f "$ISPGRID_MAINTENANCE_FLAG"
 say "nginx (panel${HTTPS_OK:+ with HTTPS}, notice page on 8088), queue worker, scheduler, FreeRADIUS restart rule"

@@ -2,7 +2,7 @@
     @include('partials.settings-heading')
 
     <x-pages::settings.layout :heading="__('Update password')" :subheading="__('Ensure your account is using a long, random password to stay secure')">
-        <form wire:submit="updatePassword" class="grid gap-5">
+        <form wire:submit="updatePassword" class="grid grid-cols-1 gap-5">
             <x-ui.input wire:model="current_password" type="password" :label="__('Current password')" required autocomplete="current-password" viewable />
             <x-ui.input
                 wire:model="password"
@@ -29,7 +29,7 @@
         </form>
 
         @if ($canManageTwoFactor)
-            <section class="mt-12 grid gap-4" wire:cloak>
+            <section class="mt-12 grid grid-cols-1 gap-4" wire:cloak>
                 <div>
                     <x-ui.heading>{{ __('Two-factor authentication') }}</x-ui.heading>
                     <x-ui.text muted class="mt-1">{{ __('Manage your two-factor authentication settings') }}</x-ui.text>
@@ -59,7 +59,7 @@
         @endif
 
         @if ($canManagePasskeys)
-            <section class="mt-12 grid gap-4" wire:cloak>
+            <section class="mt-12 grid grid-cols-1 gap-4" wire:cloak>
                 <div>
                     <x-ui.heading>{{ __('Passkeys') }}</x-ui.heading>
                     <x-ui.text muted class="mt-1">{{ __('Manage your passkeys for passwordless sign-in') }}</x-ui.text>
@@ -72,7 +72,7 @@
                                 <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
                                     <x-ui.icon name="key" class="size-5 text-zinc-600 dark:text-zinc-400" />
                                 </div>
-                                <div class="grid gap-1">
+                                <div class="grid grid-cols-1 gap-1">
                                     <div class="flex items-center gap-2.5">
                                         <p class="font-medium">{{ $passkey['name'] }}</p>
                                         @if ($passkey['authenticator'])
@@ -109,8 +109,8 @@
 
     @if ($canManagePasskeys)
         <x-ui.modal name="delete-passkey-modal">
-            <div class="grid gap-6">
-                <div class="grid gap-2">
+            <div class="grid grid-cols-1 gap-6">
+                <div class="grid grid-cols-1 gap-2">
                     <x-ui.heading size="lg">{{ __('Remove passkey') }}</x-ui.heading>
                     <x-ui.text>{{ __('Are you sure you want to remove the passkey ":name"? You will no longer be able to use it to sign in.', ['name' => $deletingPasskeyName]) }}</x-ui.text>
                 </div>

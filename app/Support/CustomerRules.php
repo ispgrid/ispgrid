@@ -18,6 +18,19 @@ use Illuminate\Validation\Rule;
 final class CustomerRules
 {
     /**
+     * A username nobody has: not a customer, not a deleted one. Also for Change username.
+     *
+     * @return list<mixed>
+     */
+    public static function username(): array
+    {
+        return ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9._@-]+$/D',
+            Rule::unique(Account::class, 'username')->withoutTrashed(),
+            new NotUsedByTrashed(Account::class, 'username', __('A deleted customer uses this username. Restore it instead.')),
+        ];
+    }
+
+    /**
      * The fields the operator made required (RequiredCustomerFields) start with "required" instead of "nullable".
      *
      * @return array<string, list<mixed>>
@@ -50,10 +63,7 @@ final class CustomerRules
             'address.postal_code' => ['nullable', 'string', 'max:20'],
             'address.country' => ['nullable', 'string', 'max:60'],
             'service_type' => ['required', Rule::in(array_map(fn (ServiceType $type): string => $type->value, Hotspot::serviceTypes()))],
-            'username' => $isNew ? ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9._@-]+$/D',
-                Rule::unique(Account::class, 'username')->withoutTrashed(),
-                new NotUsedByTrashed(Account::class, 'username', __('A deleted customer uses this username. Restore it instead.')),
-            ] : [],
+            'username' => $isNew ? self::username() : [],
             'password' => [$isIpoe ? 'nullable' : 'required', 'string', 'max:64', 'regex:/^[\x21-\x7E]+$/D', 'not_regex:/["\'`\\\\]/'],
             'mac_type' => $isIpoe ? [] : ['required', 'integer', 'between:0,100'],
             'connection_type_id' => ['nullable', 'integer', Rule::exists(ConnectionType::class, 'id')->withoutTrashed()],

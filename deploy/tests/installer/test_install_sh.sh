@@ -42,6 +42,21 @@ check "certbot fails, certificate kept" "$(certbot_failed_action yes yes)" keep
 check "certbot fails on a first install" "$(certbot_failed_action no no)" http
 check "certbot fails, certificate but no saved site" "$(certbot_failed_action yes no)" http
 
+#  Run title and add-on lines
+check "title: first install" "$(run_title v0.1.12 "" no)" "Installing ISPGrid v0.1.12"
+check "title: upgrade" "$(run_title v0.1.12 v0.1.11 no)" "Upgrading ISPGrid from v0.1.11 to v0.1.12"
+check "title: same version again" "$(run_title v0.1.12 v0.1.12 no)" "Reinstalling ISPGrid v0.1.12"
+check "title: add-on change" "$(run_title v0.1.12 v0.1.12 yes)" "Changing add-ons (ISPGrid v0.1.12 stays as it is)"
+check "add-on new" "$(addon_change "" v0.1.0)" installed
+check "add-on updated" "$(addon_change v0.1.0 v0.1.1)" "updated from v0.1.0 to v0.1.1"
+check "add-on unchanged" "$(addon_change v0.1.1 v0.1.1)" unchanged
+
+#  Maintenance page: nginx and the installer name the same flag file, and the page exists
+check "maintenance flag in nginx" "$(grep -c "if (-f $ISPGRID_MAINTENANCE_FLAG)" "$here/../../nginx/ispgrid.conf")" 1
+check "maintenance page" "$(grep -c 'This page refreshes by itself' "$here/../../nginx/maintenance.html")" 1
+self_signed_site "$here/../../nginx/ispgrid.conf" /c.crt /c.key > "$tmp/site-maint"
+check "maintenance on the self-signed site" "$(grep -c '@maintenance' "$tmp/site-maint")" 2
+
 #  OS
 check "24.04 supported" "$(yes_no os_supported ubuntu 24.04)" yes
 check "26.04 supported" "$(yes_no os_supported ubuntu 26.04)" yes

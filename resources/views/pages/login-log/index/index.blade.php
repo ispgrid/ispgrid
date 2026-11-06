@@ -1,15 +1,20 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Login log') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Every login attempt FreeRADIUS answered, with the real reason. Dropped means no answer was sent (a NAS that must send Message-Authenticator did not).') }}</x-ui.text>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <x-ui.input wire:model.live.debounce.300ms="username" type="search" :label="__('Username')" autocomplete="off" />
         <x-ui.select wire:model.live="result" :label="__('Result')" :options="$this->results" :placeholder="__('All results')" />
         <x-ui.input wire:model.live.debounce.300ms="reason" type="search" :label="__('Reason')" :placeholder="__('Part of the reason')" autocomplete="off" />
         <x-ui.select wire:model.live="router" :label="__('NAS')" :options="$this->routers" :placeholder="__('All NAS')" />
         <x-ui.input wire:model.live.debounce.300ms="ip" type="search" :label="__('IP')" :placeholder="__('Exact IP address')" autocomplete="off" />
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <x-ui.text muted>{{ $this->summary }}</x-ui.text>
+        <x-ui.checkbox wire:model.live="grouped" :label="__('Group repeated attempts')" />
     </div>
 
     <x-ui.table>
@@ -25,7 +30,12 @@
 
         @forelse ($this->rows as $row)
             <tr wire:key="login-{{ $row['id'] }}">
-                <x-ui.td class="tabular-nums whitespace-nowrap">{{ $row['when'] }}</x-ui.td>
+                <x-ui.td class="tabular-nums whitespace-nowrap">
+                    {{ $row['when'] }}
+                    @if ($row['since'])
+                        <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ __(':count times since :when', ['count' => number_format($row['repeats']), 'when' => $row['since']]) }}</span>
+                    @endif
+                </x-ui.td>
                 <x-ui.td>
                     @if ($row['account'])
                         <x-ui.link href="{{ route('customers.show', $row['account']) }}" wire:navigate class="font-medium">{{ $row['username'] }}</x-ui.link>

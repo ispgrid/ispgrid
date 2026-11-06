@@ -12,6 +12,7 @@ use App\Billing\Decimal;
 use App\Billing\RechargePrice;
 use App\Billing\Statement;
 use App\Enums\AccountStatus;
+use App\Enums\DisconnectReason;
 use App\Enums\RechargeKind;
 use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Exceptions\RenewalAlreadyWaiting;
@@ -315,7 +316,7 @@ new class extends Component
         }
 
         $message = __('Plan changed until :date.', ['date' => $done->new_expiry->format($this->dateFormat())]);
-        $this->finish('change-plan', $message, $this->disconnect(), $wasInactive);
+        $this->finish('change-plan', $message, $this->disconnect(DisconnectReason::PlanChanged), $wasInactive);
     }
 
     public function openAdvance(): void
@@ -424,7 +425,7 @@ new class extends Component
             return;
         }
 
-        $this->finish('change-expiry', __('Expiry changed to :date.', ['date' => $expiry->format($this->dateFormat())]), $applyNow && $this->disconnect());
+        $this->finish('change-expiry', __('Expiry changed to :date.', ['date' => $expiry->format($this->dateFormat())]), $applyNow && $this->disconnect(DisconnectReason::ExpiryChanged));
     }
 
     public function openOverrideSpeed(): void
@@ -473,7 +474,7 @@ new class extends Component
             return;
         }
 
-        $this->finish('override-speed', __('Override speed saved.'), $this->disconnect());
+        $this->finish('override-speed', __('Override speed saved.'), $this->disconnect(DisconnectReason::OverrideSpeed));
     }
 
     public function removeOverrideSpeed(SetOverrideSpeed $set): void
@@ -488,7 +489,7 @@ new class extends Component
             return;
         }
 
-        $this->finish('override-speed', __('Override speed removed. The plan speed applies.'), $this->disconnect());
+        $this->finish('override-speed', __('Override speed removed. The plan speed applies.'), $this->disconnect(DisconnectReason::OverrideSpeed));
     }
 
     public function openTerminate(): void
@@ -523,7 +524,7 @@ new class extends Component
             return;
         }
 
-        $this->finish('terminate', $this->disconnect() ? __('Customer terminated and disconnected.') : __('Customer terminated.'));
+        $this->finish('terminate', $this->disconnect(DisconnectReason::Terminated) ? __('Customer terminated and disconnected.') : __('Customer terminated.'));
     }
 
     /**
@@ -619,9 +620,9 @@ new class extends Component
     /**
      * Disconnects an online customer (after the commit) so a change applies now.
      */
-    private function disconnect(): bool
+    private function disconnect(DisconnectReason $reason): bool
     {
-        return DisconnectAccount::dispatchIfOnline($this->account->username);
+        return DisconnectAccount::dispatchIfOnline($this->account->username, $reason);
     }
 
     private function finish(?string $dialog, string $message, bool $disconnected = false, bool $wasInactive = false): void

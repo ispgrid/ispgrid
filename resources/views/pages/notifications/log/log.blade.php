@@ -1,10 +1,10 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Message log') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Every SMS and WhatsApp message, with what the provider answered. Sent means the provider accepted it.') }}</x-ui.text>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-ui.input wire:model.live.debounce.400ms="customer" :label="__('Customer')" />
         <x-ui.select wire:model.live="status" :label="__('Status')" :options="$this->statusOptions" :placeholder="__('All')" />
         <x-ui.select wire:model.live="channel" :label="__('Channel')" :options="$this->channelOptions" :placeholder="__('All')" />

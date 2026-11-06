@@ -43,12 +43,14 @@ it('shows a session the way the session tables need it', function () {
     ]);
 });
 
-it('reads the result of a login attempt from its reply', function (string $reply, LoginResult $result) {
-    expect(Radpostauth::factory()->create(['reply' => $reply])->result())->toBe($result);
+it('reads the result of a login attempt from its reply', function (string $reply, LoginResult $result, ?string $reason = null) {
+    expect(Radpostauth::factory()->create(['reply' => $reply, 'reply_msg' => $reason])->result())->toBe($result);
 })->with([
     'accepted' => ['Access-Accept', LoginResult::Accepted],
     'rejected' => ['Access-Reject', LoginResult::Rejected],
     'dropped, no answer sent' => ['0', LoginResult::Dropped],
+    'accepted into the disabled pool' => ['Access-Accept', LoginResult::DisabledPool, 'Account expired'],
+    'accepted with a new device' => ['Access-Accept', LoginResult::Accepted, 'New device AA:BB:CC:00:00:01 registered'],
 ]);
 
 it('shows a login attempt the way the login tables need it', function () {

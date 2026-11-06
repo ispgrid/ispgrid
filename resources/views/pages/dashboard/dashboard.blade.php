@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.heading level="1" size="xl">{{ __('Dashboard') }}</x-ui.heading>
         <x-ui.text muted class="mt-1">{{ __('Who is online, who expires soon, and the latest refused logins.') }}</x-ui.text>
@@ -14,36 +14,36 @@
         </x-ui.alert>
     @endforeach
 
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         @foreach ($this->todayFigures as $figure)
             @if ($figure['href'])
-                <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
+                <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
                     <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                    <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>
+                    <span class="mt-2 block text-2xl font-semibold tabular-nums sm:text-3xl">{{ number_format($figure['value']) }}</span>
                 </a>
             @else
-                <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-zinc-700 dark:bg-zinc-900">
                     <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                    <span class="mt-2 block text-3xl font-semibold tabular-nums">{{ number_format($figure['value']) }}</span>
+                    <span class="mt-2 block text-2xl font-semibold tabular-nums sm:text-3xl">{{ number_format($figure['value']) }}</span>
                 </div>
             @endif
         @endforeach
     </div>
 
     @if ($this->moneyFigures !== [])
-        <div class="grid gap-3">
+        <div class="grid grid-cols-1 gap-3">
             <x-ui.heading>{{ __('Money') }}</x-ui.heading>
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 @foreach ($this->moneyFigures as $figure)
                     @if ($figure['href'])
-                        <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
+                        <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
                             <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                            <span class="mt-2 block text-2xl font-semibold tabular-nums">{{ $figure['value'] }}</span>
+                            <span class="mt-2 block text-xl font-semibold tabular-nums sm:text-2xl">{{ $figure['value'] }}</span>
                         </a>
                     @else
-                        <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+                        <div class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-zinc-700 dark:bg-zinc-900">
                             <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                            <span class="mt-2 block text-2xl font-semibold tabular-nums">{{ $figure['value'] }}</span>
+                            <span class="mt-2 block text-xl font-semibold tabular-nums sm:text-2xl">{{ $figure['value'] }}</span>
                             @if ($figure['hint'])
                                 <span class="mt-1 block text-xs text-zinc-600 dark:text-zinc-400">{{ $figure['hint'] }}</span>
                             @endif
@@ -51,7 +51,7 @@
                     @endif
                 @endforeach
             </div>
-            <div class="grid gap-4 lg:grid-cols-2">
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <x-ui.card>
                     <x-ui.heading>{{ __('Sales per plan, this month') }}</x-ui.heading>
                     @if ($this->topPlans === [])
@@ -78,9 +78,9 @@
     @endif
 
     @if ($this->usage !== null)
-        <div class="grid gap-3">
+        <div class="grid grid-cols-1 gap-3">
             <x-ui.heading>{{ __('Usage') }}</x-ui.heading>
-            <div class="grid gap-4 lg:grid-cols-2">
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <x-ui.card>
                     <x-ui.heading>{{ __('Data usage') }}</x-ui.heading>
                     <x-ui.table class="mt-3">
@@ -114,7 +114,7 @@
                             @if ($this->usage[$period] === [])
                                 <x-ui.text muted>{{ __('No usage yet.') }}</x-ui.text>
                             @else
-                                <ol class="grid gap-2 text-sm">
+                                <ol class="grid grid-cols-1 gap-2 text-sm">
                                     @foreach ($this->usage[$period] as $row)
                                         <li class="flex justify-between gap-4" wire:key="top-{{ $period }}-{{ $loop->index }}">
                                             @if ($row['href'])
@@ -135,12 +135,12 @@
     @endif
 
     @php($attention = $this->attention)
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         @if ($attention['looping'] !== [])
             <x-ui.card>
                 <x-ui.heading>{{ __('Logins stuck in a loop') }}</x-ui.heading>
                 <x-ui.text muted class="mt-1">{{ __('Refused 10 times or more today. Often an old password saved on a customer device.') }}</x-ui.text>
-                <ul class="mt-3 grid gap-1 text-sm">
+                <ul class="mt-3 grid grid-cols-1 gap-1 text-sm">
                     @foreach ($attention['looping'] as $login)
                         <li class="flex justify-between gap-4" wire:key="looping-{{ $login['username'] }}">
                             @if ($login['href'])
@@ -159,7 +159,7 @@
             <x-ui.card>
                 <x-ui.heading>{{ __('NAS gone quiet') }}</x-ui.heading>
                 <x-ui.text muted class="mt-1">{{ __('Nothing heard for 30 minutes from a NAS that had sessions in the last day.') }}</x-ui.text>
-                <ul class="mt-3 grid gap-1 text-sm">
+                <ul class="mt-3 grid grid-cols-1 gap-1 text-sm">
                     @foreach ($attention['quiet'] as $router)
                         <li class="flex justify-between gap-4" wire:key="quiet-{{ $loop->index }}">
                             <span class="font-medium">{{ $router['router'] }}</span>
@@ -183,7 +183,7 @@
                 @endif
                 @if ($attention['disconnects'] !== [])
                     <x-ui.text muted class="mt-3">{{ __('Could not disconnect, still online:') }}</x-ui.text>
-                    <ul class="mt-1 grid gap-1 text-sm">
+                    <ul class="mt-1 grid grid-cols-1 gap-1 text-sm">
                         @foreach ($attention['disconnects'] as $disconnect)
                             <li wire:key="disconnect-{{ $disconnect['username'] }}">
                                 @include('partials.dashboard-customer', ['row' => $disconnect])
@@ -198,7 +198,7 @@
         @if ($attention['skipped'] !== [])
             <x-ui.card>
                 <x-ui.heading>{{ __('Auto renewals that did not happen') }}</x-ui.heading>
-                <ul class="mt-3 grid gap-1 text-sm">
+                <ul class="mt-3 grid grid-cols-1 gap-1 text-sm">
                     @foreach ($attention['skipped'] as $skipped)
                         <li wire:key="skipped-{{ $skipped['username'] }}">
                             @include('partials.dashboard-customer', ['row' => $skipped])
@@ -212,7 +212,7 @@
         @if ($attention['overLimit'] !== [])
             <x-ui.card>
                 <x-ui.heading>{{ __('Over the monthly data limit') }}</x-ui.heading>
-                <ul class="mt-3 grid gap-1 text-sm">
+                <ul class="mt-3 grid grid-cols-1 gap-1 text-sm">
                     @foreach ($attention['overLimit'] as $over)
                         <li class="flex justify-between gap-4" wire:key="over-{{ $over['username'] }}">
                             @include('partials.dashboard-customer', ['row' => $over])
@@ -226,7 +226,7 @@
         @if ($attention['ranges'] !== [])
             <x-ui.card>
                 <x-ui.heading>{{ __('IP ranges almost full') }}</x-ui.heading>
-                <ul class="mt-3 grid gap-1 text-sm">
+                <ul class="mt-3 grid grid-cols-1 gap-1 text-sm">
                     @foreach ($attention['ranges'] as $range)
                         <li class="flex justify-between gap-4" wire:key="range-{{ $loop->index }}">
                             <span class="font-medium">{{ $range['range'] }}</span>
@@ -240,7 +240,7 @@
         @if ($attention['server'] !== null)
             <x-ui.card>
                 <x-ui.heading>{{ __('Server') }}</x-ui.heading>
-                <dl class="mt-3 grid gap-1 text-sm">
+                <dl class="mt-3 grid grid-cols-1 gap-1 text-sm">
                     <div class="flex justify-between gap-4">
                         <dt>{{ __('Last backup') }}</dt>
                         <dd @class(['tabular-nums', 'font-medium text-red-700 dark:text-red-400' => $attention['server']['backup_late']])>

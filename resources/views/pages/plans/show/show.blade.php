@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.link href="{{ route('plans.index') }}" wire:navigate class="text-sm">{{ __('Plans') }}</x-ui.link>
@@ -18,11 +18,11 @@
         @endunless
     </div>
 
-    <div class="grid items-start gap-6 md:grid-cols-2">
+    <div class="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
         @foreach ($this->details as $section => $rows)
             <x-ui.card wire:key="section-{{ $loop->index }}">
                 <x-ui.heading>{{ $section }}</x-ui.heading>
-                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-6">
+                <dl class="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-6">
                     @foreach ($rows as $label => $value)
                         <dt class="text-zinc-600 dark:text-zinc-400">{{ $label }}</dt>
                         <dd class="font-medium break-words">{{ $value }}</dd>

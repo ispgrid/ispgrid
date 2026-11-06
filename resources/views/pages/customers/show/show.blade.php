@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.link href="{{ route('customers.index') }}" wire:navigate class="text-sm">{{ __('Customers') }}</x-ui.link>
@@ -22,6 +22,9 @@
             @else
                 @can('changeStatus', $this->account)
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'change-status' })">{{ __('Change status') }}</x-ui.button>
+                @endcan
+                @can('update', $this->account)
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-open', { name: 'rename' })">{{ __('Change username') }}</x-ui.button>
                 @endcan
                 @if ($this->sessions !== [])
                     @can('disconnect-sessions')
@@ -75,12 +78,12 @@
             <livewire:pages::customers.selfcare-card :account-id="$this->account->id" :key="'selfcare-card-'.$this->account->id" />
         @endif
 
-        <div class="grid gap-6 md:grid-cols-2">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             <x-ui.card>
                 <x-ui.heading>{{ __('Service') }}</x-ui.heading>
-                <dl class="mt-4 grid gap-3 text-sm">
+                <dl class="mt-4 grid grid-cols-1 gap-3 text-sm">
                     @foreach ($this->service as $label => $value)
-                        <div class="grid grid-cols-[9rem_1fr] gap-3">
+                        <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                             <dt class="text-zinc-600 dark:text-zinc-400">{{ $label }}</dt>
                             <dd class="break-words">{{ $value }}</dd>
                         </div>
@@ -90,9 +93,9 @@
 
             <x-ui.card>
                 <x-ui.heading>{{ __('Profile') }}</x-ui.heading>
-                <dl class="mt-4 grid gap-3 text-sm">
+                <dl class="mt-4 grid grid-cols-1 gap-3 text-sm">
                     @foreach ($this->profile as $label => $value)
-                        <div class="grid grid-cols-[9rem_1fr] gap-3">
+                        <div class="grid grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[9rem_minmax(0,1fr)] gap-3">
                             <dt class="text-zinc-600 dark:text-zinc-400">{{ $label }}</dt>
                             <dd class="break-words whitespace-pre-line">{{ $value }}</dd>
                         </div>
@@ -104,7 +107,7 @@
         @if ($this->technician)
             <x-ui.card>
                 <x-ui.heading>{{ __('For the technician') }}</x-ui.heading>
-                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+                <dl class="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-4">
                     <div><dt class="text-zinc-600 dark:text-zinc-400">{{ __('IP address') }}</dt><dd class="font-mono">{{ $this->technician['ip'] }}</dd></div>
                     <div><dt class="text-zinc-600 dark:text-zinc-400">{{ __('Mask') }}</dt><dd class="font-mono">{{ $this->technician['mask'] }}</dd></div>
                     <div><dt class="text-zinc-600 dark:text-zinc-400">{{ __('Gateway') }}</dt><dd class="font-mono">{{ $this->technician['gateway'] }}</dd></div>
@@ -317,6 +320,10 @@
         </x-ui.card>
     @endif
 
+    @if ($this->activeTab === 'sessions')
+        <livewire:pages::customers.sessions-tab :account-id="$this->account->id" :key="'sessions-tab-'.$this->account->id" />
+    @endif
+
     @if ($this->activeTab === 'billing')
         <livewire:pages::customers.billing-tab :account-id="$this->account->id" :key="'billing-tab-'.$this->account->id" />
     @endif
@@ -331,7 +338,7 @@
                 @if ($this->messages === [])
                     <x-ui.text muted class="mt-4">{{ __('No messages yet.') }}</x-ui.text>
                 @else
-                    <ul class="mt-4 grid gap-3 text-sm">
+                    <ul class="mt-4 grid grid-cols-1 gap-3 text-sm">
                         @foreach ($this->messages as $message)
                             <li class="flex flex-wrap items-start gap-2" wire:key="message-{{ $loop->index }}">
                                 <span class="tabular-nums text-zinc-600 dark:text-zinc-400">{{ $message['when'] }}</span>
@@ -374,7 +381,7 @@
             @foreach ($this->timeline as $day => $entries)
                 <div wire:key="activity-day-{{ $day }}" class="mt-6">
                     <p class="text-sm font-semibold text-zinc-600 dark:text-zinc-400">{{ $day }}</p>
-                    <ol class="relative mt-2 grid gap-2 pl-9 before:absolute before:top-0 before:bottom-0 before:left-3 before:w-0.5 before:bg-zinc-200 dark:before:bg-zinc-700">
+                    <ol class="relative mt-2 grid grid-cols-1 gap-2 pl-9 before:absolute before:top-0 before:bottom-0 before:left-3 before:w-0.5 before:bg-zinc-200 dark:before:bg-zinc-700">
                         @foreach ($entries as $entry)
                             <li wire:key="activity-{{ $entry['id'] }}" class="relative flex justify-between gap-3 rounded-lg border border-zinc-200 px-3.5 py-2.5 text-sm dark:border-zinc-700">
                                 <span @class([
@@ -431,9 +438,24 @@
         <livewire:dynamic-component :is="$this->addonTab" :account-id="$this->account->id" :key="'addon-tab-'.$this->activeTab" />
     @endif
 
+    @can('update', $this->account)
+        <x-ui.modal name="rename" width="sm">
+            <form wire:submit="rename" class="grid grid-cols-1 gap-5">
+                <x-ui.heading size="lg">{{ __('Change username') }}</x-ui.heading>
+                <x-ui.text>{{ __('Now: :username', ['username' => $this->account->username]) }}</x-ui.text>
+                <x-ui.input wire:model="new_username" english :label="__('New username')" maxlength="64" required autocomplete="off" />
+                <x-ui.alert variant="warning">{{ __('An online customer is disconnected, and their router must log in with the new username: change it in their router too. Sessions and the login log keep the old username.') }}</x-ui.alert>
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'rename' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Change username') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.modal>
+    @endcan
+
     @can('changeStatus', $this->account)
         <x-ui.modal name="change-status" width="sm">
-            <form wire:submit="changeStatus" class="grid gap-5">
+            <form wire:submit="changeStatus" class="grid grid-cols-1 gap-5">
                 <x-ui.heading size="lg">{{ __('Change status') }}</x-ui.heading>
                 <x-ui.select wire:model="status" :label="__('Status')" :options="$this->statuses" :description="__('Inactive and Suspended customers get the disabled pool (Hotspot logins are refused). Terminated customers are refused everywhere. Active customers without a plan still get the disabled pool: recharge them to give them one.')" />
                 <x-ui.textarea wire:model="remark" :label="__('Remark')" :description="__('Why the status changes. It is kept in the activity log.')" rows="2" maxlength="500" required />
@@ -447,7 +469,7 @@
 
     @can('recharge', $this->account)
         <x-ui.modal name="recharge">
-            <form wire:submit="recharge" class="grid gap-5" novalidate>
+            <form wire:submit="recharge" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Recharge') }}</x-ui.heading>
 
                 @if ($this->rechargeKeepsStatus)

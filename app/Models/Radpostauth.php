@@ -31,7 +31,16 @@ class Radpostauth extends Model
 
     public function result(): LoginResult
     {
-        return LoginResult::fromReply((string) $this->reply);
+        return LoginResult::fromReply((string) $this->reply, $this->reply_msg);
+    }
+
+    /**
+     * The reason as the panel shows it. isp says "Wrong Password" (older rows too), the other reasons are in
+     * sentence case.
+     */
+    public static function reasonText(?string $reason): string
+    {
+        return $reason === 'Wrong Password' ? 'Wrong password' : (string) $reason;
     }
 
     /**
@@ -50,7 +59,7 @@ class Radpostauth extends Model
             'when' => $this->authdate->format($dateFormat),
             'result' => $result->label(),
             'color' => $result->color(),
-            'reason' => (string) $this->reply_msg,
+            'reason' => self::reasonText($this->reply_msg),
             'router' => $routers[(string) $this->nasipaddress] ?? (string) $this->nasipaddress,
             'mac' => (string) $this->mac,
             'ip' => (string) $this->framedipaddress,

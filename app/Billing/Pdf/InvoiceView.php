@@ -38,6 +38,7 @@ final class InvoiceView
         $company = $invoice->company;
         $customer = $invoice->customer;
         $money = self::money($invoice);
+        $decimals = (int) (self::currency($invoice)['decimals'] ?? 2);
         $dateFormat = (string) AppSetting::valueOf('date_format', 'd/m/Y');
         $india = $invoice->tax_setup === 'india-gst';
         $taxLabel = $india ? 'GSTIN' : ((string) AppSetting::valueOf('tax_id_label', '') ?: 'Tax ID');
@@ -75,17 +76,21 @@ final class InvoiceView
                 'tax_number' => self::text($customer, 'tax_number') ?: null,
             ],
             'item_code_label' => $invoice->item_code_label,
-            'lines' => array_values($invoice->lines->map(fn (InvoiceLine $line): array => [
-                'position' => (int) $line->position,
-                'description' => (string) $line->description,
-                'sub_description' => $line->sub_description,
-                'item_code' => $line->item_code,
-                'quantity' => Decimal::trim((string) $line->quantity),
-                'rate' => $money->format((string) $line->unit_price),
-                'discount' => Decimal::compare((string) $line->discount_amount, '0') > 0
-                    ? $money->format((string) $line->discount_amount).' ('.Decimal::trim((string) $line->discount_percent).'%)' : null,
-                'amount' => $money->format((string) $line->taxable),
-            ])->all()),
+            'lines' => array_values($invoice->lines->map(function (InvoiceLine $line) use ($money, $decimals): array {
+                [$rate, $discount] = self::beforeTax($line, $decimals);
+
+                return [
+                    'position' => (int) $line->position,
+                    'description' => (string) $line->description,
+                    'sub_description' => $line->sub_description,
+                    'item_code' => $line->item_code,
+                    'quantity' => Decimal::trim((string) $line->quantity),
+                    'rate' => $money->format($rate),
+                    'discount' => Decimal::compare($discount, '0') > 0
+                        ? $money->format($discount).' ('.Decimal::trim((string) $line->discount_percent).'%)' : null,
+                    'amount' => $money->format((string) $line->taxable),
+                ];
+            })->all()),
             'taxable_total' => $money->format((string) $invoice->taxable_total),
             'tax_lines' => array_values($invoice->taxLines->map(fn (InvoiceTaxLine $line): array => [
                 'label' => $line->name.' '.Decimal::trim((string) $line->rate).'%',
@@ -102,6 +107,38 @@ final class InvoiceView
             'signature' => (bool) ($company['show_signature'] ?? true),
             'signatory' => self::text($company, 'name'),
         ];
+    }
+
+    /**
+     * The unit price and discount as the line's amount is: before tax. With prices that include tax the stored unit
+     * price has the tax in it, and 1 x 2,499.00 = 2,117.80 reads wrong on a tax invoice. The discount takes what
+     * rounding leaves, so quantity x rate - discount is exactly the amount.
+     *
+     * @return array{0: string, 1: string} unit price, discount
+     */
+    public static function beforeTax(InvoiceLine $line, int $decimals): array
+    {
+        $price = (string) $line->unit_price;
+        $discount = (string) $line->discount_amount;
+        $gross = Decimal::mul((string) $line->quantity, $price, 6);
+        $net = Decimal::sub($gross, $discount, 6);
+        $taxable = (string) $line->taxable;
+
+        if (Decimal::compare($net, '0') <= 0 || Decimal::compare($net, $taxable) === 0) {
+            return [$price, $discount];
+        }
+
+        $rate = Decimal::round(Decimal::div(Decimal::mul($price, $taxable, 10), $net, 10), $decimals);
+
+        if (Decimal::compare($discount, '0') <= 0 && Decimal::compare((string) $line->quantity, '1') === 0) {
+            return [$taxable, '0'];
+        }
+
+        if (Decimal::compare($discount, '0') <= 0) {
+            return [$rate, '0'];
+        }
+
+        return [$rate, Decimal::round(Decimal::sub(Decimal::mul((string) $line->quantity, $rate, 6), $taxable, 6), $decimals)];
     }
 
     /**

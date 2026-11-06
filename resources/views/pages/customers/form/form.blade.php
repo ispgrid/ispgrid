@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div>
         <x-ui.link href="{{ $accountId ? route('customers.show', $accountId) : route('customers.index') }}" wire:navigate class="text-sm">{{ $accountId ? $username : __('Customers') }}</x-ui.link>
         <x-ui.heading level="1" size="xl" class="mt-2">{{ $accountId ? __('Edit customer') : __('Add customer') }}</x-ui.heading>
@@ -10,14 +10,14 @@
         <x-ui.alert variant="danger">{{ __('Nothing was saved. Fix the fields on the marked tabs and save again.') }}</x-ui.alert>
     @endif
 
-    <form wire:submit="save" novalidate class="grid gap-6">
+    <form wire:submit="save" novalidate class="grid grid-cols-1 gap-6">
         <x-ui.card>
             <x-ui.tabs :tabs="$this->tabs" :invalid="$this->invalidTabs()" :warning="$this->warningTabs()">
                 {{-- Every tab lays its fields on the same four-column grid, so rows line up across the form. --}}
-                <x-ui.tab-panel name="profile" class="grid gap-8">
-                    <section class="grid gap-4" aria-labelledby="customer-contact">
+                <x-ui.tab-panel name="profile" class="grid grid-cols-1 gap-8">
+                    <section class="grid grid-cols-1 gap-4" aria-labelledby="customer-contact">
                         <x-ui.heading level="3" id="customer-contact">{{ __('Contact') }}</x-ui.heading>
-                        <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <x-ui.select wire:model="title" :label="__('Title')" :options="$this->titles" :placeholder="__('None')" />
                             <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required />
                             <div class="sm:col-span-2">
@@ -37,9 +37,9 @@
                         <x-ui.switch wire:model="notifications_off" :label="__('No reminders')" :description="__('No expiry reminders by SMS or WhatsApp. Recharge confirmations still go out.')" />
                     </section>
 
-                    <section class="grid gap-4" aria-labelledby="customer-address">
+                    <section class="grid grid-cols-1 gap-4" aria-labelledby="customer-address">
                         <x-ui.heading level="3" id="customer-address">{{ __('Installation address') }}</x-ui.heading>
-                        <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <div class="sm:col-span-2">
                                 <x-ui.input wire:model="address.line1" :label="__('Address line 1')" maxlength="255" :required="isset($this->requiredFields['address'])" />
                             </div>
@@ -59,10 +59,10 @@
                     <x-ui.textarea wire:model="remarks" :label="__('Remarks')" rows="2" maxlength="2000" />
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="service" class="grid gap-5">
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                <x-ui.tab-panel name="service" class="grid grid-cols-1 gap-5">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.select wire:model.live="service_type" :label="__('Type')" :options="$this->serviceTypes" required />
-                        <x-ui.input wire:model="username" english :label="__('Username')" :description="__('The login name: letters, digits, ., -, _ and @. It cannot change after saving.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
+                        <x-ui.input wire:model="username" english :label="__('Username')" :description="$accountId === null ? __('The login name: letters, digits, ., -, _ and @.') : __('Change it with Change username on the customer page.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
                         @unless ($this->isIpoe)
                             @if ($keepsPassword)
                                 <x-ui.input wire:model="password" english :label="__('Password')" :description="__('Leave empty to keep the current password.')" viewable maxlength="64" autocomplete="off" />
@@ -77,7 +77,7 @@
                         <x-ui.text muted>{{ __('IPoE customers log in by their IP address and the device bound to it, so they need no password. Set the IP on the Network tab.') }}</x-ui.text>
                     @endif
 
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.select wire:model="nas_id" :label="__('NAS')" :options="$this->routers" :placeholder="__('Any NAS')" :description="__('Set a NAS to refuse logins through any other.')" />
                         <x-ui.select wire:model="connection_type_id" :label="__('Connection type')" :options="$this->connectionTypes" :placeholder="__('None')" />
                     </div>
@@ -87,12 +87,12 @@
                     @endif
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="billing" class="grid gap-5">
+                <x-ui.tab-panel name="billing" class="grid grid-cols-1 gap-5">
                     @foreach ($this->billingWarnings() as $warning)
                         <x-ui.alert variant="warning">{{ $warning }}</x-ui.alert>
                     @endforeach
 
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         @if ($this->canSetPricing)
                             <div class="sm:col-span-2">
                                 <x-ui.switch wire:model.live="billing_free" :label="__('Free customer')" :description="__('Recharges cost nothing and make no invoice, e.g. for a non-profit.')" />
@@ -110,7 +110,7 @@
                     <x-ui.switch wire:model.live="separate_billing" :label="__('Bill to another name or address')" :description="__('Invoices then show this instead of the customer name and installation address.')" />
 
                     @if ($separate_billing)
-                        <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <div class="sm:col-span-2">
                                 <x-ui.input wire:model.live.blur="billing_name" :label="__('Billing name')" maxlength="150" />
                             </div>
@@ -129,8 +129,8 @@
                     @endif
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="network" class="grid gap-5">
-                    <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                <x-ui.tab-panel name="network" class="grid grid-cols-1 gap-5">
+                    <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="sm:col-span-2">
                             <x-ui.input wire:model="ip_address" english :label="$this->isIpoe ? __('IP address') : __('Static IP')" :description="$this->isIpoe ? __('The address of the customer device. FreeRADIUS finds the customer by it.') : __('Optional. Sent as Framed-IP-Address.')" :required="$this->isIpoe" autocomplete="off" />
                         </div>
@@ -147,7 +147,7 @@
                         @endunless
                     </div>
 
-                    <fieldset class="grid gap-2">
+                    <fieldset class="grid grid-cols-1 gap-2">
                         <legend class="text-sm font-medium">{{ __('Address lists') }}</legend>
                         <x-ui.text muted>{{ __('Optional. With any list ticked, the customer gets only these and not the plan lists.') }}</x-ui.text>
                         @forelse ($this->addressLists as $id => $listName)
@@ -164,7 +164,7 @@
 
                     @if ($override_plan)
                         <x-ui.text muted>{{ __('Speeds are a whole number with k or M, e.g. 512k or 25M. Upload is what the customer sends.') }}</x-ui.text>
-                        <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <x-ui.input wire:model="override_upload" english :label="__('Upload')" required autocomplete="off" />
                             <x-ui.input wire:model="override_download" english :label="__('Download')" required autocomplete="off" />
                             <x-ui.input wire:model="override_burst_upload" english :label="__('Burst upload')" autocomplete="off" />
@@ -182,11 +182,11 @@
                     @endif
                 </x-ui.tab-panel>
 
-                <x-ui.tab-panel name="attributes" class="grid gap-5">
+                <x-ui.tab-panel name="attributes" class="grid grid-cols-1 gap-5">
                     <x-ui.text muted>{{ __('For what the other tabs do not cover. FreeRADIUS sends each row to the NAS as it is, so only listed attributes are allowed.') }}</x-ui.text>
 
                     @foreach ($custom_attributes as $index => $row)
-                        <div wire:key="custom-attribute-{{ $index }}" class="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <div wire:key="custom-attribute-{{ $index }}" class="grid grid-cols-1 items-start gap-3 sm:grid-cols-[1fr_1fr_auto]">
                             <x-ui.select wire:model="custom_attributes.{{ $index }}.attribute" :label="__('Attribute')" :options="$this->allowlist" :placeholder="__('Choose an attribute')" required />
                             <x-ui.input wire:model="custom_attributes.{{ $index }}.value" english :label="__('Value')" maxlength="253" required autocomplete="off" />
                             <x-ui.button variant="ghost" icon="trash" class="sm:mt-6" wire:click="removeAttribute({{ $index }})">{{ __('Remove') }}</x-ui.button>
@@ -199,7 +199,7 @@
                 </x-ui.tab-panel>
 
                 @foreach ($this->addonTabViews as $key => $view)
-                    <x-ui.tab-panel :name="$key" class="grid gap-6" wire:key="addon-tab-{{ $key }}">
+                    <x-ui.tab-panel :name="$key" class="grid grid-cols-1 gap-6" wire:key="addon-tab-{{ $key }}">
                         @error('addonTabs.'.$key)
                             <x-ui.alert variant="danger">{{ $message }}</x-ui.alert>
                         @enderror

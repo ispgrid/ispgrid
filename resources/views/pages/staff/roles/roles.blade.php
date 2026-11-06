@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.link href="{{ route('staff.index') }}" wire:navigate class="text-sm">{{ __('Staff') }}</x-ui.link>

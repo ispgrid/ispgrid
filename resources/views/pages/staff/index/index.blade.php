@@ -1,4 +1,4 @@
-<section class="grid gap-6">
+<section class="grid grid-cols-1 gap-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <x-ui.heading level="1" size="xl">{{ __('Staff') }}</x-ui.heading>
@@ -59,7 +59,7 @@
     </x-ui.table>
 
     <x-ui.modal name="add-staff">
-        <form wire:submit="add" class="grid gap-5">
+        <form wire:submit="add" class="grid grid-cols-1 gap-5">
             <x-ui.heading size="lg">{{ __('Add staff') }}</x-ui.heading>
 
             <x-ui.input wire:model="name" :label="__('Name')" required autocomplete="off" />
@@ -76,7 +76,7 @@
     </x-ui.modal>
 
     <x-ui.modal name="change-role" width="sm">
-        <form wire:submit="saveRole" class="grid gap-5">
+        <form wire:submit="saveRole" class="grid grid-cols-1 gap-5">
             <x-ui.heading size="lg">{{ __('Change role') }}</x-ui.heading>
             <x-ui.select wire:model="role" :label="__('Role')" :options="$this->roles" :description="__('The new role applies at their next click.')" required />
 

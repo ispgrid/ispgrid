@@ -1,6 +1,6 @@
 {{-- Hands the customer to the gateway: a form that posts itself, or the gateway's script. A button covers browsers without scripts. --}}
 <x-layouts::public :title="__('Pay your bill')" :company="$company" :logo="$logo" :phone="$phone" :phone-link="$phoneLink">
-    <div class="grid gap-4 text-center">
+    <div class="grid grid-cols-1 gap-4 text-center">
         <x-ui.text>{{ __('Taking you to the payment page...') }}</x-ui.text>
 
         @if ($start->kind === 'form')

@@ -19,5 +19,5 @@
     @if ($icon)
         <x-ui.icon :name="$icon" class="size-5" />
     @endif
-    <div class="grid gap-1">{{ $slot }}</div>
+    <div class="grid grid-cols-1 gap-1">{{ $slot }}</div>
 </div>

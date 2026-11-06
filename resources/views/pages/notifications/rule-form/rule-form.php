@@ -13,6 +13,7 @@ use App\Notifications\NotificationRegistry;
 use App\Notifications\Notifier;
 use App\Notifications\PhoneNumber;
 use App\Notifications\Placeholders;
+use App\Notifications\RulePresets;
 use App\Notifications\SettingField;
 use App\Notifications\Triggers\SelfcareLogin;
 use Carbon\CarbonImmutable;
@@ -28,6 +29,11 @@ new #[Title('Notification rule')] class extends Component
 
     #[Locked]
     public ?int $ruleId = null;
+
+    /**
+     * The common rule a new rule starts from (RulePresets), or '' for a blank one.
+     */
+    public string $preset = '';
 
     public string $name = '';
 
@@ -98,6 +104,36 @@ new #[Title('Notification rule')] class extends Component
         }
 
         $this->dropValuesNotOffered();
+    }
+
+    /**
+     * Fills the form from a common rule: name, trigger, when, values and the suggested text. The provider template
+     * stays for staff to pick.
+     */
+    public function updatedPreset(): void
+    {
+        $preset = RulePresets::all()[$this->preset] ?? null;
+
+        if ($this->ruleId !== null || $preset === null) {
+            return;
+        }
+
+        $this->name = $preset['name'];
+        $this->trigger = $preset['trigger'];
+        $this->triggerSettings = $preset['settings'];
+        $this->values = $preset['values'];
+        $this->approved_text = $preset['text'];
+        unset($this->triggerFields, $this->placeholderOptions);
+        $this->dropValuesNotOffered();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function presetOptions(): array
+    {
+        return array_map(fn (array $preset): string => $preset['label'], RulePresets::all());
     }
 
     public function updatedProvider(): void
