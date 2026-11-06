@@ -74,7 +74,7 @@ it('takes a price to the fils only for a three-decimal currency', function () {
 
 it('refuses a slug FreeRADIUS cannot use as a group name', function (string $slug) {
     newPlanForm()->set('slug', $slug)->call('save')->assertHasErrors(['slug']);
-})->with(['Home', 'home 25', 'home.25', "o'brien", '', 'घर']);
+})->with(['Home', 'home 25', 'home.25', "o'brien", 'घर']);
 
 it('tells staff to restore a deleted plan instead of reusing its slug', function () {
     Plan::factory()->trashed()->create(['slug' => 'home_25']);
@@ -401,4 +401,27 @@ it('drops a first-login setting left from when Hotspot was on', function () {
         ->assertHasNoErrors();
 
     expect($plan->fresh()->hotspot_starts_at_first_login)->toBeFalse();
+});
+
+it('makes the slug from the name, unique among all plans', function () {
+    Plan::factory()->create(['slug' => 'home_25_mbps']);
+    Plan::factory()->trashed()->create(['slug' => 'home_25_mbps_2']);
+
+    Livewire::test('pages::plans.form')->set('name', 'Home 25 Mbps')->assertSet('slug', 'home_25_mbps_3')
+        ->set('name', 'Fibre 100')->assertSet('slug', 'fibre_100');
+});
+
+it('keeps a slug staff typed when the name changes', function () {
+    Livewire::test('pages::plans.form')->set('name', 'Home 25')->set('slug', 'my_own')->set('name', 'Home 50')
+        ->assertSet('slug', 'my_own');
+});
+
+it('saves a new plan with an empty slug under one made from the name', function () {
+    newPlanForm()->set('slug', '')->set('name', 'Night Owl')->set('slug', '')->call('save')->assertHasNoErrors();
+
+    expect(Plan::query()->sole()->slug)->toBe('night_owl');
+});
+
+it('asks for a slug when the name gives none', function () {
+    newPlanForm()->set('name', '!!!')->set('slug', '')->call('save')->assertHasErrors(['slug' => 'required']);
 });

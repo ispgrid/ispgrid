@@ -1497,5 +1497,6 @@
     "More than :count attempts": ":count से ज़्यादा प्रयास",
     ":count attempt|:count attempts": ":count प्रयास|:count प्रयास",
     "Group repeated attempts": "दोहराए गए प्रयास एक साथ दिखाएँ",
-    ":count times since :when": ":when से :count बार"
+    ":count times since :when": ":when से :count बार",
+    "Made from the name; you may change it. The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.": "नाम से बनाया गया; आप इसे बदल सकते हैं। FreeRADIUS ग्रुप का नाम: छोटे अंग्रेज़ी अक्षर, अंक, - और _। सेव करने के बाद यह नहीं बदलता।"
 }

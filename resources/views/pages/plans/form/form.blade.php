@@ -15,8 +15,8 @@
                 {{-- Every tab lays its fields on the same four-column grid, so rows line up across the form. --}}
                 <x-ui.tab-panel name="general" class="grid gap-5">
                     <div class="grid items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                        <x-ui.input wire:model="name" :label="__('Name')" :description="__('Shown to staff, e.g. Home 25 Mbps.')" maxlength="255" required />
-                        <x-ui.input wire:model="slug" english :label="__('Slug')" :description="__('The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.')" maxlength="64" :readonly="$planId !== null" required autocomplete="off" />
+                        <x-ui.input wire:model.live.blur="name" :label="__('Name')" :description="__('Shown to staff, e.g. Home 25 Mbps.')" maxlength="255" required />
+                        <x-ui.input wire:model="slug" english :label="__('Slug')" :description="$planId === null ? __('Made from the name; you may change it. The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.') : __('The FreeRADIUS group name: lower-case letters, digits, - and _. It cannot change after saving.')" maxlength="64" :readonly="$planId !== null" autocomplete="off" />
                         <div class="grid grid-cols-2 items-start gap-2">
                             <x-ui.input wire:model="validity" type="number" min="1" :max="$validity_unit === 'hours' ? 720 : 3650" :label="__('Validity')" :description="__('How long a recharge lasts.')" required />
                             <x-ui.select wire:model.live="validity_unit" :label="__('Unit')" :options="$this->validityUnits" />
