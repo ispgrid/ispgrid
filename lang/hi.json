@@ -1602,5 +1602,17 @@
     "Use the tokens :tokens and letters, digits or symbols, without spaces, quotes or backslashes.": "टोकन :tokens और अक्षर, अंक या चिह्न इस्तेमाल करें, बिना स्पेस, कोट या बैकस्लैश के।",
     "Password pattern": "पासवर्ड पैटर्न",
     "Pattern passwords are easy to guess for anyone who knows the customer's name or mobile number. Leave empty for random passwords.": "जो कोई ग्राहक का नाम या मोबाइल नंबर जानता है, वह पैटर्न वाले पासवर्ड आसानी से अंदाज़ा लगा सकता है। रैंडम पासवर्ड के लिए खाली छोड़ें।",
-    "Fills new PPPoE passwords and the Selfcare passwords the panel sets. Tokens: :tokens. A name in another script, or a password under 6 characters, gets a random one.": "नए PPPoE पासवर्ड और पैनल द्वारा सेट किए गए Selfcare पासवर्ड इसी से भरे जाते हैं। टोकन: :tokens। किसी दूसरी लिपि में नाम हो, या पासवर्ड 6 अक्षरों से छोटा हो, तो रैंडम पासवर्ड मिलता है।"
+    "Fills new PPPoE passwords and the Selfcare passwords the panel sets. Tokens: :tokens. A name in another script, or a password under 6 characters, gets a random one.": "नए PPPoE पासवर्ड और पैनल द्वारा सेट किए गए Selfcare पासवर्ड इसी से भरे जाते हैं। टोकन: :tokens। किसी दूसरी लिपि में नाम हो, या पासवर्ड 6 अक्षरों से छोटा हो, तो रैंडम पासवर्ड मिलता है।",
+    "PPPoE password reset by staff": "स्टाफ़ ने PPPoE पासवर्ड रीसेट किया",
+    "When staff reset a PPPoE password and send it": "जब स्टाफ़ PPPoE पासवर्ड रीसेट करके भेजे",
+    "PPPoE password reset": "PPPoE पासवर्ड रीसेट",
+    "A new password disconnects the customer. Their router needs the new one to get online again.": "नया पासवर्ड ग्राहक को डिस्कनेक्ट कर देता है। दोबारा ऑनलाइन आने के लिए उनके राउटर में नया पासवर्ड डालना होगा।",
+    "Reset the PPPoE password? The customer is disconnected and must use the new password.": "PPPoE पासवर्ड रीसेट करें? ग्राहक डिस्कनेक्ट हो जाएगा और उसे नया पासवर्ड इस्तेमाल करना होगा।",
+    "Reset PPPoE password": "PPPoE पासवर्ड रीसेट करें",
+    "Reset the PPPoE password and send it to the customer? They are disconnected and must use the new password.": "PPPoE पासवर्ड रीसेट करके ग्राहक को भेजें? वे डिस्कनेक्ट हो जाएंगे और उन्हें नया पासवर्ड इस्तेमाल करना होगा।",
+    "Reset and send by SMS/WhatsApp": "रीसेट करें और SMS/WhatsApp से भेजें",
+    "Copy login": "लॉगिन कॉपी करें",
+    "No PPPoE password message is switched on. Reset the password and copy it instead.": "कोई PPPoE पासवर्ड मैसेज चालू नहीं है। इसके बजाय पासवर्ड रीसेट करके कॉपी करें।",
+    "A new PPPoE password is on its way to the customer.": "नया PPPoE पासवर्ड ग्राहक को भेजा जा रहा है।",
+    "Add the PPPoE password to the values, or the customer cannot get online.": "वैल्यू में PPPoE पासवर्ड जोड़ें, वरना ग्राहक ऑनलाइन नहीं आ पाएगा।"
 }

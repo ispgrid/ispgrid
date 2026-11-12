@@ -174,6 +174,7 @@ final class ActivityFormatter
             'selfcare-password-set' => __('Selfcare password set'),
             'pppoe-password-changed' => __('PPPoE password changed in selfcare'),
             'account-numbers-assigned' => __('Account IDs given'),
+            'pppoe-password-reset' => __('PPPoE password reset'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }

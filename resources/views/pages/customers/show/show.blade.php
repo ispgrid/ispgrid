@@ -78,6 +78,10 @@
             <livewire:pages::customers.selfcare-card :account-id="$this->account->id" :key="'selfcare-card-'.$this->account->id" />
         @endif
 
+        @if ($this->showsPppoeCard)
+            <livewire:pages::customers.pppoe-card :account-id="$this->account->id" :key="'pppoe-card-'.$this->account->id" />
+        @endif
+
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             <x-ui.card>
                 <x-ui.heading>{{ __('Service') }}</x-ui.heading>

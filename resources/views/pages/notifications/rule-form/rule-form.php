@@ -15,6 +15,7 @@ use App\Notifications\PhoneNumber;
 use App\Notifications\Placeholders;
 use App\Notifications\RulePresets;
 use App\Notifications\SettingField;
+use App\Notifications\Triggers\PppoePassword;
 use App\Notifications\Triggers\SelfcareLogin;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\Rule;
@@ -231,12 +232,25 @@ new #[Title('Notification rule')] class extends Component
     }
 
     /**
-     * The "Selfcare login" trigger, whose messages carry a new password.
+     * The "Selfcare login" and "PPPoE password" triggers, whose messages carry a new password.
      */
     #[Computed]
     public function sendsPassword(): bool
     {
-        return $this->trigger === SelfcareLogin::key();
+        return $this->passwordValue !== null;
+    }
+
+    /**
+     * The value that carries the new password of this trigger, if it sends one.
+     */
+    #[Computed]
+    public function passwordValue(): ?string
+    {
+        return match ($this->trigger) {
+            SelfcareLogin::key() => 'selfcare_password',
+            PppoePassword::key() => 'pppoe_password',
+            default => null,
+        };
     }
 
     /**
@@ -370,8 +384,10 @@ new #[Title('Notification rule')] class extends Component
             'trigger' => ['required', Rule::in(array_keys($this->registry()->triggers()))],
             'provider' => ['required', Rule::in(array_keys($this->providerOptions))],
             'values' => ['array', 'max:10', function (string $attribute, mixed $value, Closure $fail): void {
-                if ($this->sendsPassword && ! in_array('selfcare_password', (array) $value, true)) {
+                if ($this->passwordValue === 'selfcare_password' && ! in_array('selfcare_password', (array) $value, true)) {
                     $fail(__('Add the selfcare password to the values, or the customer cannot log in.'));
+                } elseif ($this->passwordValue === 'pppoe_password' && ! in_array('pppoe_password', (array) $value, true)) {
+                    $fail(__('Add the PPPoE password to the values, or the customer cannot get online.'));
                 }
             }],
             'values.*' => ['required', Rule::in(array_keys($this->placeholderOptions))],
