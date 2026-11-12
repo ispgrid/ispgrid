@@ -18,6 +18,7 @@ use App\Models\Ip;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\UsagePeriod;
+use App\Support\AccountNumbers;
 use App\Support\CsvFile;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
@@ -54,7 +55,7 @@ final class ImportCustomers implements Importer
      *
      * @var array<string, string>
      */
-    private const COLUMN_OF = ['mac_type' => 'device_limit', 'ip_address' => 'ip', 'pool_id' => 'pool', 'connection_type_id' => 'connection_type'];
+    private const COLUMN_OF = ['account_number' => 'account_id', 'mac_type' => 'device_limit', 'ip_address' => 'ip', 'pool_id' => 'pool', 'connection_type_id' => 'connection_type'];
 
     public function __construct(private SyncAccountToRadius $sync) {}
 
@@ -78,7 +79,7 @@ final class ImportCustomers implements Importer
             'pool' => '', 'connection_type' => 'Home', 'line1' => '12 Park Street', 'line2' => '', 'area' => 'Salt Lake',
             'city' => 'Kolkata', 'state' => 'West Bengal', 'postal_code' => '700091', 'country' => 'India',
             'auto_renew' => 'no', 'free' => 'no', 'discount_percent' => '0', 'payment_terms_days' => '7', 'billing_name' => '',
-            'place_of_supply' => '',
+            'place_of_supply' => '', 'account_id' => '',
         ];
     }
 
@@ -98,8 +99,10 @@ final class ImportCustomers implements Importer
                     throw new ImportFailed($errors);
                 }
 
+                $typedIds = array_values(array_filter(array_map(fn (array $row): string => (string) ($row['columns']['account_number'] ?? ''), $prepared)));
+
                 foreach ($prepared as $row) {
-                    $this->write($row);
+                    $this->write($row, $typedIds);
                 }
 
                 return count($prepared);
@@ -111,14 +114,16 @@ final class ImportCustomers implements Importer
 
     /**
      * @param  array{errors: list<RowError>, columns: array<string, mixed>, address: ?array<string, ?string>, mac: ?string}  $row
+     * @param  list<string>  $typedIds  the account IDs the file gives by hand, which numbering skips
      */
-    private function write(array $row): void
+    private function write(array $row, array $typedIds): void
     {
         $columns = $row['columns'];
         $columns['address_id'] = $row['address'] === null ? null : Address::query()->create($row['address'])->id;
 
         // One "Imported" entry below instead of the model's own "Created" one.
         $account = activity()->withoutLogging(fn (): Account => Account::query()->create($columns));
+        AccountNumbers::assign($account, $typedIds);
 
         if ($account->usage_since !== null) {
             UsagePeriod::restart($account->username, $account->usage_since);
@@ -146,7 +151,7 @@ final class ImportCustomers implements Importer
         $pools = Pool::query()->get(['id', 'name'])->keyBy(fn (Pool $pool): string => strtolower($pool->name));
         $types = ConnectionType::query()->get(['id', 'name'])->keyBy(fn (ConnectionType $type): string => strtolower($type->name));
         $settings = BillingSettings::current();
-        $seen = ['username' => [], 'ip' => [], 'mac' => []];
+        $seen = ['username' => [], 'ip' => [], 'mac' => [], 'account_id' => []];
         $prepared = [];
 
         foreach ($rows as ['line' => $line, 'values' => $values]) {
@@ -175,7 +180,7 @@ final class ImportCustomers implements Importer
         $address = array_map(fn (string $value): ?string => $value === '' ? null : $value, Arr::only($values, self::ADDRESS));
         $hasAddress = array_filter($address, fn (?string $value): bool => $value !== null) !== [];
 
-        foreach ($isIpoe ? ['username', 'mobile', 'whatsapp', 'alt_number'] : ['username', 'password', 'mobile', 'whatsapp', 'alt_number'] as $column) {
+        foreach ($isIpoe ? ['username', 'account_id', 'mobile', 'whatsapp', 'alt_number'] : ['username', 'account_id', 'password', 'mobile', 'whatsapp', 'alt_number'] as $column) {
             // Excel shows a long number such as 123456789012 as 1.23457E+11 and saves it that way.
             if (preg_match('/^\d+(\.\d+)?E\+\d+$/i', $values[$column]) === 1) {
                 $errors[$column] = __('Excel turned this into a number. Format the column as Text in Excel and type it again.');
@@ -208,15 +213,18 @@ final class ImportCustomers implements Importer
             'address' => $address,
             'service_type' => $serviceType,
             'username' => $values['username'],
+            'account_number' => $values['account_id'],
             'password' => $isIpoe ? '' : $values['password'],
             'mac_type' => $values['device_limit'] === '' ? '1' : $values['device_limit'],
             'connection_type_id' => $connectionType?->id,
             'ip_address' => $values['ip'],
             'pool_id' => $isIpoe ? null : $pool?->id,
         ];
-        $rules = CustomerRules::rules(true, $isIpoe, $hasAddress, $digits);
+        $rules = [...CustomerRules::rules(true, $isIpoe, $hasAddress, $digits), 'account_number' => AccountNumbers::rules()];
 
-        foreach (Validator::make($data, $rules, CustomerRules::messages($digits), self::attributeNames())->errors()->messages() as $field => $messages) {
+        $messages = [...CustomerRules::messages($digits), 'account_number.unique' => __('Another customer has this account ID.'), 'account_number.regex' => __('Use letters, digits and / . _ - only.')];
+
+        foreach (Validator::make($data, $rules, $messages, self::attributeNames())->errors()->messages() as $field => $messages) {
             $column = str_starts_with($field, 'address.') ? substr($field, 8) : (self::COLUMN_OF[$field] ?? $field);
             $errors[$column] ??= $messages[0];
         }
@@ -247,7 +255,7 @@ final class ImportCustomers implements Importer
             }
         }
 
-        $keys = ['username' => strtolower($values['username']), 'ip' => $ip, 'mac' => isset($errors['mac']) ? '' : ($values['mac'] === '' ? '' : $mac)];
+        $keys = ['username' => strtolower($values['username']), 'account_id' => strtolower($values['account_id']), 'ip' => $ip, 'mac' => isset($errors['mac']) ? '' : ($values['mac'] === '' ? '' : $mac)];
 
         foreach ($keys as $column => $key) {
             if ($key === '') {
@@ -258,6 +266,7 @@ final class ImportCustomers implements Importer
                 $errors[$column] ??= match ($column) {
                     'username' => __('Row :row already uses this username.', ['row' => $seen[$column][$key]]),
                     'ip' => __('Row :row already uses this IP address.', ['row' => $seen[$column][$key]]),
+                    'account_id' => __('Row :row already uses this account ID.', ['row' => $seen[$column][$key]]),
                     default => __('Row :row already uses this MAC address.', ['row' => $seen[$column][$key]]),
                 };
             }
@@ -273,6 +282,7 @@ final class ImportCustomers implements Importer
             ),
             'columns' => [
                 'username' => $values['username'],
+                'account_number' => $values['account_id'] === '' ? null : $values['account_id'],
                 'password' => $isIpoe ? Str::random(16) : $values['password'],
                 'fullname' => $values['fullname'],
                 'mobile' => $values['mobile'] === '' ? null : $values['mobile'],

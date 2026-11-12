@@ -13,7 +13,7 @@ use App\Models\Address;
 final class CustomerSnapshot
 {
     /**
-     * @return array{username: string, name: string, billing_lines: list<string>, connectivity_lines: list<string>, tax_number: ?string, place_of_supply: ?string, place_label: ?string}
+     * @return array{username: string, account_number: ?string, name: string, billing_lines: list<string>, connectivity_lines: list<string>, tax_number: ?string, place_of_supply: ?string, place_label: ?string}
      */
     public static function of(Account $account, BillingSettings $settings): array
     {
@@ -25,6 +25,7 @@ final class CustomerSnapshot
 
         return [
             'username' => $account->username,
+            'account_number' => $account->account_number,
             'name' => $name,
             'billing_lines' => array_merge([$name], $billing),
             'connectivity_lines' => $connection,

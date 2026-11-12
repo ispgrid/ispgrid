@@ -8,6 +8,9 @@
             <div>
                 <x-ui.heading size="lg">{{ $this->summary['name'] }}</x-ui.heading>
                 <x-ui.text muted class="font-mono text-sm">{{ $this->summary['username'] }}</x-ui.text>
+                @if ($this->summary['account_number'])
+                    <x-ui.text muted class="text-sm">{{ __('Account ID: :id', ['id' => $this->summary['account_number']]) }}</x-ui.text>
+                @endif
             </div>
             <x-ui.badge :color="$this->summary['color']">{{ $this->summary['status'] }}</x-ui.badge>
         </div>

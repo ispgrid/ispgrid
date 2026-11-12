@@ -21,6 +21,7 @@ enum DisconnectReason: string
     case PppoePasswordChanged = 'pppoe-password-changed';
     case UsernameChanged = 'username-changed';
     case RechargeCancelled = 'recharge-cancelled';
+    case PppoePasswordReset = 'pppoe-password-reset';
 
     public function label(): string
     {
@@ -38,6 +39,7 @@ enum DisconnectReason: string
             self::PppoePasswordChanged => __('PPPoE password changed in Selfcare'),
             self::UsernameChanged => __('username changed'),
             self::RechargeCancelled => __('recharge cancelled'),
+            self::PppoePasswordReset => __('PPPoE password reset by staff'),
         };
     }
 }

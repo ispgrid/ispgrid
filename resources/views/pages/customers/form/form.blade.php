@@ -19,11 +19,11 @@
                         <x-ui.heading level="3" id="customer-contact">{{ __('Contact') }}</x-ui.heading>
                         <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <x-ui.select wire:model="title" :label="__('Title')" :options="$this->titles" :placeholder="__('None')" />
-                            <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required />
+                            <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required x-on:change="{{ $this->prefillsPassword ? '$wire.$commit()' : '' }}" />
                             <div class="sm:col-span-2">
                                 <x-ui.input wire:model="company" :label="__('Company')" maxlength="255" :required="isset($this->requiredFields['company'])" />
                             </div>
-                            <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" :required="isset($this->requiredFields['mobile'])" />
+                            <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" x-on:change="{{ $this->prefillsPassword ? '$wire.$commit()' : '' }}" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" :required="isset($this->requiredFields['mobile'])" />
                             <x-ui.input wire:model="whatsapp" type="tel" inputmode="numeric" :label="__('WhatsApp')" :required="isset($this->requiredFields['whatsapp'])" />
                             <x-ui.input wire:model="alt_number" type="tel" inputmode="numeric" :label="__('Other number')" :required="isset($this->requiredFields['alt_number'])" />
                             <x-ui.input wire:model="email" type="email" :label="__('Email')" maxlength="100" :required="isset($this->requiredFields['email'])" />
@@ -63,11 +63,14 @@
                     <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <x-ui.select wire:model.live="service_type" :label="__('Type')" :options="$this->serviceTypes" required />
                         <x-ui.input wire:model="username" english :label="__('Username')" :description="$accountId === null ? __('The login name: letters, digits, ., -, _ and @.') : __('Change it with Change username on the customer page.')" maxlength="64" :readonly="$accountId !== null" required autocomplete="off" />
+                        @if ($showsAccountNumber)
+                            <x-ui.input wire:model="account_number" english :label="__('Account ID')" :description="$accountId === null ? __('Leave empty for the next one.') : __('Letters, digits and / . _ - only.')" maxlength="30" autocomplete="off" />
+                        @endif
                         @unless ($this->isIpoe)
                             @if ($keepsPassword)
                                 <x-ui.input wire:model="password" english :label="__('Password')" :description="__('Leave empty to keep the current password.')" viewable maxlength="64" autocomplete="off" />
                             @else
-                                <x-ui.input wire:model="password" english :label="__('Password')" viewable maxlength="64" required autocomplete="off" />
+                                <x-ui.input wire:model="password" english :label="__('Password')" :description="$this->passwordFromPattern ? __('Filled in from the password pattern. Press the eye to see it.') : null" viewable maxlength="64" required autocomplete="off" />
                             @endif
                             <x-ui.input wire:model="mac_type" type="number" min="0" max="100" :label="__('Device limit')" :description="__('PPPoE: how many routers may log in with this account. Hotspot: devices online at once. 0 means no limit.')" required />
                         @endunless

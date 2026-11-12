@@ -11,6 +11,7 @@ use App\Models\ConnectionType;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Radacct;
+use App\Support\AccountNumbers;
 use App\Support\Hotspot;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -258,6 +259,7 @@ new #[Title('Customers')] class extends Component
                 ->where('status', '!=', InvoiceStatus::Cancelled)->where('balance', '>', 0)))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('username', 'like', "%{$search}%")
+                ->orWhere('account_number', 'like', "%{$search}%")
                 ->orWhere('fullname', 'like', "%{$search}%")
                 ->orWhere('mobile', 'like', "%{$search}%")
                 ->orWhere('email', 'like', "%{$search}%")
@@ -271,8 +273,17 @@ new #[Title('Customers')] class extends Component
     }
 
     /**
-     * @return list<array{id: int, username: string, name: string, login: ?string, online: bool, type: string, plan: ?string, status: string, color: string, expiry: ?string, pending: bool, expired: bool, router: ?string, trashed: bool}>
+     * @return list<array{id: int, username: string, account_number: ?string, name: string, login: ?string, online: bool, type: string, plan: ?string, status: string, color: string, expiry: ?string, pending: bool, expired: bool, router: ?string, trashed: bool}>
      */
+    /**
+     * The Account ID column shows while account IDs are on.
+     */
+    #[Computed]
+    public function showsAccountNumbers(): bool
+    {
+        return AccountNumbers::enabled();
+    }
+
     #[Computed]
     public function rows(): array
     {
@@ -284,6 +295,7 @@ new #[Title('Customers')] class extends Component
         return $accounts->map(fn (Account $account): array => [
             'id' => $account->id,
             'username' => $account->username,
+            'account_number' => $account->account_number,
             ...$account->heading(),
             'online' => isset($online[$account->username]),
             'type' => $account->service_type->label(),

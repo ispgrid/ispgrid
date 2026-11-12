@@ -31,12 +31,14 @@ use App\Models\Pool;
 use App\Models\RadiusAttribute;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\CustomerCreated;
+use App\Support\AccountNumbers;
 use App\Support\Addons\CustomerFormTabs;
 use App\Support\Currency;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\Hotspot;
 use App\Support\IpAddress;
+use App\Support\PasswordPattern;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
 use App\Support\RequiredCustomerFields;
@@ -70,7 +72,7 @@ new #[Title('Customer')] class extends Component
     private const TABS = [
         'profile' => ['title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email', 'tax_id', 'business_id',
             'remarks', 'address'],
-        'service' => ['service_type', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'auto_renew'],
+        'service' => ['service_type', 'username', 'account_number', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'auto_renew'],
         'billing' => ['billing_free', 'discount_type', 'discount_value', 'payment_terms_days', 'billing_name', 'billing_address', 'place_of_supply'],
         'network' => ['ip_address', 'pool_id', 'address_list_ids', 'override_plan', 'override_upload', 'override_download',
             'override_burst_upload', 'override_burst_download', 'override_threshold_upload', 'override_threshold_download',
@@ -82,7 +84,7 @@ new #[Title('Customer')] class extends Component
      * Form fields held as text, filled from the account's column of the same name.
      */
     private const TEXT_FIELDS = ['title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email', 'tax_id',
-        'business_id', 'remarks', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'pool_id',
+        'business_id', 'remarks', 'username', 'account_number', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'pool_id',
         'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
         'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
         'override_min_upload', 'override_min_download'];
@@ -127,6 +129,30 @@ new #[Title('Customer')] class extends Component
     public string $username = '';
 
     public string $password = '';
+
+    /**
+     * The account ID; empty on a new customer takes the next one when account IDs are on.
+     */
+    public string $account_number = '';
+
+    /**
+     * Account IDs are on, or this customer has one: the field shows.
+     */
+    #[Locked]
+    public bool $showsAccountNumber = false;
+
+    /**
+     * The password the pattern last filled in on a new customer, so it follows the name and mobile until staff type
+     * their own. Not saved.
+     */
+    #[Locked]
+    public string $autoPassword = '';
+
+    /**
+     * The {digits} of the pattern, the same while staff type the name and mobile. Not saved.
+     */
+    #[Locked]
+    public string $patternDigits = '';
 
     public string $mac_type = '1';
 
@@ -253,6 +279,8 @@ new #[Title('Customer')] class extends Component
             $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state(null), $this->formAddonTabs);
             $this->payment_terms_days = (string) $this->billingSettings->defaultTermsDays;
             $this->place_of_supply = $this->homeState();
+            $this->showsAccountNumber = AccountNumbers::enabled();
+            $this->fillPatternPassword();
 
             return;
         }
@@ -267,6 +295,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->savedTitle = $this->title;
+        $this->showsAccountNumber = AccountNumbers::enabled() || $this->account_number !== '';
 
         // The generated IPoE password stays hidden: it must not turn into a PPPoE password nobody chose.
         if ($model->service_type === ServiceType::Ipoe) {
@@ -650,6 +679,48 @@ new #[Title('Customer')] class extends Component
         }
     }
 
+    public function updatedFullname(): void
+    {
+        $this->fillPatternPassword();
+    }
+
+    public function updatedMobile(): void
+    {
+        $this->fillPatternPassword();
+    }
+
+    /**
+     * The password field still holds what the pattern filled in, so staff are told to look at it.
+     */
+    #[Computed]
+    public function passwordFromPattern(): bool
+    {
+        return $this->autoPassword !== '' && $this->password === $this->autoPassword;
+    }
+
+    /**
+     * Whether the name and mobile fill the password as they change (a new customer, a pattern set).
+     */
+    #[Computed]
+    public function prefillsPassword(): bool
+    {
+        return $this->accountId === null && PasswordPattern::isOn();
+    }
+
+    /**
+     * A new customer's password from the pattern, while the field is empty or still holds the last one filled in.
+     */
+    private function fillPatternPassword(): void
+    {
+        if (! $this->prefillsPassword || $this->isIpoe || $this->password !== $this->autoPassword) {
+            return;
+        }
+
+        $this->patternDigits = $this->patternDigits !== '' ? $this->patternDigits : PasswordPattern::randomDigits();
+        $this->password = PasswordPattern::make($this->fullname, $this->mobile, $this->patternDigits) ?? '';
+        $this->autoPassword = $this->password;
+    }
+
     /**
      * A new customer gets the defaults of the chosen type: its pool, or for IPoE the next free IP of the default
      * range. An existing customer keeps what they have.
@@ -663,6 +734,14 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->pool_id = (string) (CustomerDefaults::poolId($type) ?? '');
+
+        // IPoE takes no password: a pattern one filled in for PPPoE goes, and comes back on a switch back.
+        if ($type === ServiceType::Ipoe && $this->password === $this->autoPassword) {
+            $this->password = '';
+            $this->autoPassword = '';
+        } elseif ($type !== ServiceType::Ipoe) {
+            $this->fillPatternPassword();
+        }
 
         if ($type === ServiceType::Ipoe && $this->ip_address === '') {
             $this->ip_address = CustomerDefaults::nextIpoeIp()?->address ?? '';
@@ -766,6 +845,7 @@ new #[Title('Customer')] class extends Component
                 if ($account === null) {
                     // Logged below as one "Created" entry together with the address and lists.
                     $account = activity()->withoutLogging(fn (): Account => Account::query()->create($columns));
+                    AccountNumbers::assign($account);
                 } else {
                     $account->update($columns);
                 }
@@ -982,6 +1062,7 @@ new #[Title('Customer')] class extends Component
         return [
             ...$shared,
             'title' => ['nullable', 'string', Rule::in(array_keys($this->titles))],
+            'account_number' => AccountNumbers::rules($this->accountId),
             'remarks' => ['nullable', 'string', 'max:2000'],
             'address.latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'address.longitude' => ['nullable', 'numeric', 'between:-180,180'],
@@ -1031,6 +1112,8 @@ new #[Title('Customer')] class extends Component
         return [
             ...CustomerRules::messages($this->phoneDigits),
             'nas_id.exists' => __('This NAS was deleted. Choose another one.'),
+            'account_number.unique' => __('Another customer has this account ID.'),
+            'account_number.regex' => __('Use letters, digits and / . _ - only.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),
@@ -1213,7 +1296,8 @@ new #[Title('Customer')] class extends Component
             'override_until' => $override && $this->override_until !== '' ? Carbon::createFromFormat('!Y-m-d\TH:i', $this->override_until) : null,
             'payment_terms_days' => (int) $this->payment_terms_days,
             'billing_name' => $this->separate_billing ? $this->nullIfEmpty($this->billing_name) : null,
-        ] + $this->pricingColumns() + ($this->canAutoRenew ? ['auto_renew' => $this->auto_renew] : []) + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
+        ] + ($this->showsAccountNumber ? ['account_number' => $this->nullIfEmpty($this->account_number)] : [])
+            + $this->pricingColumns() + ($this->canAutoRenew ? ['auto_renew' => $this->auto_renew] : []) + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
     }
 
     /**
@@ -1477,6 +1561,10 @@ new #[Title('Customer')] class extends Component
     {
         if ($this->accountId === null && Account::withTrashed()->where('username', $this->username)->exists()) {
             return ['username' => __('Another customer was just saved with this username. Choose another.')];
+        }
+
+        if ($this->account_number !== '' && Account::withTrashed()->where('account_number', $this->account_number)->whereKeyNot($this->accountId)->exists()) {
+            return ['account_number' => __('Another customer was just saved with this account ID. Choose another.')];
         }
 
         return ['ip_address' => __('This address was just given to another customer. Pick another.')];

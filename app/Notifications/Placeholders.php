@@ -30,6 +30,9 @@ final class Placeholders
     /** Values only a recharge has. */
     public const RECHARGE = ['amount_paid', 'recharge_reference', 'recharge_note', 'recharge_date', 'recharge_datetime'];
 
+    /** Values that carry a new password: held apart, encrypted, until the send is final (NotificationLog). */
+    public const SECRETS = ['selfcare_password', 'pppoe_password'];
+
     /** Values only a payment has. */
     public const PAYMENT = ['payment_amount', 'receipt_number', 'invoice_number', 'payment_method', 'balance_due'];
 
@@ -67,6 +70,7 @@ final class Placeholders
             'pay_link' => __('Pay link'),
             'selfcare_url' => __('Selfcare address'),
             'selfcare_password' => __('Selfcare password'),
+            'pppoe_password' => __('PPPoE password'),
         ];
     }
 
@@ -145,7 +149,7 @@ final class Placeholders
             'pay_link' => QuickPay::isOpen() ? route('pay.code', PayCode::for($account->id)) : '',
             'selfcare_url' => Selfcare::url(),
             // The password itself never enters the values: the log row holds it apart, encrypted (Notifier::fire).
-            'selfcare_password' => NotificationLog::SECRET_MASK,
+            'selfcare_password', 'pppoe_password' => NotificationLog::SECRET_MASK,
             default => '',
         };
     }

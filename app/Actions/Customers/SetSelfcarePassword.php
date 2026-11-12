@@ -3,13 +3,15 @@
 namespace App\Actions\Customers;
 
 use App\Models\Account;
+use App\Support\PasswordPattern;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Gives the customer a new selfcare password from staff: typed, or 10 random characters that are easy to read out
- * (no 0, O, 1, I or l). Only the hash is kept; the customer must replace it at their next login. Any Selfcare session
- * that logged in with the old one ends on its next request.
+ * Gives the customer a new selfcare password from staff: typed, one from the password pattern, or 10 random
+ * characters that are easy to read out (no 0, O, 1, I or l). Only the hash is kept. The customer must replace a typed
+ * or random one at their next login; a pattern one they may keep (the operator chose guessable passwords). Any
+ * Selfcare session that logged in with the old one ends on its next request.
  */
 final class SetSelfcarePassword
 {
@@ -20,12 +22,13 @@ final class SetSelfcarePassword
      */
     public function handle(Account $account, ?string $password = null): string
     {
-        $password ??= self::random();
+        $patterned = $password === null ? PasswordPattern::make($account->fullname, $account->mobile) : null;
+        $password ??= $patterned ?? self::random();
 
-        DB::transaction(function () use ($account, $password): void {
+        DB::transaction(function () use ($account, $password, $patterned): void {
             $account->forceFill([
                 'selfcare_password' => Hash::make($password),
-                'selfcare_must_change' => true,
+                'selfcare_must_change' => $patterned === null,
                 'selfcare_password_set_at' => now(),
             ])->saveQuietly();
 

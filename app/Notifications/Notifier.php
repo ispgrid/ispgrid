@@ -105,7 +105,7 @@ final class Notifier
         $provider = $this->registry->providerClass($rule->provider);
         $result = $this->placeholders->values($rule->values ?? [], self::sample(), null, CarbonImmutable::now(),
             new PaymentNotice('test', '590.00', 'RCPT-1', 'INV-1', __('Online (Paytm)'), '0.00'));
-        $hasSecret = in_array('selfcare_password', $rule->values ?? [], true);
+        $hasSecret = array_intersect(Placeholders::SECRETS, $rule->values ?? []) !== [];
 
         $log = NotificationLog::query()->create([
             'notification_rule_id' => $rule->id,

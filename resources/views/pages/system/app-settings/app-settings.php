@@ -3,14 +3,17 @@
 use App\Console\Commands\PruneRadiusLogs;
 use App\Enums\IpRangeKind;
 use App\Http\Middleware\SetLocale;
+use App\Jobs\NumberAccounts;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
 use App\Models\IpRange;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
+use App\Support\AccountNumbers;
 use App\Support\Hotspot;
 use App\Support\NoticePage;
+use App\Support\PasswordPattern;
 use App\Support\RequiredCustomerFields;
 use App\Support\Selfcare;
 use Carbon\CarbonImmutable;
@@ -38,6 +41,17 @@ new #[Title('App settings')] class extends Component
     private const SWITCHES = [
         'selfcare_enabled' => 'selfcare.enabled',
         'selfcare_pppoe_password_change' => 'selfcare.pppoe_password_change',
+    ];
+
+    /**
+     * Text settings saved under a key other than their field name.
+     *
+     * @var array<string, string>
+     */
+    private const KEYED = [
+        'account_id_prefix' => AccountNumbers::PREFIX,
+        'account_id_start' => AccountNumbers::START,
+        'password_pattern' => PasswordPattern::SETTING,
     ];
 
     public string $date_format = '';
@@ -70,6 +84,12 @@ new #[Title('App settings')] class extends Component
 
     public string $session_history_days = '';
 
+    public string $account_id_prefix = '';
+
+    public string $account_id_start = '';
+
+    public string $password_pattern = '';
+
     public bool $hotspot_enabled = false;
 
     public bool $selfcare_enabled = false;
@@ -84,7 +104,7 @@ new #[Title('App settings')] class extends Component
         $this->authorizeAccess();
 
         foreach (array_keys(Arr::except($this->rules(), [Hotspot::SETTING, 'required_customer_fields', 'required_customer_fields.*', ...array_keys(self::SWITCHES)])) as $key) {
-            $this->{$key} = (string) AppSetting::valueOf($key, '');
+            $this->{$key} = (string) AppSetting::valueOf(self::KEYED[$key] ?? $key, '');
         }
 
         $this->hotspot_enabled = Hotspot::enabled();
@@ -136,6 +156,9 @@ new #[Title('App settings')] class extends Component
             'hotspot_enabled' => ['boolean'],
             'selfcare_enabled' => ['boolean'],
             'selfcare_pppoe_password_change' => ['boolean'],
+            'account_id_prefix' => ['nullable', 'string', 'max:10', 'regex:/^[A-Za-z0-9\/._-]*$/D'],
+            'account_id_start' => ['nullable', 'integer', 'between:1,999999999'],
+            'password_pattern' => PasswordPattern::rules(),
             'required_customer_fields' => ['array'],
             'required_customer_fields.*' => ['string', Rule::in(RequiredCustomerFields::FIELDS)],
         ];
@@ -150,6 +173,7 @@ new #[Title('App settings')] class extends Component
             'default_pool_ppp.exists' => __('This pool was deleted. Choose another one.'),
             'default_pool_hotspot.exists' => __('This pool was deleted. Choose another one.'),
             'default_ip_range_ipoe.exists' => __('This range was deleted. Choose another one.'),
+            'account_id_prefix.regex' => __('Use letters, digits and / . _ - only.'),
         ];
     }
 
@@ -195,14 +219,38 @@ new #[Title('App settings')] class extends Component
         $required = Arr::pull($validated, 'required_customer_fields', []);
         $languageChanged = $validated['locale'] !== AppSetting::valueOf('locale', config('app.fallback_locale'));
 
-        DB::transaction(function () use ($validated, $hotspot, $required): void {
+        $numberAccounts = DB::transaction(function () use ($validated, $hotspot, $required): bool {
             $this->saveHotspot($hotspot);
             RequiredCustomerFields::save($required);
+            $oldStart = trim((string) AppSetting::valueOf(AccountNumbers::START, ''));
 
             foreach ($validated as $key => $value) {
-                AppSetting::put(self::SWITCHES[$key] ?? $key, array_key_exists($key, self::SWITCHES) ? ($value ? '1' : '0') : (string) $value);
+                $setting = self::SWITCHES[$key] ?? self::KEYED[$key] ?? $key;
+                $value = array_key_exists($key, self::SWITCHES) ? ($value ? '1' : '0') : (string) $value;
+                $value = array_key_exists($key, self::KEYED) ? trim($value) : $value;
+
+                // An empty keyed setting nobody saved before stays unsaved (no "created" entry for nothing).
+                if (array_key_exists($key, self::KEYED) && $value === '' && AppSetting::valueOf($setting) === null) {
+                    continue;
+                }
+
+                AppSetting::put($setting, $value);
             }
+
+            $start = trim((string) ($validated['account_id_start'] ?? ''));
+
+            // A new start number restarts the count there; numbers customers hold are still skipped.
+            if ($start !== '' && $start !== $oldStart) {
+                activity()->withoutLogging(fn () => AppSetting::put(AccountNumbers::NEXT, $start));
+            }
+
+            return $oldStart === '' && $start !== '';
         }, attempts: 3);
+
+        // Existing customers are numbered once, when account IDs are first turned on.
+        if ($numberAccounts) {
+            NumberAccounts::dispatch(auth()->id());
+        }
 
         if (! $languageChanged) {
             $this->toast(__('Settings saved.'));

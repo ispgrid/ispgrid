@@ -271,6 +271,15 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * Reset PPPoE password: a PPPoE customer who is not deleted, for staff who may edit them.
+     */
+    #[Computed]
+    public function showsPppoeCard(): bool
+    {
+        return ! $this->account->trashed() && $this->account->service_type === ServiceType::Ppp && Gate::allows('update', $this->account);
+    }
+
+    /**
      * The add-on cards this staff member sees on this customer's page (Livewire component names).
      *
      * @return list<string>
@@ -328,6 +337,7 @@ new #[Title('Customer')] class extends Component
         $isIpoe = $account->service_type === ServiceType::Ipoe;
 
         $rows = [
+            ...($account->account_number === null ? [] : [__('Account ID') => $account->account_number]),
             __('Type') => $account->service_type->label(),
             __('Plan') => $account->plan?->name ?? __('None'),
             __('Expiry') => match (true) {

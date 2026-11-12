@@ -62,7 +62,7 @@ it('refuses a typed password that is too short', function () {
 });
 
 it('copies the address, username and password as one message', function () {
-    $account = Account::factory()->create(['username' => 'alice']);
+    $account = Account::factory()->create(['username' => 'alice', 'selfcare_must_change' => true]);
 
     expect(Selfcare::details($account, 'Abc23456xy'))->toBe(implode("\n", [
         'Selfcare: '.url('/selfcare'),

@@ -57,6 +57,7 @@ it('fills every value a rule can use', function () {
         'pay_link' => '',
         'selfcare_url' => url('/selfcare'),
         'selfcare_password' => '********',
+        'pppoe_password' => '********',
     ])->and($result['trimmed'])->toBeFalse();
 });
 

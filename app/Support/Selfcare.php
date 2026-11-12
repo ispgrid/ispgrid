@@ -126,7 +126,7 @@ final class Selfcare
             __('Selfcare: :url', ['url' => self::url()]),
             __('Username: :username', ['username' => $account->username]),
             __('Password: :password', ['password' => $password]),
-            __('Choose your own password when you first log in.'),
+            ...($account->selfcare_must_change ? [__('Choose your own password when you first log in.')] : []),
         ]);
     }
 }

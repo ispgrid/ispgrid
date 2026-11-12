@@ -173,6 +173,8 @@ final class ActivityFormatter
             'selfcare-password-changed' => __('Selfcare password changed'),
             'selfcare-password-set' => __('Selfcare password set'),
             'pppoe-password-changed' => __('PPPoE password changed in selfcare'),
+            'account-numbers-assigned' => __('Account IDs given'),
+            'pppoe-password-reset' => __('PPPoE password reset'),
             default => isset(self::$eventLabels[(string) $activity->event]) ? (self::$eventLabels[(string) $activity->event])() : (string) $activity->event,
         };
     }
@@ -221,6 +223,7 @@ final class ActivityFormatter
     {
         return match ($field) {
             'fullname' => __('Full name'),
+            'account_number' => __('Account ID'),
             'whatsapp' => __('WhatsApp'),
             'alt_number' => __('Other number'),
             'tax_id' => TaxIdLabel::forDisplay(),
