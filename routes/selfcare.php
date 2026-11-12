@@ -12,6 +12,7 @@ Route::prefix('selfcare')->name('selfcare.')->group(function () {
     Route::middleware('selfcare')->group(function () {
         Route::livewire('password', 'pages::selfcare.password')->name('password');
         Route::livewire('home', 'pages::selfcare.dashboard')->name('dashboard');
+        Route::livewire('connections', 'pages::selfcare.connections')->name('connections');
         Route::livewire('pppoe-password', 'pages::selfcare.pppoe-password')->name('pppoe-password');
         Route::get('invoices/{invoice}', [SelfcareDocumentController::class, 'invoice'])->whereNumber('invoice')->name('invoice');
         Route::get('receipts/{payment}', [SelfcareDocumentController::class, 'receipt'])->whereNumber('payment')->name('receipt');

@@ -7,6 +7,9 @@
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
                 <x-ui.heading size="lg">{{ $this->summary['name'] }}</x-ui.heading>
+                @if ($this->canSwitch)
+                    <x-ui.link :href="route('selfcare.connections')" class="text-sm">{{ __('Switch connection') }}</x-ui.link>
+                @endif
                 <x-ui.text muted class="font-mono text-sm">{{ $this->summary['username'] }}</x-ui.text>
                 @if ($this->summary['account_number'])
                     <x-ui.text muted class="text-sm">{{ __('Account ID: :id', ['id' => $this->summary['account_number']]) }}</x-ui.text>

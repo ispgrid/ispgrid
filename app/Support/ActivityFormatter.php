@@ -170,6 +170,7 @@ final class ActivityFormatter
             'quick-pay-settings' => __('Quick pay settings changed'),
             'selfcare-login' => __('Selfcare login'),
             'selfcare-login-failed' => __('Selfcare login failed'),
+            'selfcare-switch' => __('Selfcare connection opened'),
             'selfcare-password-changed' => __('Selfcare password changed'),
             'selfcare-password-set' => __('Selfcare password set'),
             'pppoe-password-changed' => __('PPPoE password changed in selfcare'),

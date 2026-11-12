@@ -1617,5 +1617,11 @@
     "Add the PPPoE password to the values, or the customer cannot get online.": "वैल्यू में PPPoE पासवर्ड जोड़ें, वरना ग्राहक ऑनलाइन नहीं आ पाएगा।",
     "Use at least one token, such as {digits}.": "कम से कम एक टोकन इस्तेमाल करें, जैसे {digits}।",
     "Filled in from the password pattern. Press the eye to see it.": "पासवर्ड पैटर्न से भरा गया। देखने के लिए आँख वाला बटन दबाएँ।",
-    "The message could not go out (no valid mobile number). Give the customer this password.": "मैसेज नहीं जा सका (कोई सही मोबाइल नंबर नहीं)। यह पासवर्ड ग्राहक को खुद दें।"
+    "The message could not go out (no valid mobile number). Give the customer this password.": "मैसेज नहीं जा सका (कोई सही मोबाइल नंबर नहीं)। यह पासवर्ड ग्राहक को खुद दें।",
+    "Selfcare connection opened": "Selfcare में कनेक्शन खोला गया",
+    "Choose a connection": "कनेक्शन चुनें",
+    "These connections share your mobile number.": "इन कनेक्शनों में आपका मोबाइल नंबर एक ही है।",
+    "Open now": "अभी खुला है",
+    "Switch connection": "कनेक्शन बदलें",
+    "Username, account ID or mobile number": "यूज़रनेम, अकाउंट ID या मोबाइल नंबर"
 }

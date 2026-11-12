@@ -37,6 +37,15 @@ new class extends Component
     }
 
     /**
+     * Switch connection shows when this mobile login may open more than one.
+     */
+    #[Computed]
+    public function canSwitch(): bool
+    {
+        return SelfcareSession::connections()->count() > 1;
+    }
+
+    /**
      * @return array{name: string, username: string, account_number: ?string, plan: ?string, expiry: ?string, expired: bool, status: string, color: string}
      */
     #[Computed]
