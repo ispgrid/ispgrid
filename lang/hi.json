@@ -1583,5 +1583,7 @@
     "Its invoice has payments. Remove them first.": "इसके इनवॉइस पर भुगतान दर्ज हैं। पहले उन्हें हटाएँ।",
     "Cancel the advance renewal first.": "पहले एडवांस रिन्यूअल रद्द करें।",
     "This recharge was made before cancelling was possible.": "यह रिचार्ज रद्द करने की सुविधा आने से पहले किया गया था।",
-    "The expiry, plan and status go back to what they were before this recharge, and its invoice is cancelled. Data used stays counted.": "एक्सपायरी, प्लान और स्टेटस इस रिचार्ज से पहले जैसे थे वैसे हो जाते हैं, और इसका इनवॉइस रद्द हो जाता है। इस्तेमाल किया गया डेटा गिना रहता है।"
+    "The expiry, plan and status go back to what they were before this recharge, and its invoice is cancelled. Data used stays counted.": "एक्सपायरी, प्लान और स्टेटस इस रिचार्ज से पहले जैसे थे वैसे हो जाते हैं, और इसका इनवॉइस रद्द हो जाता है। इस्तेमाल किया गया डेटा गिना रहता है।",
+    "The plan before this recharge was deleted. Use Change plan and Change expiry instead.": "इस रिचार्ज से पहले वाला प्लान हटा दिया गया है। इसके बजाय प्लान बदलें और एक्सपायरी बदलें का उपयोग करें।",
+    "Auto renew is off now, so it does not renew them again.": "ऑटो रिन्यू अब बंद है, ताकि यह उन्हें फिर से रिन्यू न करे।"
 }

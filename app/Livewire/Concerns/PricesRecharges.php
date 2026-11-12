@@ -35,13 +35,15 @@ trait PricesRecharges
     public bool $discount_keep = false;
 
     /**
-     * Fills the discount fields with the customer's saved discount.
+     * Fills the discount fields with the customer's saved discount; a saved amount above this plan's price (a cheaper
+     * plan) is filled in at the price, as auto renewal caps it.
      */
-    protected function resetDiscount(Account $account): void
+    protected function resetDiscount(Account $account, ?Plan $plan): void
     {
         $saved = Discount::forAccount($account);
+        $amount = $plan !== null && $saved->isAmount() && Decimal::compare($saved->value, (string) $plan->price) > 0 ? (string) $plan->price : $saved->value;
         $this->discount_type = $saved->type;
-        $this->discount_value = $saved->isNone() ? '' : ($saved->isAmount() ? $saved->value : Decimal::trim($saved->value));
+        $this->discount_value = $saved->isNone() ? '' : ($saved->isAmount() ? $amount : Decimal::trim($saved->value));
         $this->discount_reason = '';
         $this->discount_keep = false;
     }

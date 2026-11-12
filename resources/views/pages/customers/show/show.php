@@ -1083,6 +1083,8 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
+        $wasAutoRenew = $this->account->auto_renew;
+
         try {
             $disconnect = $cancel->handle($recharge->id, $this->cancel_recharge_reason);
         } catch (CannotCancelRecharge $refused) {
@@ -1090,6 +1092,7 @@ new #[Title('Customer')] class extends Component
                 'payments' => __('Its invoice has payments. Remove them first.'),
                 'advance-waiting' => __('Cancel the advance renewal first.'),
                 'too-old' => __('This recharge was made before cancelling was possible.'),
+                'plan-deleted' => __('The plan before this recharge was deleted. Use Change plan and Change expiry instead.'),
                 default => __('Only the latest recharge can be cancelled.'),
             });
 
@@ -1108,6 +1111,10 @@ new #[Title('Customer')] class extends Component
 
         $expiry = $this->account->expiry;
         $message = $expiry === null ? __('Recharge cancelled.') : __('Recharge cancelled. The expiry is back to :date.', ['date' => $expiry->format($this->dateFormat())]);
+
+        if ($wasAutoRenew && ! $this->account->auto_renew) {
+            $message .= ' '.__('Auto renew is off now, so it does not renew them again.');
+        }
 
         if ($disconnected) {
             $message .= ' '.__('They are disconnected so the change applies now.');
@@ -1143,9 +1150,9 @@ new #[Title('Customer')] class extends Component
     private function fillRechargeDefaults(): void
     {
         unset($this->rechargePending, $this->rechargeCharge);
-        $this->resetDiscount($this->account);
         $this->recharge_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
+        $this->resetDiscount($this->account, $plan);
 
         if ($plan === null) {
             $this->recharge_expiry = '';

@@ -253,3 +253,15 @@ it('gives every field on the customer page its own id', function () {
         expect(array_keys(array_filter(array_count_values($ids[1]), fn (int $count): bool => $count > 1)))->toBe([]);
     }
 });
+
+it('fills a saved amount discount in no higher than the plan price', function () {
+    turnInvoicingOn();
+    $this->account->update(['discount_type' => 'amount', 'discount_amount' => 600]);
+
+    rechargeDialog($this->account)
+        ->assertSet('discount_value', '500.00')
+        ->call('recharge')
+        ->assertHasNoErrors();
+
+    expect(Invoice::query()->sole()->total)->toBe('0.00');
+});

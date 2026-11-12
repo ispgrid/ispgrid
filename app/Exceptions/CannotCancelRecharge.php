@@ -6,8 +6,9 @@ use RuntimeException;
 
 /**
  * Cancel recharge was refused. $why says what stands in the way: 'not-latest' (a newer recharge exists, or this one
- * is cancelled or a plan switch), 'payments' (its invoice has payments), 'advance-waiting' (an advance renewal waits)
- * or 'too-old' (recorded before cancelling was possible, so the old plan and status are unknown).
+ * is cancelled or a plan switch), 'payments' (its invoice has payments), 'advance-waiting' (an advance renewal waits),
+ * 'too-old' (recorded before cancelling was possible, so the old plan and status are unknown) or 'plan-deleted' (the plan
+ * before it was deleted since).
  */
 class CannotCancelRecharge extends RuntimeException
 {

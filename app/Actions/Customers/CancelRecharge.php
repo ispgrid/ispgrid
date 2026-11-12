@@ -4,6 +4,7 @@ namespace App\Actions\Customers;
 
 use App\Actions\Billing\CancelInvoice;
 use App\Actions\Radius\SyncAccountToRadius;
+use App\Console\Commands\RunRenewals;
 use App\Enums\AccountStatus;
 use App\Enums\RechargeKind;
 use App\Enums\ValidityUnit;
@@ -19,7 +20,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Undoes a wrong recharge (the customer's latest): the old expiry, plan, first-login validity and Inactive status
  * come back, its invoice is cancelled, and the row stays in the history marked cancelled (it drops out of totals).
- * The FreeRADIUS rows are rebuilt in the same transaction. The usage period is not put back: data used stays counted.
+ * The FreeRADIUS rows are rebuilt in the same transaction. Auto renew is turned off when the old expiry is close enough
+ * for customers:renewals to renew it again at once. The usage period is not put back: data used stays counted.
  * The caller disconnects an online customer after the commit when this returns true.
  */
 final class CancelRecharge
@@ -56,6 +58,14 @@ final class CancelRecharge
                 throw new CannotCancelRecharge('advance-waiting');
             }
 
+            // Shared lock, as a recharge takes it: a delete of this plan waits for the commit and then counts this
+            // customer. A plan deleted since cannot be given back: FreeRADIUS would get no plan row.
+            $plan = $recharge->old_plan_id === null ? null : Plan::query()->sharedLock()->find($recharge->old_plan_id);
+
+            if ($recharge->old_plan_id !== null && $plan === null) {
+                throw new CannotCancelRecharge('plan-deleted');
+            }
+
             if ($recharge->invoice_id !== null) {
                 try {
                     $this->cancelInvoice->handle($recharge->invoice_id, "Recharge cancelled: {$reason}");
@@ -68,6 +78,9 @@ final class CancelRecharge
             $oldPlanId = $account->plan_id;
             $oldStatus = $account->status_id;
             $status = $recharge->old_status === AccountStatus::Inactive && $oldStatus === AccountStatus::Active ? AccountStatus::Inactive : $oldStatus;
+            // customers:renewals would renew an expiry this close again within a minute, undoing the cancel.
+            $autoRenewOff = $account->auto_renew && $recharge->old_expiry !== null
+                && $recharge->old_expiry->lessThanOrEqualTo(now()->addMinutes(RunRenewals::MINUTES_AHEAD));
 
             $account->disableLogging();
             $account->update([
@@ -75,12 +88,11 @@ final class CancelRecharge
                 'expiry' => $recharge->old_expiry,
                 'hotspot_pending_validity' => $recharge->old_pending_validity,
                 'status_id' => $status,
+                ...($autoRenewOff ? ['auto_renew' => false] : []),
             ]);
             $this->sync->handle($account);
 
             $recharge->update(['cancelled_at' => now(), 'cancelled_by' => auth()->id(), 'cancel_reason' => $reason]);
-
-            $plan = $recharge->old_plan_id === null ? null : Plan::withTrashed()->find($recharge->old_plan_id);
 
             activity()
                 ->performedOn($account)
@@ -91,6 +103,7 @@ final class CancelRecharge
                         'plan' => $plan?->name,
                         'expiry' => self::expiryText($recharge->old_expiry, $recharge->old_pending_validity),
                         'reason' => $reason,
+                        ...($autoRenewOff ? ['auto_renew' => 'off'] : []),
                     ],
                 ])
                 ->log('recharge-cancelled');

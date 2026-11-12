@@ -653,9 +653,9 @@ new class extends Component
     private function fillChangeDefaults(): void
     {
         unset($this->changeCharge);
-        $this->resetDiscount($this->account);
         $this->change_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->change_plan_id === '' ? null : Plan::query()->find((int) $this->change_plan_id);
+        $this->resetDiscount($this->account, $plan);
         $this->change_expiry = $plan === null ? '' : ExpiryCalculator::fromSettings()->next(null, $plan->validity, $plan->validity_unit, now())->format('Y-m-d\TH:i');
         $this->change_amount = $plan === null ? '' : RechargePrice::amount($this->account, $plan, BillingSettings::current(), $this->typedDiscount());
     }
@@ -663,8 +663,8 @@ new class extends Component
     private function fillAdvanceDefaults(): void
     {
         unset($this->advanceCharge);
-        $this->resetDiscount($this->account);
         $plan = $this->advance_plan_id === '' ? null : Plan::query()->find((int) $this->advance_plan_id);
+        $this->resetDiscount($this->account, $plan);
         $starts = $this->account->expiry;
         $this->advance_expiry = $plan === null || $starts === null ? ''
             : ExpiryCalculator::fromSettings()->next($starts, $plan->validity, $plan->validity_unit, $starts->copy()->subSecond())->format('Y-m-d\TH:i');

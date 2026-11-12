@@ -238,3 +238,59 @@ it('writes the cancel in the timeline', function () {
         ->and($entry['tone'])->toBe('red')
         ->and($entry['icon'])->toBe('no-symbol');
 });
+
+it('turns auto renew off when the restored expiry would renew the customer again at once', function () {
+    $this->account->update(['status_id' => AccountStatus::Active, 'auto_renew' => true, 'expiry' => '2026-10-10 14:35:00']);
+    $recharge = rechargeAlice($this->old, '2026-11-10 14:35');
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::CancelRecharges));
+
+    Livewire::test('pages::customers.show', ['account' => $this->account->id, 'tab' => 'recharges'])
+        ->call('openCancelRecharge', $recharge->id)
+        ->set('cancel_recharge_reason', 'Customer left')
+        ->call('cancelRecharge')
+        ->assertHasNoErrors()
+        ->assertDispatched('toast', message: 'Recharge cancelled. The expiry is back to 10/10/2026 14:35. Auto renew is off now, so it does not renew them again.');
+
+    $this->artisan('customers:renewals')->assertSuccessful();
+
+    expect($this->account->fresh())->auto_renew->toBeFalse()->expiry->format('Y-m-d H:i')->toBe('2026-10-10 14:35')
+        ->and(Recharge::query()->count())->toBe(1)
+        ->and(Activity::query()->where('event', 'recharge-cancelled')->sole()->attribute_changes['attributes']['auto_renew'])->toBe('off');
+});
+
+it('keeps auto renew on when the restored expiry is still far off', function () {
+    $this->account->update(['status_id' => AccountStatus::Active, 'auto_renew' => true, 'expiry' => '2026-10-20 00:00:00']);
+    $recharge = rechargeAlice($this->old, '2026-11-19 00:00');
+
+    app(CancelRecharge::class)->handle($recharge->id, 'paid twice');
+
+    expect($this->account->fresh()->auto_renew)->toBeTrue();
+});
+
+it('refuses to put the customer back on a plan deleted since', function () {
+    $recharge = rechargeAlice($this->wrong);
+    $this->old->delete();
+
+    try {
+        app(CancelRecharge::class)->handle($recharge->id, 'wrong');
+        $this->fail('Cancel recharge was not refused.');
+    } catch (CannotCancelRecharge $refused) {
+        expect($refused->why)->toBe('plan-deleted');
+    }
+
+    expect($this->account->fresh()->plan_id)->toBe($this->wrong->id)
+        ->and($recharge->fresh()->cancelled_at)->toBeNull();
+});
+
+it('shows why a recharge onto a deleted plan cannot be cancelled', function () {
+    $recharge = rechargeAlice($this->wrong);
+    $this->old->delete();
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::CancelRecharges));
+
+    Livewire::test('pages::customers.show', ['account' => $this->account->id, 'tab' => 'recharges'])
+        ->call('openCancelRecharge', $recharge->id)
+        ->set('cancel_recharge_reason', 'Wrong')
+        ->call('cancelRecharge')
+        ->assertHasErrors(['cancel_recharge_reason'])
+        ->assertSee('The plan before this recharge was deleted. Use Change plan and Change expiry instead.');
+});
