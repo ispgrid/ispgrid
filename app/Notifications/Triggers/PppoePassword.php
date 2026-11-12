@@ -7,10 +7,11 @@ use App\Models\Recharge;
 use App\Notifications\Contracts\Trigger;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 /**
- * Fired with a new PPPoE password by Reset and send on the customer page. Never scheduled. Every send has its own
- * password, so its once-key changes with the password and a second reset is never taken for a duplicate.
+ * Fired with a new PPPoE password by Reset and send on the customer page. Never scheduled. Every send is a click by
+ * staff with its own password, so its once-key is random and a second reset is never taken for a duplicate.
  */
 final class PppoePassword implements Trigger
 {
@@ -51,6 +52,6 @@ final class PppoePassword implements Trigger
 
     public function onceKey(int $ruleId, Account $account, ?Recharge $recharge): string
     {
-        return "rule:{$ruleId}:pppoe:{$account->id}:".substr(hash_hmac('sha256', (string) $account->password, (string) config('app.key')), 0, 16);
+        return "rule:{$ruleId}:pppoe:{$account->id}:".Str::random(24);
     }
 }

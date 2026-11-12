@@ -20,6 +20,9 @@ class NumberAccounts implements ShouldQueue
 
     public int $tries = 3;
 
+    /** A large customer base takes a while: about 8 queries a customer. */
+    public int $timeout = 3600;
+
     public function __construct(public ?int $userId = null) {}
 
     public function handle(): void

@@ -132,3 +132,29 @@ it('requires the PPPoE password in the values of a PPPoE password rule', functio
         ->call('save')
         ->assertHasErrors(['values']);
 });
+
+it('shows the password when the message cannot go out', function () {
+    pppoeRule();
+    $this->account->update(['mobile' => null]);
+
+    $card = pppoeCard($this->account)->call('resetAndSend');
+
+    $password = $this->account->fresh()->password;
+    expect($password)->not->toBe('old-pass-1');
+    $card->assertSee($password)->assertDispatched('toast', message: 'The message could not go out (no valid mobile number). Give the customer this password.');
+});
+
+it('makes a new password on every reset, even with a pattern without digits', function () {
+    pppoeRule();
+    AppSetting::put(PasswordPattern::SETTING, '{first_name}{mobile_last4}');
+
+    pppoeCard($this->account)->call('resetAndSend');
+    $first = $this->account->fresh()->password;
+    pppoeCard($this->account)->call('resetAndSend');
+    $second = $this->account->fresh()->password;
+
+    expect($first)->toBe('ravi3210')
+        ->and($second)->not->toBe('ravi3210')
+        ->and(FakeProvider::$sent)->toHaveCount(2)
+        ->and(FakeProvider::$sent[1]->values)->toBe(['ravi', $second]);
+});

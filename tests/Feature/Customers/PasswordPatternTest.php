@@ -115,3 +115,17 @@ it('drops the pattern password when staff switch a new customer to IPoE, and fil
         ->set('service_type', 'PPP')
         ->assertSet('password', 'ravi3210');
 });
+
+it('refuses a pattern without a token, which would give everyone the same password', function () {
+    Livewire::test('pages::system.app-settings')->set('password_pattern', 'isp12345')->call('save')->assertHasErrors(['password_pattern']);
+});
+
+it('keeps the same digits while staff fix the name and says the password was filled in', function () {
+    AppSetting::put(PasswordPattern::SETTING, '{first_name}{digits}');
+
+    $form = Livewire::test('pages::customers.form')->set('fullname', 'Ravi Kumar');
+    $digits = substr($form->get('password'), 4);
+    $form->set('fullname', 'Sita Rao')->set('mobile', '9876543210')
+        ->assertSet('password', 'sita'.$digits)
+        ->assertSee('Filled in from the password pattern');
+});

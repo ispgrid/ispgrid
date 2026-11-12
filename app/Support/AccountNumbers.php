@@ -35,9 +35,12 @@ final class AccountNumbers
 
     /**
      * Gives the customer the next free account ID. Runs inside the caller's transaction; does nothing while account
-     * IDs are off or the customer already has one.
+     * IDs are off or the customer already has one. $skip holds IDs about to be given by hand (an import file's
+     * account_id column), so a row further down does not find its ID taken.
+     *
+     * @param  list<string>  $skip
      */
-    public static function assign(Account $account): void
+    public static function assign(Account $account, array $skip = []): void
     {
         if ($account->account_number !== null || ! self::enabled()) {
             return;
@@ -51,7 +54,9 @@ final class AccountNumbers
         $prefix = self::prefix();
         $number = max(1, (int) $counter->value);
 
-        while (Account::withTrashed()->where('account_number', $prefix.$number)->exists()) {
+        $skip = array_flip(array_map('strtolower', $skip));
+
+        while (isset($skip[strtolower($prefix.$number)]) || Account::withTrashed()->where('account_number', $prefix.$number)->exists()) {
             $number++;
         }
 

@@ -4,6 +4,7 @@ use App\Actions\Billing\IssueInvoice;
 use App\Actions\Import\ImportCustomers;
 use App\Billing\Pdf\InvoiceView;
 use App\Enums\InvoiceKind;
+use App\Jobs\NumberAccounts;
 use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\User;
@@ -245,4 +246,32 @@ it('shows the account ID on the Selfcare dashboard', function () {
     actingAsCustomer($account);
 
     $this->get(route('selfcare.dashboard'))->assertOk()->assertSee('Account ID: LINK-1000001');
+});
+
+it('skips an ID typed further down the same import file', function () {
+    accountIdsOn('LINK-', '1001');
+    $blank = array_fill_keys(app(ImportCustomers::class)->columns(), '');
+    $row = fn (int $line, array $values): array => ['line' => $line, 'values' => [...$blank, 'service_type' => 'PPP', 'password' => 'secret12', ...$values]];
+
+    app(ImportCustomers::class)->import([
+        $row(2, ['username' => 'alice', 'fullname' => 'Alice', 'account_id' => '']),
+        $row(3, ['username' => 'bob', 'fullname' => 'Bob', 'account_id' => 'link-1001']),
+    ]);
+
+    expect(accountNumberOf('alice'))->toBe('LINK-1002')
+        ->and(accountNumberOf('bob'))->toBe('link-1001');
+});
+
+it('keeps an ID given while an edit form with the field hidden was open', function () {
+    $account = Account::factory()->create(['username' => 'alice', 'password' => 'secret12']);
+    $form = Livewire::test('pages::customers.form', ['account' => $account->id])->assertSet('showsAccountNumber', false);
+    $account->forceFill(['account_number' => 'LINK-7'])->save();
+
+    $form->set('fullname', 'Alice Rao')->call('save')->assertHasNoErrors();
+
+    expect(accountNumberOf('alice'))->toBe('LINK-7');
+});
+
+it('gives the numbering job time for a large customer base', function () {
+    expect((new NumberAccounts)->timeout)->toBeGreaterThanOrEqual(1800);
 });

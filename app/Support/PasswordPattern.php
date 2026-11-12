@@ -30,9 +30,10 @@ final class PasswordPattern
     }
 
     /**
-     * The password the saved pattern makes for this customer, or null for a random one.
+     * The password the saved pattern makes for this customer, or null for a random one. $digits fixes {digits}
+     * (the customer form keeps the same ones while staff type), else they are random.
      */
-    public static function make(?string $fullname, ?string $mobile): ?string
+    public static function make(?string $fullname, ?string $mobile, ?string $digits = null): ?string
     {
         $pattern = self::current();
 
@@ -41,11 +42,11 @@ final class PasswordPattern
         }
 
         $firstName = strtolower(explode(' ', trim((string) $fullname))[0]);
-        $digits = (string) preg_replace('/\D/', '', (string) $mobile);
-        $values = ['{first_name}' => $firstName, '{mobile_last4}' => substr($digits, -4), '{digits}' => sprintf('%04d', random_int(0, 9999))];
+        $mobileDigits = (string) preg_replace('/\D/', '', (string) $mobile);
+        $values = ['{first_name}' => $firstName, '{mobile_last4}' => substr($mobileDigits, -4), '{digits}' => $digits ?? self::randomDigits()];
 
         if ((str_contains($pattern, '{first_name}') && preg_match('/^[a-z]+$/D', $firstName) !== 1)
-            || (str_contains($pattern, '{mobile_last4}') && strlen($digits) < 4)) {
+            || (str_contains($pattern, '{mobile_last4}') && strlen($mobileDigits) < 4)) {
             return null;
         }
 
@@ -66,8 +67,19 @@ final class PasswordPattern
 
             if (! self::fixedTextFits($rest) || str_contains($rest, '{') || str_contains($rest, '}')) {
                 $fail(__('Use the tokens :tokens and letters, digits or symbols, without spaces, quotes or backslashes.', ['tokens' => implode(' ', self::TOKENS)]));
+            } elseif ($rest === (string) $value) {
+                // Fixed text alone would give every customer the same password.
+                $fail(__('Use at least one token, such as {digits}.'));
             }
         }];
+    }
+
+    /**
+     * Four random digits for {digits}.
+     */
+    public static function randomDigits(): string
+    {
+        return sprintf('%04d', random_int(0, 9999));
     }
 
     /**

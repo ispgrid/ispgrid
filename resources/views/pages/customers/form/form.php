@@ -148,6 +148,12 @@ new #[Title('Customer')] class extends Component
     #[Locked]
     public string $autoPassword = '';
 
+    /**
+     * The {digits} of the pattern, the same while staff type the name and mobile. Not saved.
+     */
+    #[Locked]
+    public string $patternDigits = '';
+
     public string $mac_type = '1';
 
     public string $nas_id = '';
@@ -684,6 +690,15 @@ new #[Title('Customer')] class extends Component
     }
 
     /**
+     * The password field still holds what the pattern filled in, so staff are told to look at it.
+     */
+    #[Computed]
+    public function passwordFromPattern(): bool
+    {
+        return $this->autoPassword !== '' && $this->password === $this->autoPassword;
+    }
+
+    /**
      * Whether the name and mobile fill the password as they change (a new customer, a pattern set).
      */
     #[Computed]
@@ -701,7 +716,8 @@ new #[Title('Customer')] class extends Component
             return;
         }
 
-        $this->password = PasswordPattern::make($this->fullname, $this->mobile) ?? '';
+        $this->patternDigits = $this->patternDigits !== '' ? $this->patternDigits : PasswordPattern::randomDigits();
+        $this->password = PasswordPattern::make($this->fullname, $this->mobile, $this->patternDigits) ?? '';
         $this->autoPassword = $this->password;
     }
 
@@ -1258,7 +1274,6 @@ new #[Title('Customer')] class extends Component
             'tax_id' => $this->nullIfEmpty($this->tax_id),
             'business_id' => $this->nullIfEmpty($this->business_id),
             'remarks' => $this->nullIfEmpty($this->remarks),
-            'account_number' => $this->nullIfEmpty($this->account_number),
             'notifications_off' => $this->notifications_off,
             'service_type' => $this->service_type,
             'password' => $this->password !== '' ? $this->password : null,
@@ -1281,7 +1296,8 @@ new #[Title('Customer')] class extends Component
             'override_until' => $override && $this->override_until !== '' ? Carbon::createFromFormat('!Y-m-d\TH:i', $this->override_until) : null,
             'payment_terms_days' => (int) $this->payment_terms_days,
             'billing_name' => $this->separate_billing ? $this->nullIfEmpty($this->billing_name) : null,
-        ] + $this->pricingColumns() + ($this->canAutoRenew ? ['auto_renew' => $this->auto_renew] : []) + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
+        ] + ($this->showsAccountNumber ? ['account_number' => $this->nullIfEmpty($this->account_number)] : [])
+            + $this->pricingColumns() + ($this->canAutoRenew ? ['auto_renew' => $this->auto_renew] : []) + ($this->accountId === null ? ['username' => $this->username, 'status_id' => AccountStatus::Inactive] : []);
     }
 
     /**

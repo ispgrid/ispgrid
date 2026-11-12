@@ -1614,5 +1614,8 @@
     "Copy login": "लॉगिन कॉपी करें",
     "No PPPoE password message is switched on. Reset the password and copy it instead.": "कोई PPPoE पासवर्ड मैसेज चालू नहीं है। इसके बजाय पासवर्ड रीसेट करके कॉपी करें।",
     "A new PPPoE password is on its way to the customer.": "नया PPPoE पासवर्ड ग्राहक को भेजा जा रहा है।",
-    "Add the PPPoE password to the values, or the customer cannot get online.": "वैल्यू में PPPoE पासवर्ड जोड़ें, वरना ग्राहक ऑनलाइन नहीं आ पाएगा।"
+    "Add the PPPoE password to the values, or the customer cannot get online.": "वैल्यू में PPPoE पासवर्ड जोड़ें, वरना ग्राहक ऑनलाइन नहीं आ पाएगा।",
+    "Use at least one token, such as {digits}.": "कम से कम एक टोकन इस्तेमाल करें, जैसे {digits}।",
+    "Filled in from the password pattern. Press the eye to see it.": "पासवर्ड पैटर्न से भरा गया। देखने के लिए आँख वाला बटन दबाएँ।",
+    "The message could not go out (no valid mobile number). Give the customer this password.": "मैसेज नहीं जा सका (कोई सही मोबाइल नंबर नहीं)। यह पासवर्ड ग्राहक को खुद दें।"
 }

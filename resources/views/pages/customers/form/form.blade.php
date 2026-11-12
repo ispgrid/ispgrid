@@ -70,7 +70,7 @@
                             @if ($keepsPassword)
                                 <x-ui.input wire:model="password" english :label="__('Password')" :description="__('Leave empty to keep the current password.')" viewable maxlength="64" autocomplete="off" />
                             @else
-                                <x-ui.input wire:model="password" english :label="__('Password')" viewable maxlength="64" required autocomplete="off" />
+                                <x-ui.input wire:model="password" english :label="__('Password')" :description="$this->passwordFromPattern ? __('Filled in from the password pattern. Press the eye to see it.') : null" viewable maxlength="64" required autocomplete="off" />
                             @endif
                             <x-ui.input wire:model="mac_type" type="number" min="0" max="100" :label="__('Device limit')" :description="__('PPPoE: how many routers may log in with this account. Hotspot: devices online at once. 0 means no limit.')" required />
                         @endunless

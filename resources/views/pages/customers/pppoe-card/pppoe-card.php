@@ -85,9 +85,20 @@ new class extends Component
             return;
         }
 
-        app(ResetPppoePassword::class)->handle($this->account, send: true);
+        $result = app(ResetPppoePassword::class)->handleAndSend($this->account);
         unset($this->account);
-        $this->toast(__('A new PPPoE password is on its way to the customer.'));
+
+        if ($result['queued']) {
+            $this->toast(__('A new PPPoE password is on its way to the customer.'));
+
+            return;
+        }
+
+        // Nothing went out (no valid number): the password is shown, or nobody would know it.
+        $this->newPassword = $result['password'];
+        unset($this->details, $this->shownPassword);
+        $this->dispatch('modal-open', name: 'pppoe-password');
+        $this->toast(__('The message could not go out (no valid mobile number). Give the customer this password.'));
     }
 
     public function closeDialog(): void

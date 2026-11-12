@@ -99,8 +99,10 @@ final class ImportCustomers implements Importer
                     throw new ImportFailed($errors);
                 }
 
+                $typedIds = array_values(array_filter(array_map(fn (array $row): string => (string) ($row['columns']['account_number'] ?? ''), $prepared)));
+
                 foreach ($prepared as $row) {
-                    $this->write($row);
+                    $this->write($row, $typedIds);
                 }
 
                 return count($prepared);
@@ -112,15 +114,16 @@ final class ImportCustomers implements Importer
 
     /**
      * @param  array{errors: list<RowError>, columns: array<string, mixed>, address: ?array<string, ?string>, mac: ?string}  $row
+     * @param  list<string>  $typedIds  the account IDs the file gives by hand, which numbering skips
      */
-    private function write(array $row): void
+    private function write(array $row, array $typedIds): void
     {
         $columns = $row['columns'];
         $columns['address_id'] = $row['address'] === null ? null : Address::query()->create($row['address'])->id;
 
         // One "Imported" entry below instead of the model's own "Created" one.
         $account = activity()->withoutLogging(fn (): Account => Account::query()->create($columns));
-        AccountNumbers::assign($account);
+        AccountNumbers::assign($account, $typedIds);
 
         if ($account->usage_since !== null) {
             UsagePeriod::restart($account->username, $account->usage_since);
