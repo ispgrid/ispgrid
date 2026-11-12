@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Customers\CancelRecharge;
 use App\Actions\Customers\RechargeAccount;
 use App\Actions\Customers\RenameAccount;
 use App\Actions\Radius\ResetDevices;
@@ -11,8 +12,10 @@ use App\Billing\RechargePrice;
 use App\Enums\AccountStatus;
 use App\Enums\DisconnectReason;
 use App\Enums\IpRangeKind;
+use App\Enums\RechargeKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
+use App\Exceptions\CannotCancelRecharge;
 use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Jobs\DisconnectAccount;
@@ -102,6 +105,14 @@ new #[Title('Customer')] class extends Component
     public string $recharge_amount = '';
 
     public string $recharge_note = '';
+
+    /**
+     * Cancel recharge: the recharge being cancelled (set by openCancelRecharge) and why.
+     */
+    #[Locked]
+    public ?int $cancel_recharge_id = null;
+
+    public string $cancel_recharge_reason = '';
 
     /**
      * The expiry the dialog's suggestion was computed from (RechargeAccount::expiryKey()), so a recharge saved
@@ -561,19 +572,25 @@ new #[Title('Customer')] class extends Component
     /**
      * The last 20 recharges.
      *
-     * @return list<array{id: int, when: string, plan: string, expiry: string, amount: string, invoice: ?array{id: int, number: string}, note: string, staff: string}>
+     * Only the newest can be cancelled (CancelRecharge::cancellable()), by staff with Cancel recharges.
+     *
+     * @return list<array{id: int, when: string, plan: string, kind: ?string, expiry: string, amount: string, invoice: ?array{id: int, number: string}, note: string, staff: string, cancelled: bool, can_cancel: bool}>
      */
     #[Computed]
     public function recharges(): array
     {
         $format = $this->dateFormat();
         $money = Money::fromSettings();
+        $mayCancel = ! $this->account->trashed() && Gate::allows('cancel-recharges');
 
         return Recharge::query()->where('account_id', $this->accountId)
             ->with(['plan' => fn ($query) => $query->withTrashed(), 'user' => fn ($query) => $query->withTrashed(), 'invoice'])
             ->latest('id')->limit(20)->get()
-            ->map(fn (Recharge $recharge): array => [
+            ->map(fn (Recharge $recharge, int $index): array => [
                 'id' => $recharge->id,
+                'kind' => $recharge->kind === RechargeKind::Recharge ? null : $recharge->kind->label(),
+                'cancelled' => $recharge->cancelled_at !== null,
+                'can_cancel' => $mayCancel && $index === 0 && CancelRecharge::cancellable($recharge),
                 'when' => $recharge->created_at->format($format),
                 'plan' => $recharge->plan?->name ?? __('None'),
                 'expiry' => $recharge->new_pending_validity !== null
@@ -907,7 +924,7 @@ new #[Title('Customer')] class extends Component
     /**
      * The money side of the Recharge dialog for the chosen plan (PricesRecharges::chargeSummary()).
      *
-     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_keep: bool}
      */
     #[Computed]
     public function rechargeCharge(): array
@@ -966,6 +983,7 @@ new #[Title('Customer')] class extends Component
 
         $waits = $this->rechargePending !== null;
         $charge = $this->rechargeCharge;
+        $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
         $invoiced = $charge['mode'] === 'invoice';
 
         $this->validate([
@@ -973,7 +991,8 @@ new #[Title('Customer')] class extends Component
             'recharge_expiry' => $waits ? [] : ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
             'recharge_amount' => $charge['mode'] === 'amount' ? ['required', ...Currency::amountRules()] : [],
             'recharge_note' => ['nullable', 'string', 'max:255'],
-            ...($invoiced ? [...$this->adjustRules(), ...$this->paymentRules($charge['total'])] : []),
+            ...$this->discountRules($charge, $plan),
+            ...($invoiced ? $this->paymentRules($charge['total']) : []),
         ], [
             'recharge_expiry.after' => __('The expiry must be in the future.'),
         ], [
@@ -981,7 +1000,7 @@ new #[Title('Customer')] class extends Component
             'recharge_expiry' => __('expiry'),
             'recharge_amount' => __('amount'),
             'recharge_note' => __('note'),
-            ...$this->adjustAttributes(),
+            ...$this->discountAttributes(),
             ...$this->paymentAttributes(),
         ]);
 
@@ -995,7 +1014,7 @@ new #[Title('Customer')] class extends Component
                 $charge['mode'] === 'amount' ? $this->recharge_amount : $charge['total'],
                 $this->recharge_note === '' ? null : $this->recharge_note,
                 $this->recharge_base_expiry,
-                charge: $invoiced ? $this->chargeOptions($this->paymentInput($charge['total'])) : new ChargeOptions,
+                charge: $charge['mode'] === 'free' ? new ChargeOptions : $this->chargeOptions($invoiced ? $this->paymentInput($charge['total']) : null),
             );
         } catch (ExpiryChangedMeanwhile) {
             $this->refillAfterExpiryChange();
@@ -1037,6 +1056,82 @@ new #[Title('Customer')] class extends Component
         $this->toast($message);
     }
 
+    public function openCancelRecharge(int $rechargeId): void
+    {
+        $this->authorizeCancelRecharge();
+        $this->resetValidation();
+        $this->cancel_recharge_id = Recharge::query()->where('account_id', $this->accountId)->findOrFail($rechargeId)->id;
+        $this->cancel_recharge_reason = '';
+        $this->dispatch('modal-open', name: 'cancel-recharge');
+    }
+
+    /**
+     * Undoes the latest recharge: the old expiry, plan and status come back and its invoice is cancelled. An online
+     * customer is disconnected when the old expiry has passed or the plan changed, so they reconnect as they were.
+     */
+    public function cancelRecharge(CancelRecharge $cancel): void
+    {
+        $this->authorizeCancelRecharge();
+        $this->cancel_recharge_reason = trim($this->cancel_recharge_reason);
+        $this->validate(['cancel_recharge_reason' => ['required', 'string', 'max:255']], [], ['cancel_recharge_reason' => __('reason')]);
+
+        $recharge = Recharge::query()->where('account_id', $this->accountId)->find($this->cancel_recharge_id);
+
+        if ($recharge === null) {
+            $this->addError('cancel_recharge_reason', __('Only the latest recharge can be cancelled.'));
+
+            return;
+        }
+
+        $wasAutoRenew = $this->account->auto_renew;
+
+        try {
+            $disconnect = $cancel->handle($recharge->id, $this->cancel_recharge_reason);
+        } catch (CannotCancelRecharge $refused) {
+            $this->addError('cancel_recharge_reason', match ($refused->why) {
+                'payments' => __('Its invoice has payments. Remove them first.'),
+                'advance-waiting' => __('Cancel the advance renewal first.'),
+                'too-old' => __('This recharge was made before cancelling was possible.'),
+                'plan-deleted' => __('The plan before this recharge was deleted. Use Change plan and Change expiry instead.'),
+                default => __('Only the latest recharge can be cancelled.'),
+            });
+
+            return;
+        } catch (ModelNotFoundException) {
+            $this->toastDeletedMeanwhile();
+
+            return;
+        }
+
+        $disconnected = $disconnect && DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::RechargeCancelled);
+        unset($this->account, $this->service, $this->activityRows, $this->timeline, $this->hasMoreActivity, $this->recharges);
+        $this->status = (string) $this->account->status_id->value;
+        $this->dispatch('modal-close', name: 'cancel-recharge');
+        $this->dispatch('account-changed')->to('pages::customers.plan-card');
+
+        $expiry = $this->account->expiry;
+        $message = $expiry === null ? __('Recharge cancelled.') : __('Recharge cancelled. The expiry is back to :date.', ['date' => $expiry->format($this->dateFormat())]);
+
+        if ($wasAutoRenew && ! $this->account->auto_renew) {
+            $message .= ' '.__('Auto renew is off now, so it does not renew them again.');
+        }
+
+        if ($disconnected) {
+            $message .= ' '.__('They are disconnected so the change applies now.');
+        }
+
+        $this->toast($message);
+    }
+
+    /**
+     * Cancel recharges, on a customer who is not deleted.
+     */
+    private function authorizeCancelRecharge(): void
+    {
+        $this->authorize('view', $this->account);
+        abort_unless(Gate::allows('cancel-recharges') && ! $this->account->trashed(), 403);
+    }
+
     /**
      * The dialog was filled from another expiry: a recharge or an edit meanwhile, or FreeRADIUS starting a
      * first-login validity. Fill it again from the current one and let staff check it.
@@ -1050,14 +1145,14 @@ new #[Title('Customer')] class extends Component
 
     /**
      * The expiry and amount the chosen plan gives (the amount less the customer's discount, for a recharge without
-     * an invoice). Staff can change both before saving; a one-off price goes back to the plan price.
+     * an invoice). Staff can change both before saving; the discount goes back to the customer's saved one.
      */
     private function fillRechargeDefaults(): void
     {
         unset($this->rechargePending, $this->rechargeCharge);
-        $this->resetAdjust();
         $this->recharge_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
+        $this->resetDiscount($this->account, $plan);
 
         if ($plan === null) {
             $this->recharge_expiry = '';
@@ -1072,7 +1167,20 @@ new #[Title('Customer')] class extends Component
             : ExpiryCalculator::fromSettings()
                 ->next($this->account->expiry, $plan->validity, $plan->validity_unit, now())
                 ->format('Y-m-d\TH:i');
-        $this->recharge_amount = RechargePrice::amount($this->account, $plan, BillingSettings::current());
+        $this->recharge_amount = RechargePrice::amount($this->account, $plan, BillingSettings::current(), $this->typedDiscount());
+    }
+
+    /**
+     * A new discount: the breakdown follows, and so does the amount of a recharge without an invoice.
+     */
+    protected function discountChanged(): void
+    {
+        unset($this->rechargeCharge);
+        $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
+
+        if ($plan !== null) {
+            $this->recharge_amount = RechargePrice::amount($this->account, $plan, BillingSettings::current(), $this->typedDiscount());
+        }
     }
 
     /**

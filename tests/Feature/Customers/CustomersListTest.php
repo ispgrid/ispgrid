@@ -213,3 +213,13 @@ it('shows the full name as the link with the username under it, or the username 
     expect($rows['ramesh_s4'])->name->toBe('Ramesh Kumar')->login->toBe('ramesh_s4')
         ->and($rows['voucher1'])->name->toBe('voucher1')->login->toBeNull();
 });
+
+it('leaves a cancelled recharge and a plan switch out of the renewed filter', function () {
+    $this->travelTo(Carbon::parse('2026-10-20 12:00:00'));
+    $undone = Account::factory()->create(['username' => 'undone']);
+    Recharge::factory()->for($undone)->create(['created_at' => '2026-10-20 08:00:00', 'cancelled_at' => '2026-10-20 08:05:00']);
+    $switched = Account::factory()->create(['username' => 'switched']);
+    Recharge::factory()->for($switched)->create(['created_at' => '2026-10-20 08:00:00', 'kind' => 'switch-plan', 'amount' => 0]);
+
+    expect(listedUsernames(['renewed' => '1']))->toBe([]);
+});

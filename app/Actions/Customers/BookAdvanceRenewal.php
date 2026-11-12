@@ -26,7 +26,7 @@ use InvalidArgumentException;
  */
 final class BookAdvanceRenewal
 {
-    public function __construct(private IssueInvoice $issueInvoice) {}
+    public function __construct(private IssueInvoice $issueInvoice, private SaveCustomerDiscount $saveDiscount) {}
 
     /**
      * @throws ModelNotFoundException when the customer or the plan was deleted meanwhile
@@ -66,10 +66,14 @@ final class BookAdvanceRenewal
 
             if (InvoicePolicy::invoicesRecharge($account, $settings = BillingSettings::current())) {
                 $invoice = $this->issueInvoice->handle(
-                    $account, RechargeInvoice::lines($account, $plan, $settings, $charge->adjustedPrice, $account->expiry, $expiry, null), $plan->round_off,
+                    $account, RechargeInvoice::lines($account, $plan, $settings, $charge->discount, $account->expiry, $expiry, null), $plan->round_off,
                     InvoiceKind::Recharge, now(), $charge->payment, $account->expiry, $expiry,
                 );
                 $renewal->update(['invoice_id' => $invoice->id, 'amount' => $invoice->total]);
+            }
+
+            if ($charge->keepDiscount && $charge->discount !== null) {
+                $this->saveDiscount->handle($account, $charge->discount);
             }
 
             activity()
@@ -81,7 +85,7 @@ final class BookAdvanceRenewal
                     'expiry' => $expiry->format(RechargeAccount::DATE_FORMAT),
                     'amount' => $renewal->invoice_id === null && ! $account->billing_free ? $amount : (string) $renewal->amount,
                     'note' => $note,
-                    ...($charge->adjustReason === null ? [] : ['adjust_reason' => $charge->adjustReason]),
+                    ...RechargeAccount::discountChanges($charge),
                 ]])
                 ->log('advance-booked');
 

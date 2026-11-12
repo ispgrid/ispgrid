@@ -98,7 +98,10 @@
                                 <x-ui.switch wire:model.live="billing_free" :label="__('Free customer')" :description="__('Recharges cost nothing and make no invoice, e.g. for a non-profit.')" />
                             </div>
                             @unless ($billing_free)
-                                <x-ui.input wire:model="discount_percent" inputmode="decimal" :label="__('Discount (%)')" :description="__('Taken off the plan price on every recharge.')" />
+                                <div class="grid grid-cols-[minmax(0,1fr)_8rem] items-start gap-2">
+                                    <x-ui.input wire:model="discount_value" inputmode="decimal" :label="__('Discount')" :description="__('Taken off the plan price on every recharge.')" />
+                                    <x-ui.select wire:model="discount_type" :label="__('Discount type')" :options="['percent' => __('Percent'), 'amount' => __('Amount')]" />
+                                </div>
                             @endunless
                         @endif
                         <x-ui.input wire:model="payment_terms_days" type="number" min="0" max="365" :label="__('Payment terms (days)')" :description="__('When invoices are due. 0 means due on receipt.')" />

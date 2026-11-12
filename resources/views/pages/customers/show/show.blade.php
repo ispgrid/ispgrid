@@ -295,13 +295,22 @@
                         <x-ui.th>{{ __('Invoice') }}</x-ui.th>
                         <x-ui.th>{{ __('Note') }}</x-ui.th>
                         <x-ui.th>{{ __('Staff') }}</x-ui.th>
+                        <x-ui.th><span class="sr-only">{{ __('Actions') }}</span></x-ui.th>
                     </x-slot:head>
                     @foreach ($this->recharges as $recharge)
-                        <tr wire:key="recharge-{{ $recharge['id'] }}">
-                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['when'] }}</x-ui.td>
-                            <x-ui.td>{{ $recharge['plan'] }}</x-ui.td>
-                            <x-ui.td class="tabular-nums whitespace-nowrap">{{ $recharge['expiry'] }}</x-ui.td>
-                            <x-ui.td class="text-end tabular-nums">{{ $recharge['amount'] }}</x-ui.td>
+                        <tr wire:key="recharge-{{ $recharge['id'] }}" @class(['text-zinc-500 dark:text-zinc-400' => $recharge['cancelled']])>
+                            <x-ui.td @class(['tabular-nums whitespace-nowrap', 'line-through' => $recharge['cancelled']])>{{ $recharge['when'] }}</x-ui.td>
+                            <x-ui.td>
+                                <span @class(['line-through' => $recharge['cancelled']])>{{ $recharge['plan'] }}</span>
+                                @if ($recharge['kind'])
+                                    <x-ui.badge class="ms-1">{{ $recharge['kind'] }}</x-ui.badge>
+                                @endif
+                                @if ($recharge['cancelled'])
+                                    <x-ui.badge color="red" class="ms-1">{{ __('Cancelled') }}</x-ui.badge>
+                                @endif
+                            </x-ui.td>
+                            <x-ui.td @class(['tabular-nums whitespace-nowrap', 'line-through' => $recharge['cancelled']])>{{ $recharge['expiry'] }}</x-ui.td>
+                            <x-ui.td @class(['text-end tabular-nums', 'line-through' => $recharge['cancelled']])>{{ $recharge['amount'] }}</x-ui.td>
                             <x-ui.td class="whitespace-nowrap">
                                 @if ($recharge['invoice'])
                                     @can('view-invoices')
@@ -313,11 +322,30 @@
                             </x-ui.td>
                             <x-ui.td>{{ $recharge['note'] }}</x-ui.td>
                             <x-ui.td>{{ $recharge['staff'] }}</x-ui.td>
+                            <x-ui.td class="text-end whitespace-nowrap">
+                                @if ($recharge['can_cancel'])
+                                    <x-ui.button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" wire:click="openCancelRecharge({{ $recharge['id'] }})">{{ __('Cancel recharge') }}</x-ui.button>
+                                @endif
+                            </x-ui.td>
                         </tr>
                     @endforeach
                 </x-ui.table>
             @endif
         </x-ui.card>
+
+        @can('cancel-recharges')
+            <x-ui.modal name="cancel-recharge">
+                <form wire:submit="cancelRecharge" class="grid grid-cols-1 gap-5" novalidate>
+                    <x-ui.heading size="lg">{{ __('Cancel recharge') }}</x-ui.heading>
+                    <x-ui.text muted>{{ __('The expiry, plan and status go back to what they were before this recharge, and its invoice is cancelled. Data used stays counted.') }}</x-ui.text>
+                    <x-ui.input wire:model="cancel_recharge_reason" :label="__('Reason')" maxlength="255" required />
+                    <div class="flex justify-end gap-2">
+                        <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'cancel-recharge' })">{{ __('Keep it') }}</x-ui.button>
+                        <x-ui.button type="submit" variant="danger">{{ __('Cancel recharge') }}</x-ui.button>
+                    </div>
+                </form>
+            </x-ui.modal>
+        @endcan
     @endif
 
     @if ($this->activeTab === 'sessions')

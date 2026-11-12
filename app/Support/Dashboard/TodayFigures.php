@@ -3,6 +3,7 @@
 namespace App\Support\Dashboard;
 
 use App\Enums\AccountStatus;
+use App\Enums\RechargeKind;
 use App\Models\Account;
 use App\Models\Radacct;
 use App\Models\User;
@@ -42,7 +43,8 @@ final class TodayFigures
             ['label' => __('Expired in the last 7 days'), 'value' => self::active()->where('expiry', '>=', now()->subDays(7))->where('expiry', '<', now())->count(),
                 'href' => $link(['status' => $active, 'expired' => 7])],
             ['label' => __('Renewed today'), 'value' => Account::query()->whereExists(fn ($query) => $query->select(DB::raw(1))->from('recharges')
-                ->whereColumn('recharges.account_id', 'accounts.id')->where('recharges.created_at', '>=', now()->startOfDay()))->count(),
+                ->whereColumn('recharges.account_id', 'accounts.id')->where('recharges.created_at', '>=', now()->startOfDay())
+                ->whereNull('recharges.cancelled_at')->where('recharges.kind', '!=', RechargeKind::SwitchPlan->value))->count(),
                 'href' => $link(['renewed' => 1])],
             ['label' => __('New today'), 'value' => Account::query()->where('created_at', '>=', now()->startOfDay())->count(),
                 'href' => $link(['created' => 'today'])],

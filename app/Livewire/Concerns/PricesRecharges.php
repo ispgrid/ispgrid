@@ -5,6 +5,7 @@ namespace App\Livewire\Concerns;
 use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
 use App\Billing\Decimal;
+use App\Billing\Discount;
 use App\Billing\InvoiceDraft;
 use App\Billing\InvoicePolicy;
 use App\Billing\PaymentInput;
@@ -13,30 +14,45 @@ use App\Models\Account;
 use App\Models\Plan;
 use App\Support\Currency;
 use App\Support\Money;
+use Closure;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 /**
  * The money side of the recharge dialogs: a Free customer pays nothing; an invoiced recharge shows the invoice
- * breakdown, with "Adjust price" (a one-off price and its reason) for staff with Set customer pricing; otherwise the
- * amount stays an editable field, as before invoicing.
+ * breakdown; otherwise the amount stays an editable field, as before invoicing. Anyone who may recharge can give a
+ * discount (amount or percent, with an optional reason), filled in with the customer's saved one; keeping it for
+ * future renewals needs Set customer pricing.
  */
 trait PricesRecharges
 {
-    public string $adjust_price = '';
+    public string $discount_type = Discount::PERCENT;
 
-    public string $adjust_reason = '';
+    public string $discount_value = '';
 
-    protected function resetAdjust(): void
+    public string $discount_reason = '';
+
+    public bool $discount_keep = false;
+
+    /**
+     * Fills the discount fields with the customer's saved discount; a saved amount above this plan's price (a cheaper
+     * plan) is filled in at the price, as auto renewal caps it.
+     */
+    protected function resetDiscount(Account $account, ?Plan $plan): void
     {
-        $this->adjust_price = '';
-        $this->adjust_reason = '';
+        $saved = Discount::forAccount($account);
+        $amount = $plan !== null && $saved->isAmount() && Decimal::compare($saved->value, (string) $plan->price) > 0 ? (string) $plan->price : $saved->value;
+        $this->discount_type = $saved->type;
+        $this->discount_value = $saved->isNone() ? '' : ($saved->isAmount() ? $amount : Decimal::trim($saved->value));
+        $this->discount_reason = '';
+        $this->discount_keep = false;
     }
 
     /**
      * What the dialog shows for this plan: mode 'free', 'invoice' (with the breakdown rows and the total) or
      * 'amount' (the editable amount).
      *
-     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_keep: bool}
      */
     protected function chargeSummary(Account $account, ?Plan $plan): array
     {
@@ -46,70 +62,111 @@ trait PricesRecharges
 
         return [
             'mode' => $mode,
-            'rows' => $draft === null ? [] : $this->breakdownRows($draft, (string) $account->discount_percent),
+            'rows' => $draft === null ? [] : $this->breakdownRows($draft, $this->typedDiscount()),
             'total' => $draft === null ? '0' : $draft->total,
-            'can_adjust' => Gate::allows('set-customer-pricing'),
+            'can_keep' => Gate::allows('set-customer-pricing'),
         ];
     }
 
     protected function chargeDraft(Account $account, Plan $plan, BillingSettings $settings): InvoiceDraft
     {
-        return RechargeInvoice::draft($account, $plan, $settings, $this->adjustedPrice(), null, null, null);
+        return RechargeInvoice::draft($account, $plan, $settings, $this->typedDiscount(), null, null, null);
     }
 
     /**
+     * The discount fields' rules for a recharge of this plan (none for a Free customer). An amount is at most the
+     * plan price; keeping the discount needs Set customer pricing.
+     *
+     * @param  array{mode: string}  $charge
      * @return array<string, list<mixed>>
      */
-    protected function adjustRules(): array
+    protected function discountRules(array $charge, ?Plan $plan): array
     {
-        if (trim($this->adjust_price) === '') {
+        if ($charge['mode'] === 'free') {
             return [];
         }
 
-        abort_unless(Gate::allows('set-customer-pricing'), 403);
+        abort_if($this->discount_keep && ! Gate::allows('set-customer-pricing'), 403);
+        $price = $plan === null ? Currency::MAX_AMOUNT : (string) $plan->price;
 
         return [
-            'adjust_price' => ['regex:'.Currency::amountPattern()],
-            'adjust_reason' => ['required', 'string', 'max:255'],
+            'discount_type' => ['required', Rule::in([Discount::PERCENT, Discount::AMOUNT])],
+            'discount_value' => $this->discount_type === Discount::AMOUNT
+                ? ['nullable', ...Currency::amountRules(), function (string $attribute, mixed $value, Closure $fail) use ($price): void {
+                    if (is_numeric($value) && Decimal::compare((string) $value, $price) > 0) {
+                        $fail(__('The discount cannot be more than the plan price.'));
+                    }
+                }]
+                : ['nullable', 'numeric', 'decimal:0,2', 'between:0,100'],
+            'discount_reason' => ['nullable', 'string', 'max:255'],
+            'discount_keep' => ['boolean'],
         ];
     }
 
     /**
      * @return array<string, string>
      */
-    protected function adjustAttributes(): array
+    protected function discountAttributes(): array
     {
-        return ['adjust_price' => __('price for this recharge'), 'adjust_reason' => __('reason')];
-    }
-
-    protected function chargeOptions(?PaymentInput $payment): ChargeOptions
-    {
-        $adjusted = $this->adjustedPrice();
-
-        return new ChargeOptions($adjusted, $adjusted === null ? null : trim($this->adjust_reason), $payment);
+        return ['discount_value' => __('discount'), 'discount_reason' => __('reason')];
     }
 
     /**
-     * The adjusted price when one is typed and valid, otherwise null (the plan price).
+     * The discount given in the dialog, its reason, whether to keep it, and the payment taken now.
      */
-    private function adjustedPrice(): ?string
+    protected function chargeOptions(?PaymentInput $payment): ChargeOptions
     {
-        $price = trim($this->adjust_price);
+        $reason = trim($this->discount_reason);
 
-        return preg_match(Currency::amountPattern(), $price) === 1 ? $price : null;
+        return new ChargeOptions(
+            discount: $this->typedDiscount(),
+            discountReason: $reason === '' ? null : $reason,
+            keepDiscount: $this->discount_keep,
+            payment: $payment,
+        );
     }
+
+    /**
+     * The discount as typed: none when the field is empty or not a number yet.
+     */
+    protected function typedDiscount(): Discount
+    {
+        $value = trim($this->discount_value);
+        $type = $this->discount_type === Discount::AMOUNT ? Discount::AMOUNT : Discount::PERCENT;
+
+        return is_numeric($value) && Decimal::compare($value, '0') > 0 ? new Discount($type, $value) : Discount::none();
+    }
+
+    public function updatedDiscountValue(): void
+    {
+        $this->discountChanged();
+    }
+
+    public function updatedDiscountType(): void
+    {
+        $this->discountChanged();
+    }
+
+    /**
+     * The dialog's amounts follow a new discount (the breakdown, and the amount field without invoicing).
+     */
+    abstract protected function discountChanged(): void;
 
     /**
      * @return list<array{label: string, value: string, total: bool}>
      */
-    private function breakdownRows(InvoiceDraft $draft, string $discountPercent): array
+    private function breakdownRows(InvoiceDraft $draft, Discount $discount): array
     {
         $money = Money::fromSettings();
         $line = $draft->lines[0];
         $rows = [['label' => __('Price'), 'value' => $money->format($line->amount), 'total' => false]];
 
         if (Decimal::compare($line->discountAmount, '0') > 0) {
-            $rows[] = ['label' => __('Discount (:percent%)', ['percent' => Decimal::trim($discountPercent)]), 'value' => '-'.$money->format($line->discountAmount), 'total' => false];
+            $rows[] = [
+                'label' => $discount->isAmount() ? __('Discount') : __('Discount (:percent%)', ['percent' => Decimal::trim($discount->value)]),
+                'value' => '-'.$money->format($line->discountAmount),
+                'total' => false,
+            ];
         }
 
         if ($draft->taxLines !== []) {

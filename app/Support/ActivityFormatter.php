@@ -143,6 +143,8 @@ final class ActivityFormatter
             'imported' => __('Imported'),
             'role-changed' => __('Role changed'),
             'plan-changed' => __('Plan changed'),
+            'plan-switched' => __('Plan switched'),
+            'recharge-cancelled' => __('Recharge cancelled'),
             'advance-booked' => __('Advance renewal booked'),
             'advance-started' => __('Advance renewal started'),
             'advance-cancelled' => __('Advance renewal cancelled'),

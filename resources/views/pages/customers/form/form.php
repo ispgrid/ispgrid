@@ -1,9 +1,11 @@
 <?php
 
+use App\Actions\Customers\SaveCustomerDiscount;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Billing\BillingSettings;
 use App\Billing\Decimal;
+use App\Billing\Discount;
 use App\Billing\India\Gstin;
 use App\Billing\India\GstStates;
 use App\Billing\LatinText;
@@ -30,6 +32,7 @@ use App\Models\RadiusAttribute;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\CustomerCreated;
 use App\Support\Addons\CustomerFormTabs;
+use App\Support\Currency;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\Hotspot;
@@ -68,7 +71,7 @@ new #[Title('Customer')] class extends Component
         'profile' => ['title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email', 'tax_id', 'business_id',
             'remarks', 'address'],
         'service' => ['service_type', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'auto_renew'],
-        'billing' => ['billing_free', 'discount_percent', 'payment_terms_days', 'billing_name', 'billing_address', 'place_of_supply'],
+        'billing' => ['billing_free', 'discount_type', 'discount_value', 'payment_terms_days', 'billing_name', 'billing_address', 'place_of_supply'],
         'network' => ['ip_address', 'pool_id', 'address_list_ids', 'override_plan', 'override_upload', 'override_download',
             'override_burst_upload', 'override_burst_download', 'override_threshold_upload', 'override_threshold_download',
             'override_burst_time', 'override_priority', 'override_min_upload', 'override_min_download', 'override_until'],
@@ -183,7 +186,12 @@ new #[Title('Customer')] class extends Component
      */
     public bool $billing_free = false;
 
-    public string $discount_percent = '0';
+    /**
+     * The customer's discount: a percent or an amount taken off the plan price on every recharge.
+     */
+    public string $discount_type = Discount::PERCENT;
+
+    public string $discount_value = '0';
 
     public string $payment_terms_days = '0';
 
@@ -285,7 +293,8 @@ new #[Title('Customer')] class extends Component
             ->all();
         $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state($model), $this->formAddonTabs);
         $this->billing_free = $model->billing_free;
-        $this->discount_percent = Decimal::trim((string) $model->discount_percent);
+        $this->discount_type = $model->discount_type === Discount::AMOUNT ? Discount::AMOUNT : Discount::PERCENT;
+        $this->discount_value = $this->discount_type === Discount::AMOUNT ? (string) $model->discount_amount : Decimal::trim((string) $model->discount_percent);
         $this->payment_terms_days = (string) $model->payment_terms_days;
         $this->billing_name = (string) $model->billing_name;
         $this->separate_billing = $model->billing_name !== null || $model->billing_address_id !== null;
@@ -944,7 +953,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->billing_name = trim($this->billing_name);
-        $this->discount_percent = trim($this->discount_percent);
+        $this->discount_value = trim($this->discount_value);
         $this->payment_terms_days = trim($this->payment_terms_days);
 
         if ($this->usesGst()) {
@@ -993,7 +1002,10 @@ new #[Title('Customer')] class extends Component
             'override_until' => $this->override_plan ? ['nullable', 'date_format:Y-m-d\TH:i', 'after:now'] : [],
             'auto_renew' => ['boolean'],
             'billing_free' => ['boolean'],
-            'discount_percent' => ['required', 'numeric', 'between:0,100', 'decimal:0,2'],
+            'discount_type' => ['required', Rule::in([Discount::PERCENT, Discount::AMOUNT])],
+            'discount_value' => $this->discount_type === Discount::AMOUNT
+                ? ['required', ...Currency::amountRules()]
+                : ['required', 'numeric', 'between:0,100', 'decimal:0,2'],
             'payment_terms_days' => ['required', 'integer', 'between:0,365'],
             'separate_billing' => ['boolean'],
             'billing_name' => ['nullable', 'string', 'max:150'],
@@ -1218,8 +1230,24 @@ new #[Title('Customer')] class extends Component
 
         return [
             'billing_free' => $this->billing_free,
-            'discount_percent' => $this->discount_percent,
+            ...$this->discountColumns(),
             'place_of_supply' => $this->showsPlaceOfSupply() ? $this->nullIfEmpty($this->place_of_supply) : null,
+        ];
+    }
+
+    /**
+     * The discount columns: an amount, or a percent (also for no discount).
+     *
+     * @return array{discount_type: string, discount_percent: string, discount_amount: string}
+     */
+    private function discountColumns(): array
+    {
+        $amount = $this->discount_type === Discount::AMOUNT && Decimal::compare($this->discount_value, '0') > 0;
+
+        return [
+            'discount_type' => $amount ? Discount::AMOUNT : Discount::PERCENT,
+            'discount_percent' => $amount ? '0' : $this->discount_value,
+            'discount_amount' => $amount ? $this->discount_value : '0',
         ];
     }
 
@@ -1273,7 +1301,7 @@ new #[Title('Customer')] class extends Component
 
         return [
             'billing' => $account->billing_free ? 'Free' : 'Paid',
-            'discount' => Decimal::trim((string) $account->discount_percent),
+            'discount' => SaveCustomerDiscount::text($account),
             'payment_terms' => (string) $account->payment_terms_days,
             'place_of_supply' => (string) $account->place_of_supply,
             'billing_name' => (string) $account->billing_name,

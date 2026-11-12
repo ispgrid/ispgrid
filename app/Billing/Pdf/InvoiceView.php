@@ -86,8 +86,11 @@ final class InvoiceView
                     'item_code' => $line->item_code,
                     'quantity' => Decimal::trim((string) $line->quantity),
                     'rate' => $money->format($rate),
-                    'discount' => Decimal::compare($discount, '0') > 0
-                        ? $money->format($discount).' ('.Decimal::trim((string) $line->discount_percent).'%)' : null,
+                    'discount' => match (true) {
+                        Decimal::compare($discount, '0') <= 0 => null,
+                        Decimal::compare((string) $line->discount_percent, '0') > 0 => $money->format($discount).' ('.Decimal::trim((string) $line->discount_percent).'%)',
+                        default => $money->format($discount),
+                    },
                     'amount' => $money->format((string) $line->taxable),
                 ];
             })->all()),

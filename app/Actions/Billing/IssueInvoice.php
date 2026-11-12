@@ -119,7 +119,7 @@ final class IssueInvoice
                     'item_code' => $line->input->itemCode,
                     'quantity' => $line->input->quantity,
                     'unit_price' => $line->input->unitPrice,
-                    'discount_percent' => $line->input->discountPercent,
+                    'discount_percent' => $line->input->discountAmount === null ? $line->input->discountPercent : '0',
                     'discount_amount' => $line->discountAmount,
                     'taxable' => $line->taxable,
                     'taxed' => $line->input->taxed,

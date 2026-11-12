@@ -118,6 +118,19 @@
             </form>
         </x-ui.modal>
 
+        <x-ui.modal name="switch-plan">
+            <form wire:submit="switchPlan" class="grid grid-cols-1 gap-5" novalidate>
+                <x-ui.heading size="lg">{{ __('Switch plan') }}</x-ui.heading>
+                <x-ui.text muted>{{ __('No charge and no new expiry. The next Recharge uses this plan.') }}</x-ui.text>
+                <x-ui.select wire:model="switch_plan_id" :label="__('Plan')" :options="$this->switchPlans" :placeholder="__('Choose a plan')" />
+                <x-ui.input wire:model="switch_note" :label="__('Comment')" maxlength="255" />
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'switch-plan' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Switch plan') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.modal>
+
         <x-ui.modal name="renew-advance">
             <form wire:submit="bookRenewal" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.heading size="lg">{{ __('Renew in advance') }}</x-ui.heading>

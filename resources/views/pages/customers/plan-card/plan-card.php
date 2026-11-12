@@ -5,6 +5,7 @@ use App\Actions\Customers\CancelAdvanceRenewal;
 use App\Actions\Customers\ChangeExpiry;
 use App\Actions\Customers\RechargeAccount;
 use App\Actions\Customers\SetOverrideSpeed;
+use App\Actions\Customers\SwitchPlan;
 use App\Actions\Customers\TerminateAccount;
 use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
@@ -14,7 +15,9 @@ use App\Billing\Statement;
 use App\Enums\AccountStatus;
 use App\Enums\DisconnectReason;
 use App\Enums\RechargeKind;
+use App\Exceptions\CustomerNotExpired;
 use App\Exceptions\ExpiryChangedMeanwhile;
+use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Exceptions\RenewalAlreadyWaiting;
 use App\Exceptions\RenewalHasPayments;
 use App\Jobs\DisconnectAccount;
@@ -72,6 +75,13 @@ new class extends Component
      */
     #[Locked]
     public string $change_base_expiry = '';
+
+    /**
+     * Switch plan (an expired or Inactive customer): the plan and a comment. No charge, no new expiry.
+     */
+    public string $switch_plan_id = '';
+
+    public string $switch_note = '';
 
     /**
      * Renew in advance: next plan, expiry, amount and comment. It starts at the current expiry.
@@ -225,6 +235,18 @@ new class extends Component
     }
 
     /**
+     * Plans for Switch plan: the Recharge dialog's plans (first-login plans for a Hotspot customer too), less the
+     * current one.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function switchPlans(): array
+    {
+        return array_diff_key(PlanChoices::for($this->account), [(int) $this->account->plan_id => true]);
+    }
+
+    /**
      * What a plan change throws away: the time left on the running plan, e.g. "20 days 9 hours"; null when none.
      */
     #[Computed]
@@ -239,7 +261,7 @@ new class extends Component
     /**
      * The money side of Change plan for the chosen plan.
      *
-     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_keep: bool}
      */
     #[Computed]
     public function changeCharge(): array
@@ -250,7 +272,7 @@ new class extends Component
     /**
      * The money side of Renew in advance for the chosen plan.
      *
-     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_keep: bool}
      */
     #[Computed]
     public function advanceCharge(): array
@@ -258,10 +280,23 @@ new class extends Component
         return $this->chargeSummary($this->account, $this->advance_plan_id === '' ? null : Plan::query()->find((int) $this->advance_plan_id));
     }
 
+    /**
+     * Change plan: a customer with time left pays for the new plan from now; an expired or Inactive one switches
+     * plan for free and renews later.
+     */
     public function openChangePlan(): void
     {
         $this->authorizeLive('recharge');
         $this->resetValidation();
+
+        if (SwitchPlan::allowed($this->account)) {
+            $this->switch_plan_id = '';
+            $this->switch_note = '';
+            $this->dispatch('modal-open', name: 'switch-plan');
+
+            return;
+        }
+
         $this->change_plan_id = '';
         $this->change_note = '';
         $this->fillChangeDefaults();
@@ -289,10 +324,10 @@ new class extends Component
             'change_expiry' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
             'change_amount' => $charge['mode'] === 'amount' ? ['required', ...Currency::amountRules()] : [],
             'change_note' => ['nullable', 'string', 'max:255'],
-            ...$this->moneyRules($charge),
+            ...$this->moneyRules($charge, $this->change_plan_id),
         ], ['change_expiry.after' => __('The expiry must be in the future.'), 'change_plan_id.not_in' => __('This is the current plan. Use Recharge to renew it.')], [
             'change_plan_id' => __('plan'), 'change_expiry' => __('expiry'), 'change_amount' => __('amount'), 'change_note' => __('comment'),
-            ...$this->adjustAttributes(), ...$this->paymentAttributes(),
+            ...$this->discountAttributes(), ...$this->paymentAttributes(),
         ]);
 
         $wasInactive = $this->account->status_id === AccountStatus::Inactive;
@@ -317,6 +352,38 @@ new class extends Component
 
         $message = __('Plan changed until :date.', ['date' => $done->new_expiry->format($this->dateFormat())]);
         $this->finish('change-plan', $message, $this->disconnect(DisconnectReason::PlanChanged), $wasInactive);
+    }
+
+    /**
+     * Gives an expired or Inactive customer another plan, without charging or a new expiry.
+     */
+    public function switchPlan(SwitchPlan $switch): void
+    {
+        $this->authorizeLive('recharge');
+        $this->switch_note = trim($this->switch_note);
+
+        $this->validate([
+            'switch_plan_id' => ['required', Rule::in(array_map('strval', array_keys($this->switchPlans)))],
+            'switch_note' => ['nullable', 'string', 'max:255'],
+        ], [], ['switch_plan_id' => __('plan'), 'switch_note' => __('comment')]);
+
+        try {
+            $switch->handle($this->accountId, (int) $this->switch_plan_id, $this->nullIfEmpty($this->switch_note));
+        } catch (CustomerNotExpired) {
+            $this->addError('switch_plan_id', __('The customer has time left now (recharged meanwhile). Close this and use Change plan.'));
+
+            return;
+        } catch (FirstLoginPlanNeedsHotspot) {
+            $this->addError('switch_plan_id', __('This plan starts at the first Hotspot login. Choose another plan.'));
+
+            return;
+        } catch (ModelNotFoundException) {
+            $this->toastDeletedMeanwhile();
+
+            return;
+        }
+
+        $this->finish('switch-plan', __('Plan switched to :plan.', ['plan' => (string) Plan::withTrashed()->find((int) $this->switch_plan_id)?->name]));
     }
 
     public function openAdvance(): void
@@ -351,10 +418,10 @@ new class extends Component
             'advance_expiry' => ['required', 'date_format:Y-m-d\TH:i', ...($starts === null ? [] : ['after:'.$starts->format('Y-m-d H:i:s')])],
             'advance_amount' => $charge['mode'] === 'amount' ? ['required', ...Currency::amountRules()] : [],
             'advance_note' => ['nullable', 'string', 'max:255'],
-            ...$this->moneyRules($charge),
+            ...$this->moneyRules($charge, $this->advance_plan_id),
         ], ['advance_expiry.after' => __('The expiry must be after the start.')], [
             'advance_plan_id' => __('plan'), 'advance_expiry' => __('expiry'), 'advance_amount' => __('amount'), 'advance_note' => __('comment'),
-            ...$this->adjustAttributes(), ...$this->paymentAttributes(),
+            ...$this->discountAttributes(), ...$this->paymentAttributes(),
         ]);
 
         try {
@@ -545,14 +612,17 @@ new class extends Component
     }
 
     /**
-     * Adjust price and payment rules of an invoiced recharge.
+     * The discount rules, and the payment rules of an invoiced recharge.
      *
      * @param  array{mode: string, total: string}  $charge
      * @return array<string, list<mixed>>
      */
-    private function moneyRules(array $charge): array
+    private function moneyRules(array $charge, string $planId): array
     {
-        return $charge['mode'] === 'invoice' ? [...$this->adjustRules(), ...$this->paymentRules($charge['total'])] : [];
+        return [
+            ...$this->discountRules($charge, $planId === '' ? null : Plan::query()->find((int) $planId)),
+            ...($charge['mode'] === 'invoice' ? $this->paymentRules($charge['total']) : []),
+        ];
     }
 
     /**
@@ -560,28 +630,45 @@ new class extends Component
      */
     private function moneyOptions(array $charge): ChargeOptions
     {
-        return $charge['mode'] === 'invoice' ? $this->chargeOptions($this->paymentInput($charge['total'])) : new ChargeOptions;
+        return $charge['mode'] === 'free' ? new ChargeOptions : $this->chargeOptions($charge['mode'] === 'invoice' ? $this->paymentInput($charge['total']) : null);
+    }
+
+    /**
+     * A new discount: the breakdowns follow, and so do the amounts of a change or renewal without an invoice.
+     */
+    protected function discountChanged(): void
+    {
+        unset($this->changeCharge, $this->advanceCharge);
+        $settings = BillingSettings::current();
+
+        if ($this->change_plan_id !== '' && ($plan = Plan::query()->find((int) $this->change_plan_id)) !== null) {
+            $this->change_amount = RechargePrice::amount($this->account, $plan, $settings, $this->typedDiscount());
+        }
+
+        if ($this->advance_plan_id !== '' && ($plan = Plan::query()->find((int) $this->advance_plan_id)) !== null) {
+            $this->advance_amount = RechargePrice::amount($this->account, $plan, $settings, $this->typedDiscount());
+        }
     }
 
     private function fillChangeDefaults(): void
     {
         unset($this->changeCharge);
-        $this->resetAdjust();
         $this->change_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->change_plan_id === '' ? null : Plan::query()->find((int) $this->change_plan_id);
+        $this->resetDiscount($this->account, $plan);
         $this->change_expiry = $plan === null ? '' : ExpiryCalculator::fromSettings()->next(null, $plan->validity, $plan->validity_unit, now())->format('Y-m-d\TH:i');
-        $this->change_amount = $plan === null ? '' : RechargePrice::amount($this->account, $plan, BillingSettings::current());
+        $this->change_amount = $plan === null ? '' : RechargePrice::amount($this->account, $plan, BillingSettings::current(), $this->typedDiscount());
     }
 
     private function fillAdvanceDefaults(): void
     {
         unset($this->advanceCharge);
-        $this->resetAdjust();
         $plan = $this->advance_plan_id === '' ? null : Plan::query()->find((int) $this->advance_plan_id);
+        $this->resetDiscount($this->account, $plan);
         $starts = $this->account->expiry;
         $this->advance_expiry = $plan === null || $starts === null ? ''
             : ExpiryCalculator::fromSettings()->next($starts, $plan->validity, $plan->validity_unit, $starts->copy()->subSecond())->format('Y-m-d\TH:i');
-        $this->advance_amount = $plan === null ? '' : RechargePrice::amount($this->account, $plan, BillingSettings::current());
+        $this->advance_amount = $plan === null ? '' : RechargePrice::amount($this->account, $plan, BillingSettings::current(), $this->typedDiscount());
     }
 
     /**
@@ -590,7 +677,7 @@ new class extends Component
      */
     private function periodStart(): ?CarbonInterface
     {
-        $last = Recharge::query()->where('account_id', $this->accountId)->latest('id')->first();
+        $last = Recharge::query()->counted()->where('account_id', $this->accountId)->latest('id')->first();
 
         if ($last === null) {
             return null;
