@@ -31,6 +31,7 @@ use App\Models\Pool;
 use App\Models\RadiusAttribute;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\CustomerCreated;
+use App\Support\AccountNumbers;
 use App\Support\Addons\CustomerFormTabs;
 use App\Support\Currency;
 use App\Support\CustomerDefaults;
@@ -70,7 +71,7 @@ new #[Title('Customer')] class extends Component
     private const TABS = [
         'profile' => ['title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email', 'tax_id', 'business_id',
             'remarks', 'address'],
-        'service' => ['service_type', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'auto_renew'],
+        'service' => ['service_type', 'username', 'account_number', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'auto_renew'],
         'billing' => ['billing_free', 'discount_type', 'discount_value', 'payment_terms_days', 'billing_name', 'billing_address', 'place_of_supply'],
         'network' => ['ip_address', 'pool_id', 'address_list_ids', 'override_plan', 'override_upload', 'override_download',
             'override_burst_upload', 'override_burst_download', 'override_threshold_upload', 'override_threshold_download',
@@ -82,7 +83,7 @@ new #[Title('Customer')] class extends Component
      * Form fields held as text, filled from the account's column of the same name.
      */
     private const TEXT_FIELDS = ['title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email', 'tax_id',
-        'business_id', 'remarks', 'username', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'pool_id',
+        'business_id', 'remarks', 'username', 'account_number', 'password', 'mac_type', 'nas_id', 'connection_type_id', 'pool_id',
         'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
         'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
         'override_min_upload', 'override_min_download'];
@@ -127,6 +128,17 @@ new #[Title('Customer')] class extends Component
     public string $username = '';
 
     public string $password = '';
+
+    /**
+     * The account ID; empty on a new customer takes the next one when account IDs are on.
+     */
+    public string $account_number = '';
+
+    /**
+     * Account IDs are on, or this customer has one: the field shows.
+     */
+    #[Locked]
+    public bool $showsAccountNumber = false;
 
     public string $mac_type = '1';
 
@@ -253,6 +265,7 @@ new #[Title('Customer')] class extends Component
             $this->addonTabs = array_map(fn (CustomerFormTab $tab): array => $tab->state(null), $this->formAddonTabs);
             $this->payment_terms_days = (string) $this->billingSettings->defaultTermsDays;
             $this->place_of_supply = $this->homeState();
+            $this->showsAccountNumber = AccountNumbers::enabled();
 
             return;
         }
@@ -267,6 +280,7 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->savedTitle = $this->title;
+        $this->showsAccountNumber = AccountNumbers::enabled() || $this->account_number !== '';
 
         // The generated IPoE password stays hidden: it must not turn into a PPPoE password nobody chose.
         if ($model->service_type === ServiceType::Ipoe) {
@@ -766,6 +780,7 @@ new #[Title('Customer')] class extends Component
                 if ($account === null) {
                     // Logged below as one "Created" entry together with the address and lists.
                     $account = activity()->withoutLogging(fn (): Account => Account::query()->create($columns));
+                    AccountNumbers::assign($account);
                 } else {
                     $account->update($columns);
                 }
@@ -982,6 +997,7 @@ new #[Title('Customer')] class extends Component
         return [
             ...$shared,
             'title' => ['nullable', 'string', Rule::in(array_keys($this->titles))],
+            'account_number' => AccountNumbers::rules($this->accountId),
             'remarks' => ['nullable', 'string', 'max:2000'],
             'address.latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'address.longitude' => ['nullable', 'numeric', 'between:-180,180'],
@@ -1031,6 +1047,8 @@ new #[Title('Customer')] class extends Component
         return [
             ...CustomerRules::messages($this->phoneDigits),
             'nas_id.exists' => __('This NAS was deleted. Choose another one.'),
+            'account_number.unique' => __('Another customer has this account ID.'),
+            'account_number.regex' => __('Use letters, digits and / . _ - only.'),
             'address_list_ids.*.exists' => __('This address list was deleted. Untick it.'),
             'custom_attributes.*.attribute.required' => __('Choose an attribute.'),
             'custom_attributes.*.attribute.exists' => __('Choose an attribute from the list.'),
@@ -1191,6 +1209,7 @@ new #[Title('Customer')] class extends Component
             'tax_id' => $this->nullIfEmpty($this->tax_id),
             'business_id' => $this->nullIfEmpty($this->business_id),
             'remarks' => $this->nullIfEmpty($this->remarks),
+            'account_number' => $this->nullIfEmpty($this->account_number),
             'notifications_off' => $this->notifications_off,
             'service_type' => $this->service_type,
             'password' => $this->password !== '' ? $this->password : null,
@@ -1477,6 +1496,10 @@ new #[Title('Customer')] class extends Component
     {
         if ($this->accountId === null && Account::withTrashed()->where('username', $this->username)->exists()) {
             return ['username' => __('Another customer was just saved with this username. Choose another.')];
+        }
+
+        if ($this->account_number !== '' && Account::withTrashed()->where('account_number', $this->account_number)->whereKeyNot($this->accountId)->exists()) {
+            return ['account_number' => __('Another customer was just saved with this account ID. Choose another.')];
         }
 
         return ['ip_address' => __('This address was just given to another customer. Pick another.')];

@@ -37,7 +37,7 @@ new class extends Component
     }
 
     /**
-     * @return array{name: string, username: string, plan: ?string, expiry: ?string, expired: bool, status: string, color: string}
+     * @return array{name: string, username: string, account_number: ?string, plan: ?string, expiry: ?string, expired: bool, status: string, color: string}
      */
     #[Computed]
     public function summary(): array
@@ -47,6 +47,7 @@ new class extends Component
         return [
             'name' => (string) ($account->fullname ?: $account->username),
             'username' => (string) $account->username,
+            'account_number' => $account->account_number,
             'plan' => $account->plan()->withTrashed()->value('name'),
             'expiry' => $account->expiry?->format($this->dateFormat().' H:i'),
             'expired' => $account->expiry !== null && $account->expiry->lessThanOrEqualTo(now()),

@@ -91,6 +91,9 @@
                         <tr><td class="label" style="border: 0; padding: 1px 0;">Validity</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['validity'] }}</td></tr>
                     @endif
                     <tr><td class="label" style="border: 0; padding: 1px 0;">Username</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['customer']['username'] }}</td></tr>
+                    @if ($invoice['customer']['account_number'])
+                        <tr><td class="label" style="border: 0; padding: 1px 0;">Account ID</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['customer']['account_number'] }}</td></tr>
+                    @endif
                 </table>
             </td>
         </tr>

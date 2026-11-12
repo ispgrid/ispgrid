@@ -7,7 +7,7 @@
             </div>
             <x-ui.text muted class="mt-1">
                 <x-ui.link href="{{ route('customers.show', ['account' => $this->accountId, 'tab' => 'billing']) }}" wire:navigate>{{ $this->printed['customer']['billing_lines'][0] ?? $this->printed['customer']['username'] }}</x-ui.link>
-                ({{ $this->printed['customer']['username'] }})
+                ({{ $this->printed['customer']['username'] }}@if ($this->printed['customer']['account_number']), {{ $this->printed['customer']['account_number'] }}@endif)
             </x-ui.text>
             @if ($this->related['replaces'])
                 <x-ui.text muted class="mt-1">{{ __('Replaces') }} <x-ui.link href="{{ route('invoices.show', $this->related['replaces']['id']) }}" wire:navigate>{{ $this->related['replaces']['number'] }}</x-ui.link></x-ui.text>

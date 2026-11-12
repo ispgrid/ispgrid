@@ -1585,5 +1585,18 @@
     "This recharge was made before cancelling was possible.": "यह रिचार्ज रद्द करने की सुविधा आने से पहले किया गया था।",
     "The expiry, plan and status go back to what they were before this recharge, and its invoice is cancelled. Data used stays counted.": "एक्सपायरी, प्लान और स्टेटस इस रिचार्ज से पहले जैसे थे वैसे हो जाते हैं, और इसका इनवॉइस रद्द हो जाता है। इस्तेमाल किया गया डेटा गिना रहता है।",
     "The plan before this recharge was deleted. Use Change plan and Change expiry instead.": "इस रिचार्ज से पहले वाला प्लान हटा दिया गया है। इसके बजाय प्लान बदलें और एक्सपायरी बदलें का उपयोग करें।",
-    "Auto renew is off now, so it does not renew them again.": "ऑटो रिन्यू अब बंद है, ताकि यह उन्हें फिर से रिन्यू न करे।"
+    "Auto renew is off now, so it does not renew them again.": "ऑटो रिन्यू अब बंद है, ताकि यह उन्हें फिर से रिन्यू न करे।",
+    "Another customer has this account ID.": "यह अकाउंट ID किसी दूसरे ग्राहक के पास है।",
+    "Use letters, digits and / . _ - only.": "सिर्फ़ अक्षर, अंक और / . _ - इस्तेमाल करें।",
+    "Row :row already uses this account ID.": "पंक्ति :row पहले से यह अकाउंट ID इस्तेमाल करती है।",
+    "Account IDs given": "अकाउंट ID दिए गए",
+    "Account ID": "अकाउंट ID",
+    "Leave empty for the next one.": "अगला ID लेने के लिए खाली छोड़ें।",
+    "Letters, digits and / . _ - only.": "सिर्फ़ अक्षर, अंक और / . _ -",
+    "Another customer was just saved with this account ID. Choose another.": "अभी-अभी एक दूसरा ग्राहक इसी अकाउंट ID के साथ सेव हुआ। कोई दूसरा चुनें।",
+    "Username, account ID, name, mobile, email or IP": "यूज़रनेम, अकाउंट ID, नाम, मोबाइल, ईमेल या IP",
+    "Account ID: :id": "अकाउंट ID: :id",
+    "Empty start number: customers get no account ID. When you first save one, every customer gets an ID, oldest first. A new prefix applies to new customers only.": "शुरुआती नंबर खाली हो तो ग्राहकों को अकाउंट ID नहीं मिलता। पहली बार नंबर सेव करने पर हर ग्राहक को ID मिलता है, सबसे पुराने से शुरू करके। नया प्रीफ़िक्स सिर्फ़ नए ग्राहकों पर लागू होता है।",
+    "Account ID prefix": "अकाउंट ID प्रीफ़िक्स",
+    "Account ID start number": "अकाउंट ID शुरुआती नंबर"
 }

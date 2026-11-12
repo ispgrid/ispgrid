@@ -11,7 +11,7 @@
     </div>
 
     <div x-data="{ more: false }" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <x-ui.input wire:model.live.debounce.300ms="search" type="search" :label="__('Search')" :placeholder="__('Username, name, mobile, email or IP')" autocomplete="off" />
+        <x-ui.input wire:model.live.debounce.300ms="search" type="search" :label="__('Search')" :placeholder="__('Username, account ID, name, mobile, email or IP')" autocomplete="off" />
         {{-- On a phone the other filters fold away behind one button, so the list starts on the first screen. --}}
         <x-ui.button variant="secondary" size="sm" icon="adjustments-horizontal" class="justify-self-start sm:hidden" x-on:click="more = ! more" x-bind:aria-expanded="more">{{ __('Filters') }}</x-ui.button>
         <div class="grid grid-cols-1 gap-3 max-sm:hidden sm:contents" x-bind:class="{ 'max-sm:hidden': ! more }">
@@ -38,6 +38,9 @@
     <x-ui.table>
         <x-slot:head>
             <x-ui.th>{{ __('Customer') }}</x-ui.th>
+            @if ($this->showsAccountNumbers)
+                <x-ui.th>{{ __('Account ID') }}</x-ui.th>
+            @endif
             <x-ui.th>{{ __('Type') }}</x-ui.th>
             <x-ui.th>{{ __('Plan') }}</x-ui.th>
             <x-ui.th>{{ __('Status') }}</x-ui.th>
@@ -59,6 +62,9 @@
                         <span class="block text-xs text-zinc-600 dark:text-zinc-400">{{ $row['login'] }}</span>
                     @endif
                 </x-ui.td>
+                @if ($this->showsAccountNumbers)
+                    <x-ui.td class="whitespace-nowrap">{{ $row['account_number'] }}</x-ui.td>
+                @endif
                 <x-ui.td>{{ $row['type'] }}</x-ui.td>
                 <x-ui.td>{{ $row['plan'] ?? __('None') }}</x-ui.td>
                 <x-ui.td><x-ui.badge :color="$row['color']">{{ $row['status'] }}</x-ui.badge></x-ui.td>

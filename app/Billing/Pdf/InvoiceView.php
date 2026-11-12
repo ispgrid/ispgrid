@@ -25,7 +25,7 @@ final class InvoiceView
      *     title: string, number: string, date: string, due_date: string, terms: string, place_of_supply: ?string,
      *     bill_period: ?string, validity: ?string, logo: ?string, cancelled: bool, cancel_reason: ?string, replaces: ?string, replaced_by: ?string,
      *     company: array{name: string, lines: list<string>, tax: ?string, extra: list<string>, contact: list<string>},
-     *     customer: array{username: string, billing_lines: list<string>, connectivity_lines: list<string>, tax_label: string, tax_number: ?string},
+     *     customer: array{username: string, account_number: ?string, billing_lines: list<string>, connectivity_lines: list<string>, tax_label: string, tax_number: ?string},
      *     item_code_label: ?string,
      *     lines: list<array{position: int, description: string, sub_description: ?string, item_code: ?string, quantity: string, rate: string, discount: ?string, amount: string}>,
      *     taxable_total: string, tax_lines: list<array{label: string, amount: string}>, round_off: ?string, total: string,
@@ -70,6 +70,8 @@ final class InvoiceView
             ],
             'customer' => [
                 'username' => self::text($customer, 'username'),
+                // Invoices issued before account IDs have none.
+                'account_number' => self::text($customer, 'account_number') ?: null,
                 'billing_lines' => self::strings($customer['billing_lines'] ?? []),
                 'connectivity_lines' => self::strings($customer['connectivity_lines'] ?? []),
                 'tax_label' => $taxLabel,

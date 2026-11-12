@@ -328,6 +328,7 @@ new #[Title('Customer')] class extends Component
         $isIpoe = $account->service_type === ServiceType::Ipoe;
 
         $rows = [
+            ...($account->account_number === null ? [] : [__('Account ID') => $account->account_number]),
             __('Type') => $account->service_type->label(),
             __('Plan') => $account->plan?->name ?? __('None'),
             __('Expiry') => match (true) {

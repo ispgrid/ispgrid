@@ -25,7 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * A Hotspot account recharged with a first-login plan has hotspot_pending_validity (minutes) and no expiry
  * until FreeRADIUS stamps its first login (app-integration.md section 8).
  */
-#[Fillable(['username', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
+#[Fillable(['username', 'account_number', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
     'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id',
     'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'hotspot_pending_validity', 'hotspot_first_login_at',
     'usage_since', 'auto_renew', 'billing_free', 'discount_type', 'discount_percent', 'discount_amount', 'payment_terms_days', 'billing_name',
@@ -65,7 +65,7 @@ class Account extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logOnly([
-            'username', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
+            'username', 'account_number', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
             'tax_id', 'business_id', 'remarks', 'notifications_off', 'connection_type_id',
             'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'usage_since', 'auto_renew', 'ip_id', 'pool_id',
             'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
