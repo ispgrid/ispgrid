@@ -213,3 +213,13 @@ it('links each customer named under needs attention', function () {
         ->assertSee('The customer has no plan')
         ->assertSeeHtml('href="'.route('customers.show', $account).'"');
 });
+
+it('keeps a skipped auto renewal listed when the recharge after it was cancelled', function () {
+    $account = Account::factory()->create(['username' => 'undone']);
+    activity()->performedOn($account)->event('auto-renew-skipped')
+        ->withChanges(['old' => [], 'attributes' => ['reason' => 'The customer has no plan', 'expiry' => '2026-10-19 00:00']])
+        ->createdAt(Carbon::parse('2026-10-19 00:00:00'))->log('auto-renew-skipped');
+    Recharge::factory()->for($account)->create(['created_at' => '2026-10-19 10:00:00', 'cancelled_at' => '2026-10-19 10:05:00']);
+
+    expect(array_column(attention()->skippedRenewals(), 'username'))->toBe(['undone']);
+});

@@ -6,16 +6,23 @@ use App\Billing\ChargeOptions;
 use App\Billing\PaymentInput;
 use App\Enums\AccountStatus;
 use App\Enums\InvoiceStatus;
+use App\Enums\Permission;
 use App\Exceptions\CannotCancelRecharge;
+use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AdvanceRenewal;
+use App\Models\AppSetting;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
 use App\Models\Plan;
+use App\Models\Radacct;
 use App\Models\Recharge;
 use App\Models\User;
+use App\Support\ActivityTimeline;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
@@ -146,4 +153,88 @@ it('records what the recharge changed', function () {
         ->old_plan_id->toBe($this->old->id)
         ->old_status->toBe(AccountStatus::Inactive)
         ->old_pending_validity->toBeNull();
+});
+
+it('offers Cancel recharge on the newest row only, to staff with Cancel recharges', function () {
+    $first = rechargeAlice($this->old, '2026-11-09 14:30');
+    $newest = rechargeAlice($this->wrong, '2026-12-09 14:30');
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::CancelRecharges));
+
+    Livewire::test('pages::customers.show', ['account' => $this->account->id, 'tab' => 'recharges'])
+        ->assertSeeHtml('wire:click="openCancelRecharge('.$newest->id.')"')
+        ->assertDontSeeHtml('wire:click="openCancelRecharge('.$first->id.')"');
+
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::RechargeCustomers));
+
+    Livewire::test('pages::customers.show', ['account' => $this->account->id, 'tab' => 'recharges'])
+        ->assertDontSeeHtml('openCancelRecharge')
+        ->call('openCancelRecharge', $newest->id)
+        ->assertForbidden();
+});
+
+it('cancels from the Recharges tab with a reason and disconnects an online customer', function () {
+    Queue::fake();
+    $recharge = rechargeAlice($this->wrong);
+    Radacct::factory()->create(['username' => 'alice']);
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::CancelRecharges));
+
+    Livewire::test('pages::customers.show', ['account' => $this->account->id, 'tab' => 'recharges'])
+        ->call('openCancelRecharge', $recharge->id)
+        ->assertDispatched('modal-open', name: 'cancel-recharge')
+        ->call('cancelRecharge')
+        ->assertHasErrors(['cancel_recharge_reason' => 'required'])
+        ->set('cancel_recharge_reason', 'Wrong plan')
+        ->call('cancelRecharge')
+        ->assertHasNoErrors()
+        ->assertDispatched('toast', message: 'Recharge cancelled. The expiry is back to 01/10/2026 00:00. They are disconnected so the change applies now.')
+        ->assertSee('Cancelled');
+
+    Queue::assertPushed(DisconnectAccount::class);
+    expect($recharge->fresh()->cancel_reason)->toBe('Wrong plan');
+});
+
+it('tells staff why a recharge cannot be cancelled', function (Closure $setup, string $message) {
+    turnInvoicingOn();
+    $recharge = $setup();
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::CancelRecharges));
+
+    Livewire::test('pages::customers.show', ['account' => $this->account->id, 'tab' => 'recharges'])
+        ->call('openCancelRecharge', $recharge->id)
+        ->set('cancel_recharge_reason', 'Wrong')
+        ->call('cancelRecharge')
+        ->assertHasErrors(['cancel_recharge_reason'])
+        ->assertSee($message);
+})->with([
+    'not the newest' => [function () {
+        $first = rechargeAlice(test()->wrong);
+        rechargeAlice(test()->old, '2026-12-09 14:30');
+
+        return $first;
+    }, 'Only the latest recharge can be cancelled.'],
+    'payments' => [fn () => rechargeAlice(test()->wrong, charge: new ChargeOptions(payment: new PaymentInput(PaymentMethod::query()->where('name', 'Cash')->sole()->id, '100', null, now(), null))),
+        'Its invoice has payments. Remove them first.'],
+    'advance renewal' => [function () {
+        $recharge = rechargeAlice(test()->wrong);
+        AdvanceRenewal::factory()->for(test()->account)->create();
+
+        return $recharge;
+    }, 'Cancel the advance renewal first.'],
+    'too old' => [function () {
+        $recharge = rechargeAlice(test()->wrong);
+        $recharge->update(['old_status' => null]);
+
+        return $recharge;
+    }, 'This recharge was made before cancelling was possible.'],
+]);
+
+it('writes the cancel in the timeline', function () {
+    AppSetting::put('date_format', 'd/m/Y');
+    $recharge = rechargeAlice($this->wrong);
+    app(CancelRecharge::class)->handle($recharge->id, 'wrong plan');
+
+    $entry = ActivityTimeline::entry(Activity::query()->where('event', 'recharge-cancelled')->sole(), 'd/m/Y');
+
+    expect($entry['sentence'])->toBe('Recharge cancelled: expiry back to 01/10/2026 00:00, plan Home 25.')
+        ->and($entry['tone'])->toBe('red')
+        ->and($entry['icon'])->toBe('no-symbol');
 });

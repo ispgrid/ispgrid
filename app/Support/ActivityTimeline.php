@@ -66,6 +66,9 @@ final class ActivityTimeline
             'plan-switched' => fn (): string => __('Plan switched from :old to :new.', [
                 'old' => self::text($old['plan'] ?? null) ?? __('none'), 'new' => self::text($new['plan'] ?? null) ?? __('none'),
             ]),
+            'recharge-cancelled' => fn (): string => __('Recharge cancelled: expiry back to :expiry, plan :plan.', [
+                'expiry' => $date($new['expiry'] ?? null), 'plan' => self::text($new['plan'] ?? null) ?? __('none'),
+            ]),
             'advance-booked' => fn (): string => __('Advance renewal booked: :plan from :from, :amount.', [
                 'plan' => self::text($new['plan'] ?? null) ?? __('none'), 'from' => $date($new['starts'] ?? null), 'amount' => $money($new['amount'] ?? null),
             ]),
@@ -121,7 +124,7 @@ final class ActivityTimeline
             'online-payment' => ($new['status'] ?? null) === 'paid' ? 'green' : 'amber',
             'status-changed' => in_array($new['status'] ?? null, [AccountStatus::Active->label(), 'Active'], true) ? 'green' : 'red',
             'recharged', 'plan-changed', 'plan-switched', 'advance-booked', 'advance-started', 'advance-cancelled', 'advance-moved', 'auto-renewed', 'invoice-issued' => 'blue',
-            'terminated', 'expired', 'deleted', 'disconnect-failed', 'auto-renew-skipped', 'payment-removed', 'invoice-cancelled' => 'red',
+            'terminated', 'expired', 'deleted', 'disconnect-failed', 'recharge-cancelled', 'auto-renew-skipped', 'payment-removed', 'invoice-cancelled' => 'red',
             'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'password-changed', 'username-changed', 'billing-changed', 'payment-edited' => 'amber',
             default => 'grey',
         };
@@ -137,7 +140,7 @@ final class ActivityTimeline
             'restored', 'status-changed' => 'check',
             'recharged', 'plan-changed', 'plan-switched', 'advance-started', 'auto-renewed', 'advance-moved' => 'arrow-path',
             'expired', 'auto-renew-skipped', 'disconnect-failed' => 'exclamation-triangle',
-            'terminated', 'deleted', 'advance-cancelled', 'payment-removed', 'invoice-cancelled' => 'no-symbol',
+            'terminated', 'deleted', 'advance-cancelled', 'payment-removed', 'invoice-cancelled', 'recharge-cancelled' => 'no-symbol',
             'updated', 'expiry-changed', 'own-speed-set', 'own-speed-removed', 'own-speed-ended', 'billing-changed', 'payment-edited' => 'adjustments-horizontal',
             'password-changed', 'username-changed', 'unlocked' => 'key',
             'online-payment', 'online-payment-handled' => 'qr-code',

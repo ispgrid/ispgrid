@@ -677,7 +677,7 @@ new class extends Component
      */
     private function periodStart(): ?CarbonInterface
     {
-        $last = Recharge::query()->where('account_id', $this->accountId)->latest('id')->first();
+        $last = Recharge::query()->counted()->where('account_id', $this->accountId)->latest('id')->first();
 
         if ($last === null) {
             return null;

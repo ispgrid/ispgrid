@@ -164,7 +164,7 @@ final class NeedsAttention
     public function skippedRenewals(): array
     {
         return array_values($this->latestEntries('auto-renew-skipped', now()->subDays(7))
-            ->reject(fn (array $entry): bool => Recharge::query()
+            ->reject(fn (array $entry): bool => Recharge::query()->counted()
                 ->where('account_id', $entry['account']->id)
                 ->where('created_at', '>=', $entry['at'])
                 ->exists())

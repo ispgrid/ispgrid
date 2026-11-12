@@ -139,3 +139,11 @@ it('counts uninvoiced Hotspot recharges as Hotspot sales', function () {
 
     expect(moneyCards($this->boss)['Hotspot sales this month']['value'])->toBe('50.00');
 });
+
+it('leaves cancelled recharges and plan switches out of sales', function () {
+    Recharge::factory()->create(['amount' => 500]);
+    Recharge::factory()->create(['amount' => 300, 'cancelled_at' => now()]);
+    Recharge::factory()->create(['amount' => 0, 'kind' => 'switch-plan']);
+
+    expect(moneyCards($this->boss)['Sales today']['value'])->toBe('500.00');
+});

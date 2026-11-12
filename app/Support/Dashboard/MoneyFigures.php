@@ -116,7 +116,7 @@ final class MoneyFigures
      */
     private static function recharges(CarbonInterface $since, ?CarbonInterface $until = null): Builder
     {
-        return Recharge::query()->where('created_at', '>=', $since)->when($until, fn (Builder $query) => $query->where('created_at', '<', $until))
+        return Recharge::query()->counted()->where('created_at', '>=', $since)->when($until, fn (Builder $query) => $query->where('created_at', '<', $until))
             ->whereHas('account', fn (Builder $account) => $account->withTrashed()->where('billing_free', false));
     }
 

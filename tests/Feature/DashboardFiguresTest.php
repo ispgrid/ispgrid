@@ -125,3 +125,10 @@ it('never counts a customer waiting for their first login as expiring or expired
         ->and($figures['Expiring within 7 days']['value'])->toBe(0)
         ->and($figures['Expired in the last 7 days']['value'])->toBe(0);
 });
+
+it('does not count a cancelled recharge or a plan switch as renewed today', function () {
+    Recharge::factory()->create(['cancelled_at' => now()]);
+    Recharge::factory()->create(['kind' => 'switch-plan', 'amount' => 0]);
+
+    expect(todayFigures(User::factory()->create())['Renewed today']['value'])->toBe(0);
+});

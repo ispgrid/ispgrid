@@ -2,6 +2,7 @@
 
 use App\Enums\AccountStatus;
 use App\Enums\InvoiceStatus;
+use App\Enums\RechargeKind;
 use App\Enums\ServiceType;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Models\Account;
@@ -250,7 +251,8 @@ new #[Title('Customers')] class extends Component
             ->when($this->created === 'today', fn (Builder $query) => $query->where('created_at', '>=', now()->startOfDay()))
             ->when($this->created === 'month', fn (Builder $query) => $query->where('created_at', '>=', now()->startOfMonth()))
             ->when($this->renewed, fn (Builder $query) => $query->whereExists(fn ($query) => $query->select(DB::raw(1))->from('recharges')
-                ->whereColumn('recharges.account_id', 'accounts.id')->where('recharges.created_at', '>=', now()->startOfDay())))
+                ->whereColumn('recharges.account_id', 'accounts.id')->where('recharges.created_at', '>=', now()->startOfDay())
+                ->whereNull('recharges.cancelled_at')->where('recharges.kind', '!=', RechargeKind::SwitchPlan->value)))
             ->when($this->staticip, fn (Builder $query) => $query->whereNotNull('ip_id'))
             ->when($this->dues && Gate::allows('view-invoices'), fn (Builder $query) => $query->whereHas('invoices', fn (Builder $invoices) => $invoices
                 ->where('status', '!=', InvoiceStatus::Cancelled)->where('balance', '>', 0)))

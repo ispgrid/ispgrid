@@ -1574,5 +1574,14 @@
     "Saves it as the customer discount, taken off every later recharge.": "इसे ग्राहक की छूट के रूप में सेव करता है, जो हर अगले रिचार्ज में घटेगी।",
     "Discount type": "छूट का प्रकार",
     "recharge cancelled": "रिचार्ज रद्द किया",
-    "Recharge cancelled": "रिचार्ज रद्द किया गया"
+    "Recharge cancelled": "रिचार्ज रद्द किया गया",
+    "Recharge cancelled: expiry back to :expiry, plan :plan.": "रिचार्ज रद्द: एक्सपायरी वापस :expiry, प्लान :plan।",
+    "Recharge cancelled. The expiry is back to :date.": "रिचार्ज रद्द हुआ। एक्सपायरी वापस :date हो गई।",
+    "Recharge cancelled.": "रिचार्ज रद्द हुआ।",
+    "Cancel recharge": "रिचार्ज रद्द करें",
+    "Only the latest recharge can be cancelled.": "केवल सबसे नया रिचार्ज रद्द किया जा सकता है।",
+    "Its invoice has payments. Remove them first.": "इसके इनवॉइस पर भुगतान दर्ज हैं। पहले उन्हें हटाएँ।",
+    "Cancel the advance renewal first.": "पहले एडवांस रिन्यूअल रद्द करें।",
+    "This recharge was made before cancelling was possible.": "यह रिचार्ज रद्द करने की सुविधा आने से पहले किया गया था।",
+    "The expiry, plan and status go back to what they were before this recharge, and its invoice is cancelled. Data used stays counted.": "एक्सपायरी, प्लान और स्टेटस इस रिचार्ज से पहले जैसे थे वैसे हो जाते हैं, और इसका इनवॉइस रद्द हो जाता है। इस्तेमाल किया गया डेटा गिना रहता है।"
 }
