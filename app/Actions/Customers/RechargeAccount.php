@@ -36,6 +36,8 @@ use InvalidArgumentException;
  * logged as its kind, and every kind but a starting advance renewal moves a waiting one to the new expiry.
  * A first-login plan on a Hotspot customer whose clock is not running leaves its validity waiting for the first
  * login instead (hotspot_pending_validity, no expiry); FreeRADIUS starts it.
+ * The row keeps what the recharge changed (old plan, expiry, first-login validity and status) so CancelRecharge
+ * can undo it.
  * Money: an invoiced recharge (InvoicePolicy) issues its invoice in the same transaction, with the payment taken now,
  * and records the invoice total as its amount; a Free customer records 0; otherwise the caller's amount is kept.
  */
@@ -86,6 +88,7 @@ final class RechargeAccount
             }
 
             $oldPlan = $account->plan?->name;
+            $oldPlanId = $account->plan_id;
             $oldExpiry = $account->expiry;
             $oldPending = $account->hotspot_pending_validity;
             $oldStatus = $account->status_id;
@@ -111,10 +114,13 @@ final class RechargeAccount
             $recharge = Recharge::query()->create([
                 'account_id' => $account->id,
                 'plan_id' => $plan->id,
+                'old_plan_id' => $oldPlanId,
                 'kind' => $kind,
                 'old_expiry' => $oldExpiry,
                 'new_expiry' => $newExpiry,
                 'new_pending_validity' => $pending,
+                'old_pending_validity' => $oldPending,
+                'old_status' => $oldStatus,
                 'amount' => $account->billing_free ? '0' : $amount,
                 'note' => $note,
                 'user_id' => $userId ?? auth()->id(),

@@ -1572,5 +1572,7 @@
     "Optional. Shown in the activity log, not on the invoice.": "वैकल्पिक। गतिविधि लॉग में दिखता है, इनवॉइस पर नहीं।",
     "Keep this discount for future renewals": "यह छूट आगे के रिन्यूअल के लिए रखें",
     "Saves it as the customer discount, taken off every later recharge.": "इसे ग्राहक की छूट के रूप में सेव करता है, जो हर अगले रिचार्ज में घटेगी।",
-    "Discount type": "छूट का प्रकार"
+    "Discount type": "छूट का प्रकार",
+    "recharge cancelled": "रिचार्ज रद्द किया",
+    "Recharge cancelled": "रिचार्ज रद्द किया गया"
 }
