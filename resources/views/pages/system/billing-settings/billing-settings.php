@@ -229,7 +229,7 @@ new #[Title('Billing')] class extends Component
             'bank_details' => ['nullable', 'string', 'max:1000'],
             'terms' => ['nullable', 'string', 'max:4000'],
             'show_signature' => ['boolean'],
-            'invoice_title' => ['nullable', 'string', 'max:40', $this->printable(...)],
+            'invoice_title' => ['nullable', 'string', 'max:20', $this->printable(...)],
             'receipt_title' => ['nullable', 'string', 'max:40', $this->printable(...)],
             'logo' => ['nullable', 'file', 'mimetypes:image/png,image/jpeg', 'max:200'],
             'numbering_format' => ['required', 'string', 'max:40', 'regex:/\{N\}/', 'regex:/^[A-Za-z0-9{}\/\-_.]+$/',

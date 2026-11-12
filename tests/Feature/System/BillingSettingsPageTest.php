@@ -353,3 +353,15 @@ it('refuses titles in letters the PDF cannot print', function () {
         ->call('save')
         ->assertHasErrors(['invoice_title', 'receipt_title']);
 });
+
+it('refuses an invoice title longer than the 20 characters an invoice stores', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('invoice_title', 'TAX INVOICE CUM RECEIPT')
+        ->call('save')
+        ->assertHasErrors(['invoice_title' => 'max']);
+
+    Livewire::test('pages::system.billing-settings')
+        ->set('invoice_title', str_repeat('A', 20))
+        ->call('save')
+        ->assertHasNoErrors();
+});
