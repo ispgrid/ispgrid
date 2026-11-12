@@ -134,3 +134,10 @@ it('prints the receipt title from the settings, also for a removed payment', fun
 
     expect(ReceiptView::for(Payment::withTrashed()->findOrFail($payment->id))['title'])->toBe('MONEY RECEIPT');
 });
+
+it('labels the username and centres the title on the receipt', function () {
+    $html = view('pdf.receipt', ['receipt' => ReceiptView::for(paymentOn($this->invoice, '300'))])->render();
+
+    expect($html)->toContain('Username')->toContain('.center { text-align: center; }')->not->toContain('Customer ID')
+        ->toMatch('/<td class="center title-row"[^>]*>\s*<div class="title">PAYMENT RECEIPT<\/div>/');
+});

@@ -11,6 +11,7 @@
         td, th { vertical-align: top; }
         .muted { color: #52606d; }
         .right { text-align: right; }
+        .center { text-align: center; }
         .bold { font-weight: bold; }
         .title { font-size: 15pt; font-weight: bold; letter-spacing: 1px; }
         .company-name { font-size: 12pt; font-weight: bold; }
@@ -32,9 +33,6 @@
     <table>
         <tr>
             <td style="width: 60%;">
-                @if ($receipt['logo'])
-                    <img src="{{ $receipt['logo'] }}" alt="" style="max-height: 80px; max-width: 220px; margin-bottom: 6px;"><br>
-                @endif
                 <div class="company-name">{{ $receipt['company']['name'] }}</div>
                 @foreach ($receipt['company']['lines'] as $line)
                     <div>{{ $line }}</div>
@@ -50,6 +48,13 @@
                 @endif
             </td>
             <td class="right" style="width: 40%;">
+                @if ($receipt['logo'])
+                    <img src="{{ $receipt['logo'] }}" alt="" style="max-height: 80px; max-width: 220px;">
+                @endif
+            </td>
+        </tr>
+        <tr>
+            <td class="center title-row" colspan="2" style="padding-top: 8px;">
                 <div class="title">{{ $receipt['title'] }}</div>
                 @if ($receipt['removed'])
                     <div class="bold" style="color: #b42318;">REMOVED{{ $receipt['remove_reason'] ? ': '.$receipt['remove_reason'] : '' }}</div>
@@ -74,7 +79,7 @@
                 <table>
                     <tr class="row"><td class="label">Invoice number</td><td class="right">{{ $receipt['invoice_number'] }}</td></tr>
                     <tr class="row"><td class="label">Invoice date</td><td class="right">{{ $receipt['invoice_date'] }}</td></tr>
-                    <tr class="row"><td class="label">Customer ID</td><td class="right">{{ $receipt['customer']['username'] }}</td></tr>
+                    <tr class="row"><td class="label">Username</td><td class="right">{{ $receipt['customer']['username'] }}</td></tr>
                 </table>
             </td>
         </tr>

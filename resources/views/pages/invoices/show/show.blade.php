@@ -72,7 +72,7 @@
             </div>
             @if ($this->printed['customer']['connectivity_lines'] !== [])
                 <div>
-                    <p class="text-xs uppercase text-zinc-600 dark:text-zinc-400">{{ __('Connectivity address') }}</p>
+                    <p class="text-xs uppercase text-zinc-600 dark:text-zinc-400">{{ __('Installation address') }}</p>
                     @foreach ($this->printed['customer']['connectivity_lines'] as $line)
                         <p>{{ $line }}</p>
                     @endforeach

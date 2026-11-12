@@ -6,6 +6,7 @@ use App\Billing\Pdf\InvoiceView;
 use App\Enums\InvoiceKind;
 use App\Enums\Permission;
 use App\Models\Account;
+use App\Models\Address;
 use App\Models\AppSetting;
 use App\Models\Invoice;
 use Illuminate\Support\Carbon;
@@ -118,14 +119,14 @@ it('links the invoice from the Billing and Recharges tabs', function () {
         ->assertSeeHtml(route('invoices.show', $invoice));
 });
 
-it('leaves out an empty connectivity address and shows the status', function () {
+it('leaves out an empty installation address and shows the status', function () {
     $invoice = invoiceFor($this->account);
 
     expect(InvoiceView::for($invoice)['customer']['connectivity_lines'])->toBe([]);
     Livewire::test('pages::invoices.show', ['invoice' => $invoice->id])
-        ->assertDontSee(__('Connectivity address'))
+        ->assertDontSee(__('Installation address'))
         ->assertSee(__('Unpaid'));
-    expect(view('pdf.invoice', ['invoice' => InvoiceView::for($invoice)])->render())->not->toContain('Connectivity address');
+    expect(view('pdf.invoice', ['invoice' => InvoiceView::for($invoice)])->render())->not->toContain('Installation address');
 });
 
 it('shows the unit price before tax when prices include tax', function (string $quantity, string $discount, string $rate, ?string $discountText, string $amount) {
@@ -161,4 +162,43 @@ it('keeps the tax setup title when the setting is empty', function () {
     AppSetting::put('billing.invoice_title', '');
 
     expect(InvoiceView::for(invoiceFor($this->account))['title'])->toBe('INVOICE');
+});
+
+it('prints the PIN code after the state', function () {
+    AppSetting::put('billing.company', (string) json_encode(['name' => 'Example ISP', 'country' => 'IN', 'address_lines' => ['1 Example Street'],
+        'city' => 'Prayagraj', 'state' => 'Uttar Pradesh', 'postal_code' => '211001']));
+    $address = Address::factory()->create(['line1' => '12 MG Road', 'area' => null, 'city' => 'Bengaluru', 'postal_code' => '560001', 'state' => 'Karnataka', 'country' => 'India']);
+    $this->account->update(['address_id' => $address->id]);
+
+    $view = InvoiceView::for(invoiceFor($this->account->fresh()));
+
+    expect($view['customer']['billing_lines'])->toBe(['Alice Example', '12 MG Road', 'Bengaluru', 'Karnataka 560001'])
+        ->and($view['customer']['connectivity_lines'])->toBe(['12 MG Road', 'Bengaluru', 'Karnataka 560001'])
+        ->and($view['company']['lines'])->toBe(['1 Example Street', 'Prayagraj', 'Uttar Pradesh 211001', 'India']);
+});
+
+it('keeps the address lines an invoice was issued with', function () {
+    $invoice = invoiceFor($this->account);
+    $invoice->update(['customer' => array_merge($invoice->customer, ['billing_lines' => ['Alice Example', 'Bengaluru 560001', 'Karnataka']])]);
+
+    expect(InvoiceView::for($invoice->fresh())['customer']['billing_lines'])->toBe(['Alice Example', 'Bengaluru 560001', 'Karnataka']);
+});
+
+it('labels the installation address and the username', function () {
+    $address = Address::factory()->create(['line1' => '12 MG Road', 'city' => 'Bengaluru', 'postal_code' => '560001', 'state' => 'Karnataka', 'country' => 'India']);
+    $this->account->update(['address_id' => $address->id]);
+    $invoice = invoiceFor($this->account->fresh());
+
+    Livewire::test('pages::invoices.show', ['invoice' => $invoice->id])
+        ->assertSee(__('Installation address'))
+        ->assertDontSee('Connectivity address');
+    $html = view('pdf.invoice', ['invoice' => InvoiceView::for($invoice)])->render();
+    expect($html)->toContain('Installation address')->toContain('Username')
+        ->not->toContain('Connectivity address')->not->toContain('Customer ID');
+});
+
+it('puts the logo on the right and the title in its own centred row', function () {
+    $html = view('pdf.invoice', ['invoice' => InvoiceView::for(invoiceFor($this->account))])->render();
+
+    expect($html)->toMatch('/<td class="center title-row"[^>]*>\s*<div class="title">TAX INVOICE<\/div>/');
 });

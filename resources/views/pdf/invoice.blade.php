@@ -34,9 +34,6 @@
     <table>
         <tr>
             <td style="width: 60%;">
-                @if ($invoice['logo'])
-                    <img src="{{ $invoice['logo'] }}" alt="" style="max-height: 80px; max-width: 220px; margin-bottom: 6px;"><br>
-                @endif
                 <div class="company-name">{{ $invoice['company']['name'] }}</div>
                 @foreach ($invoice['company']['lines'] as $line)
                     <div>{{ $line }}</div>
@@ -52,6 +49,13 @@
                 @endif
             </td>
             <td class="right" style="width: 40%;">
+                @if ($invoice['logo'])
+                    <img src="{{ $invoice['logo'] }}" alt="" style="max-height: 80px; max-width: 220px;">
+                @endif
+            </td>
+        </tr>
+        <tr>
+            <td class="center title-row" colspan="2" style="padding-top: 8px;">
                 <div class="title">{{ $invoice['title'] }}</div>
                 @if ($invoice['cancelled'])
                     <div class="bold" style="color: #b42318;">CANCELLED{{ $invoice['cancel_reason'] ? ': '.$invoice['cancel_reason'] : '' }}</div>
@@ -86,7 +90,7 @@
                     @elseif ($invoice['validity'])
                         <tr><td class="label" style="border: 0; padding: 1px 0;">Validity</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['validity'] }}</td></tr>
                     @endif
-                    <tr><td class="label" style="border: 0; padding: 1px 0;">Customer ID</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['customer']['username'] }}</td></tr>
+                    <tr><td class="label" style="border: 0; padding: 1px 0;">Username</td><td class="right" style="border: 0; padding: 1px 0;">{{ $invoice['customer']['username'] }}</td></tr>
                 </table>
             </td>
         </tr>
@@ -102,7 +106,7 @@
             </td>
             <td>
                 @if ($invoice['customer']['connectivity_lines'] !== [])
-                    <div class="label">Connectivity address</div>
+                    <div class="label">Installation address</div>
                     @foreach ($invoice['customer']['connectivity_lines'] as $line)
                         <div>{{ $line }}</div>
                     @endforeach

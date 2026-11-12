@@ -65,8 +65,8 @@ final class CustomerSnapshot
             (string) $address->line1,
             (string) $address->line2,
             (string) $address->area,
-            trim($address->city.' '.$address->postal_code),
-            (string) $address->state,
+            (string) $address->city,
+            trim($address->state.' '.$address->postal_code),
             strcasecmp($country, $home) === 0 || strcasecmp($country, $settings->company->country) === 0 ? '' : $country,
         ]), fn (string $line): bool => $line !== ''));
     }

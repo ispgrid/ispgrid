@@ -188,8 +188,8 @@ final class InvoiceView
 
         return array_values(array_filter([
             ...self::strings($company['address_lines'] ?? []),
-            trim(self::text($company, 'city').' '.self::text($company, 'postal_code')),
-            self::text($company, 'state'),
+            self::text($company, 'city'),
+            trim(self::text($company, 'state').' '.self::text($company, 'postal_code')),
             $country === '' ? '' : Countries::name($country),
         ], fn (string $line): bool => $line !== ''));
     }
