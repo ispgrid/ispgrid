@@ -312,3 +312,21 @@ it('refuses a currency or grouping it does not know', function (string $field, s
     'too many decimals' => ['currency_decimals', '7'],
     'unknown grouping' => ['number_grouping', 'chinese'],
 ]);
+
+it('saves a format with the day, month and year codes', function () {
+    Livewire::test('pages::system.billing-settings')->set('numbering_format', 'INV{DD}{MM}{YY}{N}')->call('save')->assertHasNoErrors();
+
+    expect(BillingSettings::current()->numbering->format)->toBe('INV{DD}{MM}{YY}{N}');
+});
+
+it('warns when numbers can be longer than 16 characters, without blocking the save', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('numbering_format', 'LINK{DD}{MM}{YY}-{N}')
+        ->assertSee('longer than 16 characters')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->set('numbering_format', 'INV-{N}')
+        ->assertDontSee('longer than 16 characters');
+
+    expect(BillingSettings::current()->numbering->format)->toBe('LINK{DD}{MM}{YY}-{N}');
+});

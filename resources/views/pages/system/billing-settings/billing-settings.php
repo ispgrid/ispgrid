@@ -248,7 +248,7 @@ new #[Title('Billing')] class extends Component
     protected function messages(): array
     {
         return [
-            'numbering_format.regex' => __('Use letters, digits, / - _ . and the codes {FY}, {YYYY} and {N}. {N} is needed.'),
+            'numbering_format.regex' => __('Use letters, digits, / - _ . and the codes {DD}, {MM}, {YY}, {FY}, {YYYY} and {N}. {N} is needed.'),
             'logo.mimetypes' => __('The logo must be a PNG or JPG image.'),
             'logo.max' => __('The logo must be 200 KB or smaller.'),
         ];
@@ -459,6 +459,23 @@ new #[Title('Billing')] class extends Component
         $numbers = new InvoiceNumbers(BillingSettings::current()->withNumbering($numbering));
 
         return ctype_digit($this->next_number) && $this->next_number !== '' ? $numbers->format(now(), (int) $this->next_number) : $numbers->preview(now());
+    }
+
+    /**
+     * A warning when numbers in the form's format can be longer than GST's 16 characters, or null. It never blocks
+     * saving: operators outside GST may want longer numbers.
+     */
+    #[Computed]
+    public function numberLengthWarning(): ?string
+    {
+        if (! str_contains($this->numbering_format, '{N}') || ! ctype_digit($this->number_digits)) {
+            return null;
+        }
+
+        $numbering = new Numbering($this->numbering_format, min((int) $this->number_digits, 10), $this->restart_yearly, max(1, min((int) $this->year_start_month, 12)));
+        $length = (new InvoiceNumbers(BillingSettings::current()->withNumbering($numbering)))->longestLength();
+
+        return $length > 16 ? __('Numbers can be longer than 16 characters (:length). GST allows 16.', ['length' => $length]) : null;
     }
 
     /**

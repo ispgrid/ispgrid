@@ -33,7 +33,7 @@
             <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <x-ui.heading>{{ __('Invoice numbering') }}</x-ui.heading>
                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <x-ui.input wire:model.live.debounce.400ms="numbering_format" :label="__('Format')" :description="__('{FY} financial year (26-27), {YYYY} year, {N} number.')" />
+                    <x-ui.input wire:model.live.debounce.400ms="numbering_format" :label="__('Format')" :description="__('{FY} financial year (26-27), {YYYY} year, {YY} year (26), {MM} month, {DD} day, {N} number.')" />
                     <x-ui.input wire:model.live.debounce.400ms="number_digits" type="number" min="0" max="10" :label="__('Digits')" :description="__('Pads the number with zeros: 4 gives 0001.')" />
                     <x-ui.input wire:model.live.debounce.400ms="next_number" type="number" min="1" :label="__('Next number')" :placeholder="__('Unchanged')" :description="__('To carry on from another system. It cannot go back to a number already used.')" />
                     <x-ui.select wire:model.live="year_start_month" :label="__('Year starts in')" :options="$this->months" />
@@ -41,6 +41,9 @@
                 <x-ui.switch wire:model.live="restart_yearly" :label="__('Start again at 1 every year')" />
                 @if ($this->nextInvoice)
                     <x-ui.text muted>{{ __('Next invoice: :number', ['number' => $this->nextInvoice]) }}</x-ui.text>
+                @endif
+                @if ($this->numberLengthWarning)
+                    <x-ui.alert variant="warning">{{ $this->numberLengthWarning }}</x-ui.alert>
                 @endif
             </x-ui.card>
 

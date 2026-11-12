@@ -1094,7 +1094,7 @@
     "New customers get this. 0 means due on receipt.": "नए ग्राहकों को यही मिलती है। 0 का मतलब है तुरंत देय।",
     "Invoice numbering": "इनवॉइस नंबर",
     "Format": "फ़ॉर्मेट",
-    "{FY} financial year (26-27), {YYYY} year, {N} number.": "{FY} वित्त वर्ष (26-27), {YYYY} साल, {N} नंबर।",
+    "{FY} financial year (26-27), {YYYY} year, {YY} year (26), {MM} month, {DD} day, {N} number.": "{FY} वित्त वर्ष (26-27), {YYYY} साल, {YY} साल (26), {MM} महीना, {DD} दिन, {N} नंबर।",
     "Digits": "अंक",
     "Pads the number with zeros: 4 gives 0001.": "नंबर के आगे शून्य लगाता है: 4 से 0001 बनता है।",
     "Next number": "अगला नंबर",
@@ -1141,7 +1141,7 @@
     "Turn off": "बंद करें",
     "Turn on": "चालू करें",
     "New payment method": "नया भुगतान तरीका",
-    "Use letters, digits, / - _ . and the codes {FY}, {YYYY} and {N}. {N} is needed.": "अक्षर, अंक, / - _ . और कोड {FY}, {YYYY} और {N} इस्तेमाल करें। {N} ज़रूरी है।",
+    "Use letters, digits, / - _ . and the codes {DD}, {MM}, {YY}, {FY}, {YYYY} and {N}. {N} is needed.": "अक्षर, अंक, / - _ . और कोड {DD}, {MM}, {YY}, {FY}, {YYYY} और {N} इस्तेमाल करें। {N} ज़रूरी है।",
     "The logo must be a PNG or JPG image.": "लोगो PNG या JPG इमेज होना चाहिए।",
     "The logo must be 200 KB or smaller.": "लोगो 200 KB या उससे छोटा होना चाहिए।",
     "Fill in the company name and country first.": "पहले कंपनी का नाम और देश भरें।",
@@ -1558,5 +1558,6 @@
     "Change it with Change username on the customer page.": "इसे ग्राहक पेज पर 'यूज़रनेम बदलें' से बदलें।",
     "username changed": "यूज़रनेम बदला",
     "Username changed": "यूज़रनेम बदला गया",
-    "Filters": "फ़िल्टर"
+    "Filters": "फ़िल्टर",
+    "Numbers can be longer than 16 characters (:length). GST allows 16.": "नंबर 16 अक्षरों से लंबे हो सकते हैं (:length)। GST में 16 तक की अनुमति है।"
 }

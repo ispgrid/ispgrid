@@ -118,3 +118,23 @@ it('skips a number already printed in another series', function () {
 
     expect(nextNumber('2026-10-20'))->toBe(['number' => 'INV/26-27/2', 'series' => '2026-27', 'sequence' => 2]);
 });
+
+it('prints the day, month and two-digit year', function () {
+    numbering('LINK{DD}{MM}{YY}-{N}');
+
+    expect(nextNumber('2026-11-05')['number'])->toBe('LINK051126-1')
+        ->and(nextNumber('2026-11-06')['number'])->toBe('LINK061126-2');
+});
+
+it('works out the longest number the format can print', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-12'));
+    numbering('LINK{DD}{MM}{YY}-{N}', digits: 4);
+
+    expect(app(InvoiceNumbers::class)->longestLength())->toBe(17); // LINK121126-999999
+});
+
+it('counts the padded width when it is more than six digits', function () {
+    numbering('INV-{N}', digits: 8);
+
+    expect(app(InvoiceNumbers::class)->longestLength())->toBe(12);
+});
