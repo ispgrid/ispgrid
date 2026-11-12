@@ -1563,5 +1563,7 @@
     "Invoice title": "इनवॉइस का शीर्षक",
     "Receipt title": "रसीद का शीर्षक",
     "Empty: TAX INVOICE with India GST, INVOICE otherwise. New invoices only.": "खाली: India GST में TAX INVOICE, वरना INVOICE। सिर्फ़ नए इनवॉइस पर।",
-    "Invoices print English letters only. Write this in English letters.": "इनवॉइस केवल अंग्रेज़ी अक्षरों में छपते हैं। इसे अंग्रेज़ी अक्षरों में लिखें।"
+    "Invoices print English letters only. Write this in English letters.": "इनवॉइस केवल अंग्रेज़ी अक्षरों में छपते हैं। इसे अंग्रेज़ी अक्षरों में लिखें।",
+    "Switch plan": "प्लान स्विच करें",
+    "Cancel recharges": "रिचार्ज रद्द करें"
 }

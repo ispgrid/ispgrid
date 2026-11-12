@@ -3,7 +3,8 @@
 namespace App\Enums;
 
 /**
- * What a recharge was: a staff recharge, a change of plan, an advance renewal that started, or an auto renewal.
+ * What a recharge was: a staff recharge, a change of plan, an advance renewal that started, an auto renewal, or a
+ * switch of plan on an expired customer (no charge, no new expiry).
  */
 enum RechargeKind: string
 {
@@ -11,6 +12,7 @@ enum RechargeKind: string
     case ChangePlan = 'change-plan';
     case Advance = 'advance';
     case Auto = 'auto';
+    case SwitchPlan = 'switch-plan';
 
     public function label(): string
     {
@@ -19,6 +21,7 @@ enum RechargeKind: string
             self::ChangePlan => __('Change plan'),
             self::Advance => __('Advance renewal'),
             self::Auto => __('Auto renewal'),
+            self::SwitchPlan => __('Switch plan'),
         };
     }
 
@@ -32,6 +35,7 @@ enum RechargeKind: string
             self::ChangePlan => 'plan-changed',
             self::Advance => 'advance-started',
             self::Auto => 'auto-renewed',
+            self::SwitchPlan => 'plan-switched',
         };
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Amount;
 use App\Enums\AccountStatus;
 use App\Enums\AdvanceRenewalStatus;
 use App\Enums\ServiceType;
@@ -27,7 +28,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[Fillable(['username', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
     'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id',
     'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'hotspot_pending_validity', 'hotspot_first_login_at',
-    'usage_since', 'auto_renew', 'billing_free', 'discount_percent', 'payment_terms_days', 'billing_name',
+    'usage_since', 'auto_renew', 'billing_free', 'discount_type', 'discount_percent', 'discount_amount', 'payment_terms_days', 'billing_name',
     'billing_address_id', 'place_of_supply', 'ip_id', 'pool_id', 'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
     'override_threshold_upload', 'override_threshold_download', 'override_burst_time', 'override_priority',
     'override_min_upload', 'override_min_download'])]
@@ -50,7 +51,9 @@ class Account extends Model
         'notifications_off' => false,
         'auto_renew' => false,
         'billing_free' => false,
+        'discount_type' => 'percent',
         'discount_percent' => '0.00',
+        'discount_amount' => '0.000',
         'payment_terms_days' => 0,
         'selfcare_must_change' => false,
     ];
@@ -87,6 +90,7 @@ class Account extends Model
             'override_until' => 'datetime',
             'billing_free' => 'boolean',
             'discount_percent' => 'decimal:2',
+            'discount_amount' => Amount::class,
             'payment_terms_days' => 'integer',
             'auto_renew' => 'boolean',
             'notifications_off' => 'boolean',
