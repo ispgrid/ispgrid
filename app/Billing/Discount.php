@@ -61,6 +61,18 @@ final readonly class Discount
     }
 
     /**
+     * How the activity log shows it: "10%", "100.00" (the currency's decimals), or "0" for none.
+     */
+    public function logText(int $decimals): string
+    {
+        return match (true) {
+            $this->isNone() => '0',
+            $this->isAmount() => Decimal::round($this->value, $decimals),
+            default => Decimal::trim($this->value).'%',
+        };
+    }
+
+    /**
      * "10%" or the formatted amount.
      */
     public function describe(Money $money): string

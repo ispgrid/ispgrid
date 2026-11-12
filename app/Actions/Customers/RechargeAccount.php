@@ -22,6 +22,7 @@ use App\Models\Recharge;
 use App\Models\UsagePeriod;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\RechargeDone;
+use App\Support\Currency;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +46,7 @@ final class RechargeAccount
      */
     public const DATE_FORMAT = 'Y-m-d H:i';
 
-    public function __construct(private SyncAccountToRadius $sync, private Notifier $notifier, private MoveWaitingRenewal $moveWaiting, private IssueInvoice $issueInvoice) {}
+    public function __construct(private SyncAccountToRadius $sync, private Notifier $notifier, private MoveWaitingRenewal $moveWaiting, private IssueInvoice $issueInvoice, private SaveCustomerDiscount $saveDiscount) {}
 
     /**
      * @param  ?CarbonInterface  $expiry  the new expiry; ignored when the validity waits for the first login
@@ -53,7 +54,8 @@ final class RechargeAccount
      * @param  ?int  $userId  who the recharge is recorded for (the staff member who booked an advance renewal);
      *                        null means the logged-in user. The activity entry's causer is always the logged-in user
      *                        (none: System).
-     * @param  ChargeOptions  $charge  an adjusted price, the payment taken now, or the invoice already issued for it
+     * @param  ChargeOptions  $charge  a discount (and whether to keep it), the payment taken now, or the invoice already
+     *                                 issued for it
      *
      * @throws ModelNotFoundException when the customer or the plan was deleted meanwhile
      * @throws ExpiryChangedMeanwhile when the customer's expiry is no longer $expectedExpiry
@@ -119,6 +121,10 @@ final class RechargeAccount
             ]);
             $this->charge($recharge, $account, $plan, $kind, $charge, $oldExpiry, $newExpiry, $pending);
 
+            if ($charge->keepDiscount && $charge->discount !== null) {
+                $this->saveDiscount->handle($account, $charge->discount);
+            }
+
             // Rows now, inside the transaction; the send jobs are queued after the commit.
             $this->notifier->fire(RechargeDone::key(), $account, $recharge);
 
@@ -129,7 +135,7 @@ final class RechargeAccount
                     'old' => ['plan' => $oldPlan, 'expiry' => self::expiryText($oldExpiry, $oldPending)],
                     'attributes' => [
                         'plan' => $plan->name, 'expiry' => self::expiryText($newExpiry, $pending), 'amount' => $recharge->invoice_id === null && ! $account->billing_free ? $amount : (string) $recharge->amount, 'note' => $note,
-                        ...($charge->adjustReason === null ? [] : ['adjust_reason' => $charge->adjustReason]),
+                        ...self::discountChanges($charge),
                     ],
                 ])
                 ->log($kind->event());
@@ -167,7 +173,7 @@ final class RechargeAccount
             $from = $pending !== null ? null : ($followsOn ? $oldExpiry : now());
             $to = $pending !== null ? null : $newExpiry;
             $invoice = $this->issueInvoice->handle(
-                $account, RechargeInvoice::lines($account, $charge->adjustedPrice === null ? $plan : (clone $plan)->forceFill(['price' => $charge->adjustedPrice]), $settings, null, $from, $to, $pending), $plan->round_off,
+                $account, RechargeInvoice::lines($account, $plan, $settings, $charge->discount, $from, $to, $pending), $plan->round_off,
                 InvoiceKind::Recharge, now(), $charge->payment, $from, $to,
                 $pending === null ? null : RechargeInvoice::validityText($pending), $recharge->id,
             );
@@ -176,6 +182,23 @@ final class RechargeAccount
         if ($invoice !== null) {
             $recharge->update(['invoice_id' => $invoice->id, 'amount' => $invoice->total]);
         }
+    }
+
+    /**
+     * The discount given in the dialog and its reason, for the activity entry; nothing when none was given.
+     *
+     * @return array<string, string>
+     */
+    public static function discountChanges(ChargeOptions $charge): array
+    {
+        if ($charge->discount === null || $charge->discount->isNone()) {
+            return [];
+        }
+
+        return [
+            'discount' => $charge->discount->logText(Currency::decimals()),
+            ...($charge->discountReason === null ? [] : ['discount_reason' => $charge->discountReason]),
+        ];
     }
 
     /**

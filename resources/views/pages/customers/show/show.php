@@ -907,7 +907,7 @@ new #[Title('Customer')] class extends Component
     /**
      * The money side of the Recharge dialog for the chosen plan (PricesRecharges::chargeSummary()).
      *
-     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_adjust: bool}
+     * @return array{mode: string, rows: list<array{label: string, value: string, total: bool}>, total: string, can_keep: bool}
      */
     #[Computed]
     public function rechargeCharge(): array
@@ -966,6 +966,7 @@ new #[Title('Customer')] class extends Component
 
         $waits = $this->rechargePending !== null;
         $charge = $this->rechargeCharge;
+        $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
         $invoiced = $charge['mode'] === 'invoice';
 
         $this->validate([
@@ -973,7 +974,8 @@ new #[Title('Customer')] class extends Component
             'recharge_expiry' => $waits ? [] : ['required', 'date_format:Y-m-d\TH:i', 'after:now'],
             'recharge_amount' => $charge['mode'] === 'amount' ? ['required', ...Currency::amountRules()] : [],
             'recharge_note' => ['nullable', 'string', 'max:255'],
-            ...($invoiced ? [...$this->adjustRules(), ...$this->paymentRules($charge['total'])] : []),
+            ...$this->discountRules($charge, $plan),
+            ...($invoiced ? $this->paymentRules($charge['total']) : []),
         ], [
             'recharge_expiry.after' => __('The expiry must be in the future.'),
         ], [
@@ -981,7 +983,7 @@ new #[Title('Customer')] class extends Component
             'recharge_expiry' => __('expiry'),
             'recharge_amount' => __('amount'),
             'recharge_note' => __('note'),
-            ...$this->adjustAttributes(),
+            ...$this->discountAttributes(),
             ...$this->paymentAttributes(),
         ]);
 
@@ -995,7 +997,7 @@ new #[Title('Customer')] class extends Component
                 $charge['mode'] === 'amount' ? $this->recharge_amount : $charge['total'],
                 $this->recharge_note === '' ? null : $this->recharge_note,
                 $this->recharge_base_expiry,
-                charge: $invoiced ? $this->chargeOptions($this->paymentInput($charge['total'])) : new ChargeOptions,
+                charge: $charge['mode'] === 'free' ? new ChargeOptions : $this->chargeOptions($invoiced ? $this->paymentInput($charge['total']) : null),
             );
         } catch (ExpiryChangedMeanwhile) {
             $this->refillAfterExpiryChange();
@@ -1050,12 +1052,12 @@ new #[Title('Customer')] class extends Component
 
     /**
      * The expiry and amount the chosen plan gives (the amount less the customer's discount, for a recharge without
-     * an invoice). Staff can change both before saving; a one-off price goes back to the plan price.
+     * an invoice). Staff can change both before saving; the discount goes back to the customer's saved one.
      */
     private function fillRechargeDefaults(): void
     {
         unset($this->rechargePending, $this->rechargeCharge);
-        $this->resetAdjust();
+        $this->resetDiscount($this->account);
         $this->recharge_base_expiry = RechargeAccount::expiryKey($this->account);
         $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
 
@@ -1072,7 +1074,20 @@ new #[Title('Customer')] class extends Component
             : ExpiryCalculator::fromSettings()
                 ->next($this->account->expiry, $plan->validity, $plan->validity_unit, now())
                 ->format('Y-m-d\TH:i');
-        $this->recharge_amount = RechargePrice::amount($this->account, $plan, BillingSettings::current());
+        $this->recharge_amount = RechargePrice::amount($this->account, $plan, BillingSettings::current(), $this->typedDiscount());
+    }
+
+    /**
+     * A new discount: the breakdown follows, and so does the amount of a recharge without an invoice.
+     */
+    protected function discountChanged(): void
+    {
+        unset($this->rechargeCharge);
+        $plan = $this->recharge_plan_id === '' ? null : Plan::query()->find((int) $this->recharge_plan_id);
+
+        if ($plan !== null) {
+            $this->recharge_amount = RechargePrice::amount($this->account, $plan, BillingSettings::current(), $this->typedDiscount());
+        }
     }
 
     /**

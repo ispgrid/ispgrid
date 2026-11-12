@@ -35,7 +35,7 @@ function savedCustomer(string $username = 'example1'): Account
 it('saves Free, discount and terms', function () {
     billingCustomerForm()
         ->set('billing_free', true)
-        ->set('discount_percent', '50')
+        ->set('discount_value', '50')
         ->set('payment_terms_days', '7')
         ->call('save')
         ->assertHasNoErrors();
@@ -56,19 +56,20 @@ it('pricing fields ignore a tampered request', function () {
     $this->actingAs(staffLacking(Permission::SetCustomerPricing));
 
     Livewire::test('pages::customers.form', ['account' => $account->id])
-        ->assertDontSee(__('Discount (%)'))
-        ->set('discount_percent', '100')
+        ->assertDontSee(__('Discount type'))
+        ->set('discount_type', 'amount')
+        ->set('discount_value', '100')
         ->set('billing_free', true)
         ->set('place_of_supply', '07')
         ->set('payment_terms_days', '30')
         ->call('save')
         ->assertHasNoErrors();
 
-    expect($account->fresh())->discount_percent->toBe('10.00')->billing_free->toBeFalse()->place_of_supply->toBeNull()->payment_terms_days->toBe(30);
+    expect($account->fresh())->discount_percent->toBe('10.00')->discount_type->toBe('percent')->billing_free->toBeFalse()->place_of_supply->toBeNull()->payment_terms_days->toBe(30);
 });
 
 it('refuses a discount above 100%', function () {
-    billingCustomerForm()->set('discount_percent', '120')->call('save')->assertHasErrors(['discount_percent']);
+    billingCustomerForm()->set('discount_value', '120')->call('save')->assertHasErrors(['discount_value']);
 });
 
 it('asks place of supply only with a GSTIN in India', function () {
@@ -197,4 +198,27 @@ it('logs nothing when billing did not change', function () {
     Livewire::test('pages::customers.form', ['account' => $account->id])->set('password', 'secret12')->call('save')->assertHasNoErrors();
 
     expect(Activity::query()->where('event', 'billing-changed')->exists())->toBeFalse();
+});
+
+it('saves an amount discount and shows it in the billing log', function () {
+    $account = Account::factory()->create(['discount_percent' => 10]);
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::EditCustomers, Permission::SetCustomerPricing));
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertSet('discount_type', 'percent')
+        ->assertSet('discount_value', '10')
+        ->set('password', 'secret12')
+        ->set('discount_type', 'amount')
+        ->set('discount_value', '100')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $entry = Activity::query()->where('event', 'billing-changed')->sole();
+    expect($account->fresh())->discount_type->toBe('amount')->discount_amount->toBe('100.00')->discount_percent->toBe('0.00')
+        ->and($entry->attribute_changes['old'])->toBe(['discount' => '10%'])
+        ->and($entry->attribute_changes['attributes'])->toBe(['discount' => '100.00']);
+});
+
+it('refuses an amount discount above the largest amount', function () {
+    billingCustomerForm()->set('discount_type', 'amount')->set('discount_value', '99999999999')->call('save')->assertHasErrors(['discount_value']);
 });

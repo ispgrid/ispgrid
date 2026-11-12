@@ -1158,7 +1158,6 @@
     "Billing changed": "बिलिंग बदली",
     "Free customer": "मुफ़्त ग्राहक",
     "Recharges cost nothing and make no invoice, e.g. for a non-profit.": "रिचार्ज मुफ़्त होते हैं और इनवॉइस नहीं बनता, जैसे किसी गैर-लाभकारी संस्था के लिए।",
-    "Discount (%)": "छूट (%)",
     "Taken off the plan price on every recharge.": "हर रिचार्ज पर प्लान की क़ीमत से घटाई जाती है।",
     "Payment terms (days)": "भुगतान की अवधि (दिन)",
     "When invoices are due. 0 means due on receipt.": "इनवॉइस कब देय हैं। 0 का मतलब है तुरंत देय।",
@@ -1183,7 +1182,6 @@
     "Numbers that start again every year need {FY} in the format, or each year would print the same numbers.": "हर साल 1 से शुरू होने वाले नंबरों के फ़ॉर्मेट में {FY} चाहिए, नहीं तो हर साल वही नंबर छपेंगे।",
     "Remove this renewal's payments first: there are no refunds yet.": "पहले इस अग्रिम रिन्यूअल के भुगतान हटाएँ: अभी रिफ़ंड की सुविधा नहीं है।",
     "Remove the advance renewal's payments first: there are no refunds yet.": "पहले अग्रिम रिन्यूअल के भुगतान हटाएँ: अभी रिफ़ंड की सुविधा नहीं है।",
-    "price for this recharge": "इस रिचार्ज की कीमत",
     "reason": "कारण",
     "Discount (:percent%)": "छूट (:percent%)",
     "Taxable": "कर योग्य",
@@ -1195,8 +1193,6 @@
     "received at": "प्राप्ति का समय",
     "The plan price less the customer discount. Change it for a part payment.": "प्लान की कीमत में से ग्राहक की छूट घटाकर। आंशिक भुगतान के लिए इसे बदलें।",
     "Free customer: no invoice": "मुफ़्त ग्राहक: कोई इनवॉइस नहीं",
-    "Adjust price": "कीमत बदलें",
-    "A price for this recharge only, instead of the plan price.": "प्लान की कीमत की जगह केवल इस रिचार्ज के लिए कीमत।",
     "Payment received now": "भुगतान अभी मिला",
     "Off: the invoice stays unpaid, due by the payment terms.": "बंद: इनवॉइस बिना भुगतान रहेगा, भुगतान शर्तों के अनुसार देय।",
     "Method": "तरीका",
@@ -1570,5 +1566,11 @@
     "Plan switched from :old to :new.": "प्लान :old से :new पर स्विच किया।",
     "Plan switched to :plan.": "प्लान :plan पर स्विच हो गया।",
     "No charge and no new expiry. The next Recharge uses this plan.": "कोई शुल्क नहीं और कोई नई एक्सपायरी नहीं। अगला रिचार्ज इसी प्लान से होगा।",
-    "The customer has time left now (recharged meanwhile). Close this and use Change plan.": "ग्राहक के पास अब समय बाकी है (इस बीच रिचार्ज हुआ)। इसे बंद करें और प्लान बदलें का उपयोग करें।"
+    "The customer has time left now (recharged meanwhile). Close this and use Change plan.": "ग्राहक के पास अब समय बाकी है (इस बीच रिचार्ज हुआ)। इसे बंद करें और प्लान बदलें का उपयोग करें।",
+    "The discount cannot be more than the plan price.": "छूट प्लान की कीमत से ज़्यादा नहीं हो सकती।",
+    "Percent": "प्रतिशत",
+    "Optional. Shown in the activity log, not on the invoice.": "वैकल्पिक। गतिविधि लॉग में दिखता है, इनवॉइस पर नहीं।",
+    "Keep this discount for future renewals": "यह छूट आगे के रिन्यूअल के लिए रखें",
+    "Saves it as the customer discount, taken off every later recharge.": "इसे ग्राहक की छूट के रूप में सेव करता है, जो हर अगले रिचार्ज में घटेगी।",
+    "Discount type": "छूट का प्रकार"
 }

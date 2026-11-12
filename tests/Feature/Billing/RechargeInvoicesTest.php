@@ -81,17 +81,18 @@ it('charges the plan price for Change plan', function () {
         ->and(Invoice::query()->sole()->total)->toBe('590.00');
 });
 
-it('charges the customer discount, and an adjusted price with its reason', function () {
+it('charges the customer discount, or the discount given at the recharge with its reason', function () {
     turnInvoicingOn();
     $account = Account::factory()->create(['discount_percent' => 50]);
 
     rechargeNow($account, $this->plan);
-    rechargeNow($account, $this->plan, charge: new ChargeOptions(adjustedPrice: '400', adjustReason: 'Old rate'));
+    rechargeNow($account, $this->plan, charge: new ChargeOptions(discount: new Discount(Discount::AMOUNT, '100'), discountReason: 'Old rate'));
 
     [$first, $second] = Invoice::query()->orderBy('id')->get()->all();
     expect($first->total)->toBe('295.00')
-        ->and($second->total)->toBe('236.00')
-        ->and(Activity::query()->where('event', 'recharged')->latest('id')->first()->attribute_changes['attributes']['adjust_reason'])->toBe('Old rate');
+        ->and($second->total)->toBe('472.00')
+        ->and(Activity::query()->where('event', 'recharged')->latest('id')->first()->attribute_changes['attributes'])
+        ->toMatchArray(['discount' => '100.00', 'discount_reason' => 'Old rate']);
 });
 
 it('a Free customer\'s auto renewal makes no invoice', function () {
