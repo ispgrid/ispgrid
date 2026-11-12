@@ -29,7 +29,9 @@ final class InvoiceCalculator
 
         foreach ($lines as $index => $line) {
             $amount = $round(Decimal::mul($line->quantity, $line->unitPrice, 6));
-            $discount = $round(Decimal::percentOf($amount, $line->discountPercent));
+            $discount = $line->discountAmount !== null
+                ? (new Discount(Discount::AMOUNT, $line->discountAmount))->takenOff($amount, $decimals)
+                : $round(Decimal::percentOf($amount, $line->discountPercent));
             $nets[$index] = $round(Decimal::sub($amount, $discount));
             $worked[$index] = [$amount, $discount];
         }

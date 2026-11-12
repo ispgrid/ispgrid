@@ -46,9 +46,10 @@ trait WritesInvoices
     public ?int $reissuing_invoice_id = null;
 
     /**
-     * Cancel and reissue: the old lines' discounts by position, kept for staff who cannot set discounts.
+     * Cancel and reissue: the old lines' discounts by position (percent and amount taken off), kept for staff who
+     * cannot set discounts, and a fixed amount kept while the line's discount field is left at 0.
      *
-     * @var list<string>
+     * @var list<array{percent: string, amount: string}>
      */
     #[Locked]
     public array $line_discounts = [];
@@ -148,7 +149,7 @@ trait WritesInvoices
         $this->lines = [];
 
         foreach ($invoice->lines as $index => $line) {
-            $this->line_discounts[] = Decimal::trim((string) $line->discount_percent);
+            $this->line_discounts[] = ['percent' => Decimal::trim((string) $line->discount_percent), 'amount' => (string) $line->discount_amount];
             $this->lines[] = [
                 'description' => $line->description,
                 'details' => (string) $line->sub_description,
@@ -316,7 +317,8 @@ trait WritesInvoices
 
     /**
      * The lines as the calculator takes them. A discount needs Set customer pricing; without it a new line has none
-     * and a reissued line keeps the old invoice's.
+     * and a reissued line keeps the old invoice's. A reissued line with a fixed amount off keeps it while no percent
+     * is typed.
      *
      * @return list<LineInput>
      */
@@ -324,17 +326,23 @@ trait WritesInvoices
     {
         $codes = $this->itemCodeLabel !== null;
 
-        return array_map(fn (array $line): LineInput => new LineInput(
-            description: trim((string) $line['description']),
-            subDescription: trim((string) ($line['details'] ?? '')) === '' ? null : trim((string) $line['details']),
-            itemCode: $codes && trim((string) $line['item_code']) !== '' ? trim((string) $line['item_code']) : null,
-            quantity: (string) $line['quantity'],
-            unitPrice: (string) $line['unit_price'],
-            discountPercent: $this->canDiscount
-                ? (is_numeric($line['discount']) ? (string) $line['discount'] : '0')
-                : (is_int($line['source'] ?? null) ? ($this->line_discounts[$line['source']] ?? '0') : '0'),
-            taxed: (bool) $line['taxed'],
-        ), $this->lines);
+        return array_map(function (array $line) use ($codes): LineInput {
+            $old = is_int($line['source'] ?? null) ? ($this->line_discounts[$line['source']] ?? null) : null;
+            $percent = $this->canDiscount ? (is_numeric($line['discount']) ? (string) $line['discount'] : '0') : ($old['percent'] ?? '0');
+            $fixed = $old !== null && Decimal::compare($old['percent'], '0') === 0 && Decimal::compare($old['amount'], '0') > 0
+                && Decimal::compare($percent, '0') === 0;
+
+            return new LineInput(
+                description: trim((string) $line['description']),
+                subDescription: trim((string) ($line['details'] ?? '')) === '' ? null : trim((string) $line['details']),
+                itemCode: $codes && trim((string) $line['item_code']) !== '' ? trim((string) $line['item_code']) : null,
+                quantity: (string) $line['quantity'],
+                unitPrice: (string) $line['unit_price'],
+                discountPercent: $percent,
+                taxed: (bool) $line['taxed'],
+                discountAmount: $fixed ? $old['amount'] : null,
+            );
+        }, $this->lines);
     }
 
     /**

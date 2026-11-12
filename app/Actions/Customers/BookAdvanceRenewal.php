@@ -66,7 +66,7 @@ final class BookAdvanceRenewal
 
             if (InvoicePolicy::invoicesRecharge($account, $settings = BillingSettings::current())) {
                 $invoice = $this->issueInvoice->handle(
-                    $account, RechargeInvoice::lines($account, $plan, $settings, $charge->adjustedPrice, $account->expiry, $expiry, null), $plan->round_off,
+                    $account, RechargeInvoice::lines($account, $charge->adjustedPrice === null ? $plan : (clone $plan)->forceFill(['price' => $charge->adjustedPrice]), $settings, null, $account->expiry, $expiry, null), $plan->round_off,
                     InvoiceKind::Recharge, now(), $charge->payment, $account->expiry, $expiry,
                 );
                 $renewal->update(['invoice_id' => $invoice->id, 'amount' => $invoice->total]);

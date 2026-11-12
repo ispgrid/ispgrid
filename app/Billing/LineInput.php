@@ -3,7 +3,8 @@
 namespace App\Billing;
 
 /**
- * One invoice line as entered: a plan recharge or a manual item such as a CPE.
+ * One invoice line as entered: a plan recharge or a manual item such as a CPE. Its discount is a percent, or a fixed
+ * amount ($discountAmount, which then wins over the percent).
  */
 final readonly class LineInput
 {
@@ -15,5 +16,6 @@ final readonly class LineInput
         public string $unitPrice,
         public string $discountPercent,
         public bool $taxed,
+        public ?string $discountAmount = null,
     ) {}
 }

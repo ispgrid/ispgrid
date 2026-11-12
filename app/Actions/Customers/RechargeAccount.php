@@ -167,7 +167,7 @@ final class RechargeAccount
             $from = $pending !== null ? null : ($followsOn ? $oldExpiry : now());
             $to = $pending !== null ? null : $newExpiry;
             $invoice = $this->issueInvoice->handle(
-                $account, RechargeInvoice::lines($account, $plan, $settings, $charge->adjustedPrice, $from, $to, $pending), $plan->round_off,
+                $account, RechargeInvoice::lines($account, $charge->adjustedPrice === null ? $plan : (clone $plan)->forceFill(['price' => $charge->adjustedPrice]), $settings, null, $from, $to, $pending), $plan->round_off,
                 InvoiceKind::Recharge, now(), $charge->payment, $from, $to,
                 $pending === null ? null : RechargeInvoice::validityText($pending), $recharge->id,
             );

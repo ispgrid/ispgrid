@@ -54,7 +54,9 @@ trait PricesRecharges
 
     protected function chargeDraft(Account $account, Plan $plan, BillingSettings $settings): InvoiceDraft
     {
-        return RechargeInvoice::draft($account, $plan, $settings, $this->adjustedPrice(), null, null, null);
+        $adjusted = $this->adjustedPrice();
+
+        return RechargeInvoice::draft($account, $adjusted === null ? $plan : (clone $plan)->forceFill(['price' => $adjusted]), $settings, null, null, null, null);
     }
 
     /**

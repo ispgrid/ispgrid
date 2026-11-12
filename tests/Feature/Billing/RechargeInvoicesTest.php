@@ -3,6 +3,7 @@
 use App\Actions\Customers\RechargeAccount;
 use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
+use App\Billing\Discount;
 use App\Billing\PaymentInput;
 use App\Billing\RechargeInvoice;
 use App\Billing\RechargePrice;
@@ -228,5 +229,5 @@ it('works out the dialog amount the way the recharge records it', function () {
     turnInvoicingOn();
 
     expect(RechargePrice::amount($account, $this->plan, BillingSettings::current()))->toBe('531.00')
-        ->and(RechargeInvoice::draft($account, $this->plan, BillingSettings::current(), '100', null, null, null)->total)->toBe('106.20');
+        ->and(RechargeInvoice::draft($account, $this->plan, BillingSettings::current(), new Discount(Discount::AMOUNT, '100'), null, null, null)->total)->toBe('472.00');
 });
