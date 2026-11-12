@@ -13,6 +13,8 @@ use App\Support\Currency;
  */
 final readonly class BillingSettings
 {
+    public const string RECEIPT_TITLE = 'PAYMENT RECEIPT';
+
     /**
      * @param  array<string, string>  $taxConfig  the tax setup's fields (single: name, rate; india-gst: rate, state, item_code)
      */
@@ -28,6 +30,8 @@ final readonly class BillingSettings
         public string $logo,
         public int $decimals, // invoice amounts: the currency's decimals
         public string $currencyCode,
+        public string $invoiceTitle = '', // empty: the tax setup's own title
+        public string $receiptTitle = self::RECEIPT_TITLE,
     ) {}
 
     public static function current(): self
@@ -66,6 +70,8 @@ final readonly class BillingSettings
             logo: $value('logo', ''),
             decimals: Currency::decimals(),
             currencyCode: (string) AppSetting::valueOf('currency_code', 'INR'),
+            invoiceTitle: trim($value('invoice_title', '')),
+            receiptTitle: trim($value('receipt_title', '')) !== '' ? trim($value('receipt_title', '')) : self::RECEIPT_TITLE,
         );
     }
 
@@ -75,7 +81,17 @@ final readonly class BillingSettings
     public function withNumbering(Numbering $numbering): self
     {
         return new self($this->enabled, $this->invoiceHotspot, $this->company, $numbering, $this->taxSetup, $this->taxConfig,
-            $this->pricesIncludeTax, $this->defaultTermsDays, $this->logo, $this->decimals, $this->currencyCode);
+            $this->pricesIncludeTax, $this->defaultTermsDays, $this->logo, $this->decimals, $this->currencyCode, $this->invoiceTitle,
+            $this->receiptTitle);
+    }
+
+    /**
+     * The title new invoices print: the operator's own, or the tax setup's (TAX INVOICE under India GST, INVOICE
+     * otherwise). It is stored on each invoice, so changing it leaves issued invoices as they are.
+     */
+    public function invoiceTitle(): string
+    {
+        return $this->invoiceTitle !== '' ? $this->invoiceTitle : $this->tax()->invoiceTitle();
     }
 
     /**

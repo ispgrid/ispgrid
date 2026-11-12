@@ -15,6 +15,10 @@
                 <x-ui.switch wire:model="enabled" :label="__('Issue invoices')" :description="__('When it is off, recharges make no invoice at all. Turning it on needs the company name and country.')" />
                 <x-ui.switch wire:model="invoice_hotspot" :label="__('Invoice Hotspot recharges')" :description="__('When it is off, Hotspot recharges make no invoice; their amounts still count as Hotspot sales.')" />
                 <x-ui.input wire:model="default_terms_days" type="number" min="0" max="365" :label="__('Default payment terms (days)')" :description="__('New customers get this. 0 means due on receipt.')" />
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <x-ui.input wire:model="invoice_title" maxlength="40" :label="__('Invoice title')" :description="__('Empty: TAX INVOICE with India GST, INVOICE otherwise. New invoices only.')" />
+                    <x-ui.input wire:model="receipt_title" maxlength="40" :label="__('Receipt title')" placeholder="PAYMENT RECEIPT" />
+                </div>
             </x-ui.card>
 
             <x-ui.card class="grid grid-cols-1 content-start gap-5">

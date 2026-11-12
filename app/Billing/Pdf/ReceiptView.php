@@ -3,6 +3,7 @@
 namespace App\Billing\Pdf;
 
 use App\Billing\AmountInWords;
+use App\Billing\BillingSettings;
 use App\Billing\Decimal;
 use App\Models\AppSetting;
 use App\Models\Payment;
@@ -32,7 +33,7 @@ final class ReceiptView
         $removed = $payment->trashed();
 
         return [
-            'title' => 'PAYMENT RECEIPT',
+            'title' => BillingSettings::current()->receiptTitle,
             'number' => self::number($payment),
             'date' => $payment->paid_at->format(AppSetting::valueOf('date_format', 'd/m/Y').' H:i'),
             'method' => (string) $payment->method?->name,

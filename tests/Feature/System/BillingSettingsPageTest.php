@@ -330,3 +330,26 @@ it('warns when numbers can be longer than 16 characters, without blocking the sa
 
     expect(BillingSettings::current()->numbering->format)->toBe('LINK{DD}{MM}{YY}-{N}');
 });
+
+it('saves the invoice and receipt titles', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->assertSet('invoice_title', '')
+        ->assertSet('receipt_title', 'PAYMENT RECEIPT')
+        ->set('invoice_title', 'INVOICE-CUM-RECEIPT')
+        ->set('receipt_title', 'MONEY RECEIPT')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $settings = BillingSettings::current();
+    expect($settings->invoiceTitle)->toBe('INVOICE-CUM-RECEIPT')
+        ->and($settings->invoiceTitle())->toBe('INVOICE-CUM-RECEIPT')
+        ->and($settings->receiptTitle)->toBe('MONEY RECEIPT');
+});
+
+it('refuses titles in letters the PDF cannot print', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('invoice_title', 'कर बीजक')
+        ->set('receipt_title', 'रसीद')
+        ->call('save')
+        ->assertHasErrors(['invoice_title', 'receipt_title']);
+});

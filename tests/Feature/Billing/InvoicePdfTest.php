@@ -146,3 +146,19 @@ it('keeps the unit price as entered when prices do not include tax', function ()
 
     expect([$line['rate'], $line['amount']])->toBe(['₹2,499.00', '₹2,499.00']);
 });
+
+it('prints the invoice title from the settings on new invoices only', function () {
+    $old = invoiceFor($this->account);
+    AppSetting::put('billing.invoice_title', 'INVOICE-CUM-RECEIPT');
+    $new = invoiceFor($this->account);
+
+    expect(InvoiceView::for($old->fresh())['title'])->toBe('TAX INVOICE')
+        ->and(InvoiceView::for($new)['title'])->toBe('INVOICE-CUM-RECEIPT');
+});
+
+it('keeps the tax setup title when the setting is empty', function () {
+    turnInvoicingOn('GB', 'single', ['name' => 'VAT', 'rate' => '20']);
+    AppSetting::put('billing.invoice_title', '');
+
+    expect(InvoiceView::for(invoiceFor($this->account))['title'])->toBe('INVOICE');
+});

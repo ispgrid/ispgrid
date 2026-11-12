@@ -1559,5 +1559,9 @@
     "username changed": "यूज़रनेम बदला",
     "Username changed": "यूज़रनेम बदला गया",
     "Filters": "फ़िल्टर",
-    "Numbers can be longer than 16 characters (:length). GST allows 16.": "नंबर 16 अक्षरों से लंबे हो सकते हैं (:length)। GST में 16 तक की अनुमति है।"
+    "Numbers can be longer than 16 characters (:length). GST allows 16.": "नंबर 16 अक्षरों से लंबे हो सकते हैं (:length)। GST में 16 तक की अनुमति है।",
+    "Invoice title": "इनवॉइस का शीर्षक",
+    "Receipt title": "रसीद का शीर्षक",
+    "Empty: TAX INVOICE with India GST, INVOICE otherwise. New invoices only.": "खाली: India GST में TAX INVOICE, वरना INVOICE। सिर्फ़ नए इनवॉइस पर।",
+    "Invoices print English letters only. Write this in English letters.": "इनवॉइस केवल अंग्रेज़ी अक्षरों में छपते हैं। इसे अंग्रेज़ी अक्षरों में लिखें।"
 }

@@ -123,3 +123,14 @@ it('links the receipt from every list of payments', function () {
     Livewire::test('pages::customers.billing-tab', ['accountId' => $this->account->id])->assertSeeHtml($receipt);
     Livewire::test('pages::payments.index')->assertSeeHtml($receipt);
 });
+
+it('prints the receipt title from the settings, also for a removed payment', function () {
+    $payment = paymentOn($this->invoice, '300');
+
+    expect(ReceiptView::for($payment)['title'])->toBe('PAYMENT RECEIPT');
+
+    AppSetting::put('billing.receipt_title', 'MONEY RECEIPT');
+    app(RemovePayment::class)->handle($payment->id, 'Bounced');
+
+    expect(ReceiptView::for(Payment::withTrashed()->findOrFail($payment->id))['title'])->toBe('MONEY RECEIPT');
+});
