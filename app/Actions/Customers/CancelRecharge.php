@@ -39,7 +39,8 @@ final class CancelRecharge
         $reason = trim($reason);
 
         return DB::transaction(function () use ($rechargeId, $reason): bool {
-            $accountId = Recharge::query()->whereKey($rechargeId)->valueOrFail('account_id');
+            // The account is locked before the row (the order RechargeAccount uses), so its id is read first.
+            $accountId = (int) Recharge::query()->whereKey($rechargeId)->valueOrFail('account_id');
             $account = Account::query()->with('plan')->lockForUpdate()->findOrFail($accountId);
             $recharge = Recharge::query()->lockForUpdate()->findOrFail($rechargeId);
 
