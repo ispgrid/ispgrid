@@ -38,6 +38,7 @@ use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\Hotspot;
 use App\Support\IpAddress;
+use App\Support\PasswordPattern;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
 use App\Support\RequiredCustomerFields;
@@ -139,6 +140,13 @@ new #[Title('Customer')] class extends Component
      */
     #[Locked]
     public bool $showsAccountNumber = false;
+
+    /**
+     * The password the pattern last filled in on a new customer, so it follows the name and mobile until staff type
+     * their own. Not saved.
+     */
+    #[Locked]
+    public string $autoPassword = '';
 
     public string $mac_type = '1';
 
@@ -266,6 +274,7 @@ new #[Title('Customer')] class extends Component
             $this->payment_terms_days = (string) $this->billingSettings->defaultTermsDays;
             $this->place_of_supply = $this->homeState();
             $this->showsAccountNumber = AccountNumbers::enabled();
+            $this->fillPatternPassword();
 
             return;
         }
@@ -664,6 +673,38 @@ new #[Title('Customer')] class extends Component
         }
     }
 
+    public function updatedFullname(): void
+    {
+        $this->fillPatternPassword();
+    }
+
+    public function updatedMobile(): void
+    {
+        $this->fillPatternPassword();
+    }
+
+    /**
+     * Whether the name and mobile fill the password as they change (a new customer, a pattern set).
+     */
+    #[Computed]
+    public function prefillsPassword(): bool
+    {
+        return $this->accountId === null && PasswordPattern::isOn();
+    }
+
+    /**
+     * A new customer's password from the pattern, while the field is empty or still holds the last one filled in.
+     */
+    private function fillPatternPassword(): void
+    {
+        if (! $this->prefillsPassword || $this->isIpoe || $this->password !== $this->autoPassword) {
+            return;
+        }
+
+        $this->password = PasswordPattern::make($this->fullname, $this->mobile) ?? '';
+        $this->autoPassword = $this->password;
+    }
+
     /**
      * A new customer gets the defaults of the chosen type: its pool, or for IPoE the next free IP of the default
      * range. An existing customer keeps what they have.
@@ -677,6 +718,14 @@ new #[Title('Customer')] class extends Component
         }
 
         $this->pool_id = (string) (CustomerDefaults::poolId($type) ?? '');
+
+        // IPoE takes no password: a pattern one filled in for PPPoE goes, and comes back on a switch back.
+        if ($type === ServiceType::Ipoe && $this->password === $this->autoPassword) {
+            $this->password = '';
+            $this->autoPassword = '';
+        } elseif ($type !== ServiceType::Ipoe) {
+            $this->fillPatternPassword();
+        }
 
         if ($type === ServiceType::Ipoe && $this->ip_address === '') {
             $this->ip_address = CustomerDefaults::nextIpoeIp()?->address ?? '';

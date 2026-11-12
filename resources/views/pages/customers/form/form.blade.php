@@ -19,11 +19,11 @@
                         <x-ui.heading level="3" id="customer-contact">{{ __('Contact') }}</x-ui.heading>
                         <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             <x-ui.select wire:model="title" :label="__('Title')" :options="$this->titles" :placeholder="__('None')" />
-                            <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required />
+                            <x-ui.input wire:model="fullname" :label="__('Full name')" maxlength="100" required x-on:change="{{ $this->prefillsPassword ? '$wire.$commit()' : '' }}" />
                             <div class="sm:col-span-2">
                                 <x-ui.input wire:model="company" :label="__('Company')" maxlength="255" :required="isset($this->requiredFields['company'])" />
                             </div>
-                            <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" :required="isset($this->requiredFields['mobile'])" />
+                            <x-ui.input wire:model="mobile" type="tel" inputmode="numeric" x-on:change="{{ $this->prefillsPassword ? '$wire.$commit()' : '' }}" :label="__('Mobile')" :description="__(':digits digits', ['digits' => $this->phoneDigits])" :required="isset($this->requiredFields['mobile'])" />
                             <x-ui.input wire:model="whatsapp" type="tel" inputmode="numeric" :label="__('WhatsApp')" :required="isset($this->requiredFields['whatsapp'])" />
                             <x-ui.input wire:model="alt_number" type="tel" inputmode="numeric" :label="__('Other number')" :required="isset($this->requiredFields['alt_number'])" />
                             <x-ui.input wire:model="email" type="email" :label="__('Email')" maxlength="100" :required="isset($this->requiredFields['email'])" />

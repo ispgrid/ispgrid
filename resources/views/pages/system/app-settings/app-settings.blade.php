@@ -49,6 +49,11 @@
                     </div>
                 </fieldset>
                 <fieldset class="grid grid-cols-1 gap-2 border-t border-zinc-200 pt-5 dark:border-zinc-700">
+                    <legend class="text-sm font-medium">{{ __('Password pattern') }}</legend>
+                    <x-ui.alert variant="warning">{{ __('Pattern passwords are easy to guess for anyone who knows the customer\'s name or mobile number. Leave empty for random passwords.') }}</x-ui.alert>
+                    <x-ui.input wire:model="password_pattern" english maxlength="40" :label="__('Password pattern')" placeholder="{first_name}{digits}" :description="__('Fills new PPPoE passwords and the Selfcare passwords the panel sets. Tokens: :tokens. A name in another script, or a password under 6 characters, gets a random one.', ['tokens' => '{first_name} {mobile_last4} {digits}'])" />
+                </fieldset>
+                <fieldset class="grid grid-cols-1 gap-2 border-t border-zinc-200 pt-5 dark:border-zinc-700">
                     <legend class="text-sm font-medium">{{ __('Required customer fields') }}</legend>
                     <x-ui.text muted>{{ __('The customer form and the import refuse a customer without these. Existing customers are asked for them on their next edit; logins are not affected.') }}</x-ui.text>
                     <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -13,6 +13,7 @@ use App\Models\RadiusSetting;
 use App\Support\AccountNumbers;
 use App\Support\Hotspot;
 use App\Support\NoticePage;
+use App\Support\PasswordPattern;
 use App\Support\RequiredCustomerFields;
 use App\Support\Selfcare;
 use Carbon\CarbonImmutable;
@@ -50,6 +51,7 @@ new #[Title('App settings')] class extends Component
     private const KEYED = [
         'account_id_prefix' => AccountNumbers::PREFIX,
         'account_id_start' => AccountNumbers::START,
+        'password_pattern' => PasswordPattern::SETTING,
     ];
 
     public string $date_format = '';
@@ -85,6 +87,8 @@ new #[Title('App settings')] class extends Component
     public string $account_id_prefix = '';
 
     public string $account_id_start = '';
+
+    public string $password_pattern = '';
 
     public bool $hotspot_enabled = false;
 
@@ -154,6 +158,7 @@ new #[Title('App settings')] class extends Component
             'selfcare_pppoe_password_change' => ['boolean'],
             'account_id_prefix' => ['nullable', 'string', 'max:10', 'regex:/^[A-Za-z0-9\/._-]*$/D'],
             'account_id_start' => ['nullable', 'integer', 'between:1,999999999'],
+            'password_pattern' => PasswordPattern::rules(),
             'required_customer_fields' => ['array'],
             'required_customer_fields.*' => ['string', Rule::in(RequiredCustomerFields::FIELDS)],
         ];

@@ -1598,5 +1598,9 @@
     "Account ID: :id": "अकाउंट ID: :id",
     "Empty start number: customers get no account ID. When you first save one, every customer gets an ID, oldest first. A new prefix applies to new customers only.": "शुरुआती नंबर खाली हो तो ग्राहकों को अकाउंट ID नहीं मिलता। पहली बार नंबर सेव करने पर हर ग्राहक को ID मिलता है, सबसे पुराने से शुरू करके। नया प्रीफ़िक्स सिर्फ़ नए ग्राहकों पर लागू होता है।",
     "Account ID prefix": "अकाउंट ID प्रीफ़िक्स",
-    "Account ID start number": "अकाउंट ID शुरुआती नंबर"
+    "Account ID start number": "अकाउंट ID शुरुआती नंबर",
+    "Use the tokens :tokens and letters, digits or symbols, without spaces, quotes or backslashes.": "टोकन :tokens और अक्षर, अंक या चिह्न इस्तेमाल करें, बिना स्पेस, कोट या बैकस्लैश के।",
+    "Password pattern": "पासवर्ड पैटर्न",
+    "Pattern passwords are easy to guess for anyone who knows the customer's name or mobile number. Leave empty for random passwords.": "जो कोई ग्राहक का नाम या मोबाइल नंबर जानता है, वह पैटर्न वाले पासवर्ड आसानी से अंदाज़ा लगा सकता है। रैंडम पासवर्ड के लिए खाली छोड़ें।",
+    "Fills new PPPoE passwords and the Selfcare passwords the panel sets. Tokens: :tokens. A name in another script, or a password under 6 characters, gets a random one.": "नए PPPoE पासवर्ड और पैनल द्वारा सेट किए गए Selfcare पासवर्ड इसी से भरे जाते हैं। टोकन: :tokens। किसी दूसरी लिपि में नाम हो, या पासवर्ड 6 अक्षरों से छोटा हो, तो रैंडम पासवर्ड मिलता है।"
 }
