@@ -44,6 +44,7 @@ it('writes one sentence and a tone for each kind of entry', function (string $ev
         'Recharged: 50Mbps, 31-Oct-2026 00:00 to 30-Nov-2026 00:00, ₹825.00.', 'blue'],
     'plan changed' => ['plan-changed', ['plan' => '50Mbps', 'expiry' => '2026-10-31 00:00'], ['plan' => '100Mbps', 'expiry' => '2027-04-20 23:59', 'amount' => '3304', 'note' => null],
         'Plan changed from 50Mbps to 100Mbps, now to 20-Apr-2027 23:59, ₹3,304.00.', 'blue'],
+    'plan switched' => ['plan-switched', ['plan' => '50Mbps'], ['plan' => '100Mbps', 'note' => null], 'Plan switched from 50Mbps to 100Mbps.', 'blue'],
     'advance booked' => ['advance-booked', [], ['plan' => '100Mbps', 'starts' => '2027-02-01 00:00', 'expiry' => '2027-07-31 23:59', 'amount' => '3304', 'note' => null],
         'Advance renewal booked: 100Mbps from 01-Feb-2027 00:00, ₹3,304.00.', 'blue'],
     'advance started' => ['advance-started', ['plan' => '50Mbps', 'expiry' => '2027-02-01 00:00'], ['plan' => '100Mbps', 'expiry' => '2027-07-31 23:59', 'amount' => '3304', 'note' => null],

@@ -5,6 +5,7 @@ use App\Actions\Customers\CancelAdvanceRenewal;
 use App\Actions\Customers\ChangeExpiry;
 use App\Actions\Customers\RechargeAccount;
 use App\Actions\Customers\SetOverrideSpeed;
+use App\Actions\Customers\SwitchPlan;
 use App\Actions\Customers\TerminateAccount;
 use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
@@ -14,7 +15,9 @@ use App\Billing\Statement;
 use App\Enums\AccountStatus;
 use App\Enums\DisconnectReason;
 use App\Enums\RechargeKind;
+use App\Exceptions\CustomerNotExpired;
 use App\Exceptions\ExpiryChangedMeanwhile;
+use App\Exceptions\FirstLoginPlanNeedsHotspot;
 use App\Exceptions\RenewalAlreadyWaiting;
 use App\Exceptions\RenewalHasPayments;
 use App\Jobs\DisconnectAccount;
@@ -72,6 +75,13 @@ new class extends Component
      */
     #[Locked]
     public string $change_base_expiry = '';
+
+    /**
+     * Switch plan (an expired or Inactive customer): the plan and a comment. No charge, no new expiry.
+     */
+    public string $switch_plan_id = '';
+
+    public string $switch_note = '';
 
     /**
      * Renew in advance: next plan, expiry, amount and comment. It starts at the current expiry.
@@ -225,6 +235,18 @@ new class extends Component
     }
 
     /**
+     * Plans for Switch plan: the Recharge dialog's plans (first-login plans for a Hotspot customer too), less the
+     * current one.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function switchPlans(): array
+    {
+        return array_diff_key(PlanChoices::for($this->account), [(int) $this->account->plan_id => true]);
+    }
+
+    /**
      * What a plan change throws away: the time left on the running plan, e.g. "20 days 9 hours"; null when none.
      */
     #[Computed]
@@ -258,10 +280,23 @@ new class extends Component
         return $this->chargeSummary($this->account, $this->advance_plan_id === '' ? null : Plan::query()->find((int) $this->advance_plan_id));
     }
 
+    /**
+     * Change plan: a customer with time left pays for the new plan from now; an expired or Inactive one switches
+     * plan for free and renews later.
+     */
     public function openChangePlan(): void
     {
         $this->authorizeLive('recharge');
         $this->resetValidation();
+
+        if (SwitchPlan::allowed($this->account)) {
+            $this->switch_plan_id = '';
+            $this->switch_note = '';
+            $this->dispatch('modal-open', name: 'switch-plan');
+
+            return;
+        }
+
         $this->change_plan_id = '';
         $this->change_note = '';
         $this->fillChangeDefaults();
@@ -317,6 +352,38 @@ new class extends Component
 
         $message = __('Plan changed until :date.', ['date' => $done->new_expiry->format($this->dateFormat())]);
         $this->finish('change-plan', $message, $this->disconnect(DisconnectReason::PlanChanged), $wasInactive);
+    }
+
+    /**
+     * Gives an expired or Inactive customer another plan, without charging or a new expiry.
+     */
+    public function switchPlan(SwitchPlan $switch): void
+    {
+        $this->authorizeLive('recharge');
+        $this->switch_note = trim($this->switch_note);
+
+        $this->validate([
+            'switch_plan_id' => ['required', Rule::in(array_map('strval', array_keys($this->switchPlans)))],
+            'switch_note' => ['nullable', 'string', 'max:255'],
+        ], [], ['switch_plan_id' => __('plan'), 'switch_note' => __('comment')]);
+
+        try {
+            $switch->handle($this->accountId, (int) $this->switch_plan_id, $this->nullIfEmpty($this->switch_note));
+        } catch (CustomerNotExpired) {
+            $this->addError('switch_plan_id', __('The customer has time left now (recharged meanwhile). Close this and use Change plan.'));
+
+            return;
+        } catch (FirstLoginPlanNeedsHotspot) {
+            $this->addError('switch_plan_id', __('This plan starts at the first Hotspot login. Choose another plan.'));
+
+            return;
+        } catch (ModelNotFoundException) {
+            $this->toastDeletedMeanwhile();
+
+            return;
+        }
+
+        $this->finish('switch-plan', __('Plan switched to :plan.', ['plan' => (string) Plan::withTrashed()->find((int) $this->switch_plan_id)?->name]));
     }
 
     public function openAdvance(): void

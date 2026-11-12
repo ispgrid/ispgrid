@@ -1565,5 +1565,10 @@
     "Empty: TAX INVOICE with India GST, INVOICE otherwise. New invoices only.": "खाली: India GST में TAX INVOICE, वरना INVOICE। सिर्फ़ नए इनवॉइस पर।",
     "Invoices print English letters only. Write this in English letters.": "इनवॉइस केवल अंग्रेज़ी अक्षरों में छपते हैं। इसे अंग्रेज़ी अक्षरों में लिखें।",
     "Switch plan": "प्लान स्विच करें",
-    "Cancel recharges": "रिचार्ज रद्द करें"
+    "Cancel recharges": "रिचार्ज रद्द करें",
+    "Plan switched": "प्लान स्विच किया",
+    "Plan switched from :old to :new.": "प्लान :old से :new पर स्विच किया।",
+    "Plan switched to :plan.": "प्लान :plan पर स्विच हो गया।",
+    "No charge and no new expiry. The next Recharge uses this plan.": "कोई शुल्क नहीं और कोई नई एक्सपायरी नहीं। अगला रिचार्ज इसी प्लान से होगा।",
+    "The customer has time left now (recharged meanwhile). Close this and use Change plan.": "ग्राहक के पास अब समय बाकी है (इस बीच रिचार्ज हुआ)। इसे बंद करें और प्लान बदलें का उपयोग करें।"
 }
