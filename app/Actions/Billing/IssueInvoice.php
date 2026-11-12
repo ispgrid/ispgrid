@@ -81,7 +81,7 @@ final class IssueInvoice
                 'replaces_invoice_id' => $replaces?->id,
                 'kind' => $kind,
                 'status' => InvoiceStatus::Unpaid,
-                'title' => $setup->invoiceTitle(),
+                'title' => $settings->invoiceTitle(),
                 'issue_date' => $issueDate,
                 'due_date' => $issueDate->copy()->addDays($account->payment_terms_days),
                 'terms_days' => $account->payment_terms_days,

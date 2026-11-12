@@ -44,8 +44,8 @@ it('issues an invoice with the next number and the customer snapshot', function 
         ->and($invoice->place_of_supply)->toBe('09')
         ->and($invoice->item_code_label)->toBe('SAC/HSN')
         ->and($invoice->company['name'])->toBe('Example ISP')
-        ->and($invoice->customer['billing_lines'])->toBe(['Example Customer', '12 Main Road', 'Civil Lines', 'Prayagraj 211001', 'Uttar Pradesh'])
-        ->and($invoice->customer['connectivity_lines'])->toBe(['12 Main Road', 'Civil Lines', 'Prayagraj 211001', 'Uttar Pradesh'])
+        ->and($invoice->customer['billing_lines'])->toBe(['Example Customer', '12 Main Road', 'Civil Lines', 'Prayagraj', 'Uttar Pradesh 211001'])
+        ->and($invoice->customer['connectivity_lines'])->toBe(['12 Main Road', 'Civil Lines', 'Prayagraj', 'Uttar Pradesh 211001'])
         ->and($invoice->lines)->toHaveCount(1)
         ->and($invoice->taxLines->map(fn ($line) => [$line->name, $line->amount])->all())->toBe([['CGST', '8.91'], ['SGST', '8.91']])
         ->and(Activity::query()->where('event', 'invoice-issued')->value('attribute_changes')->toArray()['attributes'])->toMatchArray(['invoice' => 'INV-1', 'total' => '116.82']);
@@ -79,7 +79,7 @@ it('bills a separate billing name and address', function () {
     $billing = Address::factory()->create(['line1' => 'Head Office', 'area' => null, 'city' => 'Lucknow', 'postal_code' => '226001', 'state' => 'Uttar Pradesh', 'country' => 'India']);
     $invoice = issue(customerInPrayagraj(['billing_name' => 'Example Traders', 'billing_address_id' => $billing->id]));
 
-    expect($invoice->customer['billing_lines'])->toBe(['Example Traders', 'Head Office', 'Lucknow 226001', 'Uttar Pradesh'])
+    expect($invoice->customer['billing_lines'])->toBe(['Example Traders', 'Head Office', 'Lucknow', 'Uttar Pradesh 226001'])
         ->and($invoice->customer['connectivity_lines'][0])->toBe('12 Main Road');
 });
 

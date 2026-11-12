@@ -15,6 +15,10 @@
                 <x-ui.switch wire:model="enabled" :label="__('Issue invoices')" :description="__('When it is off, recharges make no invoice at all. Turning it on needs the company name and country.')" />
                 <x-ui.switch wire:model="invoice_hotspot" :label="__('Invoice Hotspot recharges')" :description="__('When it is off, Hotspot recharges make no invoice; their amounts still count as Hotspot sales.')" />
                 <x-ui.input wire:model="default_terms_days" type="number" min="0" max="365" :label="__('Default payment terms (days)')" :description="__('New customers get this. 0 means due on receipt.')" />
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <x-ui.input wire:model="invoice_title" maxlength="20" :label="__('Invoice title')" :description="__('Empty: TAX INVOICE with India GST, INVOICE otherwise. New invoices only.')" />
+                    <x-ui.input wire:model="receipt_title" maxlength="40" :label="__('Receipt title')" placeholder="PAYMENT RECEIPT" />
+                </div>
             </x-ui.card>
 
             <x-ui.card class="grid grid-cols-1 content-start gap-5">
@@ -33,7 +37,7 @@
             <x-ui.card class="grid grid-cols-1 content-start gap-5">
                 <x-ui.heading>{{ __('Invoice numbering') }}</x-ui.heading>
                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <x-ui.input wire:model.live.debounce.400ms="numbering_format" :label="__('Format')" :description="__('{FY} financial year (26-27), {YYYY} year, {N} number.')" />
+                    <x-ui.input wire:model.live.debounce.400ms="numbering_format" :label="__('Format')" :description="__('{FY} financial year (26-27), {YYYY} year, {YY} year (26), {MM} month, {DD} day, {N} number.')" />
                     <x-ui.input wire:model.live.debounce.400ms="number_digits" type="number" min="0" max="10" :label="__('Digits')" :description="__('Pads the number with zeros: 4 gives 0001.')" />
                     <x-ui.input wire:model.live.debounce.400ms="next_number" type="number" min="1" :label="__('Next number')" :placeholder="__('Unchanged')" :description="__('To carry on from another system. It cannot go back to a number already used.')" />
                     <x-ui.select wire:model.live="year_start_month" :label="__('Year starts in')" :options="$this->months" />
@@ -41,6 +45,9 @@
                 <x-ui.switch wire:model.live="restart_yearly" :label="__('Start again at 1 every year')" />
                 @if ($this->nextInvoice)
                     <x-ui.text muted>{{ __('Next invoice: :number', ['number' => $this->nextInvoice]) }}</x-ui.text>
+                @endif
+                @if ($this->numberLengthWarning)
+                    <x-ui.alert variant="warning">{{ $this->numberLengthWarning }}</x-ui.alert>
                 @endif
             </x-ui.card>
 

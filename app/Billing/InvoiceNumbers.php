@@ -9,7 +9,7 @@ use InvalidArgumentException;
 
 /**
  * Invoice numbers: one counter per series ('all', or one per year when numbering restarts yearly), formatted with
- * {FY}, {YYYY} and {N}. A back-dated invoice takes the next number of its own year's series. next() locks the
+ * {FY}, {YYYY}, {YY}, {MM}, {DD} (from the issue date) and {N}. A back-dated invoice takes the next number of its own year's series. next() locks the
  * counter row, so it must run inside the transaction that saves the invoice: a rollback then gives the number
  * back and two invoices at the same moment get consecutive numbers.
  */
@@ -41,8 +41,22 @@ final class InvoiceNumbers
         return strtr($this->settings->numbering->format, [
             '{FY}' => $year,
             '{YYYY}' => (string) $date->year,
+            '{YY}' => $date->format('y'),
+            '{MM}' => $date->format('m'),
+            '{DD}' => $date->format('d'),
             '{N}' => str_pad((string) $number, $this->settings->numbering->digits, '0', STR_PAD_LEFT),
         ]);
+    }
+
+    /**
+     * The length of the longest number the format prints today, counting {N} at its padded width or six digits,
+     * whichever is more. GST allows invoice numbers of up to 16 characters.
+     */
+    public function longestLength(): int
+    {
+        $digits = max($this->settings->numbering->digits, 6);
+
+        return mb_strlen($this->format(now(), (int) str_repeat('9', $digits)));
     }
 
     /**

@@ -3,7 +3,7 @@
 namespace App\Billing;
 
 /**
- * How invoice numbers look: a format with {FY}, {YYYY} and {N}, the digits {N} is padded to, and whether the
+ * How invoice numbers look: a format with {FY}, {YYYY}, {YY}, {MM}, {DD} and {N}, the digits {N} is padded to, and whether the
  * number starts again at 1 each year (a year that starts in yearStartMonth, April in India).
  */
 final readonly class Numbering

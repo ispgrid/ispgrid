@@ -123,3 +123,21 @@ it('links the receipt from every list of payments', function () {
     Livewire::test('pages::customers.billing-tab', ['accountId' => $this->account->id])->assertSeeHtml($receipt);
     Livewire::test('pages::payments.index')->assertSeeHtml($receipt);
 });
+
+it('prints the receipt title from the settings, also for a removed payment', function () {
+    $payment = paymentOn($this->invoice, '300');
+
+    expect(ReceiptView::for($payment)['title'])->toBe('PAYMENT RECEIPT');
+
+    AppSetting::put('billing.receipt_title', 'MONEY RECEIPT');
+    app(RemovePayment::class)->handle($payment->id, 'Bounced');
+
+    expect(ReceiptView::for(Payment::withTrashed()->findOrFail($payment->id))['title'])->toBe('MONEY RECEIPT');
+});
+
+it('labels the username and centres the title on the receipt', function () {
+    $html = view('pdf.receipt', ['receipt' => ReceiptView::for(paymentOn($this->invoice, '300'))])->render();
+
+    expect($html)->toContain('Username')->toContain('.center { text-align: center; }')->not->toContain('Customer ID')
+        ->toMatch('/<td class="center title-row"[^>]*>\s*<div class="title">PAYMENT RECEIPT<\/div>/');
+});

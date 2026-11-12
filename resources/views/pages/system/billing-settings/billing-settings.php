@@ -5,6 +5,7 @@ use App\Billing\Company;
 use App\Billing\Countries;
 use App\Billing\India\GstStates;
 use App\Billing\InvoiceNumbers;
+use App\Billing\LatinText;
 use App\Billing\Numbering;
 use App\Billing\Tax\TaxSetup;
 use App\Billing\Tax\TaxSetups;
@@ -82,6 +83,10 @@ new #[Title('Billing')] class extends Component
 
     public bool $show_signature = true;
 
+    public string $invoice_title = '';
+
+    public string $receipt_title = BillingSettings::RECEIPT_TITLE;
+
     /** @var TemporaryUploadedFile|null */
     public $logo = null;
 
@@ -138,6 +143,8 @@ new #[Title('Billing')] class extends Component
         $this->bank_details = $company->bankDetails;
         $this->terms = $company->terms;
         $this->show_signature = $company->showSignature;
+        $this->invoice_title = $settings->invoiceTitle;
+        $this->receipt_title = $settings->receiptTitle;
         $this->numbering_format = $settings->numbering->format;
         $this->number_digits = (string) $settings->numbering->digits;
         $this->restart_yearly = $settings->numbering->restartYearly;
@@ -222,6 +229,8 @@ new #[Title('Billing')] class extends Component
             'bank_details' => ['nullable', 'string', 'max:1000'],
             'terms' => ['nullable', 'string', 'max:4000'],
             'show_signature' => ['boolean'],
+            'invoice_title' => ['nullable', 'string', 'max:20', $this->printable(...)],
+            'receipt_title' => ['nullable', 'string', 'max:40', $this->printable(...)],
             'logo' => ['nullable', 'file', 'mimetypes:image/png,image/jpeg', 'max:200'],
             'numbering_format' => ['required', 'string', 'max:40', 'regex:/\{N\}/', 'regex:/^[A-Za-z0-9{}\/\-_.]+$/',
                 function (string $attribute, mixed $value, Closure $fail): void {
@@ -248,7 +257,7 @@ new #[Title('Billing')] class extends Component
     protected function messages(): array
     {
         return [
-            'numbering_format.regex' => __('Use letters, digits, / - _ . and the codes {FY}, {YYYY} and {N}. {N} is needed.'),
+            'numbering_format.regex' => __('Use letters, digits, / - _ . and the codes {DD}, {MM}, {YY}, {FY}, {YYYY} and {N}. {N} is needed.'),
             'logo.mimetypes' => __('The logo must be a PNG or JPG image.'),
             'logo.max' => __('The logo must be 200 KB or smaller.'),
         ];
@@ -462,6 +471,23 @@ new #[Title('Billing')] class extends Component
     }
 
     /**
+     * A warning when numbers in the form's format can be longer than GST's 16 characters, or null. It never blocks
+     * saving: operators outside GST may want longer numbers.
+     */
+    #[Computed]
+    public function numberLengthWarning(): ?string
+    {
+        if (! str_contains($this->numbering_format, '{N}') || ! ctype_digit($this->number_digits)) {
+            return null;
+        }
+
+        $numbering = new Numbering($this->numbering_format, min((int) $this->number_digits, 10), $this->restart_yearly, max(1, min((int) $this->year_start_month, 12)));
+        $length = (new InvoiceNumbers(BillingSettings::current()->withNumbering($numbering)))->longestLength();
+
+        return $length > 16 ? __('Numbers can be longer than 16 characters (:length). GST allows 16.', ['length' => $length]) : null;
+    }
+
+    /**
      * The saved logo as a data URI for the preview (logos are at most 200 KB).
      */
     #[Computed]
@@ -495,6 +521,16 @@ new #[Title('Billing')] class extends Component
      *
      * @return array<string, string>
      */
+    private function printable(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (! LatinText::isLatin(is_string($value) ? $value : '')) {
+            $fail(__('Invoices print English letters only. Write this in English letters.'));
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
     private function settingValues(): array
     {
         $company = Company::fromArray([
@@ -517,6 +553,8 @@ new #[Title('Billing')] class extends Component
 
         return [
             'enabled' => $this->enabled ? '1' : '0',
+            'invoice_title' => trim($this->invoice_title),
+            'receipt_title' => trim($this->receipt_title),
             'invoice_hotspot' => $this->invoice_hotspot ? '1' : '0',
             'company' => (string) json_encode($company->toArray(), JSON_UNESCAPED_UNICODE),
             'numbering_format' => $this->numbering_format,

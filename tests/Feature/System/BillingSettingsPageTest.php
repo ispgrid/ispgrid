@@ -312,3 +312,56 @@ it('refuses a currency or grouping it does not know', function (string $field, s
     'too many decimals' => ['currency_decimals', '7'],
     'unknown grouping' => ['number_grouping', 'chinese'],
 ]);
+
+it('saves a format with the day, month and year codes', function () {
+    Livewire::test('pages::system.billing-settings')->set('numbering_format', 'INV{DD}{MM}{YY}{N}')->call('save')->assertHasNoErrors();
+
+    expect(BillingSettings::current()->numbering->format)->toBe('INV{DD}{MM}{YY}{N}');
+});
+
+it('warns when numbers can be longer than 16 characters, without blocking the save', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('numbering_format', 'LINK{DD}{MM}{YY}-{N}')
+        ->assertSee('longer than 16 characters')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->set('numbering_format', 'INV-{N}')
+        ->assertDontSee('longer than 16 characters');
+
+    expect(BillingSettings::current()->numbering->format)->toBe('LINK{DD}{MM}{YY}-{N}');
+});
+
+it('saves the invoice and receipt titles', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->assertSet('invoice_title', '')
+        ->assertSet('receipt_title', 'PAYMENT RECEIPT')
+        ->set('invoice_title', 'INVOICE-CUM-RECEIPT')
+        ->set('receipt_title', 'MONEY RECEIPT')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $settings = BillingSettings::current();
+    expect($settings->invoiceTitle)->toBe('INVOICE-CUM-RECEIPT')
+        ->and($settings->invoiceTitle())->toBe('INVOICE-CUM-RECEIPT')
+        ->and($settings->receiptTitle)->toBe('MONEY RECEIPT');
+});
+
+it('refuses titles in letters the PDF cannot print', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('invoice_title', 'कर बीजक')
+        ->set('receipt_title', 'रसीद')
+        ->call('save')
+        ->assertHasErrors(['invoice_title', 'receipt_title']);
+});
+
+it('refuses an invoice title longer than the 20 characters an invoice stores', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('invoice_title', 'TAX INVOICE CUM RECEIPT')
+        ->call('save')
+        ->assertHasErrors(['invoice_title' => 'max']);
+
+    Livewire::test('pages::system.billing-settings')
+        ->set('invoice_title', str_repeat('A', 20))
+        ->call('save')
+        ->assertHasNoErrors();
+});
