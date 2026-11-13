@@ -39,8 +39,10 @@ check "self-signed: new address, new one" "$(yes_no self_signed_stale 203.0.113.
 check "san for an IP" "$(san_for 203.0.113.7)" IP:203.0.113.7
 check "san for a name" "$(san_for panel.example.com)" DNS:panel.example.com
 check "certbot fails, certificate kept" "$(certbot_failed_action yes yes)" keep
-check "certbot fails on a first install" "$(certbot_failed_action no no)" http
-check "certbot fails, certificate but no saved site" "$(certbot_failed_action yes no)" http
+check "certbot fails on a first install" "$(certbot_failed_action no no)" self-signed
+check "certbot fails, certificate but no saved site" "$(certbot_failed_action yes no)" self-signed
+check "san for a domain and an IP" "$(san_list panel.example.com 203.0.113.7)" DNS:panel.example.com,IP:203.0.113.7
+check "san without an IP" "$(san_list panel.example.com "")" DNS:panel.example.com
 
 #  Run title and add-on lines
 check "title: first install" "$(run_title v0.1.12 "" no)" "Installing ISPGrid v0.1.12"

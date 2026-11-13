@@ -20,20 +20,27 @@ if [[ -f "$site" ]]; then
 fi
 HTTPS_OK=""
 HTTPS_SELF_SIGNED=""
-if [[ "${ACCESS:-}" == public && -n "${PANEL_HOST:-}" ]]; then
-  #  A public IP without a domain: HTTPS with a self-signed certificate, made once and kept across runs (a new one
-  #  only when the address changes), so logins never cross the internet in plain text.
-  tls_dir="$(dirname "$ISPGRID_CONF")/tls"
+tls_dir="$(dirname "$ISPGRID_CONF")/tls"
+
+#  self_signed_cert <host...>: a self-signed certificate for these hosts (the first is its name), made once and kept
+#  across runs: a new one only when the hosts change
+self_signed_cert() {
+  local cert_present=no
   install -d -m 700 "$tls_dir"
-  cert_present=no
   [[ -s "$tls_dir/panel.crt" && -s "$tls_dir/panel.key" ]] && cert_present=yes
-  if self_signed_stale "$(cat "$tls_dir/panel.host" 2>/dev/null || true)" "$PANEL_HOST" "$cert_present"; then
-    (umask 077 && openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 -subj "/CN=$PANEL_HOST" \
-      -addext "subjectAltName=$(san_for "$PANEL_HOST")" -keyout "$tls_dir/panel.key" -out "$tls_dir/panel.crt" >/dev/null 2>&1) ||
-      die "Could not make the self-signed certificate for $PANEL_HOST (openssl failed)."
+  if self_signed_stale "$(cat "$tls_dir/panel.host" 2>/dev/null || true)" "$*" "$cert_present"; then
+    (umask 077 && openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 -subj "/CN=$1" \
+      -addext "subjectAltName=$(san_list "$@")" -keyout "$tls_dir/panel.key" -out "$tls_dir/panel.crt" >/dev/null 2>&1) ||
+      die "Could not make the self-signed certificate for $* (openssl failed)."
     chmod 600 "$tls_dir/panel.key"
-    printf '%s\n' "$PANEL_HOST" > "$tls_dir/panel.host"
+    printf '%s\n' "$*" > "$tls_dir/panel.host"
   fi
+}
+
+if [[ "${ACCESS:-}" == public && -n "${PANEL_HOST:-}" ]]; then
+  #  A public IP without a domain: HTTPS with a self-signed certificate, so logins never cross the internet in plain
+  #  text.
+  self_signed_cert "$PANEL_HOST"
   self_signed_site "$deploy/nginx/ispgrid.conf" "$tls_dir/panel.crt" "$tls_dir/panel.key" > "$site"
   HTTPS_OK=1
   HTTPS_SELF_SIGNED=1
@@ -94,13 +101,22 @@ if [[ -n "$DOMAIN" ]]; then
     certbot_error=$(grep -iE 'error|detail' <<<"$certbot_out" | tail -n 1 || true)
     warn "Certbot failed for $DOMAIN (${certbot_error:-see /var/log/letsencrypt/letsencrypt.log}). The panel stays on HTTPS with its current certificate and nginx site; fix the cause and run the installer again before the certificate expires."
   else
-    env_set "$ISPGRID_HOME/.env" APP_URL "http://$(primary_ip)"
+    #  A first install without a certificate yet: HTTPS with a self-signed one for the domain and this server's
+    #  address until certbot succeeds on a later run, never plain HTTP. Port 80 only redirects.
+    fallback_ip=$(primary_ip)
+    self_signed_cert "$DOMAIN" "$fallback_ip"
+    self_signed_site "$deploy/nginx/ispgrid.conf" "$tls_dir/panel.crt" "$tls_dir/panel.key" > "$site"
+    nginx -t -q
+    systemctl reload nginx
+    HTTPS_OK=1
+    HTTPS_SELF_SIGNED=1
+    env_set "$ISPGRID_HOME/.env" APP_URL "https://${fallback_ip:-$DOMAIN}"
     artisan config:cache
     if [[ "$certbot_reason" == dns ]]; then
-      warn "HTTPS was not set up for $DOMAIN (does its DNS point at this server, with port 80 open?). For now the panel works on http://$(primary_ip); run the installer again once DNS is right."
+      warn "Let's Encrypt HTTPS was not set up for $DOMAIN (does its DNS point at this server, with port 80 open?). For now the panel works on https://${fallback_ip:-$DOMAIN} with a self-signed certificate (the browser warns); run the installer again once DNS is right."
     else
       certbot_error=$(grep -iE 'error|detail' <<<"$certbot_out" | tail -n 1 || true)
-      warn "HTTPS was not set up for $DOMAIN: ${certbot_error:-certbot failed}. For now the panel works on http://$(primary_ip); see /var/log/letsencrypt/letsencrypt.log and run the installer again."
+      warn "Let's Encrypt HTTPS was not set up for $DOMAIN: ${certbot_error:-certbot failed}. For now the panel works on https://${fallback_ip:-$DOMAIN} with a self-signed certificate (the browser warns); see /var/log/letsencrypt/letsencrypt.log and run the installer again."
     fi
   fi
 fi
