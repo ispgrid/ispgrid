@@ -43,7 +43,8 @@ new class extends Component
             ['password' => __('new PPPoE password')],
         );
 
-        Selfcare::confirmPassword($account, $this->selfcare_password, 'selfcare_password', __('The selfcare password is wrong.'));
+        // The password the customer logged in with, which after a mobile login may be another connection's.
+        Selfcare::confirmPassword(SelfcareSession::loginAccount() ?? abort(403), $this->selfcare_password, 'selfcare_password', __('The selfcare password is wrong.'));
 
         app(ChangePppoePassword::class)->handle($account, $this->password);
 

@@ -12,8 +12,9 @@ use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 /**
- * Change the selfcare password. After a staff-set one (must change) the current password is not asked: the
- * customer just logged in with it. This session stays logged in; every other one is logged out on its next request.
+ * Change the selfcare password: the one this session logged in with (after a mobile login, that customer's, whichever
+ * connection is open). After a staff-set one (must change) the current password is not asked: the customer just
+ * logged in with it. This session stays logged in; every other one is logged out on its next request.
  */
 new class extends Component
 {
@@ -53,7 +54,7 @@ new class extends Component
             'selfcare_password_set_at' => now(),
         ])->saveQuietly();
 
-        SelfcareSession::remember($account);
+        SelfcareSession::rememberPassword($account);
         activity()->performedOn($account)->causedBy($account)->event('selfcare-password-changed')->log('selfcare-password-changed');
 
         session()->flash('selfcare_message', __('Your password was changed.'));
@@ -67,6 +68,6 @@ new class extends Component
 
     private function account(): SelfcareAccount
     {
-        return SelfcareSession::account() ?? abort(403);
+        return SelfcareSession::loginAccount() ?? abort(403);
     }
 };

@@ -7,6 +7,7 @@ use App\Enums\AccountStatus;
 use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Models\SelfcareAccount;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\SelfcareLogin;
 use Illuminate\Database\Eloquent\Builder;
@@ -54,11 +55,49 @@ final class Selfcare
     /**
      * The same rule as eligible(), as a query constraint (soft-deleted rows are already left out by the model).
      *
-     * @param  Builder<Account>  $query
+     * @template TModel of Account
+     *
+     * @param  Builder<TModel>  $query
      */
     public static function scopeEligible(Builder $query): void
     {
         $query->whereIn('service_type', self::SERVICE_TYPES)->whereIn('status_id', self::STATUSES);
+    }
+
+    /**
+     * The mobile number a customer typed at the login, as the last digits customers are compared on: the last 10, or
+     * the panel's phone number length when shorter, so a country code, spaces or a leading 0 do not matter. Null when
+     * the text is not a phone number (other characters than digits, spaces, + and -, or too few digits).
+     */
+    public static function mobileKey(string $typed): ?string
+    {
+        if (preg_match('/^\+?[0-9][0-9 \-]*$/D', trim($typed)) !== 1) {
+            return null;
+        }
+
+        $digits = (string) preg_replace('/\D/', '', $typed);
+        $length = min(10, max(4, (int) AppSetting::valueOf('phone_digits', '10')));
+
+        return strlen($digits) >= $length ? substr($digits, -$length) : null;
+    }
+
+    /**
+     * The customers who may use Selfcare and whose mobile number ends with this key (mobileKey()), oldest first.
+     *
+     * @return Builder<SelfcareAccount>
+     */
+    public static function connectionsOnMobile(string $key): Builder
+    {
+        return SelfcareAccount::query()->where(fn (Builder $query) => self::scopeEligible($query))
+            ->whereNotNull('mobile')->whereRaw('RIGHT(mobile, ?) = ?', [strlen($key), $key])->orderBy('id');
+    }
+
+    /**
+     * Whether this customer's mobile number still ends with the key a mobile login used.
+     */
+    public static function hasMobile(Account $account, string $key): bool
+    {
+        return $key !== '' && substr((string) $account->mobile, -strlen($key)) === $key;
     }
 
     public static function url(): string
