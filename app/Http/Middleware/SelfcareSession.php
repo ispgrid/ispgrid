@@ -118,7 +118,8 @@ class SelfcareSession
     }
 
     /**
-     * The connections this session may open: every eligible one on its mobile, or just the open one.
+     * The connections this session may open: every eligible one on its mobile, or just the open one (also once more
+     * connections than Selfcare::MOBILE_LOGIN_MAX share the mobile).
      *
      * @return Collection<int, SelfcareAccount>
      */
@@ -131,7 +132,9 @@ class SelfcareSession
             return new Collection;
         }
 
-        return $mobile === null ? new Collection([$account]) : Selfcare::connectionsOnMobile((string) $mobile)->get();
+        $onMobile = $mobile === null ? new Collection : Selfcare::connectionsOnMobile((string) $mobile);
+
+        return $onMobile->isEmpty() ? new Collection([$account]) : $onMobile;
     }
 
     /**

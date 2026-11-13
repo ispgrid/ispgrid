@@ -45,7 +45,9 @@ it('opens the chosen connection and logs selfcare-switch', function () {
     Livewire::test('pages::selfcare.connections')->call('open', $this->shop->id)->assertRedirect(route('selfcare.dashboard'));
 
     expect(Auth::guard('selfcare')->id())->toBe($this->shop->id)
-        ->and(Activity::query()->where('event', 'selfcare-switch')->sole()->subject_id)->toBe($this->shop->id);
+        ->and(Activity::query()->where('event', 'selfcare-switch')->sole()->subject_id)->toBe($this->shop->id)
+        ->and(Activity::query()->where('event', 'selfcare-switch')->sole()->causer_id)->toBe($this->home->id)
+        ->and($this->shop->fresh()->selfcare_last_login_at)->not->toBeNull();
     $this->get(route('selfcare.dashboard'))->assertOk()->assertSee('Ravi Shop');
 });
 
@@ -134,4 +136,12 @@ it('keeps a session from before this change logged in', function () {
     session()->forget([SelfcareSession::LOGIN_ID, SelfcareSession::MOBILE]);
 
     $this->get(route('selfcare.dashboard'))->assertOk()->assertSee('Someone Else')->assertDontSee('Switch connection');
+});
+
+it('offers only the open connection once the mobile is shared by more than the cap', function () {
+    loginByMobile($this->home);
+    Account::factory()->count(4)->create(['mobile' => '9876543210']);
+
+    Livewire::test('pages::selfcare.connections')->call('open', $this->shop->id)->assertNotFound();
+    expect(SelfcareSession::connections()->pluck('id')->all())->toBe([$this->home->id]);
 });

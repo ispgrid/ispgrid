@@ -77,3 +77,35 @@ it('needs Edit customers', function () {
         ->assertDontSee(__('Change username'))
         ->set('new_username', 'x1')->call('rename')->assertForbidden();
 });
+
+it('keeps a username given up by a rename from every other customer', function () {
+    renameTo($this->account, 'link_priyanka')->assertHasNoErrors();
+    $other = Account::factory()->create(['username' => 'someone_else']);
+
+    renameTo($other, 'link_priyankesh')->assertHasErrors(['new_username']);
+    Livewire::test('pages::customers.form')->set('fullname', 'New Customer')->set('service_type', 'PPP')
+        ->set('username', 'link_priyankesh')->set('password', 'secret12')->call('save')->assertHasErrors(['username']);
+
+    expect($other->fresh()->username)->toBe('someone_else')
+        ->and(Account::query()->where('username', 'link_priyankesh')->exists())->toBeFalse();
+});
+
+it('lets a customer take back its own old username', function () {
+    renameTo($this->account, 'link_priyanka')->assertHasNoErrors();
+
+    renameTo($this->account, 'link_priyankesh')->assertHasNoErrors();
+
+    expect($this->account->fresh()->username)->toBe('link_priyankesh');
+});
+
+it('keeps the usernames earlier renames gave up', function () {
+    activity()->performedOn($this->account)->event('username-changed')
+        ->withChanges(['old' => ['username' => 'old_name'], 'attributes' => ['username' => 'link_priyankesh']])
+        ->log('username-changed');
+    DB::table('retired_usernames')->delete();
+
+    (require database_path('migrations/2026_11_13_000100_create_retired_usernames_table.php'))->up();
+
+    expect(DB::table('retired_usernames')->where('username', 'old_name')->value('account_id'))->toBe($this->account->id);
+    renameTo(Account::factory()->create(), 'old_name')->assertHasErrors(['new_username']);
+});

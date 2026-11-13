@@ -356,11 +356,21 @@ self_signed_stale() { [[ "$3" != yes || "$1" != "$2" ]]; }
 #  san_for <host>: the certificate's subjectAltName for an IP or a name
 san_for() { if valid_ipv4 "$1"; then echo "IP:$1"; else echo "DNS:$1"; fi; }
 
+#  san_list <host...>: one subjectAltName for several hosts (empty ones left out), e.g. DNS:panel.example.com,IP:203.0.113.7
+san_list() {
+  local host out=""
+  for host in "$@"; do
+    [[ -n "$host" ]] && out+="${out:+,}$(san_for "$host")"
+  done
+  echo "$out"
+}
+
 #  certbot_failed_action <Let's Encrypt certificate present: yes|no> <previous site saved: yes|no>: what a failed
 #  certbot run does. "keep": the server already had HTTPS, so its site file comes back and the panel stays on HTTPS
-#  (the old certificate keeps working until it expires). "http": a first install with no certificate yet falls back
-#  to plain HTTP until DNS is right.
-certbot_failed_action() { if [[ "$1" == yes && "$2" == yes ]]; then echo keep; else echo http; fi; }
+#  (the old certificate keeps working until it expires). "self-signed": a first install with no certificate yet
+#  serves HTTPS with a self-signed certificate until DNS is right, never plain HTTP (logins would cross the network
+#  in clear text).
+certbot_failed_action() { if [[ "$1" == yes && "$2" == yes ]]; then echo keep; else echo self-signed; fi; }
 
 #  https_redirect_all <nginx site file> <domain>: certbot's port-80 block answers 404 for every name but the domain,
 #  so http://<IP> stopped working once HTTPS was on; send those to https://<domain> as well
@@ -1259,7 +1269,10 @@ panel_rows() {
     echo "text|HTTPS with a self-signed certificate: the browser warns that it is not trusted. Check the address and"
     echo "text|continue. For a certificate browsers trust, use a domain (--access=domain, Let's Encrypt)."
   fi
-  if [[ -n "${DOMAIN:-}" && -z "${HTTPS_OK:-}" ]]; then
+  if [[ -n "${DOMAIN:-}" && -n "${HTTPS_SELF_SIGNED:-}" ]]; then
+    echo "text|Let's Encrypt is not set up yet, so HTTPS uses a self-signed certificate (the browser warns): point"
+    echo "text|$DOMAIN at this server, then run the installer again."
+  elif [[ -n "${DOMAIN:-}" && -z "${HTTPS_OK:-}" ]]; then
     echo "text|HTTPS is not set up yet: point $DOMAIN at this server, then run the installer again."
   fi
 }

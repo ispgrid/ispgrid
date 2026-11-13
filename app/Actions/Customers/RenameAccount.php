@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
  * Gives a customer a new username. What FreeRADIUS reads moves with it in one transaction: the check, reply and group
  * rows (rewritten under the new name), the devices bound to it and the usage that limits count. The reject counters
  * start again. Sessions and the login log keep the name they really used (session records must, by law), so they
- * stay under the old one. An online customer is disconnected after the commit; their router must log in with the new
- * name from then on.
+ * stay under the old one, and the old one is kept from every other customer (retired_usernames). An online customer
+ * is disconnected after the commit; their router must log in with the new name from then on.
  */
 final class RenameAccount
 {
@@ -38,6 +38,7 @@ final class RenameAccount
             UsageDay::query()->where('username', $old)->update(['username' => $username]);
             UsagePeriod::query()->where('username', $old)->update(['username' => $username]);
 
+            DB::table('retired_usernames')->insertOrIgnore(['username' => $old, 'account_id' => $row->id, 'created_at' => now()]);
             $row->disableLogging();
             $row->update(['username' => $username]);
             $this->sync->handle($row);

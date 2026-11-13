@@ -11,6 +11,7 @@ use App\Models\SelfcareAccount;
 use App\Notifications\Notifier;
 use App\Notifications\Triggers\SelfcareLogin;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -28,6 +29,12 @@ final class Selfcare
 
     /** @var list<AccountStatus> */
     public const STATUSES = [AccountStatus::Active, AccountStatus::Inactive, AccountStatus::Suspended];
+
+    /**
+     * The most connections a mobile login opens. A number shared by more (an office or placeholder number staff typed
+     * for many customers) does not log in by mobile at all: those customers use their username or account ID.
+     */
+    public const MOBILE_LOGIN_MAX = 5;
 
     public static function isOpen(): bool
     {
@@ -82,14 +89,20 @@ final class Selfcare
     }
 
     /**
-     * The customers who may use Selfcare and whose mobile number ends with this key (mobileKey()), oldest first.
+     * The customers who may use Selfcare and whose mobile number ends with this key (mobileKey()), oldest first. Empty
+     * when more than MOBILE_LOGIN_MAX share it. Mobiles are saved as exactly the panel's phone number length, so while
+     * that is at most 10 digits the key is the whole number and the lookup is an exact match on the indexed column.
      *
-     * @return Builder<SelfcareAccount>
+     * @return Collection<int, SelfcareAccount>
      */
-    public static function connectionsOnMobile(string $key): Builder
+    public static function connectionsOnMobile(string $key): Collection
     {
-        return SelfcareAccount::query()->where(fn (Builder $query) => self::scopeEligible($query))
-            ->whereNotNull('mobile')->whereRaw('RIGHT(mobile, ?) = ?', [strlen($key), $key])->orderBy('id');
+        $query = SelfcareAccount::query()->where(fn (Builder $query) => self::scopeEligible($query))->orderBy('id');
+        $exact = strlen($key) === (int) AppSetting::valueOf('phone_digits', '10');
+        $exact ? $query->where('mobile', $key) : $query->whereNotNull('mobile')->whereRaw('RIGHT(mobile, ?) = ?', [strlen($key), $key]);
+        $connections = $query->limit(self::MOBILE_LOGIN_MAX + 1)->get();
+
+        return $connections->count() > self::MOBILE_LOGIN_MAX ? new Collection : $connections;
     }
 
     /**

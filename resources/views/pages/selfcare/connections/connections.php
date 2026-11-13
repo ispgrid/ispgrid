@@ -38,8 +38,11 @@ new class extends Component
         $target = SelfcareSession::connections()->firstWhere('id', $id);
         abort_if($target === null, 404);
 
+        // The causer is the customer whose password opened this session, so staff see whose login reached the connection.
+        $login = SelfcareSession::loginAccount() ?? abort(403);
         Auth::guard(SelfcareSession::GUARD)->login($target);
-        activity()->performedOn($target)->causedBy($target)->event('selfcare-switch')->log('selfcare-switch');
+        $target->forceFill(['selfcare_last_login_at' => now()])->saveQuietly();
+        activity()->performedOn($target)->causedBy($login)->event('selfcare-switch')->log('selfcare-switch');
 
         $this->redirectRoute('selfcare.dashboard');
     }

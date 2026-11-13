@@ -13,6 +13,7 @@ use Database\Seeders\AppSettingSeeder;
 use Database\Seeders\RadiusAttributeSeeder;
 use Database\Seeders\RadiusSettingSeeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -272,6 +273,23 @@ it('keeps an ID given while an edit form with the field hidden was open', functi
     expect(accountNumberOf('alice'))->toBe('LINK-7');
 });
 
-it('gives the numbering job time for a large customer base', function () {
-    expect((new NumberAccounts)->timeout)->toBeGreaterThanOrEqual(1800);
+it('numbers a large customer base in short jobs, so disconnects queued meanwhile go out between them', function () {
+    accountIdsOn('LINK-', '1');
+    $accounts = Account::factory()->count(5)->create();
+    Queue::fake();
+
+    (new NumberAccounts(null, batch: 2))->handle();
+
+    expect(Account::query()->whereNotNull('account_number')->count())->toBe(2)
+        ->and(Activity::query()->where('event', 'account-numbers-assigned')->count())->toBe(0)
+        ->and((new NumberAccounts)->timeout)->toBeLessThanOrEqual(300);
+    Queue::assertPushed(NumberAccounts::class, fn (NumberAccounts $next): bool => $next->numbered === 2 && $next->batch === 2);
+
+    Queue::pushed(NumberAccounts::class)->last()->handle();
+    Queue::pushed(NumberAccounts::class)->last()->handle();
+
+    expect($accounts->map(fn (Account $account): ?string => $account->fresh()->account_number)->all())
+        ->toBe(['LINK-1', 'LINK-2', 'LINK-3', 'LINK-4', 'LINK-5'])
+        ->and(Activity::query()->where('event', 'account-numbers-assigned')->sole()->attribute_changes['attributes']['count'])->toBe(5);
+    Queue::assertPushed(NumberAccounts::class, 2);
 });
