@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Gives every customer without an account ID one, oldest first, when the operator first saves a start number.
  * Deleted customers are left out. Each customer is numbered in its own short transaction, so staff saving customers
- * meanwhile only wait for one row; running it twice numbers nobody twice. One activity entry says how many.
+ * meanwhile only wait for one row; running it twice numbers nobody twice. One job numbers one batch and queues the
+ * next, so the single queue worker sends the disconnects and messages queued meanwhile between batches instead of
+ * after the whole customer base. The last batch writes one activity entry saying how many.
  */
 class NumberAccounts implements ShouldQueue
 {
@@ -20,37 +22,48 @@ class NumberAccounts implements ShouldQueue
 
     public int $tries = 3;
 
-    /** A large customer base takes a while: about 8 queries a customer. */
-    public int $timeout = 3600;
+    /** One batch: about 8 queries a customer. */
+    public int $timeout = 120;
 
-    public function __construct(public ?int $userId = null) {}
+    /**
+     * @param  int  $numbered  customers numbered by the batches before this one
+     * @param  int  $afterId  the last customer the batch before looked at (a customer that cannot be numbered is passed by)
+     */
+    public function __construct(public ?int $userId = null, public int $numbered = 0, public int $afterId = 0, public int $batch = 200) {}
 
     public function handle(): void
     {
-        $count = 0;
+        $ids = Account::query()->whereNull('account_number')->where('id', '>', $this->afterId)
+            ->orderBy('id')->limit($this->batch)->pluck('id');
+        $numbered = $this->numbered;
 
-        Account::query()->whereNull('account_number')->orderBy('id')->select('id')
-            ->chunkById(500, function ($accounts) use (&$count): void {
-                foreach ($accounts as $row) {
-                    $count += DB::transaction(function () use ($row): int {
-                        $account = Account::query()->lockForUpdate()->find($row->id);
+        foreach ($ids as $id) {
+            $numbered += DB::transaction(function () use ($id): int {
+                $account = Account::query()->lockForUpdate()->whereKey($id)->first();
 
-                        if ($account === null || $account->account_number !== null) {
-                            return 0;
-                        }
-
-                        AccountNumbers::assign($account);
-
-                        return $account->account_number === null ? 0 : 1;
-                    }, attempts: 3);
+                if ($account === null || $account->account_number !== null) {
+                    return 0;
                 }
-            });
 
-        if ($count > 0) {
+                AccountNumbers::assign($account);
+
+                return $account->account_number === null ? 0 : 1;
+            }, attempts: 3);
+        }
+
+        $last = (int) $ids->last();
+
+        if ($ids->count() === $this->batch && Account::query()->whereNull('account_number')->where('id', '>', $last)->exists()) {
+            self::dispatch($this->userId, $numbered, $last, $this->batch);
+
+            return;
+        }
+
+        if ($numbered > 0) {
             activity()
                 ->causedBy($this->userId === null ? null : User::query()->find($this->userId))
                 ->event('account-numbers-assigned')
-                ->withChanges(['attributes' => ['count' => $count]])
+                ->withChanges(['attributes' => ['count' => $numbered]])
                 ->log('account-numbers-assigned');
         }
     }
