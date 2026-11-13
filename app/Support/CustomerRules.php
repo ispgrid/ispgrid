@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\Pool;
+use App\Rules\NotRetiredUsername;
 use App\Rules\NotUsedByTrashed;
 use Illuminate\Validation\Rule;
 
@@ -18,15 +19,17 @@ use Illuminate\Validation\Rule;
 final class CustomerRules
 {
     /**
-     * A username nobody has: not a customer, not a deleted one. Also for Change username.
+     * A username nobody has: not a customer, not a deleted one, not one another customer gave up by a rename. Also for
+     * Change username, where $accountId is the customer being renamed (it may take back its own old username).
      *
      * @return list<mixed>
      */
-    public static function username(): array
+    public static function username(?int $accountId = null): array
     {
         return ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9._@-]+$/D',
             Rule::unique(Account::class, 'username')->withoutTrashed(),
             new NotUsedByTrashed(Account::class, 'username', __('A deleted customer uses this username. Restore it instead.')),
+            new NotRetiredUsername($accountId),
         ];
     }
 

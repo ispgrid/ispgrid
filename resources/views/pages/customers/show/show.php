@@ -819,13 +819,13 @@ new #[Title('Customer')] class extends Component
 
     /**
      * Gives the customer a new username (RenameAccount), checked like a new customer's: free among customers, deleted
-     * ones too.
+     * ones too, and not given up by another customer's rename (its own old usernames it may take back).
      */
     public function rename(RenameAccount $rename): void
     {
         $this->authorize('update', $this->account);
         $this->new_username = trim($this->new_username);
-        $this->validate(['new_username' => CustomerRules::username()], [
+        $this->validate(['new_username' => CustomerRules::username($this->account->id)], [
             'new_username.regex' => __('Use letters, digits, ., -, _ and @ only.'),
         ], ['new_username' => __('New username')]);
 
