@@ -138,7 +138,11 @@
                 <x-ui.tab-panel name="network" class="grid grid-cols-1 gap-5">
                     <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="sm:col-span-2">
-                            <x-ui.input wire:model="ip_address" english :label="$this->isIpoe ? __('IP address') : __('Static IP')" :description="$this->isIpoe ? __('The address of the customer device. FreeRADIUS finds the customer by it.') : __('Optional. Sent as Framed-IP-Address.')" :required="$this->isIpoe" autocomplete="off" />
+                            @if ($this->ipManagedByService)
+                                <x-ui.input wire:model="ip_address" english :label="__('Static IP')" :description="__('Managed by the Static IP service')" readonly autocomplete="off" />
+                            @else
+                                <x-ui.input wire:model="ip_address" english :label="$this->isIpoe ? __('IP address') : __('Static IP')" :description="$this->isIpoe ? __('The address of the customer device. FreeRADIUS finds the customer by it.') : __('Optional. Sent as Framed-IP-Address.')" :required="$this->isIpoe" autocomplete="off" />
+                            @endif
                         </div>
                         <div class="flex flex-wrap items-end gap-3 sm:col-span-2">
                             <div class="min-w-0 grow">

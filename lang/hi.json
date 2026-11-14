@@ -1708,5 +1708,7 @@
     "This customer already has a static IP service. Renew it or end it first.": "इस ग्राहक के पास पहले से स्टैटिक IP सेवा है। पहले उसका नवीनीकरण करें या उसे समाप्त करें।",
     "This is the first sale of the service. End the service and cancel its invoice instead.": "यह सेवा की पहली बिक्री है। इसके बजाय सेवा समाप्त करें और उसका इनवॉइस रद्द करें।",
     "service": "सेवा",
-    "start date": "शुरू की तारीख"
+    "start date": "शुरू की तारीख",
+    "End the Static IP service first.": "पहले स्टैटिक IP सेवा समाप्त करें।",
+    "Managed by the Static IP service": "स्टैटिक IP सेवा द्वारा प्रबंधित"
 }
