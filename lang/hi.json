@@ -1710,5 +1710,9 @@
     "service": "सेवा",
     "start date": "शुरू की तारीख",
     "End the Static IP service first.": "पहले स्टैटिक IP सेवा समाप्त करें।",
-    "Managed by the Static IP service": "स्टैटिक IP सेवा द्वारा प्रबंधित"
+    "Managed by the Static IP service": "स्टैटिक IP सेवा द्वारा प्रबंधित",
+    ":count day before a service expires|:count days before a service expires": "सेवा समाप्त होने से :count दिन पहले|सेवा समाप्त होने से :count दिन पहले",
+    "Service expires soon": "सेवा जल्द समाप्त होगी",
+    "Service expiry": "सेवा समाप्ति",
+    "When a service expires": "जब सेवा समाप्त होती है"
 }

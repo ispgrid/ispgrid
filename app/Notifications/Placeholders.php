@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Models\CustomerService;
 use App\Models\NotificationLog;
 use App\Models\Recharge;
 use App\Payments\PayCode;
@@ -35,6 +36,9 @@ final class Placeholders
 
     /** Values only a payment has. */
     public const PAYMENT = ['payment_amount', 'receipt_number', 'invoice_number', 'payment_method', 'balance_due'];
+
+    /** Values only a customer service (a static IP, OTT) has. */
+    public const SERVICE = ['service', 'service_expiry', 'static_ip'];
 
     /** @var array<string, string> */
     private array $settings = [];
@@ -71,6 +75,9 @@ final class Placeholders
             'selfcare_url' => __('Selfcare address'),
             'selfcare_password' => __('Selfcare password'),
             'pppoe_password' => __('PPPoE password'),
+            'service' => __('Service'),
+            'service_expiry' => __('Service expiry'),
+            'static_ip' => __('Static IP'),
         ];
     }
 
@@ -78,13 +85,13 @@ final class Placeholders
      * @param  list<string>  $keys
      * @return array{values: list<string>, trimmed: bool}
      */
-    public function values(array $keys, ?Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null): array
+    public function values(array $keys, ?Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null, ?CustomerService $service = null): array
     {
         $values = [];
         $trimmed = false;
 
         foreach ($keys as $key) {
-            $value = $account === null ? '['.(self::labels()[$key] ?? $key).']' : $this->resolve($key, $account, $recharge, $now, $payment);
+            $value = $account === null ? '['.(self::labels()[$key] ?? $key).']' : $this->resolve($key, $account, $recharge, $now, $payment, $service);
 
             if (mb_strlen($value) > self::MAX_LENGTH && ! in_array($key, self::WHATSAPP_ONLY, true)) {
                 $value = mb_substr($value, 0, self::MAX_LENGTH);
@@ -117,7 +124,7 @@ final class Placeholders
         return strtr($approvedText, $pairs);
     }
 
-    private function resolve(string $key, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment): string
+    private function resolve(string $key, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment, ?CustomerService $service): string
     {
         $plan = $account->plan;
         $expiry = $account->expiry;
@@ -150,6 +157,9 @@ final class Placeholders
             'selfcare_url' => Selfcare::url(),
             // The password itself never enters the values: the log row holds it apart, encrypted (Notifier::fire).
             'selfcare_password', 'pppoe_password' => NotificationLog::SECRET_MASK,
+            'service' => (string) $service?->item?->name,
+            'service_expiry' => $service === null ? '' : $service->paid_until->format($this->dateFormat()),
+            'static_ip' => $service !== null && $service->isStaticIp() ? (string) $service->ip?->address : '',
             default => '',
         };
     }
