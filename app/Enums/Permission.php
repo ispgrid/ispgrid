@@ -50,6 +50,7 @@ enum Permission: string
     case RecordPayments = 'record-payments';
     case CancelInvoices = 'cancel-invoices';
     case ViewSales = 'view-sales';
+    case ManageItems = 'manage-items';
 
     public function label(): string
     {
@@ -89,6 +90,7 @@ enum Permission: string
             self::RecordPayments => __('Record and remove payments'),
             self::CancelInvoices => __('Cancel invoices'),
             self::ViewSales => __('View sales'),
+            self::ManageItems => __('Manage items'),
         };
     }
 
@@ -108,7 +110,7 @@ enum Permission: string
             self::ViewNotificationLog, self::ManageNotificationRules,
             self::ManageNotificationProviders => __('Notifications'),
             self::ManageBilling, self::SetCustomerPricing, self::ViewInvoices, self::CreateInvoices,
-            self::RecordPayments, self::CancelInvoices, self::ViewSales => __('Billing'),
+            self::RecordPayments, self::CancelInvoices, self::ViewSales, self::ManageItems => __('Billing'),
             default => __('System'),
         };
     }
