@@ -107,6 +107,6 @@ it('ticks and saves every box down an implied chain', function () {
 it('lists the billing boxes under Billing with the view boxes they need', function () {
     $billing = array_map(fn (Permission $permission): string => $permission->value, Permission::byArea()[__('Billing')]);
 
-    expect($billing)->toBe(['manage-billing', 'set-customer-pricing', 'view-invoices', 'create-invoices', 'record-payments', 'cancel-invoices', 'view-sales'])
+    expect($billing)->toBe(['manage-billing', 'set-customer-pricing', 'view-invoices', 'create-invoices', 'record-payments', 'cancel-invoices', 'view-sales', 'manage-items'])
         ->and(app(Permissions::class)->withImplied(['cancel-invoices']))->toEqualCanonicalizing(['cancel-invoices', 'view-invoices', 'view-customers']);
 });
