@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * One line of an invoice, as issued.
  */
-#[Fillable(['invoice_id', 'position', 'description', 'sub_description', 'item_code', 'quantity', 'unit_price',
+#[Fillable(['invoice_id', 'item_id', 'position', 'description', 'sub_description', 'item_code', 'quantity', 'unit_price',
     'discount_percent', 'discount_amount', 'taxable', 'taxed'])]
 class InvoiceLine extends Model
 {
@@ -23,6 +23,7 @@ class InvoiceLine extends Model
     {
         return [
             'position' => 'integer',
+            'item_id' => 'integer',
             'quantity' => 'decimal:3',
             'unit_price' => Amount::class,
             'discount_percent' => 'decimal:2',
@@ -38,5 +39,15 @@ class InvoiceLine extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    /**
+     * The catalog item the line was filled from, if any.
+     *
+     * @return BelongsTo<Item, $this>
+     */
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(Item::class);
     }
 }
