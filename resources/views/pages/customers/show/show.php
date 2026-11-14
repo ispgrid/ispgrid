@@ -27,6 +27,7 @@ use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\AddressList;
 use App\Models\AppSetting;
+use App\Models\CustomerService;
 use App\Models\Invoice;
 use App\Models\Nas;
 use App\Models\NotificationLog;
@@ -1234,6 +1235,11 @@ new #[Title('Customer')] class extends Component
                 'pool' => $account->pool?->name,
                 'devices' => implode(', ', array_column($devices, 'mac')),
             ], fn (?string $value): bool => $value !== null && $value !== '');
+
+            // Every service ends with the customer (a restore does not bring them back); the delete below frees the
+            // static IP and its own entry records it.
+            CustomerService::query()->where('account_id', $account->id)->whereNull('ended_at')
+                ->update(['ended_at' => now(), 'ended_by' => auth()->id(), 'end_reason' => 'Customer deleted']);
 
             $account->disableLogging();
             $account->update(['ip_id' => null, 'pool_id' => null]);
