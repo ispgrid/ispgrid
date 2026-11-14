@@ -182,9 +182,14 @@ it('hides the tab when invoicing is off and the customer has no invoices', funct
     issueFor($this->account, '500');
     AppSetting::put('billing.enabled', '0');
     $without = Account::factory()->create();
+    $this->actingAs(staffLacking(Permission::ManageCustomerServices));
 
     expect(Livewire::test('pages::customers.show', ['account' => $without->id])->instance()->tabs)->not->toHaveKey('billing')
         ->and(Livewire::test('pages::customers.show', ['account' => $this->account->id])->instance()->tabs)->toHaveKey('billing');
+
+    // Services run without invoicing, so staff who manage them still get the tab (for its Services card).
+    $this->actingAs(staffHolding(Permission::ViewCustomers, Permission::ManageCustomerServices));
+    expect(Livewire::test('pages::customers.show', ['account' => $without->id])->instance()->tabs)->toHaveKey('billing');
 });
 
 it('is read-only for a deleted customer', function () {

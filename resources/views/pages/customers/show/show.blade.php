@@ -357,7 +357,14 @@
     @endif
 
     @if ($this->activeTab === 'billing')
-        <livewire:pages::customers.billing-tab :account-id="$this->account->id" :key="'billing-tab-'.$this->account->id" />
+        <div class="grid grid-cols-1 gap-6">
+            @if ($this->showsServices)
+                <livewire:pages::customers.services-card :account-id="$this->account->id" :key="'services-card-'.$this->account->id" />
+            @endif
+            @if ($this->showsInvoices)
+                <livewire:pages::customers.billing-tab :account-id="$this->account->id" :key="'billing-tab-'.$this->account->id" />
+            @endif
+        </div>
     @endif
 
     @if ($this->activeTab === 'messages')
