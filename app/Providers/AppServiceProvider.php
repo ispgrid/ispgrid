@@ -199,6 +199,7 @@ class AppServiceProvider extends ServiceProvider
         $menu->add(new NavItem('billing', fn (): string => __('Payments'), 'payments.index', 'credit-card', ['payments.*'], $billing, 20));
         $menu->add(new NavItem('billing', fn (): string => __('Online payments'), 'online-payments.index', 'qr-code', ['online-payments.*'],
             fn (User $user): bool => $user->can('view-invoices') && (QuickPay::isOpen() || OnlinePayment::query()->exists()), 30));
+        $menu->add(new NavItem('billing', fn (): string => __('Items'), 'items.index', 'cube', ['items.*'], $can('manage-items'), 40));
 
         // Add-ons put their pages here; the group stays hidden until one does.
         $menu->group('addons', fn (): string => __('Add-ons'), true, 35);
