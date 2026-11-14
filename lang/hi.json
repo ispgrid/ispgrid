@@ -1659,5 +1659,15 @@
     "Manage customer services (static IP)": "ग्राहक सेवाएँ प्रबंधित करें (स्टैटिक IP)",
     "static IP expired": "स्टैटिक IP समाप्त",
     "static IP released": "स्टैटिक IP छोड़ा गया",
-    "static IP renewed": "स्टैटिक IP नवीनीकृत"
+    "static IP renewed": "स्टैटिक IP नवीनीकृत",
+    "Enter an IPv4 address.": "IPv4 पता दर्ज करें।",
+    "Held until": "तक रोका गया",
+    "Months": "महीने",
+    "Paid until": "भुगतान तक",
+    "Service added": "सेवा जोड़ी गई",
+    "Service ended": "सेवा समाप्त की गई",
+    "Service expired": "सेवा समाप्त हुई",
+    "Service renewal cancelled": "सेवा नवीनीकरण रद्द",
+    "Service renewed": "सेवा नवीनीकृत",
+    "Static IP released": "स्टैटिक IP छोड़ा गया"
 }
