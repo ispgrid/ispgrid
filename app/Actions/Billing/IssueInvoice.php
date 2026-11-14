@@ -57,6 +57,7 @@ final class IssueInvoice
         ?string $validityText = null,
         ?int $rechargeId = null,
         ?Invoice $replaces = null,
+        ?int $customerServiceId = null,
     ): Invoice {
         $settings = BillingSettings::current();
 
@@ -66,7 +67,7 @@ final class IssueInvoice
 
         $draft = self::draft($account, $lines, $roundOff, $settings);
 
-        return DB::transaction(function () use ($settings, $account, $draft, $kind, $issueDate, $payment, $periodFrom, $periodTo, $validityText, $rechargeId, $replaces): Invoice {
+        return DB::transaction(function () use ($settings, $account, $draft, $kind, $issueDate, $payment, $periodFrom, $periodTo, $validityText, $rechargeId, $replaces, $customerServiceId): Invoice {
             $number = (new InvoiceNumbers($settings))->next($issueDate);
             $customer = CustomerSnapshot::of($account, $settings);
             $setup = $settings->tax();
@@ -78,6 +79,7 @@ final class IssueInvoice
                 'sequence' => $number['sequence'],
                 'account_id' => $account->id,
                 'recharge_id' => $rechargeId,
+                'customer_service_id' => $customerServiceId,
                 'replaces_invoice_id' => $replaces?->id,
                 'kind' => $kind,
                 'status' => InvoiceStatus::Unpaid,

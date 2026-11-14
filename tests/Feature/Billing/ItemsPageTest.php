@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Models\CustomerService;
 use App\Models\Item;
 use App\Models\User;
 use Livewire\Livewire;
@@ -125,4 +126,28 @@ it('refuses every action once the box is taken away', function () {
 
     $page->call('delete', $item->id)->assertForbidden();
     expect(Item::query()->find($item->id))->not->toBeNull();
+});
+
+it('keeps the kind of an item that customer services use', function (string $field, string $value, string $error) {
+    $item = Item::factory()->staticIp()->create();
+    CustomerService::factory()->for($item)->create();
+
+    Livewire::test('pages::items.index')
+        ->call('openEdit', $item->id)
+        ->set($field, $value)
+        ->call('save')
+        ->assertHasErrors([$error]);
+
+    expect($item->fresh()->service_kind->value)->toBe('static_ip')
+        ->and($item->fresh()->sold_as->value)->toBe('service');
+})->with([['service_kind', 'plain', 'service_kind'], ['sold_as', 'one_time', 'sold_as'], ['type', 'goods', 'sold_as']]);
+
+it('still edits the price and name of an item services use', function () {
+    $item = Item::factory()->staticIp()->create();
+    CustomerService::factory()->for($item)->create();
+
+    Livewire::test('pages::items.index')
+        ->call('openEdit', $item->id)->set('price', '350')->set('name', 'Static IP (new)')->call('save')->assertHasNoErrors();
+
+    expect($item->fresh()->price)->toBe('350.00');
 });

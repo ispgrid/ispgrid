@@ -109,6 +109,8 @@ new #[Title('Billing')] class extends Component
 
     public string $default_terms_days = '0';
 
+    public string $static_ip_hold_days = '30';
+
     public string $new_method = '';
 
     /** @var array<int, string> */
@@ -153,6 +155,7 @@ new #[Title('Billing')] class extends Component
         $this->tax = $settings->taxConfig;
         $this->prices_include_tax = $settings->pricesIncludeTax;
         $this->default_terms_days = (string) $settings->defaultTermsDays;
+        $this->static_ip_hold_days = (string) $settings->staticIpHoldDays;
         $this->loadMethodNames();
     }
 
@@ -246,6 +249,7 @@ new #[Title('Billing')] class extends Component
             'tax' => ['array'],
             'prices_include_tax' => ['boolean'],
             'default_terms_days' => ['required', 'integer', 'between:0,365'],
+            'static_ip_hold_days' => ['required', 'integer', 'between:0,365'],
             'method_names' => ['array'],
             'method_names.*' => ['required', 'string', 'max:60', 'distinct:ignore_case'],
         ], $this->setup()->configRules());
@@ -565,6 +569,7 @@ new #[Title('Billing')] class extends Component
             'tax' => (string) json_encode(array_intersect_key(array_map('strval', $this->tax), $this->setup()->configDefaults()), JSON_UNESCAPED_UNICODE),
             'prices_include_tax' => $this->prices_include_tax ? '1' : '0',
             'default_terms_days' => (string) (int) $this->default_terms_days,
+            'static_ip_hold_days' => (string) (int) $this->static_ip_hold_days,
         ];
     }
 

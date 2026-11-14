@@ -6,11 +6,13 @@ use App\Enums\NotificationStatus;
 use App\Jobs\SendNotification;
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Models\CustomerService;
 use App\Models\NotificationLog;
 use App\Models\NotificationProvider;
 use App\Models\NotificationRule;
 use App\Models\Recharge;
 use App\Notifications\Contracts\PaymentTrigger;
+use App\Notifications\Contracts\ServiceTrigger;
 use App\Notifications\Contracts\Trigger;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,6 +44,21 @@ final class Notifier
             $trigger = $this->registry->trigger($rule->trigger);
 
             if ($trigger === null || ! $trigger::scheduled() || ! in_array($rule->provider, $enabledProviders, true)) {
+                continue;
+            }
+
+            if ($trigger instanceof ServiceTrigger) {
+                $trigger->dueServices($rule->trigger_settings ?? [], $now)
+                    ->whereHas('account', fn (Builder $query) => $this->filtered($query, $rule)->where('notifications_off', false))
+                    ->with('account.plan', 'item', 'ip')
+                    ->chunkById(200, function (Collection $services) use ($rule, $trigger, $now, &$queued): void {
+                        foreach ($services as $service) {
+                            if ($this->queue($rule, $trigger, $service->account, null, $now, service: $service)?->status === NotificationStatus::Queued) {
+                                $queued++;
+                            }
+                        }
+                    });
+
                 continue;
             }
 
@@ -184,12 +201,14 @@ final class Notifier
             ->when($statuses !== [], fn (Builder $q) => $q->whereIn('status_id', $statuses));
     }
 
-    private function queue(NotificationRule $rule, Trigger $trigger, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null, ?string $secret = null): ?NotificationLog
+    private function queue(NotificationRule $rule, Trigger $trigger, Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null, ?string $secret = null, ?CustomerService $service = null): ?NotificationLog
     {
         $provider = $this->registry->providerClass($rule->provider);
-        $key = $trigger instanceof PaymentTrigger && $payment !== null
-            ? $trigger->paymentOnceKey($rule->id, $account, $payment)
-            : $trigger->onceKey($rule->id, $account, $recharge);
+        $key = match (true) {
+            $trigger instanceof ServiceTrigger && $service !== null => $trigger->serviceOnceKey($rule->id, $service),
+            $trigger instanceof PaymentTrigger && $payment !== null => $trigger->paymentOnceKey($rule->id, $account, $payment),
+            default => $trigger->onceKey($rule->id, $account, $recharge),
+        };
 
         if ($provider === null || NotificationLog::query()->where('once_key', $key)->exists()) {
             return null;
@@ -197,7 +216,7 @@ final class Notifier
 
         $raw = PhoneNumber::rawFor($account, $provider::channel());
         $to = PhoneNumber::fromSettings($raw);
-        $result = $this->placeholders->values($rule->values ?? [], $account, $recharge, $now, $payment);
+        $result = $this->placeholders->values($rule->values ?? [], $account, $recharge, $now, $payment, $service);
         [$status, $error] = match (true) {
             trim((string) $raw) === '' => [NotificationStatus::Skipped, __('No mobile number.')],
             $to === null => [NotificationStatus::Skipped, __('Invalid number: :number', ['number' => $raw])],

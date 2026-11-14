@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Customers\AddCustomerService;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
 use App\Enums\Permission;
@@ -12,6 +13,7 @@ use App\Models\AppSetting;
 use App\Models\Ip;
 use App\Models\Ipoe;
 use App\Models\IpRange;
+use App\Models\Item;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
@@ -735,4 +737,60 @@ it('refuses an end date for an override speed in the past', function () {
         ->set('override_until', now()->subDay()->format('Y-m-d\TH:i'))
         ->call('save')
         ->assertHasErrors('override_until');
+});
+
+/**
+ * A PPPoE customer whose fixed IP 10.9.9.5 belongs to a Static IP service.
+ */
+function customerWithStaticIpService(): Account
+{
+    $account = Account::factory()->create(['username' => 'alice', 'fullname' => 'Alice Rao']);
+    freeIp('10.9.9.5');
+    app(AddCustomerService::class)->handle($account, Item::factory()->staticIp()->create(), 1, now(), '300', '10.9.9.5', null);
+
+    return $account->fresh();
+}
+
+it('keeps the ip a static ip service owns whatever the form sends', function (string $sent) {
+    $account = customerWithStaticIpService();
+    $ipId = $account->ip_id;
+    freeIp('10.9.9.6');
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertSet('ip_address', '10.9.9.5')
+        ->assertSee(__('Managed by the Static IP service'))
+        ->set('ip_address', $sent)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($account->fresh()->ip_id)->toBe($ipId)
+        ->and(Ip::query()->find($ipId)->is_used)->toBeTrue()
+        ->and(Ip::query()->where('address', '10.9.9.6')->value('is_used'))->toBeFalse()
+        ->and(customerRows('radreply', 'alice')['Framed-IP-Address'])->toBe('10.9.9.5');
+})->with(['another ip' => '10.9.9.6', 'empty' => '']);
+
+it('refuses to change the type while a static ip service runs', function (string $type) {
+    turnHotspotOn();
+    $account = customerWithStaticIpService();
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->set('service_type', $type)
+        ->set('ip_address', '10.9.9.5')
+        ->call('save')
+        ->assertHasErrors(['service_type']);
+
+    expect($account->fresh()->service_type)->toBe(ServiceType::Ppp);
+})->with(['IPOE', 'HOTSPOT']);
+
+it('still edits the ip of a customer without a service', function () {
+    $account = Account::factory()->create(['username' => 'alice', 'fullname' => 'Alice Rao']);
+    freeIp('10.9.9.7');
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertDontSee(__('Managed by the Static IP service'))
+        ->set('ip_address', '10.9.9.7')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($account->fresh()->ip?->address)->toBe('10.9.9.7');
 });

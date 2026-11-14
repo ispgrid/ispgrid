@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Customers\LapseCustomerService;
 use App\Actions\Customers\RechargeAccount;
+use App\Actions\Customers\ReleaseServiceIp;
 use App\Actions\Customers\SetOverrideSpeed;
 use App\Billing\BillingSettings;
 use App\Billing\ChargeOptions;
@@ -15,6 +17,7 @@ use App\Exceptions\ExpiryChangedMeanwhile;
 use App\Jobs\DisconnectAccount;
 use App\Models\Account;
 use App\Models\AdvanceRenewal;
+use App\Models\CustomerService;
 use App\Models\Plan;
 use App\Support\ExpiryCalculator;
 use Carbon\CarbonImmutable;
@@ -44,7 +47,7 @@ class RunRenewals extends Command
      */
     public const MINUTES_AHEAD = 10;
 
-    public function handle(RechargeAccount $recharge, SetOverrideSpeed $overrideSpeed): int
+    public function handle(RechargeAccount $recharge, SetOverrideSpeed $overrideSpeed, LapseCustomerService $lapse, ReleaseServiceIp $release): int
     {
         $now = CarbonImmutable::now();
         $until = $now->addMinutes(self::MINUTES_AHEAD);
@@ -52,6 +55,8 @@ class RunRenewals extends Command
         $this->startWaitingRenewals($recharge, $until);
         $this->autoRenew($recharge, $now, $until);
         $this->endOverrideSpeeds($overrideSpeed, $now);
+        $this->lapseServices($lapse, $now);
+        $this->releaseHeldIps($release, $now);
         $this->logExpired($now);
 
         return self::SUCCESS;
@@ -187,6 +192,47 @@ class RunRenewals extends Command
                         $overrideSpeed->handle($account->id, null, null, null, null, 'own-speed-ended');
                         DisconnectAccount::dispatchIfOnline($account->username, DisconnectReason::OverrideEnded);
                     });
+                }
+            });
+    }
+
+    /**
+     * Customer services past their paid-until date, not yet handled: marked expired once; a static IP is held, its
+     * Framed-IP-Address taken out of radreply, and the customer disconnected once, so the next login takes a pool
+     * address. A late or stopped scheduler catches up here: until then FreeRADIUS still sends the IP (unless another
+     * sync of the customer, such as a save, ran after paid-until).
+     */
+    private function lapseServices(LapseCustomerService $lapse, CarbonImmutable $now): void
+    {
+        CustomerService::query()
+            ->whereNull('ended_at')
+            ->whereNull('expired_at')
+            ->where('paid_until', '<=', $now)
+            ->with('account')
+            ->chunkById(100, function (Collection $services) use ($lapse): void {
+                foreach ($services as $service) {
+                    $this->safely(function () use ($lapse, $service): void {
+                        if ($lapse->handle($service) && $service->account !== null) {
+                            DisconnectAccount::dispatchIfOnline($service->account->username, DisconnectReason::StaticIpExpired);
+                        }
+                    });
+                }
+            });
+    }
+
+    /**
+     * Static IPs whose hold ran out: the service ends and the IP goes back to the free pool. No disconnect: the IP
+     * was not sent since it lapsed. A renewal that commits after this query wins (checked again under the lock).
+     */
+    private function releaseHeldIps(ReleaseServiceIp $release, CarbonImmutable $now): void
+    {
+        CustomerService::query()
+            ->whereNull('ended_at')
+            ->whereNotNull('held_until')
+            ->where('held_until', '<=', $now)
+            ->chunkById(100, function (Collection $services) use ($release): void {
+                foreach ($services as $service) {
+                    $this->safely(fn () => $release->handle($service, 'Hold ended', 'service-ip-released', ReleaseServiceIp::HOLD_ENDED));
                 }
             });
     }

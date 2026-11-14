@@ -7,6 +7,7 @@ use App\Enums\InvoiceStatus;
 use App\Exceptions\InvoiceAlreadyCancelled;
 use App\Exceptions\InvoiceHasPayments;
 use App\Models\AdvanceRenewal;
+use App\Models\CustomerServiceRenewal;
 use App\Models\Invoice;
 use App\Models\Recharge;
 use Carbon\CarbonInterface;
@@ -39,11 +40,12 @@ final class ReissueInvoice
             }
 
             $new = $this->issue->handle($old->account, $lines, $roundOff, $old->kind, $issueDate, null, $old->period_from,
-                $old->period_to, $old->validity_text, $old->recharge_id, $old);
+                $old->period_to, $old->validity_text, $old->recharge_id, $old, $old->customer_service_id);
             $this->cancel->handle($old->id, $reason, $new->number);
 
             Recharge::query()->where('invoice_id', $old->id)->update(['invoice_id' => $new->id, 'amount' => $new->total]);
             AdvanceRenewal::query()->where('invoice_id', $old->id)->update(['invoice_id' => $new->id, 'amount' => $new->total]);
+            CustomerServiceRenewal::query()->where('invoice_id', $old->id)->update(['invoice_id' => $new->id, 'amount' => $new->total]);
 
             return $new;
         }, attempts: 3);

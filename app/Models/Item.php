@@ -75,6 +75,7 @@ class Item extends Model
      */
     public function isUsed(): bool
     {
-        return InvoiceLine::query()->where('item_id', $this->id)->exists();
+        return InvoiceLine::query()->where('item_id', $this->id)->exists()
+            || CustomerService::query()->where('item_id', $this->id)->exists();
     }
 }

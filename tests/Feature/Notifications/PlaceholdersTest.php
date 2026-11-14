@@ -58,6 +58,9 @@ it('fills every value a rule can use', function () {
         'selfcare_url' => url('/selfcare'),
         'selfcare_password' => '********',
         'pppoe_password' => '********',
+        'service' => '',
+        'service_expiry' => '',
+        'static_ip' => '',
     ])->and($result['trimmed'])->toBeFalse();
 });
 

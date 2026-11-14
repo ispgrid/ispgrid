@@ -27,6 +27,7 @@ use App\Models\Account;
 use App\Models\AccountAttribute;
 use App\Models\AddressList;
 use App\Models\AppSetting;
+use App\Models\CustomerService;
 use App\Models\Invoice;
 use App\Models\Nas;
 use App\Models\NotificationLog;
@@ -210,7 +211,7 @@ new #[Title('Customer')] class extends Component
             'connection' => __('Connection'),
             'sessions' => __('Sessions'),
             'recharges' => __('Recharges'),
-            'billing' => $this->showsBilling() ? __('Billing') : null,
+            'billing' => $this->showsBilling() || $this->showsServices ? __('Billing') : null,
             'messages' => Gate::allows('view-notification-log') ? __('Messages') : null,
             'activity' => __('Activity'),
         ];
@@ -223,6 +224,26 @@ new #[Title('Customer')] class extends Component
         uasort($tabs, fn (array $a, array $b): int => $a['order'] <=> $b['order']);
 
         return array_map(fn (array $tab): string => $tab['label'], $tabs);
+    }
+
+    /**
+     * The Services card on the Billing tab: for staff who manage services, or anyone who sees the customer once they
+     * have a service. Shown with invoicing off too, since services run without invoices.
+     */
+    #[Computed]
+    public function showsServices(): bool
+    {
+        return Gate::allows('manage-customer-services') || CustomerService::query()->where('account_id', $this->accountId)->exists();
+    }
+
+    /**
+     * The invoices, payments and statement on the Billing tab: for staff with View invoices, while invoicing is on or
+     * the customer has invoices.
+     */
+    #[Computed]
+    public function showsInvoices(): bool
+    {
+        return $this->showsBilling();
     }
 
     /**
@@ -1234,6 +1255,11 @@ new #[Title('Customer')] class extends Component
                 'pool' => $account->pool?->name,
                 'devices' => implode(', ', array_column($devices, 'mac')),
             ], fn (?string $value): bool => $value !== null && $value !== '');
+
+            // Every service ends with the customer (a restore does not bring them back); the delete below frees the
+            // static IP and its own entry records it.
+            CustomerService::query()->where('account_id', $account->id)->whereNull('ended_at')
+                ->update(['ended_at' => now(), 'ended_by' => auth()->id(), 'end_reason' => 'Customer deleted']);
 
             $account->disableLogging();
             $account->update(['ip_id' => null, 'pool_id' => null]);

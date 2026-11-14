@@ -6,8 +6,10 @@ use App\Enums\ServiceType;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;
+use App\Models\CustomerService;
 use App\Models\Ip;
 use App\Models\Ipoe;
+use App\Models\Item;
 use App\Models\Nas;
 use App\Models\Plan;
 use App\Models\Pool;
@@ -276,4 +278,31 @@ it('gives a waiting customer the validity row back when they are restored', func
     syncAccount($account);
 
     expect(array_column(userRows('radcheck', 'hs1'), 2, 0))->toHaveKey('Hotspot-First-Login-Validity', '180');
+});
+
+it('keeps a fixed ip that no service owns', function () {
+    $ip = Ip::factory()->create(['address' => '10.10.10.50']);
+    $account = Account::factory()->create(['ip_id' => $ip->id, 'expiry' => now()->subYear()]);
+
+    syncAccount($account);
+
+    expect(userRows('radreply', $account->username))->toContain(['Framed-IP-Address', ':=', '10.10.10.50']);
+});
+
+it('stops sending the fixed ip once the static ip service is past paid until', function () {
+    $ip = Ip::factory()->create(['address' => '10.10.10.51']);
+    $pool = Pool::factory()->create(['name' => 'pppoe-pool']);
+    $account = Account::factory()->create(['ip_id' => $ip->id, 'pool_id' => $pool->id]);
+    $service = CustomerService::factory()->for($account)->for(Item::factory()->staticIp())
+        ->create(['ip_id' => $ip->id, 'paid_until' => now()->addMinute()]);
+
+    syncAccount($account);
+    expect(userRows('radreply', $account->username))->toContain(['Framed-IP-Address', ':=', '10.10.10.51']);
+
+    $service->update(['paid_until' => now()->subMinute()]);
+    syncAccount($account);
+
+    expect(array_column(userRows('radreply', $account->username), 0))->not->toContain('Framed-IP-Address')
+        ->and(userRows('radreply', $account->username))->toContain(['Framed-Pool', ':=', 'pppoe-pool'])
+        ->and($ip->fresh()->is_used)->toBeTrue();
 });

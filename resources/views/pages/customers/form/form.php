@@ -14,6 +14,7 @@ use App\Enums\AccountStatus;
 use App\Enums\DisconnectReason;
 use App\Enums\IpRangeKind;
 use App\Enums\Permission;
+use App\Enums\ServiceKind;
 use App\Enums\ServiceType;
 use App\Enums\ValidityUnit;
 use App\Jobs\DisconnectAccount;
@@ -24,6 +25,7 @@ use App\Models\Address;
 use App\Models\AddressList;
 use App\Models\AppSetting;
 use App\Models\ConnectionType;
+use App\Models\CustomerService;
 use App\Models\Ip;
 use App\Models\IpRange;
 use App\Models\Nas;
@@ -404,6 +406,17 @@ new #[Title('Customer')] class extends Component
         return collect(Hotspot::serviceTypes())
             ->mapWithKeys(fn (ServiceType $type): array => [$type->value => $type->label()])
             ->all();
+    }
+
+    /**
+     * Whether a Static IP service owns the customer's fixed IP: the IP field is then read-only, a save keeps the
+     * stored IP whatever the form sends, and the type stays PPPoE until the service ends.
+     */
+    #[Computed]
+    public function ipManagedByService(): bool
+    {
+        return $this->accountId !== null && CustomerService::query()->where('account_id', $this->accountId)->whereNull('ended_at')
+            ->whereHas('item', fn ($query) => $query->where('service_kind', ServiceKind::StaticIp->value))->exists();
     }
 
     /**
@@ -835,6 +848,15 @@ new #[Title('Customer')] class extends Component
                 $previousIpId = $account?->ip_id;
                 $previousType = $account?->service_type;
                 $this->refuseTypeChange($previousType, $account);
+
+                // Read under the account lock, which every service action takes first.
+                if ($account !== null && $account->staticIpService()->exists()) {
+                    if (ServiceType::from($this->service_type) !== ServiceType::Ppp) {
+                        throw ValidationException::withMessages(['service_type' => __('End the Static IP service first.')]);
+                    }
+
+                    $columns['ip_id'] = $account->ip_id;
+                }
                 $oldAddress = $account?->address;
                 $columns['address_id'] = $this->saveAddress($oldAddress);
                 $oldBillingAddress = $account?->billingAddress;
@@ -1198,6 +1220,10 @@ new #[Title('Customer')] class extends Component
      */
     private function ipErrors(): array
     {
+        if ($this->ipManagedByService) {
+            return [];
+        }
+
         $error = CustomerRules::ipError($this->ip_address, $this->accountId, $this->isIpoe);
 
         return $error === null ? [] : ['ip_address' => $error];

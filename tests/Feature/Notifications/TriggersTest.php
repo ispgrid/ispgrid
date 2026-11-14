@@ -66,9 +66,9 @@ it('describes a rule in one line', function () {
         ->and(AfterExpiry::summary(['days' => 2]))->toBe('2 days after expiry');
 });
 
-it('registers the seven built-in triggers', function () {
+it('registers the nine built-in triggers', function () {
     expect(array_keys(app(NotificationRegistry::class)->triggers()))
-        ->toBe(['before_expiry', 'after_expiry', 'recharge_done', 'customer_created', 'online_payment_received', 'selfcare_login', 'pppoe_password']);
+        ->toBe(['before_expiry', 'after_expiry', 'recharge_done', 'customer_created', 'online_payment_received', 'selfcare_login', 'pppoe_password', 'service_expiring', 'service_expired']);
 });
 
 it('catches up next morning on a same-day message for a plan that ended after the sending hours', function () {
