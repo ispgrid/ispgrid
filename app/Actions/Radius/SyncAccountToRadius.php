@@ -176,7 +176,7 @@ class SyncAccountToRadius
         $isIpoe = $account->service_type === ServiceType::Ipoe;
         $rows = [];
 
-        if ($account->ip !== null && ! $isIpoe) {
+        if ($account->ip !== null && ! $isIpoe && ! $account->staticIpLapsed()) {
             $rows[] = ['Framed-IP-Address', ':=', $account->ip->address];
         }
 

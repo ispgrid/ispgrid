@@ -2,6 +2,7 @@
 
 use App\Actions\Customers\AddCustomerService;
 use App\Actions\Customers\RenewCustomerService;
+use App\Actions\Radius\SyncAccountToRadius;
 use App\Billing\Statement;
 use App\Enums\InvoiceKind;
 use App\Exceptions\CannotAddService;
@@ -186,6 +187,8 @@ it('counts an unpaid service invoice toward the customer dues', function () {
 it('tells the caller to disconnect when a lapsed static ip is renewed', function () {
     $service = addService($this->account, $this->item, 1);
     $service->update(['paid_until' => now()->subDays(2), 'expired_at' => now()->subDays(2), 'held_until' => now()->addDays(28)]);
+    app(SyncAccountToRadius::class)->handle($this->account->fresh());
+    expect(framedIp($this->account))->toBeNull();
 
     $disconnect = app(RenewCustomerService::class)->handle($service->fresh(), 1, '300', null);
 

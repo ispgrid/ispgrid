@@ -7,6 +7,7 @@ use App\Enums\AccountStatus;
 use App\Enums\AdvanceRenewalStatus;
 use App\Enums\ServiceKind;
 use App\Enums\ServiceType;
+use Carbon\CarbonInterface;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -246,6 +247,26 @@ class Account extends Model
     {
         return $this->hasOne(CustomerService::class)->whereNull('ended_at')
             ->whereHas('item', fn ($query) => $query->where('service_kind', ServiceKind::StaticIp->value))->latestOfMany();
+    }
+
+    /**
+     * Whether the customer's fixed IP belongs to a Static IP service whose paid-until has passed: FreeRADIUS then
+     * gets no Framed-IP-Address (the pool applies), while the IP stays reserved. Decided by the date, not by the
+     * scheduler having run, so a login after paid-until never gets the IP. A fixed IP no service owns never lapses.
+     */
+    public function staticIpLapsed(?CarbonInterface $now = null): bool
+    {
+        if ($this->ip_id === null) {
+            return false;
+        }
+
+        return CustomerService::query()
+            ->where('account_id', $this->id)
+            ->where('ip_id', $this->ip_id)
+            ->whereNull('ended_at')
+            ->where('paid_until', '<=', $now ?? now())
+            ->whereHas('item', fn ($query) => $query->where('service_kind', ServiceKind::StaticIp->value))
+            ->exists();
     }
 
     /**

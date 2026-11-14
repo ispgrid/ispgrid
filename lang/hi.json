@@ -1669,5 +1669,6 @@
     "Service expired": "सेवा समाप्त हुई",
     "Service renewal cancelled": "सेवा नवीनीकरण रद्द",
     "Service renewed": "सेवा नवीनीकृत",
-    "Static IP released": "स्टैटिक IP छोड़ा गया"
+    "Static IP released": "स्टैटिक IP छोड़ा गया",
+    "Until released": "छोड़े जाने तक"
 }
