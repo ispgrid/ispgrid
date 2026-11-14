@@ -365,3 +365,17 @@ it('refuses an invoice title longer than the 20 characters an invoice stores', f
         ->call('save')
         ->assertHasNoErrors();
 });
+
+it('holds an expired static ip for 30 days unless set otherwise, 0 to 365', function () {
+    expect(BillingSettings::current()->staticIpHoldDays)->toBe(30);
+
+    $page = billingPageForIndia()->assertSet('static_ip_hold_days', '30');
+
+    $page->set('static_ip_hold_days', '366')->call('save')->assertHasErrors(['static_ip_hold_days']);
+    $page->set('static_ip_hold_days', '-1')->call('save')->assertHasErrors(['static_ip_hold_days']);
+    $page->set('static_ip_hold_days', '0')->call('save')->assertHasNoErrors();
+    expect(BillingSettings::current()->staticIpHoldDays)->toBe(0);
+
+    $page->set('static_ip_hold_days', '365')->call('save')->assertHasNoErrors();
+    expect(BillingSettings::current()->staticIpHoldDays)->toBe(365);
+});

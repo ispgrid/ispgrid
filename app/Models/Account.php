@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\Amount;
 use App\Enums\AccountStatus;
 use App\Enums\AdvanceRenewalStatus;
+use App\Enums\ServiceKind;
 use App\Enums\ServiceType;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -224,6 +225,27 @@ class Account extends Model
         $name = trim((string) $this->fullname);
 
         return $name === '' ? ['name' => $this->username, 'login' => null] : ['name' => $name, 'login' => $this->username];
+    }
+
+    /**
+     * Every service the customer took, ended ones too.
+     *
+     * @return HasMany<CustomerService, $this>
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(CustomerService::class);
+    }
+
+    /**
+     * The Static IP service that is not ended, if any (at most one): it owns ip_id.
+     *
+     * @return HasOne<CustomerService, $this>
+     */
+    public function staticIpService(): HasOne
+    {
+        return $this->hasOne(CustomerService::class)->whereNull('ended_at')
+            ->whereHas('item', fn ($query) => $query->where('service_kind', ServiceKind::StaticIp->value))->latestOfMany();
     }
 
     /**

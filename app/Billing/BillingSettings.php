@@ -32,6 +32,7 @@ final readonly class BillingSettings
         public string $currencyCode,
         public string $invoiceTitle = '', // empty: the tax setup's own title
         public string $receiptTitle = self::RECEIPT_TITLE,
+        public int $staticIpHoldDays = 30, // an expired static IP stays reserved this long; 0 until staff release it
     ) {}
 
     public static function current(): self
@@ -72,6 +73,7 @@ final readonly class BillingSettings
             currencyCode: (string) AppSetting::valueOf('currency_code', 'INR'),
             invoiceTitle: trim($value('invoice_title', '')),
             receiptTitle: trim($value('receipt_title', '')) !== '' ? trim($value('receipt_title', '')) : self::RECEIPT_TITLE,
+            staticIpHoldDays: max(0, min(365, (int) $value('static_ip_hold_days', '30'))),
         );
     }
 

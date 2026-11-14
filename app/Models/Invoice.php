@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * An issued invoice. Everything it prints (company, customer, tax lines, totals) is a copy taken at issue, so a
  * later change to the customer, plan or settings never changes it. It is never edited, only cancelled.
  */
-#[Fillable(['number', 'series', 'sequence', 'account_id', 'recharge_id', 'replaces_invoice_id', 'kind', 'status', 'title', 'issue_date', 'due_date',
+#[Fillable(['number', 'series', 'sequence', 'account_id', 'customer_service_id', 'recharge_id', 'replaces_invoice_id', 'kind', 'status', 'title', 'issue_date', 'due_date',
     'terms_days', 'period_from', 'period_to', 'validity_text', 'place_of_supply', 'tax_setup', 'item_code_label',
     'company', 'customer', 'taxable_total', 'tax_total', 'round_off', 'total', 'paid_total', 'balance',
     'total_in_words', 'user_id', 'cancelled_at', 'cancelled_by', 'cancel_reason'])]
@@ -60,6 +60,16 @@ class Invoice extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class)->withTrashed();
+    }
+
+    /**
+     * The customer service a Service invoice was issued for.
+     *
+     * @return BelongsTo<CustomerService, $this>
+     */
+    public function customerService(): BelongsTo
+    {
+        return $this->belongsTo(CustomerService::class);
     }
 
     /**

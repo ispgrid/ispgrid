@@ -1653,5 +1653,11 @@
     "What you sell besides plans: routers and other goods sold once, and services such as a static IP billed every month. Pick them when you write an invoice.": "प्लान के अलावा आप क्या बेचते हैं: एक बार बिकने वाले राउटर और अन्य सामान, और हर महीने बिल होने वाली सेवाएँ जैसे स्टैटिक IP। इनवॉइस लिखते समय इन्हें चुनें।",
     "pcs, nos, month": "pcs, nos, month",
     "Fills the line from Billing, Items. You can still change it.": "बिलिंग, आइटम से पंक्ति भरता है। आप इसे बाद में भी बदल सकते हैं।",
-    "No item": "कोई आइटम नहीं"
+    "No item": "कोई आइटम नहीं",
+    "0 keeps it until staff release it.": "0 रखने पर यह तब तक रुका रहता है जब तक स्टाफ़ इसे छोड़ न दे।",
+    "Hold an expired static IP for (days)": "समाप्त स्टैटिक IP को इतने दिन रोकें",
+    "Manage customer services (static IP)": "ग्राहक सेवाएँ प्रबंधित करें (स्टैटिक IP)",
+    "static IP expired": "स्टैटिक IP समाप्त",
+    "static IP released": "स्टैटिक IP छोड़ा गया",
+    "static IP renewed": "स्टैटिक IP नवीनीकृत"
 }
