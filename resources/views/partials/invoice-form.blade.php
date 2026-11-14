@@ -10,6 +10,9 @@
 
         @foreach ($lines as $index => $line)
             <div class="grid grid-cols-1 gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" wire:key="line-{{ $index }}">
+                @if ($line['source'] === null && $this->invoiceItemOptions !== [])
+                    <x-ui.select wire:model="lines.{{ $index }}.item_id" wire:change="pickItem({{ $index }}, $event.target.value)" :label="__('Item')" :options="$this->invoiceItemOptions" :placeholder="__('No item')" :description="__('Fills the line from Billing, Items. You can still change it.')" />
+                @endif
                 <div class="flex items-end gap-2">
                     <div class="min-w-0 flex-1">
                         <x-ui.input wire:model="lines.{{ $index }}.description" :label="__('Description')" maxlength="255" />

@@ -25,6 +25,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('customers/{account}/edit', 'pages::customers.form')->name('customers.edit');
     Route::livewire('invoices', 'pages::invoices.index')->name('invoices.index');
     Route::livewire('invoices/{invoice}', 'pages::invoices.show')->name('invoices.show');
+    Route::livewire('items', 'pages::items.index')->name('items.index');
     Route::livewire('payments', 'pages::payments.index')->name('payments.index');
     Route::livewire('online-payments', 'pages::payments.online')->name('online-payments.index');
     Route::livewire('payments/{payment}', 'pages::payments.show')->name('payments.show')->withTrashed();

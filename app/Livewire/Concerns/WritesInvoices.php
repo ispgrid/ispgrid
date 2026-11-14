@@ -14,10 +14,13 @@ use App\Exceptions\InvoiceHasPayments;
 use App\Exceptions\InvoicingNotReady;
 use App\Models\Account;
 use App\Models\Invoice;
+use App\Models\Item;
 use App\Support\Currency;
 use App\Support\Money;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 
@@ -29,9 +32,10 @@ use Livewire\Attributes\Locked;
 trait WritesInvoices
 {
     /**
-     * The lines, round off and issue date (Y-m-d). A line's source is its position on the invoice being reissued.
+     * The lines, round off and issue date (Y-m-d). A line's source is its position on the invoice being reissued;
+     * item_id is the catalog item a new line was filled from.
      *
-     * @var list<array{description: string, details: string, quantity: string, unit_price: string, discount: string, taxed: bool, item_code: string, source: ?int}>
+     * @var list<array{description: string, details: string, quantity: string, unit_price: string, discount: string, taxed: bool, item_code: string, item_id: ?int, source: ?int}>
      */
     public array $lines = [];
 
@@ -54,6 +58,14 @@ trait WritesInvoices
     #[Locked]
     public array $line_discounts = [];
 
+    /**
+     * Cancel and reissue: the old lines' catalog items by position, kept whatever the browser sends.
+     *
+     * @var list<?int>
+     */
+    #[Locked]
+    public array $line_items = [];
+
     public string $reissue_reason = '';
 
     abstract public function account(): Account;
@@ -70,6 +82,26 @@ trait WritesInvoices
     public function itemCodeLabel(): ?string
     {
         return BillingSettings::current()->tax()->itemCodeLabel();
+    }
+
+    /**
+     * The items a new line can be filled from: active and sold once, by name.
+     *
+     * @return Collection<int, Item>
+     */
+    #[Computed]
+    public function invoiceItems(): Collection
+    {
+        return Item::query()->active()->oneTime()->orderBy('name')->get();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function invoiceItemOptions(): array
+    {
+        return $this->invoiceItems->mapWithKeys(fn (Item $item): array => [$item->id => $item->name])->all();
     }
 
     #[Computed]
@@ -129,6 +161,7 @@ trait WritesInvoices
         $this->resetValidation();
         $this->reissuing_invoice_id = null;
         $this->line_discounts = [];
+        $this->line_items = [];
         $this->lines = [$this->blankLine()];
         $this->round_off = false;
         $this->invoice_date = now()->format('Y-m-d');
@@ -146,10 +179,12 @@ trait WritesInvoices
         $invoice = $this->ownInvoice($invoiceId);
         $this->reissuing_invoice_id = $invoice->id;
         $this->line_discounts = [];
+        $this->line_items = [];
         $this->lines = [];
 
         foreach ($invoice->lines as $index => $line) {
             $this->line_discounts[] = ['percent' => Decimal::trim((string) $line->discount_percent), 'amount' => (string) $line->discount_amount];
+            $this->line_items[] = $line->item_id;
             $this->lines[] = [
                 'description' => $line->description,
                 'details' => (string) $line->sub_description,
@@ -158,6 +193,7 @@ trait WritesInvoices
                 'discount' => Decimal::trim((string) $line->discount_percent),
                 'taxed' => (bool) $line->taxed,
                 'item_code' => (string) $line->item_code,
+                'item_id' => $line->item_id,
                 'source' => $index,
             ];
         }
@@ -175,6 +211,37 @@ trait WritesInvoices
         if (count($this->lines) < 20) {
             $this->lines[] = $this->blankLine();
         }
+    }
+
+    /**
+     * Fills a new line from a catalog item: description, more details, unit price, tax and (India GST, when the
+     * item has one) its code. Staff can edit the line after. "No item" only unlinks it.
+     */
+    public function pickItem(int $index, string $itemId): void
+    {
+        $this->authorizeLive('create-invoices');
+
+        if (! isset($this->lines[$index]) || $this->lines[$index]['source'] !== null) {
+            return;
+        }
+
+        $item = ctype_digit($itemId) ? Item::query()->active()->oneTime()->find((int) $itemId) : null;
+
+        if ($item === null) {
+            $this->lines[$index]['item_id'] = null;
+
+            return;
+        }
+
+        $this->lines[$index] = [
+            ...$this->lines[$index],
+            'description' => $item->name,
+            'details' => (string) $item->description,
+            'unit_price' => Decimal::trim((string) $item->price),
+            'taxed' => $item->taxable,
+            'item_code' => $this->itemCodeLabel !== null && $item->item_code !== null ? $item->item_code : $this->lines[$index]['item_code'],
+            'item_id' => $item->id,
+        ];
     }
 
     public function removeLine(int $index): void
@@ -274,7 +341,28 @@ trait WritesInvoices
             'lines.*.item_code' => ['nullable', 'string', 'max:20'],
             'round_off' => ['boolean'],
             'invoice_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            ...$this->lineItemRules(),
         ];
+    }
+
+    /**
+     * A new line may point at an active one-time item only. A reissued line keeps its old item (line_items), so
+     * what the browser sends for it is not checked and not used.
+     *
+     * @return array<string, list<mixed>>
+     */
+    private function lineItemRules(): array
+    {
+        $rules = [];
+
+        foreach ($this->lines as $index => $line) {
+            if (($line['source'] ?? null) === null) {
+                $rules["lines.{$index}.item_id"] = ['nullable', 'integer',
+                    Rule::exists(Item::class, 'id')->where('active', true)->where('sold_as', 'one_time')];
+            }
+        }
+
+        return $rules;
     }
 
     /**
@@ -302,7 +390,7 @@ trait WritesInvoices
     }
 
     /**
-     * @return array{description: string, details: string, quantity: string, unit_price: string, discount: string, taxed: bool, item_code: string, source: ?int}
+     * @return array{description: string, details: string, quantity: string, unit_price: string, discount: string, taxed: bool, item_code: string, item_id: ?int, source: ?int}
      */
     private function blankLine(): array
     {
@@ -311,6 +399,7 @@ trait WritesInvoices
         return [
             'description' => '', 'details' => '', 'quantity' => '1', 'unit_price' => '', 'discount' => '0', 'taxed' => true,
             'item_code' => $settings->tax()->itemCodeLabel() === null ? '' : ($settings->taxConfig['item_code'] ?? ''),
+            'item_id' => null,
             'source' => null,
         ];
     }
@@ -328,6 +417,8 @@ trait WritesInvoices
 
         return array_map(function (array $line) use ($codes): LineInput {
             $old = is_int($line['source'] ?? null) ? ($this->line_discounts[$line['source']] ?? null) : null;
+            $itemId = is_int($line['source'] ?? null) ? ($this->line_items[$line['source']] ?? null)
+                : (is_numeric($line['item_id'] ?? null) ? (int) $line['item_id'] : null);
             $percent = $this->canDiscount ? (is_numeric($line['discount']) ? (string) $line['discount'] : '0') : ($old['percent'] ?? '0');
             $fixed = $old !== null && Decimal::compare($old['percent'], '0') === 0 && Decimal::compare($old['amount'], '0') > 0
                 && Decimal::compare($percent, '0') === 0;
@@ -341,6 +432,7 @@ trait WritesInvoices
                 discountPercent: $percent,
                 taxed: (bool) $line['taxed'],
                 discountAmount: $fixed ? $old['amount'] : null,
+                itemId: $itemId,
             );
         }, $this->lines);
     }

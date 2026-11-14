@@ -112,7 +112,7 @@ it('opens Cancel and reissue filled in from the invoice and issues the replaceme
         ->assertSet('reissuing_invoice_id', $old->id)
         ->assertSet('invoice_date', '2026-10-15')
         ->assertSet('lines', [['description' => 'Router', 'details' => 'Dual band', 'quantity' => '1', 'unit_price' => '1000.00',
-            'discount' => '10', 'taxed' => true, 'item_code' => '8517', 'source' => 0]])
+            'discount' => '10', 'taxed' => true, 'item_code' => '8517', 'item_id' => null, 'source' => 0]])
         ->call('reissueInvoice')
         ->assertHasErrors(['reissue_reason' => 'required'])
         ->set('lines.0.unit_price', '900')

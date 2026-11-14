@@ -110,5 +110,5 @@ it('shows an add-on item in the Add-ons group, between Notifications and System'
         ->assertSee('Fixture add-on');
 
     expect(array_column(app(Navigation::class)->forUser($admin, request()), 'name'))
-        ->toBe(['main', 'network', 'notifications', 'addons', 'system']);
+        ->toBe(['main', 'network', 'notifications', 'billing', 'addons', 'system']);
 });

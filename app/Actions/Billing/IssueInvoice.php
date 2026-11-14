@@ -114,6 +114,7 @@ final class IssueInvoice
             foreach ($draft->lines as $position => $line) {
                 $invoice->lines()->create([
                     'position' => $position + 1,
+                    'item_id' => $line->input->itemId,
                     'description' => $line->input->description,
                     'sub_description' => $line->input->subDescription,
                     'item_code' => $line->input->itemCode,
