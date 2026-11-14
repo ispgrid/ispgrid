@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Customers\AddCustomerService;
+use App\Actions\Customers\ReleaseServiceIp;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Enums\AccountStatus;
 use App\Enums\DisconnectReason;
@@ -139,11 +140,28 @@ it('leaves the service alone when the plan expires or the customer is suspended'
         ->and($this->ip->fresh()->is_used)->toBeTrue();
 });
 
-it('sends no fixed ip to a fresh login after paid until even before the scheduler runs', function () {
+it('drops the fixed ip at the first sync after paid until, before the scheduler marks it', function () {
     $this->travelTo(Carbon::parse('2026-12-14 10:00:30'));
 
     app(SyncAccountToRadius::class)->handle($this->account->fresh());
 
     expect(staticIpSent($this->account))->toBeFalse()
         ->and($this->service->fresh()->expired_at)->toBeNull();
+});
+
+it('does not release a held ip that was renewed meanwhile', function () {
+    $this->service->update(['paid_until' => now()->addMonth(), 'expired_at' => null, 'held_until' => null]);
+
+    $result = app(ReleaseServiceIp::class)->handle($this->service, 'Hold ended', 'service-ip-released', ReleaseServiceIp::HOLD_ENDED);
+
+    expect($result)->toBeNull()
+        ->and($this->service->fresh()->ended_at)->toBeNull()
+        ->and($this->account->fresh()->ip_id)->toBe($this->ip->id);
+});
+
+it('does not let staff release an ip that was renewed meanwhile', function () {
+    $result = app(ReleaseServiceIp::class)->handle($this->service, 'Released by staff', 'service-ip-released', ReleaseServiceIp::LAPSED);
+
+    expect($result)->toBeNull()
+        ->and($this->service->fresh()->ended_at)->toBeNull();
 });

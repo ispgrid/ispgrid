@@ -22,6 +22,7 @@ enum DisconnectReason: string
     case UsernameChanged = 'username-changed';
     case RechargeCancelled = 'recharge-cancelled';
     case PppoePasswordReset = 'pppoe-password-reset';
+    case StaticIpAdded = 'static-ip-added';
     case StaticIpExpired = 'static-ip-expired';
     case StaticIpRenewed = 'static-ip-renewed';
     case StaticIpReleased = 'static-ip-released';
@@ -43,6 +44,7 @@ enum DisconnectReason: string
             self::UsernameChanged => __('username changed'),
             self::RechargeCancelled => __('recharge cancelled'),
             self::PppoePasswordReset => __('PPPoE password reset by staff'),
+            self::StaticIpAdded => __('static IP added'),
             self::StaticIpExpired => __('static IP expired'),
             self::StaticIpRenewed => __('static IP renewed'),
             self::StaticIpReleased => __('static IP released'),

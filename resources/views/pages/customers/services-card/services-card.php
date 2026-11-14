@@ -288,18 +288,31 @@ new class extends Component
             'item_id' => __('service'), 'ip_address' => __('IP address'), 'start_date' => __('start date'), ...$this->paymentAttributes(),
         ]);
 
+        $ipBefore = Account::withTrashed()->whereKey($this->accountId)->value('ip_id');
+
         try {
-            $addService->handle($this->account, $item, (int) $this->months, Carbon::createFromFormat('!Y-m-d', $this->start_date) ?: now(),
+            $service = $addService->handle($this->account, $item, (int) $this->months, Carbon::createFromFormat('!Y-m-d', $this->start_date) ?: now(),
                 $this->chargedAmount($item), $this->pickedIsStaticIp ? trim($this->ip_address) : null, $this->paymentInput($this->invoiceTotal));
         } catch (CannotAddService $exception) {
-            $this->addError($exception->why === 'ip-invalid' ? 'ip_address' : 'item_id', match ($exception->why) {
+            $this->addError(match ($exception->why) {
+                'ip-invalid' => 'ip_address',
+                'ends-in-past' => 'start_date',
+                default => 'item_id',
+            }, match ($exception->why) {
                 'not-pppoe' => __('A static IP is for PPPoE customers only.'),
                 'has-static-ip' => __('This customer already has a static IP service. Renew it or end it first.'),
                 'not-service' => __('Pick an active service.'),
+                'ends-in-past' => __('With this start date the service would already have ended. Pick a later start date or more months.'),
                 default => $exception->getMessage(),
             });
 
             return;
+        }
+
+        // The customer's fixed IP changed (new, or another one): an online session still has the old address, which
+        // may already be free for someone else.
+        if ($service->ip_id !== null && $service->ip_id !== $ipBefore) {
+            DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::StaticIpAdded);
         }
 
         $this->done('service-add', __('Service added.'));
@@ -421,7 +434,12 @@ new class extends Component
             return;
         }
 
-        $release->handle($service, 'Released by staff', 'service-ip-released');
+        if ($release->handle($service, 'Released by staff', 'service-ip-released', ReleaseServiceIp::LAPSED) === null) {
+            $this->toast(__('Only an expired, held static IP can be released.'), 'danger');
+
+            return;
+        }
+
         $this->done(null, __('IP released.'));
     }
 

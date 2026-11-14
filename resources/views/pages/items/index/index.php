@@ -6,6 +6,7 @@ use App\Enums\ItemType;
 use App\Enums\ServiceKind;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
+use App\Models\CustomerService;
 use App\Models\Item;
 use App\Support\Currency;
 use App\Support\Money;
@@ -174,6 +175,18 @@ new #[Title('Items')] class extends Component
             'price.regex' => __('Enter an amount like 999 or 999.50.'),
         ]);
 
+        if ($item !== null && $this->usedByServices($item)) {
+            foreach (['type' => $item->type->value, 'sold_as' => $item->sold_as->value, 'service_kind' => (string) $item->service_kind?->value] as $field => $stored) {
+                if ((string) $validated[$field] !== $stored) {
+                    $this->addError($field, __('Customer services use this item, so this cannot change. Add a new item instead.'));
+                }
+            }
+
+            if ($this->getErrorBag()->isNotEmpty()) {
+                return;
+            }
+        }
+
         $soldAs = ItemSoldAs::from($validated['sold_as']);
         $code = $this->itemCodeLabel === null ? $item?->item_code : ($validated['item_code'] ?: null);
 
@@ -221,6 +234,24 @@ new #[Title('Items')] class extends Component
         $item->delete();
 
         $this->toast(__('Item deleted.'));
+    }
+
+    /**
+     * Whether customer services were sold from this item: its kind decides how FreeRADIUS treats their IPs, so it
+     * stays as it is.
+     */
+    private function usedByServices(Item $item): bool
+    {
+        return CustomerService::query()->where('item_id', $item->id)->exists();
+    }
+
+    /**
+     * Whether the item open in the dialog has customer services: its type, sold as and kind are shown read-only.
+     */
+    #[Computed]
+    public function kindLocked(): bool
+    {
+        return $this->editingId !== null && CustomerService::query()->where('item_id', $this->editingId)->exists();
     }
 
     private function resetForm(): void

@@ -197,9 +197,10 @@ class RunRenewals extends Command
     }
 
     /**
-     * Customer services past their paid-until date, not yet handled: marked expired once; a static IP is held and the
-     * customer disconnected once, so the next login takes a pool address. A late or stopped scheduler catches up here
-     * (FreeRADIUS already stopped getting the IP at paid-until).
+     * Customer services past their paid-until date, not yet handled: marked expired once; a static IP is held, its
+     * Framed-IP-Address taken out of radreply, and the customer disconnected once, so the next login takes a pool
+     * address. A late or stopped scheduler catches up here: until then FreeRADIUS still sends the IP (unless another
+     * sync of the customer, such as a save, ran after paid-until).
      */
     private function lapseServices(LapseCustomerService $lapse, CarbonImmutable $now): void
     {
@@ -221,7 +222,7 @@ class RunRenewals extends Command
 
     /**
      * Static IPs whose hold ran out: the service ends and the IP goes back to the free pool. No disconnect: the IP
-     * was not sent since it lapsed.
+     * was not sent since it lapsed. A renewal that commits after this query wins (checked again under the lock).
      */
     private function releaseHeldIps(ReleaseServiceIp $release, CarbonImmutable $now): void
     {
@@ -231,7 +232,7 @@ class RunRenewals extends Command
             ->where('held_until', '<=', $now)
             ->chunkById(100, function (Collection $services) use ($release): void {
                 foreach ($services as $service) {
-                    $this->safely(fn () => $release->handle($service, 'Hold ended', 'service-ip-released'));
+                    $this->safely(fn () => $release->handle($service, 'Hold ended', 'service-ip-released', ReleaseServiceIp::HOLD_ENDED));
                 }
             });
     }

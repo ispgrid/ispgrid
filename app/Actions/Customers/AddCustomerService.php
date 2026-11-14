@@ -41,6 +41,10 @@ class AddCustomerService
             $from = $start->copy()->setTimeFrom(now());
             $from = $from->greaterThan(now()) ? now() : $from;
 
+            if (! $from->copy()->addMonthsNoOverflow($months)->greaterThan(now())) {
+                throw new CannotAddService('ends-in-past');
+            }
+
             $service = CustomerService::query()->create([
                 'account_id' => $account->id,
                 'item_id' => $item->id,

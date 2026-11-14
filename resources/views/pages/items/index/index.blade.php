@@ -73,18 +73,20 @@
             <x-ui.input wire:model="name" :label="__('Name')" maxlength="100" required autocomplete="off" />
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <x-ui.select wire:model.live="type" :label="__('Type')" :options="$this->typeOptions" required />
+                <x-ui.select wire:model.live="type" :label="__('Type')" :options="$this->typeOptions" :disabled="$this->kindLocked" required />
                 <x-ui.input wire:model="unit" :label="__('Unit')" :placeholder="__('pcs, nos, month')" maxlength="20" />
             </div>
 
             @if ($type === 'service')
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <x-ui.select wire:model.live="sold_as" :label="__('Sold as')" :options="$this->soldAsOptions" required />
+                    <x-ui.select wire:model.live="sold_as" :label="__('Sold as')" :options="$this->soldAsOptions" :disabled="$this->kindLocked" required />
                     @if ($sold_as === 'service')
-                        <x-ui.select wire:model="service_kind" :label="__('Service kind')" :options="$this->serviceKindOptions" :placeholder="__('Choose')" required />
+                        <x-ui.select wire:model="service_kind" :label="__('Service kind')" :options="$this->serviceKindOptions" :placeholder="__('Choose')" :disabled="$this->kindLocked" required />
                     @endif
                 </div>
-                @if ($sold_as === 'service')
+                @if ($this->kindLocked)
+                    <x-ui.text muted>{{ __('Customer services use this item, so its type and kind stay. Add a new item for a different kind.') }}</x-ui.text>
+                @elseif ($sold_as === 'service')
                     <x-ui.text muted>{{ __('Added to a customer from the Services card on their Billing tab, with its own paid-until date and invoices.') }}</x-ui.text>
                 @endif
             @endif

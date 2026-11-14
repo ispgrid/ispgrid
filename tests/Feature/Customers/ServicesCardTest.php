@@ -254,3 +254,53 @@ it('refuses actions on a deleted customer', function () {
 
     servicesCard($this->account)->assertDontSee(__('Add service'))->call('openAdd')->assertForbidden();
 });
+
+it('disconnects an online customer so they get the new static ip', function () {
+    goOnline('alice');
+
+    servicesCard($this->account)
+        ->call('openAdd')
+        ->set('item_id', (string) $this->staticIp->id)
+        ->set('ip_address', '10.0.0.5')
+        ->set('paid_now', false)
+        ->call('add')
+        ->assertHasNoErrors();
+
+    Queue::assertPushed(DisconnectAccount::class, fn (DisconnectAccount $job): bool => $job->reason === DisconnectReason::StaticIpAdded);
+});
+
+it('does not disconnect when the service takes over the ip the customer already has', function () {
+    $this->account->update(['ip_id' => $this->ip->id]);
+    goOnline('alice');
+
+    servicesCard($this->account)
+        ->call('openAdd')
+        ->set('item_id', (string) $this->staticIp->id)
+        ->set('paid_now', false)
+        ->call('add')
+        ->assertHasNoErrors();
+
+    Queue::assertNothingPushed();
+});
+
+it('refuses a start date and months that end in the past', function () {
+    servicesCard($this->account)
+        ->call('openAdd')
+        ->set('item_id', (string) $this->staticIp->id)
+        ->set('ip_address', '10.0.0.5')
+        ->set('start_date', '2026-09-01')
+        ->set('paid_now', false)
+        ->call('add')
+        ->assertHasErrors(['start_date']);
+
+    expect(CustomerService::query()->count())->toBe(0);
+});
+
+it('releases from the card only a service still lapsed', function () {
+    $service = app(AddCustomerService::class)->handle($this->account, $this->staticIp, 1, now(), '300', '10.0.0.5', null);
+
+    servicesCard($this->account)->call('releaseIp', $service->id)
+        ->assertDispatched('toast', variant: 'danger');
+
+    expect($service->fresh()->ended_at)->toBeNull();
+});
