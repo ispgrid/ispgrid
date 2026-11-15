@@ -27,6 +27,7 @@ class ResyncRadius extends Command
     public function handle(SyncAccountToRadius $accounts, SyncPlanToRadius $plans): int
     {
         $username = $this->argument('username');
+        $username = is_string($username) ? $username : null;
         $all = (bool) $this->option('all');
 
         if ($all === ($username !== null)) {

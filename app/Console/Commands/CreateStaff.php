@@ -25,7 +25,7 @@ class CreateStaff extends Command
 
     public function handle(CreateNewUser $createNewUser): int
     {
-        $email = (string) $this->option('email');
+        $email = $this->input()->string('email')->toString();
         $password = (string) ($this->option('password') ?? (getenv('ISPGRID_STAFF_PASSWORD') ?: $this->secret('Password')));
 
         try {
@@ -34,7 +34,7 @@ class CreateStaff extends Command
             }
 
             $staff = DB::transaction(fn (): User => $createNewUser->create([
-                'name' => (string) $this->option('name'),
+                'name' => $this->input()->string('name')->toString(),
                 'email' => $email,
                 'password' => $password,
                 'password_confirmation' => $password,
