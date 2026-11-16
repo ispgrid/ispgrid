@@ -110,6 +110,8 @@ it('says nothing is due on the pay link of a paid-up or deleted customer', funct
 
 it('answers an unknown name exactly as a customer with nothing to pay', function () {
     Account::factory()->create(['username' => 'paidup']);
+    // The asset tags read public/build and public/hot, which a build or the dev server can change between the two pages.
+    $this->withoutVite();
 
     $unknown = $this->post(route('pay.find'), ['who' => 'nobody'])->assertOk();
     $paidUp = $this->post(route('pay.find'), ['who' => 'paidup'])->assertOk();
