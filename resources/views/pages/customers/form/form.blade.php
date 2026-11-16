@@ -144,12 +144,14 @@
                                 <x-ui.input wire:model="ip_address" english :label="$this->isIpoe ? __('IP address') : __('Static IP')" :description="$this->isIpoe ? __('The address of the customer device. FreeRADIUS finds the customer by it.') : __('Optional. Sent as Framed-IP-Address.')" :required="$this->isIpoe" autocomplete="off" />
                             @endif
                         </div>
-                        <div class="flex flex-wrap items-end gap-3 sm:col-span-2">
-                            <div class="min-w-0 grow">
-                                <x-ui.select wire:model="free_ip_range" :label="__('Range')" :options="$this->ipRanges" :placeholder="__('Choose a range')" />
+                        @unless ($this->ipManagedByService)
+                            <div class="flex flex-wrap items-end gap-3 sm:col-span-2">
+                                <div class="min-w-0 grow">
+                                    <x-ui.select wire:model="free_ip_range" :label="__('Range')" :options="$this->ipRanges" :placeholder="__('Choose a range')" />
+                                </div>
+                                <x-ui.button variant="secondary" wire:click="fillNextFreeIp">{{ __('Next free IP') }}</x-ui.button>
                             </div>
-                            <x-ui.button variant="secondary" wire:click="fillNextFreeIp">{{ __('Next free IP') }}</x-ui.button>
-                        </div>
+                        @endunless
                         @unless ($this->isIpoe)
                             <div class="sm:col-span-2">
                                 <x-ui.select wire:model="pool_id" :label="__('Pool')" :options="$this->pools" :placeholder="__('From the plan')" :description="__('Sent as Framed-Pool instead of the plan pool.')" />

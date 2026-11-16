@@ -11,6 +11,7 @@ use App\Models\Item;
 use App\Support\Currency;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -231,7 +232,18 @@ new #[Title('Items')] class extends Component
             return;
         }
 
-        $item->delete();
+        try {
+            $item->delete();
+        } catch (QueryException $exception) {
+            // An invoice line or service took the item after the check above; its foreign key refused the delete.
+            if (($exception->errorInfo[1] ?? null) !== 1451) {
+                throw $exception;
+            }
+
+            $this->toast(__('This item is in use. Make it inactive instead.'), 'danger');
+
+            return;
+        }
 
         $this->toast(__('Item deleted.'));
     }

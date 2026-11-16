@@ -783,6 +783,10 @@ new #[Title('Customer')] class extends Component
      */
     public function fillNextFreeIp(): void
     {
+        if ($this->ipManagedByService) {
+            return;
+        }
+
         $this->resetErrorBag('ip_address');
 
         if ($this->free_ip_range === '') {
