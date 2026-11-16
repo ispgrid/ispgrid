@@ -128,6 +128,8 @@ if [[ -n "$HTTPS_OK" ]]; then
   env_set "$ISPGRID_HOME/.env" SESSION_SECURE_COOKIE true
 else
   env_set "$ISPGRID_HOME/.env" SESSION_SECURE_COOKIE false
+  #  A server moved back to plain HTTP (--access=local after domain or public) kept its https:// address otherwise.
+  env_set "$ISPGRID_HOME/.env" APP_URL "http://${PANEL_HOST:-$(primary_ip)}"
 fi
 artisan config:cache
 
