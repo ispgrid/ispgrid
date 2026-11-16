@@ -125,8 +125,9 @@ new class extends Component
     {
         $format = (string) AppSetting::valueOf('date_format', 'd/m/Y');
         $now = now();
+        $holdDays = BillingSettings::current()->staticIpHoldDays;
 
-        return $this->services->map(function (CustomerService $service) use ($format, $now): array {
+        return $this->services->map(function (CustomerService $service) use ($format, $now, $holdDays): array {
             $state = $service->state($now);
 
             return [
@@ -136,9 +137,13 @@ new class extends Component
                 'state' => $state,
                 'label' => match ($state) {
                     'active' => __('Active'),
-                    'held' => $service->held_until !== null
-                        ? __('Expired, held until :date', ['date' => $service->held_until->format($format)])
-                        : ($service->expired_at === null || BillingSettings::current()->staticIpHoldDays === 0 ? __('Expired, held until released') : __('Expired, held')),
+                    'held' => match (true) {
+                        $service->held_until !== null => __('Expired, held until :date', ['date' => $service->held_until->format($format)]),
+                        // Not lapsed by the scheduler yet (it runs every minute): the hold it will set.
+                        $service->expired_at === null && $holdDays > 0 => __('Expired, held until :date', ['date' => $service->paid_until->copy()->addDays($holdDays)->format($format)]),
+                        $service->expired_at === null || $holdDays === 0 => __('Expired, held until released'),
+                        default => __('Expired, held'),
+                    },
                     'expired' => __('Expired'),
                     default => __('Ended'),
                 },

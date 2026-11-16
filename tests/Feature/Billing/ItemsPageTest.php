@@ -117,6 +117,16 @@ it('deletes an unused item', function () {
     expect(Item::query()->find($item->id))->toBeNull();
 });
 
+it('keeps an item that is used between the check and the delete', function () {
+    $item = Item::factory()->create();
+    Item::deleting(fn (Item $deleting) => CustomerService::factory()->create(['item_id' => $deleting->id]));
+
+    Livewire::test('pages::items.index')->call('delete', $item->id)
+        ->assertDispatched('toast', message: 'This item is in use. Make it inactive instead.', variant: 'danger');
+
+    expect(Item::query()->find($item->id))->not->toBeNull();
+});
+
 it('refuses every action once the box is taken away', function () {
     $staff = staffHolding(Permission::ManageItems);
     $item = Item::factory()->create();

@@ -769,6 +769,17 @@ it('keeps the ip a static ip service owns whatever the form sends', function (st
         ->and(customerRows('radreply', 'alice')['Framed-IP-Address'])->toBe('10.9.9.5');
 })->with(['another ip' => '10.9.9.6', 'empty' => '']);
 
+it('hides next free ip while a static ip service owns the ip', function () {
+    $account = customerWithStaticIpService();
+    freeIp('10.9.9.6');
+
+    Livewire::test('pages::customers.form', ['account' => $account->id])
+        ->assertDontSee(__('Next free IP'))
+        ->set('free_ip_range', (string) Ip::query()->where('address', '10.9.9.6')->value('ip_range_id'))
+        ->call('fillNextFreeIp')
+        ->assertSet('ip_address', '10.9.9.5');
+});
+
 it('refuses to change the type while a static ip service runs', function (string $type) {
     turnHotspotOn();
     $account = customerWithStaticIpService();

@@ -205,6 +205,17 @@ it('releases a held ip now without a disconnect', function () {
     Queue::assertNothingPushed();
 });
 
+it('shows the hold date of a static ip the scheduler has not lapsed yet', function (string $days, string $label) {
+    AppSetting::put('billing.static_ip_hold_days', $days);
+    $service = app(AddCustomerService::class)->handle($this->account, $this->staticIp, 1, now(), '300', '10.0.0.5', null);
+    $service->update(['paid_until' => now()->subMinute()]);
+
+    servicesCard($this->account)->assertSee($label);
+})->with([
+    '30 days' => ['30', 'Expired, held until 14/12/2026'],
+    'until released' => ['0', 'Expired, held until released'],
+]);
+
 it('refuses release on an active service', function () {
     $service = app(AddCustomerService::class)->handle($this->account, $this->staticIp, 1, now(), '300', '10.0.0.5', null);
 
@@ -281,6 +292,22 @@ it('does not disconnect when the service takes over the ip the customer already 
         ->assertHasNoErrors();
 
     Queue::assertNothingPushed();
+});
+
+it('says the ip was just taken when another customer got it at the same moment', function () {
+    $bob = Account::factory()->create(['username' => 'bob']);
+    // Another staff member gives bob the address after this add checked it was free.
+    CustomerService::creating(fn () => DB::table('accounts')->where('id', $bob->id)->update(['ip_id' => $this->ip->id]));
+
+    servicesCard($this->account)
+        ->call('openAdd')
+        ->set('item_id', (string) $this->staticIp->id)
+        ->set('ip_address', '10.0.0.5')
+        ->call('add')
+        ->assertHasErrors('ip_address');
+
+    expect(CustomerService::query()->count())->toBe(0)
+        ->and($this->account->fresh()->ip_id)->toBeNull();
 });
 
 it('refuses a start date and months that end in the past', function () {

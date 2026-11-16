@@ -15,6 +15,7 @@ use App\Models\Item;
 use App\Support\CustomerRules;
 use App\Support\IpAddress;
 use Carbon\CarbonInterface;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -35,6 +36,20 @@ class AddCustomerService
 
         $static = $item->service_kind === ServiceKind::StaticIp;
 
+        try {
+            return $this->add($account, $item, $months, $start, $amount, $ipAddress, $payment, $static);
+        } catch (UniqueConstraintViolationException $exception) {
+            // Another staff member gave the address to someone else after this add saw it free.
+            if (! $static) {
+                throw $exception;
+            }
+
+            throw new CannotAddService('ip-invalid', __('This address was just given to another customer. Pick another.'));
+        }
+    }
+
+    private function add(Account $account, Item $item, int $months, CarbonInterface $start, string $amount, ?string $ipAddress, ?PaymentInput $payment, bool $static): CustomerService
+    {
         return DB::transaction(function () use ($account, $item, $months, $start, $amount, $ipAddress, $payment, $static): CustomerService {
             $account = Account::query()->lockForUpdate()->findOrFail($account->id);
             $ip = $static ? $this->staticIp($account, (string) $ipAddress) : null;
