@@ -12,6 +12,7 @@ use App\Payments\GatewayStatus;
 use App\Payments\Razorpay\RazorpayGateway;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 const RAZORPAY_KEY_ID = 'rzp_test_KEYIDFORTESTS01';
@@ -187,6 +188,7 @@ it('counts an already captured payment after the capture is refused', function (
     Http::fake([
         '*/v1/orders/'.RAZORPAY_ORDER.'/payments' => Http::sequence()
             ->push(['items' => [razorpayPayment('authorized')]])
+            ->push(['items' => [razorpayPayment('authorized')]])
             ->push(['items' => [razorpayPayment('captured')]]),
         '*/v1/orders/'.RAZORPAY_ORDER => Http::response(['amount' => 70850, 'currency' => 'INR']),
         '*/capture' => Http::response(['error' => ['description' => 'This payment has already been captured']], 400),
@@ -222,8 +224,43 @@ it('lets a captured payment win and never captures a second one', function () {
     expect($result->status)->toBe(GatewayStatus::Paid)->and($result->txnId)->toBe('pay_FIRST')->and(razorpayCaptureCalls())->toBe(0);
 });
 
+it('captures the oldest authorized payment when several arrive newest first', function () {
+    razorpayFake([
+        [...razorpayPayment('authorized', id: 'pay_NEW'), 'created_at' => 1790000500],
+        [...razorpayPayment('authorized', id: 'pay_OLD'), 'created_at' => 1790000100],
+    ]);
+
+    razorpay()->status($this->payment);
+
+    Http::assertSent(fn (ClientRequest $request): bool => $request->url() === RAZORPAY_API.'/v1/payments/pay_OLD/capture');
+    expect(razorpayCaptureCalls())->toBe(1);
+});
+
+it('does not capture when the in-lock re-read shows a captured payment', function () {
+    Http::fake([
+        '*/v1/orders/'.RAZORPAY_ORDER.'/payments' => Http::sequence()
+            ->push(['items' => [razorpayPayment('authorized', id: 'pay_A')]])
+            ->push(['items' => [razorpayPayment('authorized', id: 'pay_A'), razorpayPayment('captured', id: 'pay_B')]]),
+    ]);
+
+    $result = razorpay()->status($this->payment);
+
+    expect($result->status)->toBe(GatewayStatus::Paid)->and($result->txnId)->toBe('pay_B')->and(razorpayCaptureCalls())->toBe(0);
+});
+
+it('stays pending without capturing when the capture lock of the order is held', function () {
+    razorpayFake([razorpayPayment('authorized')]);
+    $lock = Cache::lock('razorpay-capture:'.RAZORPAY_ORDER, 30);
+    expect($lock->get())->toBeTrue();
+
+    expect(razorpay()->status($this->payment)->status)->toBe(GatewayStatus::Pending);
+    expect(razorpayCaptureCalls())->toBe(0);
+
+    $lock->release();
+});
+
 it('ignores payments of another order and needs the saved order id', function () {
-    razorpayFake([[...razorpayPayment('captured'), 'order_id' => 'order_OTHER']]);
+    razorpayFake([[...razorpayPayment('captured'), 'order_id' => 'order_OTHER'], array_diff_key(razorpayPayment('captured', id: 'pay_NOORDER'), ['order_id' => 1])]);
     expect(razorpay()->status($this->payment)->status)->toBe(GatewayStatus::Pending);
 
     $this->payment->update(['gateway_order_id' => null]);

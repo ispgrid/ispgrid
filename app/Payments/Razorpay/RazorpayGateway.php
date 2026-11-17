@@ -16,7 +16,9 @@ use App\Payments\GatewayResult;
 use App\Payments\GatewayStart;
 use App\Payments\GatewayStatus;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -39,6 +41,7 @@ final class RazorpayGateway implements NeedsCustomerDetails, PaymentGateway, Unt
 
     private const HOST = 'https://api.razorpay.com';
 
+    /** The checkout address is fixed by Razorpay and is not covered by the host override. */
     private const CHECKOUT = 'https://api.razorpay.com/v1/checkout/embedded';
 
     /**
@@ -124,17 +127,17 @@ final class RazorpayGateway implements NeedsCustomerDetails, PaymentGateway, Unt
         try {
             $items = $this->paymentsOf($orderId);
             $captured = $this->firstWithStatus($items, 'captured');
-            $authorized = $captured === null ? $this->firstWithStatus($items, 'authorized') : null;
+            $capturedNow = false;
 
-            if ($authorized !== null) {
-                $captured = $this->capture($authorized, $orderId, $payment);
+            if ($captured === null && $this->firstWithStatus($items, 'authorized') !== null) {
+                [$captured, $capturedNow] = $this->captureOne($orderId, $payment);
             }
         } catch (GatewayUnavailable) {
             return new GatewayResult(GatewayStatus::Pending);
         }
 
         if ($captured !== null) {
-            return $this->paid($captured);
+            return $this->paid($captured, $capturedNow);
         }
 
         $last = $items === [] ? null : $items[array_key_last($items)];
@@ -206,7 +209,7 @@ final class RazorpayGateway implements NeedsCustomerDetails, PaymentGateway, Unt
         $items = [];
 
         foreach (is_array($answer['items'] ?? null) ? $answer['items'] : [] as $item) {
-            if (is_array($item) && is_string($item['id'] ?? null) && ($item['order_id'] ?? $orderId) === $orderId) {
+            if (is_array($item) && is_string($item['id'] ?? null) && ($item['order_id'] ?? null) === $orderId) {
                 $items[] = $item;
             }
         }
@@ -230,41 +233,72 @@ final class RazorpayGateway implements NeedsCustomerDetails, PaymentGateway, Unt
     }
 
     /**
-     * Captures an authorized payment, once, only when its amount and currency equal Razorpay's own order and the
-     * attempt. An error (an "already captured" one included) re-reads the payments instead of trusting anything.
+     * Captures one authorized payment of the order. Under a lock per order (a return and a webhook can settle at the
+     * same moment) the payments are read again: a captured one wins and nothing is captured; else the oldest
+     * authorized one (by created_at, then id) is captured, once, only when its amount and currency equal Razorpay's
+     * own order and the attempt. An error (an "already captured" one included) re-reads instead of trusting anything.
+     * Without the lock the answer is "not captured".
      *
-     * @param  array<string, mixed>  $authorized
-     * @return array<string, mixed>|null the captured payment, or null when none is captured
+     * @return array{0: array<string, mixed>|null, 1: bool} the captured payment and whether this call captured it
      *
      * @throws GatewayUnavailable
      */
-    private function capture(array $authorized, string $orderId, OnlinePayment $payment): ?array
+    private function captureOne(string $orderId, OnlinePayment $payment): array
     {
+        try {
+            return Cache::lock('razorpay-capture:'.$orderId, 30)->block(10, fn (): array => $this->captureLocked($orderId, $payment));
+        } catch (LockTimeoutException) {
+            return [null, false];
+        }
+    }
+
+    /**
+     * @return array{0: array<string, mixed>|null, 1: bool}
+     *
+     * @throws GatewayUnavailable
+     */
+    private function captureLocked(string $orderId, OnlinePayment $payment): array
+    {
+        $items = $this->paymentsOf($orderId);
+        $already = $this->firstWithStatus($items, 'captured');
+
+        if ($already !== null) {
+            return [$already, false];
+        }
+
+        $authorized = array_values(array_filter($items, fn (array $item): bool => ($item['status'] ?? null) === 'authorized'));
+        usort($authorized, fn (array $a, array $b): int => [is_int($a['created_at'] ?? null) ? $a['created_at'] : PHP_INT_MAX, $a['id']] <=> [is_int($b['created_at'] ?? null) ? $b['created_at'] : PHP_INT_MAX, $b['id']]);
+        $oldest = $authorized[0] ?? null;
+
+        if ($oldest === null) {
+            return [null, false];
+        }
+
         $order = $this->json('get', '/v1/orders/'.rawurlencode($orderId));
         $minor = GatewayAmount::minor((string) $payment->amount);
 
         if (($order['amount'] ?? null) !== $minor || ($order['currency'] ?? null) !== $payment->currency
-            || ($authorized['amount'] ?? null) !== $minor || ($authorized['currency'] ?? null) !== $payment->currency) {
-            return null;
+            || ($oldest['amount'] ?? null) !== $minor || ($oldest['currency'] ?? null) !== $payment->currency) {
+            return [null, false];
         }
 
         try {
-            $answer = $this->json('post', '/v1/payments/'.rawurlencode((string) $authorized['id']).'/capture', ['amount' => $minor, 'currency' => $payment->currency]);
+            $answer = $this->json('post', '/v1/payments/'.rawurlencode((string) $oldest['id']).'/capture', ['amount' => $minor, 'currency' => $payment->currency]);
 
             if (($answer['status'] ?? null) === 'captured') {
-                return $answer;
+                return [$answer, true];
             }
         } catch (GatewayUnavailable) {
             // fall through to the re-read
         }
 
-        return $this->firstWithStatus($this->paymentsOf($orderId), 'captured');
+        return [$this->firstWithStatus($this->paymentsOf($orderId), 'captured'), false];
     }
 
     /**
      * @param  array<string, mixed>  $captured
      */
-    private function paid(array $captured): GatewayResult
+    private function paid(array $captured, bool $capturedNow): GatewayResult
     {
         $amount = $captured['amount'] ?? null;
         $currency = $captured['currency'] ?? null;
@@ -283,7 +317,9 @@ final class RazorpayGateway implements NeedsCustomerDetails, PaymentGateway, Unt
             status: GatewayStatus::Paid,
             amount: $converted,
             txnId: is_string($captured['id'] ?? null) ? $captured['id'] : null,
-            paidAt: is_int($captured['created_at'] ?? null) ? CarbonImmutable::createFromTimestamp($captured['created_at']) : null,
+            // Razorpay's payment carries only the time it was created, so a capture made now is stamped now; an already
+            // captured payment falls back to that creation time, the nearest it gives.
+            paidAt: $capturedNow ? CarbonImmutable::now() : (is_int($captured['created_at'] ?? null) ? CarbonImmutable::createFromTimestamp($captured['created_at']) : null),
             providerStatus: 'captured',
             raw: $this->safeRaw($captured),
             currency: $currency,
