@@ -1769,5 +1769,12 @@
     "The username you set for the webhook in the PhonePe dashboard.": "PhonePe डैशबोर्ड में वेबहुक के लिए आपने जो यूज़रनेम रखा है।",
     "The password you set for the webhook in the PhonePe dashboard.": "PhonePe डैशबोर्ड में वेबहुक के लिए आपने जो पासवर्ड रखा है।",
     "PhonePe address": "PhonePe का पता",
-    "Empty: the address PhonePe documents for the environment. Set it only if PhonePe moves.": "खाली: PhonePe का बताया हुआ पता। इसे तभी भरें जब PhonePe अपना पता बदले।"
+    "Empty: the address PhonePe documents for the environment. Set it only if PhonePe moves.": "खाली: PhonePe का बताया हुआ पता। इसे तभी भरें जब PhonePe अपना पता बदले।",
+    "test or live. Razorpay keys carry their own mode, this only labels it.": "test या live। Razorpay की कुंजी अपना मोड खुद बताती है, यह सिर्फ़ नाम के लिए है।",
+    "Key ID": "कुंजी ID",
+    "Key secret": "कुंजी का सीक्रेट",
+    "The secret you set for the webhook in the Razorpay dashboard.": "Razorpay डैशबोर्ड में वेबहुक के लिए आपने जो सीक्रेट रखा है।",
+    "Razorpay address": "Razorpay का पता",
+    "Empty: the address Razorpay documents. Set it only if Razorpay moves.": "खाली: Razorpay का बताया हुआ पता। इसे तभी भरें जब Razorpay अपना पता बदले।",
+    "Webhook secret": "वेबहुक सीक्रेट"
 }
