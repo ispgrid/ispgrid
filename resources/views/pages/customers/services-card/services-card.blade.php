@@ -60,65 +60,88 @@
     </x-ui.card>
 
     @if ($this->canManage)
-        <x-ui.modal name="service-add" width="lg">
-            <form wire:submit="add" class="grid grid-cols-1 gap-5" novalidate>
+        <x-ui.modal name="service-add" :width="$this->invoiced ? 'wide' : 'lg'">
+            <x-slot:header>
                 <x-ui.heading size="lg">{{ __('Add service') }}</x-ui.heading>
+            </x-slot:header>
 
+            <form id="service-add-form" wire:submit="add" class="grid grid-cols-1 gap-5" novalidate>
                 @if ($this->itemOptions === [])
                     <x-ui.text>{{ __('No active service items yet. Add one under Billing, Items, sold as a service.') }}</x-ui.text>
                 @else
-                    <x-ui.select wire:model.live="item_id" id="service-add-item" :label="__('Service')" :options="$this->itemOptions" :placeholder="__('Choose')" />
+                    <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->invoiced])>
+                        <div class="grid grid-cols-1 content-start gap-5">
+                            <x-ui.select wire:model.live="item_id" id="service-add-item" :label="__('Service')" :options="$this->itemOptions" :placeholder="__('Choose')" />
 
-                    @if ($this->pickedIsStaticIp)
-                        <div class="flex items-end gap-2">
-                            <div class="min-w-0 flex-1">
-                                <x-ui.input wire:model="ip_address" id="service-add-ip" english :label="__('IP address')" :description="__('Sent to FreeRADIUS while the service is paid. When it expires the customer gets a pool address and the IP stays held for them.')" autocomplete="off" />
+                            @if ($this->pickedIsStaticIp)
+                                <div class="flex items-end gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <x-ui.input wire:model="ip_address" id="service-add-ip" english :label="__('IP address')" :description="__('Sent to FreeRADIUS while the service is paid. When it expires the customer gets a pool address and the IP stays held for them.')" autocomplete="off" />
+                                    </div>
+                                    <x-ui.button size="sm" variant="secondary" wire:click="fillNextFreeIp">{{ __('Next free IP') }}</x-ui.button>
+                                </div>
+                            @endif
+
+                            <div @class(['grid grid-cols-1 gap-4', 'sm:grid-cols-2' => $this->invoiced, 'sm:grid-cols-3' => ! $this->invoiced])>
+                                <x-ui.select wire:model.live="months" id="service-add-months" :label="__('Months')" :options="$this->monthOptions" />
+                                <x-ui.input wire:model="start_date" id="service-add-start" type="date" :label="__('Start date')" />
+                                <x-ui.input wire:model.live.blur="amount" id="service-add-amount" inputmode="decimal" :label="__('Amount')" :readonly="! $this->canPrice" />
                             </div>
-                            <x-ui.button size="sm" variant="secondary" wire:click="fillNextFreeIp">{{ __('Next free IP') }}</x-ui.button>
                         </div>
-                    @endif
 
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <x-ui.select wire:model.live="months" id="service-add-months" :label="__('Months')" :options="$this->monthOptions" />
-                        <x-ui.input wire:model="start_date" id="service-add-start" type="date" :label="__('Start date')" />
-                        <x-ui.input wire:model.live.blur="amount" id="service-add-amount" inputmode="decimal" :label="__('Amount')" :readonly="! $this->canPrice" />
+                        @if ($this->invoiced)
+                            <div class="grid grid-cols-1 content-start gap-5">
+                                @if ($this->pickedItem)
+                                    <p class="-mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Payment') }}</p>
+                                    <x-ui.text>{{ __('Invoice total') }}: <span class="font-semibold tabular-nums">{{ $this->invoiceTotalText }}</span></x-ui.text>
+                                    @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-add', 'panel' => true])
+                                @endif
+                            </div>
+                        @endif
                     </div>
-
-                    @if ($this->invoiced && $this->pickedItem)
-                        <x-ui.text>{{ __('Invoice total') }}: <span class="font-semibold tabular-nums">{{ $this->invoiceTotalText }}</span></x-ui.text>
-                        @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-add'])
-                    @endif
                 @endif
+            </form>
 
+            <x-slot:footer>
                 <div class="flex justify-end gap-2">
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'service-add' })">{{ __('Cancel') }}</x-ui.button>
                     @if ($this->itemOptions !== [])
-                        <x-ui.button type="submit">{{ __('Add service') }}</x-ui.button>
+                        <x-ui.button type="submit" form="service-add-form">{{ __('Add service') }}</x-ui.button>
+                    @endif
+                </div>
+            </x-slot:footer>
+        </x-ui.modal>
+
+        <x-ui.modal name="service-renew" :width="$this->invoiced ? 'wide' : 'lg'">
+            <x-slot:header>
+                <x-ui.heading size="lg">{{ __('Renew :service', ['service' => $this->serviceName]) }}</x-ui.heading>
+            </x-slot:header>
+
+            <form id="service-renew-form" wire:submit="renew" class="grid grid-cols-1 gap-5" novalidate>
+                <x-ui.text muted>{{ __('Adds the months to the paid-until date while it is ahead, else from now.') }}</x-ui.text>
+
+                <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->invoiced])>
+                    <div class="grid grid-cols-1 content-start gap-4 sm:grid-cols-2">
+                        <x-ui.select wire:model.live="months" id="service-renew-months" :label="__('Months')" :options="$this->monthOptions" />
+                        <x-ui.input wire:model.live.blur="amount" id="service-renew-amount" inputmode="decimal" :label="__('Amount')" :readonly="! $this->canPrice" />
+                    </div>
+
+                    @if ($this->invoiced && $serviceId)
+                        <div class="grid grid-cols-1 content-start gap-5">
+                            <p class="-mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Payment') }}</p>
+                            <x-ui.text>{{ __('Invoice total') }}: <span class="font-semibold tabular-nums">{{ $this->invoiceTotalText }}</span></x-ui.text>
+                            @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-renew', 'panel' => true])
+                        </div>
                     @endif
                 </div>
             </form>
-        </x-ui.modal>
 
-        <x-ui.modal name="service-renew" width="lg">
-            <form wire:submit="renew" class="grid grid-cols-1 gap-5" novalidate>
-                <x-ui.heading size="lg">{{ __('Renew :service', ['service' => $this->serviceName]) }}</x-ui.heading>
-                <x-ui.text muted>{{ __('Adds the months to the paid-until date while it is ahead, else from now.') }}</x-ui.text>
-
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <x-ui.select wire:model.live="months" id="service-renew-months" :label="__('Months')" :options="$this->monthOptions" />
-                    <x-ui.input wire:model.live.blur="amount" id="service-renew-amount" inputmode="decimal" :label="__('Amount')" :readonly="! $this->canPrice" />
-                </div>
-
-                @if ($this->invoiced && $serviceId)
-                    <x-ui.text>{{ __('Invoice total') }}: <span class="font-semibold tabular-nums">{{ $this->invoiceTotalText }}</span></x-ui.text>
-                    @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-renew'])
-                @endif
-
+            <x-slot:footer>
                 <div class="flex justify-end gap-2">
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'service-renew' })">{{ __('Cancel') }}</x-ui.button>
-                    <x-ui.button type="submit">{{ __('Renew') }}</x-ui.button>
+                    <x-ui.button type="submit" form="service-renew-form">{{ __('Renew') }}</x-ui.button>
                 </div>
-            </form>
+            </x-slot:footer>
         </x-ui.modal>
 
         <x-ui.modal name="service-cancel">

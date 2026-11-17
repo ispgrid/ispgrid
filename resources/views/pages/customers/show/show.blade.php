@@ -507,28 +507,41 @@
     @endcan
 
     @can('recharge', $this->account)
-        <x-ui.modal name="recharge">
-            <form wire:submit="recharge" class="grid grid-cols-1 gap-5" novalidate>
+        <x-ui.modal name="recharge" :width="$this->rechargeCharge['mode'] === 'invoice' ? 'wide' : 'md'">
+            <x-slot:header>
                 <x-ui.heading size="lg">{{ __('Recharge') }}</x-ui.heading>
+            </x-slot:header>
 
+            <form id="recharge-form" wire:submit="recharge" class="grid grid-cols-1 gap-5" novalidate>
                 @if ($this->rechargeKeepsStatus)
                     <x-ui.alert variant="warning">{{ __('A recharge keeps the status :status. Change the status separately.', ['status' => $this->rechargeKeepsStatus]) }}</x-ui.alert>
                 @endif
 
-                <x-ui.select wire:model.live="recharge_plan_id" :label="__('Plan')" :options="$this->rechargePlans" :placeholder="__('Choose a plan')" />
-                @if ($this->rechargePending !== null)
-                    <x-ui.text>{{ __('Starts at first login: :validity', ['validity' => $this->rechargePending]) }}</x-ui.text>
-                @else
-                    <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
-                @endif
-                @include('partials.billing-breakdown', ['charge' => $this->rechargeCharge, 'amountField' => 'recharge_amount', 'idPrefix' => 'recharge', 'amountDescription' => __('The plan price less the customer discount. Change it for a part payment.')])
-                <x-ui.input wire:model="recharge_note" :label="__('Note')" maxlength="255" />
-
-                <div class="flex justify-end gap-2">
-                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'recharge' })">{{ __('Cancel') }}</x-ui.button>
-                    <x-ui.button type="submit">{{ __('Recharge') }}</x-ui.button>
+                <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->rechargeCharge['mode'] === 'invoice'])>
+                    <div class="grid grid-cols-1 content-start gap-5">
+                        <x-ui.select wire:model.live="recharge_plan_id" :label="__('Plan')" :options="$this->rechargePlans" :placeholder="__('Choose a plan')" />
+                        @if ($this->rechargePending !== null)
+                            <x-ui.text>{{ __('Starts at first login: :validity', ['validity' => $this->rechargePending]) }}</x-ui.text>
+                        @else
+                            <x-ui.input wire:model="recharge_expiry" type="datetime-local" :label="__('Expiry')" :description="__('From the plan validity and the expiry mode in App settings. You can change it.')" />
+                        @endif
+                        @include('partials.billing-breakdown', ['part' => 'left', 'charge' => $this->rechargeCharge, 'amountField' => 'recharge_amount', 'idPrefix' => 'recharge', 'amountDescription' => __('The plan price less the customer discount. Change it for a part payment.')])
+                        <x-ui.input wire:model="recharge_note" :label="__('Note')" maxlength="255" />
+                    </div>
+                    @if ($this->rechargeCharge['mode'] === 'invoice')
+                        <div class="grid grid-cols-1 content-start gap-5">
+                            @include('partials.billing-breakdown', ['part' => 'right', 'charge' => $this->rechargeCharge, 'amountField' => 'recharge_amount', 'idPrefix' => 'recharge', 'amountDescription' => null])
+                        </div>
+                    @endif
                 </div>
             </form>
+
+            <x-slot:footer>
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'recharge' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit" form="recharge-form">{{ __('Recharge') }}</x-ui.button>
+                </div>
+            </x-slot:footer>
         </x-ui.modal>
     @endcan
 </section>
