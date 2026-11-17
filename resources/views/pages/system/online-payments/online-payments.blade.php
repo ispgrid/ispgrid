@@ -67,6 +67,10 @@
                         <x-ui.alert variant="warning">{{ __('This gateway does not take the currency set in App settings.') }}</x-ui.alert>
                     @endunless
 
+                    @if ($gateway['untested'])
+                        <x-ui.alert variant="warning">{{ __('Not yet tested with a live account. Make a small payment first.') }}</x-ui.alert>
+                    @endif
+
                     <x-ui.switch wire:model="enabled.{{ $gateway['key'] }}" id="enabled-{{ $gateway['key'] }}" :label="__('Take payments with this gateway')" />
 
                     @foreach ($gateway['fields'] as $field)

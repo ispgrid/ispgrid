@@ -111,6 +111,11 @@ registers another the same way.
    signature, the status mapping, and a forged return and webhook refused. `tests/Fakes/FakeGateway.php` is the
    smallest complete gateway.
 
+Helpers for gateways: add the marker interface `App\Contracts\UntestedGateway` until a real payment has gone through
+(the settings card then warns staff to make a small payment first), convert amounts with
+`App\Payments\GatewayAmount` (decimal strings to paise or cents and back, never floats), and call a provider's JSON
+API with the `App\Payments\Concerns\CallsGatewayApi` trait, whose errors never carry keys or response bodies.
+
 Abilities a gateway may add later (refunds from the panel, pay links in reminders) come as small extra interfaces,
 so `PaymentGateway` itself does not change.
 
