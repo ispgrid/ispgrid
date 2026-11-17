@@ -81,7 +81,7 @@ final class EditPayment
             $payment->update(['payment_method_id' => $method->id, 'reference' => $reference, 'paid_at' => $paidAt, 'note' => $note, 'proof_path' => $newProof]);
 
             if ($oldProof !== null && $oldProof !== $newProof) {
-                DB::afterCommit(fn () => PaymentProof::delete($oldProof));
+                DB::afterCommit(fn () => rescue(fn () => PaymentProof::delete($oldProof), report: true));
             }
 
             activity()
