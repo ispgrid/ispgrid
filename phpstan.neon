@@ -29,3 +29,5 @@ parameters:
                 - app/Livewire/Concerns/ShowsToasts.php
                 - app/Livewire/Concerns/TakesPayment.php
                 - app/Livewire/Concerns/WritesInvoices.php
+                # Used by the gateways added after this one (until the first one lands).
+                - app/Payments/Concerns/CallsGatewayApi.php

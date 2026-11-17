@@ -1,6 +1,7 @@
 <?php
 
 use App\Billing\BillingSettings;
+use App\Contracts\UntestedGateway;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
@@ -73,7 +74,7 @@ new #[Title('Quick pay')] class extends Component
     }
 
     /**
-     * @return list<array{key: string, label: string, fields: list<array{name: string, label: string, type: string, help: ?string}>, webhook: string, currencyOk: bool, currencies: string}>
+     * @return list<array{key: string, label: string, fields: list<array{name: string, label: string, type: string, help: ?string}>, webhook: string, currencyOk: bool, currencies: string, untested: bool}>
      */
     #[Computed]
     public function gatewayCards(): array
@@ -95,6 +96,7 @@ new #[Title('Quick pay')] class extends Component
                 'webhook' => route('pay.webhook', $key),
                 'currencyOk' => $this->gateways()->supportsCurrency($key),
                 'currencies' => implode(', ', $class::currencies()),
+                'untested' => is_subclass_of($class, UntestedGateway::class),
             ];
         }
 
