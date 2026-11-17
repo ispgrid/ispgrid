@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\Amount;
+use App\Enums\OnlinePaymentOrigin;
 use App\Enums\OnlinePaymentStatus;
 use Database\Factories\OnlinePaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,13 +17,15 @@ use Illuminate\Support\Carbon;
  * gateway, and what the gateway said. public_id is the gateway's order id and the only id in public URLs.
  *
  * @property OnlinePaymentStatus $status
+ * @property OnlinePaymentOrigin $origin
+ * @property string|null $gateway_order_id
  * @property array<string, mixed>|null $gateway_response
  * @property array<string, mixed>|null $gateway_start
  * @property Carbon|null $paid_at
  * @property Carbon|null $settled_at
  * @property Carbon|null $handled_at
  */
-#[Fillable(['public_id', 'account_id', 'gateway', 'amount', 'dues_amount', 'renewal_amount', 'currency', 'renewal_kind',
+#[Fillable(['public_id', 'account_id', 'gateway', 'origin', 'gateway_order_id', 'amount', 'dues_amount', 'renewal_amount', 'currency', 'renewal_kind',
     'renewal_plan_id', 'renewal_expiry_key', 'status', 'gateway_txn_id', 'gateway_status', 'gateway_response', 'paid_at', 'settled_at', 'note',
     'handled_at', 'handled_by', 'handled_note', 'client_ip', 'gateway_start'])]
 class OnlinePayment extends Model
@@ -37,6 +40,7 @@ class OnlinePayment extends Model
     {
         return [
             'status' => OnlinePaymentStatus::class,
+            'origin' => OnlinePaymentOrigin::class,
             'amount' => Amount::class,
             'dues_amount' => Amount::class,
             'renewal_amount' => Amount::class,
