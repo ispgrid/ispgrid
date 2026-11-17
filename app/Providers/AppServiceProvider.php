@@ -33,6 +33,7 @@ use App\Notifications\Triggers\ServiceExpired;
 use App\Notifications\Triggers\ServiceExpiresSoon;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
+use App\Payments\PhonePe\PhonePeGateway;
 use App\Payments\QuickPay;
 use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
@@ -80,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(PaymentGateways::class, function (): PaymentGateways {
             $gateways = new PaymentGateways;
             $gateways->register(PaytmGateway::class);
+            $gateways->register(PhonePeGateway::class);
 
             return $gateways;
         });

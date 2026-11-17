@@ -1760,5 +1760,14 @@
     "Your connection now runs until :date.": "आपका कनेक्शन :date तक चलेगा।",
     "This page updates by itself.": "यह पेज अपने आप अपडेट होता है।",
     "Back to Selfcare": "सेल्फकेयर पर वापस जाएँ",
-    "Not yet tested with a live account. Make a small payment first.": "अभी लाइव अकाउंट से टेस्ट नहीं हुआ है। पहले एक छोटा भुगतान करके देखें।"
+    "Not yet tested with a live account. Make a small payment first.": "अभी लाइव अकाउंट से टेस्ट नहीं हुआ है। पहले एक छोटा भुगतान करके देखें।",
+    "Client ID": "क्लाइंट आईडी",
+    "Client version": "क्लाइंट वर्ज़न",
+    "Client secret": "क्लाइंट सीक्रेट",
+    "Webhook username": "वेबहुक यूज़रनेम",
+    "Webhook password": "वेबहुक पासवर्ड",
+    "The username you set for the webhook in the PhonePe dashboard.": "PhonePe डैशबोर्ड में वेबहुक के लिए आपने जो यूज़रनेम रखा है।",
+    "The password you set for the webhook in the PhonePe dashboard.": "PhonePe डैशबोर्ड में वेबहुक के लिए आपने जो पासवर्ड रखा है।",
+    "PhonePe address": "PhonePe का पता",
+    "Empty: the address PhonePe documents for the environment. Set it only if PhonePe moves.": "खाली: PhonePe का बताया हुआ पता। इसे तभी भरें जब PhonePe अपना पता बदले।"
 }

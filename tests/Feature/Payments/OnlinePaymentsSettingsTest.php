@@ -109,5 +109,6 @@ it('warns on the card of a gateway not yet tested with a live account, and only 
         ->assertSee('Untested gateway')
         ->assertSee(__('Not yet tested with a live account. Make a small payment first.'));
 
-    expect(substr_count($page->html(), __('Not yet tested with a live account. Make a small payment first.')))->toBe(1);
+    // One warning per untested gateway (PhonePe and this one), none on Paytm's card.
+    expect(substr_count($page->html(), __('Not yet tested with a live account. Make a small payment first.')))->toBe(2);
 });
