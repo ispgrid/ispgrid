@@ -1327,6 +1327,7 @@
     "Renewal": "नवीनीकरण",
     "Taking you to the payment page...": "आपको भुगतान पेज पर ले जा रहे हैं...",
     "That page was open too long. Search again.": "वह पेज बहुत देर तक खुला रहा। फिर से खोजें।",
+    "The gateway reports :paid_currency :paid, not :currency :asked. Nothing was recorded.": "गेटवे :paid_currency :paid बता रहा है, :currency :asked नहीं। कुछ भी दर्ज नहीं किया गया।",
     "The gateway reports :currency :paid, not :currency :asked. Nothing was recorded.": "गेटवे :currency :paid बता रहा है, :currency :asked नहीं। कुछ भी दर्ज नहीं किया गया।",
     "The payment could not be started. Try again in a few minutes.": "भुगतान शुरू नहीं हो सका। कुछ मिनट बाद फिर कोशिश करें।",
     "The payment did not go through. If money left your account, your bank returns it in a few days.": "भुगतान पूरा नहीं हुआ। अगर आपके खाते से पैसे कटे हैं, तो बैंक कुछ दिनों में लौटा देगा।",

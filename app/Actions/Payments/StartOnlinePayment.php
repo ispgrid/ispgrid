@@ -5,6 +5,7 @@ namespace App\Actions\Payments;
 use App\Actions\Customers\RechargeAccount;
 use App\Billing\BillingSettings;
 use App\Billing\Decimal;
+use App\Enums\OnlinePaymentOrigin;
 use App\Enums\OnlinePaymentStatus;
 use App\Exceptions\GatewayUnavailable;
 use App\Exceptions\NothingToPay;
@@ -47,7 +48,7 @@ final class StartOnlinePayment
     /**
      * @throws NothingToPay|TooManyPaymentAttempts|GatewayUnavailable
      */
-    public function handle(int $accountId, string $gatewayKey, ?string $clientIp = null): StartedPayment
+    public function handle(int $accountId, string $gatewayKey, ?string $clientIp = null, OnlinePaymentOrigin $origin = OnlinePaymentOrigin::QuickPay): StartedPayment
     {
         if (! in_array($gatewayKey, $this->gateways->enabled(), true)) {
             throw new GatewayUnavailable("The payment gateway {$gatewayKey} is not turned on.");
@@ -55,12 +56,13 @@ final class StartOnlinePayment
 
         $gateway = $this->gateways->make($gatewayKey) ?? throw new GatewayUnavailable("Unknown payment gateway {$gatewayKey}.");
 
-        $opened = DB::transaction(function () use ($accountId, $gatewayKey, $clientIp): OnlinePayment|StartedPayment {
+        $opened = DB::transaction(function () use ($accountId, $gatewayKey, $clientIp, $origin): OnlinePayment|StartedPayment {
             $account = Account::query()->lockForUpdate()->findOrFail($accountId);
             $quote = $this->quickPay->quote($account) ?? throw new NothingToPay;
             $attempt = [
                 'account_id' => $account->id,
                 'gateway' => $gatewayKey,
+                'origin' => $origin,
                 'amount' => $quote->total,
                 'dues_amount' => $quote->dues,
                 'renewal_amount' => $quote->renewal->price ?? '0',
@@ -95,14 +97,14 @@ final class StartOnlinePayment
         }
 
         try {
-            $start = $gateway->start($opened, route('pay.return', $gatewayKey));
+            $start = $gateway->start($opened, route('pay.return', [$gatewayKey, 'attempt' => $opened->public_id]));
         } catch (GatewayUnavailable $refused) {
             $opened->update(['status' => OnlinePaymentStatus::Failed, 'note' => mb_substr($refused->getMessage(), 0, 255)]);
 
             throw $refused;
         }
 
-        $opened->update(['gateway_start' => $start->toArray()]);
+        $opened->update(['gateway_start' => $start->toArray(), 'gateway_order_id' => $start->orderId === null ? null : mb_substr($start->orderId, 0, 100)]);
 
         return new StartedPayment($opened, $start);
     }
@@ -117,6 +119,7 @@ final class StartOnlinePayment
         $candidates = OnlinePayment::query()
             ->where('account_id', $attempt['account_id'])
             ->where('gateway', $attempt['gateway'])
+            ->where('origin', $attempt['origin'])
             ->where('status', OnlinePaymentStatus::Pending)
             ->whereNotNull('gateway_start')
             ->where('created_at', '>=', now()->subMinutes(self::REUSE_MINUTES))

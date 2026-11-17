@@ -94,11 +94,14 @@ registers another the same way.
    - `settingFields()`: merchant ids and keys as `SettingField`s (mark keys `'secret'`), test or live, and a host
      override: gateways move their domains, so never rely on a constant alone.
    - `start($payment, $returnUrl)`: open the payment at the provider (amount `$payment->amount`, order id
-     `$payment->public_id`) and return a `GatewayStart`: `redirect()`, a self-posting `form()`, or the provider's
+     `$payment->public_id`; pass the provider's own order id as `orderId` when it differs, it is kept as
+     `gateway_order_id`) and return a `GatewayStart`: `redirect()`, a self-posting `form()`, or the provider's
      `script()`. Throw `GatewayUnavailable` when the provider refuses. Send no customer name, phone or email unless
      the provider requires it.
    - `status($payment)`: ask the provider server to server and return a `GatewayResult` (`Paid`, `Failed` or
-     `Pending`, the amount taken with two decimals, its transaction id and time). This is the only proof of payment.
+     `Pending`, the amount taken with two decimals, its transaction id and time). This is the only proof of payment. Set `currency` to the ISO code the provider reports: an attempt
+     whose currency differs is never recorded. What a return or webhook carries is never trusted, it only says
+     "check now".
      Leave signatures, tokens and keys out of `raw`. Answer `Pending` when the provider cannot be reached.
    - `verify($request)`: check a return or webhook really comes from the provider (its signature) and return the
      attempt's `public_id`, or null.
