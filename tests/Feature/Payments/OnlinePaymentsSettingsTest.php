@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\UntestedGateway;
 use App\Enums\Permission;
 use App\Models\AppSetting;
 use App\Models\GatewaySetting;
@@ -109,6 +110,8 @@ it('warns on the card of a gateway not yet tested with a live account, and only 
         ->assertSee('Untested gateway')
         ->assertSee(__('Not yet tested with a live account. Make a small payment first.'));
 
-    // One warning per untested gateway (PhonePe and this one), none on Paytm's card.
-    expect(substr_count($page->html(), __('Not yet tested with a live account. Make a small payment first.')))->toBe(2);
+    // One warning per registered UntestedGateway, none on a tested gateway's card (Paytm).
+    $untested = collect(app(PaymentGateways::class)->all())->filter(fn (string $class): bool => is_subclass_of($class, UntestedGateway::class))->count();
+    expect($untested)->toBeGreaterThan(1)
+        ->and(substr_count($page->html(), __('Not yet tested with a live account. Make a small payment first.')))->toBe($untested);
 });

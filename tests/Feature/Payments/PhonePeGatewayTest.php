@@ -201,6 +201,30 @@ it('never takes a completed order of another PhonePe order as paid', function ()
     expect(phonepe()->status($this->payment)->status)->toBe(GatewayStatus::Pending);
 });
 
+it('fetches a fresh token and retries once when the cached one is refused', function () {
+    Cache::put('phonepe.token.test.'.sha1(PHONEPE_ID.'|'.PHONEPE_SANDBOX), 'STALE', now()->addMinutes(30));
+    Http::fake([
+        '*/v1/oauth/token' => Http::response(phonepeToken('FRESH')),
+        '*/checkout/v2/order/*' => Http::sequence()->push(['code' => 'UNAUTHORIZED'], 401)->push(phonepeOrder('COMPLETED')),
+    ]);
+
+    expect(phonepe()->status($this->payment)->status)->toBe(GatewayStatus::Paid);
+
+    Http::assertSent(fn (ClientRequest $request): bool => str_contains($request->url(), '/order/') && $request->header('Authorization') === ['O-Bearer STALE']);
+    Http::assertSent(fn (ClientRequest $request): bool => str_contains($request->url(), '/order/') && $request->header('Authorization') === ['O-Bearer FRESH']);
+    expect(phonepeTokenCalls())->toBe(1);
+});
+
+it('gives up after a second refusal', function () {
+    Http::fake(['*/v1/oauth/token' => Http::response(phonepeToken()), '*/checkout/v2/*' => Http::response(['code' => 'UNAUTHORIZED'], 401)]);
+
+    expect(phonepe()->status($this->payment)->status)->toBe(GatewayStatus::Pending);
+    expect(phonepeTokenCalls())->toBe(2);
+
+    Cache::flush();
+    expect(fn () => phonepe()->start($this->payment, 'https://isp.example/r'))->toThrow(GatewayUnavailable::class);
+});
+
 it('reports pending when the provider cannot be reached or answers an error', function (callable $fake) {
     $fake();
 
@@ -255,17 +279,17 @@ describe('through the routes', function () {
         GatewaySetting::query()->updateOrCreate(['gateway' => 'phonepe'], ['enabled' => true, 'settings' => phonepeSettings()]);
     });
 
-    it('records nothing when a genuine-looking success return meets a status that is not paid', function (array $order) {
+    it('records nothing when a genuine-looking success return meets a status that is not paid', function (array $order, OnlinePaymentStatus $expected) {
         fakePhonepe($order);
 
         $this->get(route('pay.return', ['phonepe', 'attempt' => PHONEPE_ORDER, 'code' => 'PAYMENT_SUCCESS', 'state' => 'COMPLETED', 'amount' => 70850]));
         $this->call('POST', route('pay.webhook', 'phonepe'), [], [], [], phonepeHookHeaders(), phonepeHookBody())->assertOk();
 
         expect(Payment::query()->count())->toBe(0)
-            ->and($this->payment->fresh()->status)->toBeIn([OnlinePaymentStatus::Pending, OnlinePaymentStatus::Failed, OnlinePaymentStatus::NeedsAttention]);
+            ->and($this->payment->fresh()->status)->toBe($expected);
     })->with([
-        'pending' => [phonepeOrder('PENDING')],
-        'failed' => [phonepeOrder('FAILED')],
+        'pending' => [phonepeOrder('PENDING'), OnlinePaymentStatus::Pending],
+        'failed' => [phonepeOrder('FAILED'), OnlinePaymentStatus::Failed],
     ]);
 
     it('marks the attempt for attention when the provider took a lower amount', function () {

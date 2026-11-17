@@ -77,7 +77,7 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
 
     public function start(OnlinePayment $payment, string $returnUrl): GatewayStart
     {
-        $response = $this->sendJson($this->authorized(), 'post', $this->host().'/checkout/v2/pay', [
+        $response = $this->authorizedJson('post', $this->host().'/checkout/v2/pay', [
             'merchantOrderId' => $payment->public_id,
             'amount' => GatewayAmount::minor((string) $payment->amount),
             'expireAfter' => 1200,
@@ -101,7 +101,7 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
     public function status(OnlinePayment $payment): GatewayResult
     {
         try {
-            $order = $this->sendJson($this->authorized(), 'get', $this->host().'/checkout/v2/order/'.rawurlencode($payment->public_id).'/status?details=true');
+            $order = $this->authorizedJson('get', $this->host().'/checkout/v2/order/'.rawurlencode($payment->public_id).'/status?details=true');
             $amount = $this->amount($order['amount'] ?? null);
         } catch (GatewayUnavailable) {
             return new GatewayResult(GatewayStatus::Pending);
@@ -211,11 +211,40 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
     }
 
     /**
+     * Calls the API with the cached token. A 401 means the token went stale early: it is forgotten and the call is
+     * made once more with a fresh one (the trait words a refusal as "answered HTTP 401").
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     *
+     * @throws GatewayUnavailable
+     */
+    private function authorizedJson(string $method, string $url, array $payload = []): array
+    {
+        try {
+            return $this->sendJson($this->authorized(), $method, $url, $payload);
+        } catch (GatewayUnavailable $exception) {
+            if (! str_contains($exception->getMessage(), 'answered HTTP 401')) {
+                throw $exception;
+            }
+        }
+
+        Cache::forget($this->tokenCacheKey());
+
+        return $this->sendJson($this->authorized(), $method, $url, $payload);
+    }
+
+    /**
      * @throws GatewayUnavailable
      */
     private function authorized(): PendingRequest
     {
         return Http::withHeaders(['Authorization' => 'O-Bearer '.$this->token()]);
+    }
+
+    private function tokenCacheKey(): string
+    {
+        return 'phonepe.token.'.$this->environment().'.'.sha1($this->setting('client_id').'|'.$this->tokenHost());
     }
 
     /**
@@ -226,7 +255,7 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
      */
     private function token(): string
     {
-        $cacheKey = 'phonepe.token.'.$this->environment().'.'.sha1($this->setting('client_id').'|'.$this->tokenHost());
+        $cacheKey = $this->tokenCacheKey();
         $cached = Cache::get($cacheKey);
 
         if (is_string($cached) && $cached !== '') {
