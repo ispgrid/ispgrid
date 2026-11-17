@@ -41,7 +41,7 @@
         @endif
 
         @if ($this->upi)
-            @include('partials.upi-box', ['upi' => $this->upi])
+            @include('partials.upi-box', ['upi' => $this->upi, 'heading' => $this->renew['kind'] === 'upi' ? __('Pay by UPI') : __('Or pay by UPI')])
         @endif
     </section>
 

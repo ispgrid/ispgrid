@@ -6,6 +6,9 @@ use Closure;
 use finfo;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * The screenshot kept with a manual payment (a UPI screenshot, a cheque photo), on the private billing disk at
@@ -39,17 +42,25 @@ final class PaymentProof
     }
 
     /**
-     * Keeps the file for this payment and returns its path.
+     * Keeps the file for this payment and returns its path: payments/{id}/proof.{ext}, or with $unique a name that
+     * never overwrites an earlier file (a replacement, so the old file can go only after the change is saved).
      */
-    public static function store(int $paymentId, UploadedFile $file): string
+    public static function store(int $paymentId, UploadedFile $file, bool $unique = false): string
     {
         $extension = self::extensionOf($file);
-        abort_if($extension === null, 422);
-        $path = "payments/{$paymentId}/proof.{$extension}";
 
-        Storage::disk(self::DISK)->put($path, (string) file_get_contents($file->getRealPath()));
+        if ($extension === null) {
+            throw new InvalidArgumentException('The screenshot must be a JPEG, PNG, WebP or PDF.');
+        }
 
-        return $path;
+        $name = ($unique ? 'proof-'.Str::random(16) : 'proof').'.'.$extension;
+        $stored = Storage::disk(self::DISK)->putFileAs("payments/{$paymentId}", $file, $name);
+
+        if ($stored === false) {
+            throw new RuntimeException('The screenshot could not be stored.');
+        }
+
+        return $stored;
     }
 
     public static function delete(?string $path): void

@@ -110,7 +110,8 @@ it('shows the UPI box instead of the support number when quick pay is closed and
     actingAsCustomer(customerOn($this->plan, ['expiry' => now()->subDay()]));
 
     $this->get(route('selfcare.dashboard'))->assertOk()
-        ->assertSee('shop@okbank')->assertDontSee(__('To renew, call us: :phone', ['phone' => '+91 98765 00000']));
+        ->assertSee('shop@okbank')->assertSee(__('Pay by UPI'))->assertDontSee(__('To renew, call us: :phone', ['phone' => '+91 98765 00000']))
+        ->assertDontSeeHtml('href="'.route('pay.show').'"');
 });
 
 it('shows no UPI box in Selfcare for a USD panel', function () {

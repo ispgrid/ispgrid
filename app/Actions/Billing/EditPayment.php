@@ -4,12 +4,14 @@ namespace App\Actions\Billing;
 
 use App\Billing\PaymentProof;
 use App\Billing\Pdf\ReceiptView;
+use App\Enums\PaymentProofChange;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Corrects how and when a payment came in: its method, reference, received at and staff note. The amount and the invoice stay
@@ -25,7 +27,23 @@ final class EditPayment
 
     public function handle(int $paymentId, int $methodId, ?string $reference, CarbonInterface $paidAt, ?string $note = null, ?UploadedFile $proof = null, bool $removeProof = false): void
     {
-        DB::transaction(function () use ($paymentId, $methodId, $reference, $paidAt, $note, $proof, $removeProof): void {
+        $stored = null;
+
+        try {
+            $this->save($paymentId, $methodId, $reference, $paidAt, $note, $proof, $removeProof, $stored);
+        } catch (Throwable $failure) {
+            PaymentProof::delete($stored);
+
+            throw $failure;
+        }
+    }
+
+    /**
+     * @param  ?string  $stored  set to the new file's path as soon as it is stored, so a failed save can delete it
+     */
+    private function save(int $paymentId, int $methodId, ?string $reference, CarbonInterface $paidAt, ?string $note, ?UploadedFile $proof, bool $removeProof, ?string &$stored): void
+    {
+        DB::transaction(function () use ($paymentId, $methodId, $reference, $paidAt, $note, $proof, $removeProof, &$stored): void {
             $payment = Payment::query()->with(['method', 'invoice'])->lockForUpdate()->findOrFail($paymentId);
 
             if ($payment->method?->gateway !== null) {
@@ -45,14 +63,14 @@ final class EditPayment
             $newProof = $oldProof;
 
             if ($proof !== null) {
-                $newProof = PaymentProof::store($payment->id, $proof);
+                $newProof = $stored = PaymentProof::store($payment->id, $proof, unique: true);
             } elseif ($removeProof) {
                 $newProof = null;
             }
 
             if ($newProof !== $oldProof || $proof !== null) {
-                $old['screenshot'] = $oldProof === null ? null : 'on file';
-                $new['screenshot'] = $newProof === null ? 'removed' : ($oldProof === null ? 'added' : 'replaced');
+                $old['screenshot'] = $oldProof === null ? null : PaymentProofChange::OnFile->value;
+                $new['screenshot'] = ($newProof === null ? PaymentProofChange::Removed : ($oldProof === null ? PaymentProofChange::Added : PaymentProofChange::Replaced))->value;
                 $changed[] = 'screenshot';
             }
 
@@ -63,7 +81,7 @@ final class EditPayment
             $payment->update(['payment_method_id' => $method->id, 'reference' => $reference, 'paid_at' => $paidAt, 'note' => $note, 'proof_path' => $newProof]);
 
             if ($oldProof !== null && $oldProof !== $newProof) {
-                PaymentProof::delete($oldProof);
+                DB::afterCommit(fn () => PaymentProof::delete($oldProof));
             }
 
             activity()

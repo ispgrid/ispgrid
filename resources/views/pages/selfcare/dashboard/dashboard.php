@@ -79,7 +79,7 @@ new class extends Component
         $phone = trim((string) AppSetting::valueOf('notice_phone', ''));
 
         if (! QuickPay::isOpen()) {
-            $owed = UpiDetails::current() === null ? null : app(QuickPay::class)->quote($account);
+            $owed = $this->upiDetails === null ? null : app(QuickPay::class)->quote($account);
 
             if ($owed !== null) {
                 return ['kind' => 'upi', 'label' => __('Pay :amount', ['amount' => Money::fromSettings()->format($owed->total)]), 'url' => null];
@@ -111,12 +111,21 @@ new class extends Component
     }
 
     /**
+     * The UPI details once per render (null without INR or when none are set).
+     */
+    #[Computed]
+    public function upiDetails(): ?UpiDetails
+    {
+        return UpiDetails::current();
+    }
+
+    /**
      * The operator's UPI details, shown in the Renew card when there is something to pay (null without INR).
      */
     #[Computed]
     public function upi(): ?UpiDetails
     {
-        return in_array($this->renew['kind'], ['pay', 'upi'], true) ? UpiDetails::current() : null;
+        return in_array($this->renew['kind'], ['pay', 'upi'], true) ? $this->upiDetails : null;
     }
 
     /**

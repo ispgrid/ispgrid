@@ -163,8 +163,7 @@ new #[Title('Quick pay')] class extends Component
         if ($this->upi_qr !== null) {
             $disk = Storage::disk(UpiDetails::DISK);
             $previous = (string) AppSetting::valueOf('billing.upi_qr', '');
-            $path = UpiDetails::DIRECTORY.'/qr-'.Str::random(16).'.'.UpiDetails::qrExtension($this->upi_qr);
-            $disk->put($path, (string) file_get_contents((string) $this->upi_qr->getRealPath()));
+            $path = (string) $disk->putFileAs(UpiDetails::DIRECTORY, $this->upi_qr, 'qr-'.Str::random(16).'.'.UpiDetails::qrExtension($this->upi_qr));
             AppSetting::put('billing.upi_qr', $path);
 
             if ($previous !== '') {

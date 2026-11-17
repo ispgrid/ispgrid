@@ -1730,7 +1730,7 @@
     "Screenshot replaced": "स्क्रीनशॉट बदला गया",
     "Screenshot removed": "स्क्रीनशॉट हटाया गया",
     "On file": "सहेजा हुआ",
-    "The :attribute must be a picture (JPG, PNG, WebP) or a PDF.": "अनुरोध है कि :attribute एक तस्वीर (JPG, PNG, WebP) या PDF हो।",
+    "The :attribute must be a picture (JPG, PNG, WebP) or a PDF.": ":attribute एक तस्वीर (JPG, PNG, WebP) या PDF होनी चाहिए।",
     "After paying, send the screenshot on WhatsApp to :phone.": "भुगतान के बाद स्क्रीनशॉट WhatsApp पर :phone पर भेजें।",
     "The :attribute must be a PNG, JPG or WebP picture.": ":attribute PNG, JPG या WebP तस्वीर होनी चाहिए।",
     "QR picture": "QR तस्वीर",

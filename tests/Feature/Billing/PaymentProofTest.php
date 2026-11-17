@@ -1,11 +1,13 @@
 <?php
 
+use App\Actions\Billing\EditPayment;
 use App\Actions\Billing\IssueInvoice;
 use App\Billing\Pdf\ReceiptView;
 use App\Enums\InvoiceKind;
 use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\Payment;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -101,6 +103,27 @@ it('sends a guest to the login page', function () {
     $this->get(route('payments.proof', $payment))->assertRedirect(route('login'));
 });
 
+it('serves a PDF screenshot as a download, never inline', function () {
+    $payment = paymentWithProof($this);
+    Storage::disk('billing')->put('payments/'.$payment->id.'/proof.pdf', "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF");
+    $payment->update(['proof_path' => 'payments/'.$payment->id.'/proof.pdf']);
+
+    $response = $this->get(route('payments.proof', $payment))->assertOk();
+
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment');
+});
+
+it('keeps the old file when the edit fails after storing a new one, and deletes the new one', function () {
+    $payment = paymentWithProof($this);
+    $old = $payment->proof_path;
+
+    expect(fn () => app(EditPayment::class)->handle($payment->id, 999999, null, now(), null, UploadedFile::fake()->image('new.jpg', 20, 20)))
+        ->toThrow(ModelNotFoundException::class);
+
+    Storage::disk('billing')->assertExists($old);
+    expect(Storage::disk('billing')->allFiles('payments/'.$payment->id))->toBe([$old]);
+});
+
 it('downloads instead of showing a file whose bytes are not a picture or PDF', function () {
     $payment = paymentWithProof($this);
     Storage::disk('billing')->put($payment->proof_path, '<html><script>alert(1)</script></html>');
@@ -121,7 +144,7 @@ it('adds a screenshot in Edit payment and logs it', function () {
         ->call('editPayment')
         ->assertHasNoErrors();
 
-    expect($payment->fresh()->proof_path)->toBe("payments/{$payment->id}/proof.jpg");
+    expect($payment->fresh()->proof_path)->toMatch("#^payments/{$payment->id}/proof-[A-Za-z0-9]{16}\.jpg$#");
     Storage::disk('billing')->assertExists($payment->fresh()->proof_path);
     expect(Activity::query()->where('event', 'payment-edited')->sole()->attribute_changes->get('attributes'))->toBe(['screenshot' => 'added']);
 });
@@ -137,7 +160,7 @@ it('replaces and removes the screenshot in Edit payment', function () {
         ->assertHasNoErrors();
 
     $replaced = $payment->fresh()->proof_path;
-    expect($replaced)->toBe("payments/{$payment->id}/proof.jpg");
+    expect($replaced)->toMatch('#^payments/'.$payment->id.'/proof-[A-Za-z0-9]{16}\.jpg$#');
     Storage::disk('billing')->assertMissing($old);
     Storage::disk('billing')->assertExists($replaced);
 
@@ -185,6 +208,7 @@ it('does not let staff without record-payments change the screenshot', function 
 it('never links the screenshot in Selfcare or on the receipt', function () {
     $payment = Payment::factory()->create(['invoice_id' => $this->invoice->id, 'proof_path' => 'payments/1/proof.png']);
     $receipt = view('pdf.receipt', ['receipt' => ReceiptView::for($payment)])->render();
+    $receiptUrl = route('selfcare.receipt', $payment->id);
 
     expect($receipt)->not->toContain('proof')
         ->and(json_encode(ReceiptView::for($payment)))->not->toContain('proof');
@@ -192,5 +216,5 @@ it('never links the screenshot in Selfcare or on the receipt', function () {
     turnSelfcareOn();
     auth()->logout();
     actingAsCustomer($this->account);
-    $this->get(route('selfcare.dashboard'))->assertOk()->assertDontSee('/proof');
+    $this->get(route('selfcare.dashboard'))->assertOk()->assertSee($receiptUrl)->assertDontSee('/proof')->assertDontSee('proof.png');
 });

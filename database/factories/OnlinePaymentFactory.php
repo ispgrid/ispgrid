@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\OnlinePaymentOrigin;
 use App\Enums\OnlinePaymentStatus;
 use App\Models\Account;
 use App\Models\OnlinePayment;
@@ -22,6 +23,8 @@ class OnlinePaymentFactory extends Factory
             'public_id' => strtoupper((string) Str::ulid()),
             'account_id' => Account::factory(),
             'gateway' => 'fake',
+            'origin' => OnlinePaymentOrigin::QuickPay,
+            'gateway_order_id' => null,
             'amount' => '590.00',
             'dues_amount' => '590.00',
             'renewal_amount' => '0.00',
