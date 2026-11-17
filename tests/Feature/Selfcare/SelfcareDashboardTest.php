@@ -32,13 +32,13 @@ it('shows plan, expiry and status', function () {
         ->assertSee('30/11/2026 18:00')->assertSee(__('Suspended'));
 });
 
-it('links renew to the quick pay page with the amount', function () {
+it('shows a Pay online button in Renew with the amount', function () {
     turnQuickPayOn('7');
     $account = customerOn($this->plan, ['expiry' => now()->addDays(3)]);
     actingAsCustomer($account);
 
     $this->get(route('selfcare.dashboard'))->assertOk()
-        ->assertSee(route('pay.code', PayCode::for($account->id)))
+        ->assertSee(__('Pay online'))->assertDontSee(route('pay.code', PayCode::for($account->id)))
         ->assertSee(__('Renew for :amount', ['amount' => '₹590.00'])); // 500 plus 18% GST
 });
 

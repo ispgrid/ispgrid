@@ -53,6 +53,48 @@ class OnlinePayment extends Model
     }
 
     /**
+     * How the attempt reads to the customer: received (paid, or paid and waiting for staff), pending or failed.
+     *
+     * @return 'received'|'pending'|'failed'
+     */
+    public function publicState(): string
+    {
+        return match ($this->status) {
+            OnlinePaymentStatus::Paid, OnlinePaymentStatus::NeedsAttention => 'received',
+            OnlinePaymentStatus::Pending => 'pending',
+            OnlinePaymentStatus::Failed => 'failed',
+        };
+    }
+
+    /**
+     * The ids of the payments this paid attempt recorded (none until it is paid).
+     *
+     * @return list<int>
+     */
+    public function receiptIds(): array
+    {
+        if ($this->status !== OnlinePaymentStatus::Paid) {
+            return [];
+        }
+
+        $ids = Payment::query()->where('account_id', $this->account_id)->where('reference', $this->gateway_txn_id ?? $this->public_id)
+            ->whereHas('method', fn ($query) => $query->where('gateway', $this->gateway))
+            ->orderBy('id')->pluck('id')->all();
+
+        return array_values(array_map(intval(...), $ids));
+    }
+
+    /**
+     * The receipt numbers (RCPT-n) of receiptIds().
+     *
+     * @return list<string>
+     */
+    public function receiptNumbers(): array
+    {
+        return array_map(fn (int $id): string => 'RCPT-'.$id, $this->receiptIds());
+    }
+
+    /**
      * @return BelongsTo<Account, $this>
      */
     public function account(): BelongsTo

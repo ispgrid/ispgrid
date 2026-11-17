@@ -1318,6 +1318,7 @@
     "Nothing to pay for this username or number.": "इस यूज़रनेम या नंबर पर कुछ भी देय नहीं है।",
     "Pay :amount": ":amount का भुगतान करें",
     "Pay :amount with :gateway": ":gateway से :amount का भुगतान करें",
+    "Pay online": "ऑनलाइन भुगतान करें",
     "Pay your bill": "अपने बिल का भुगतान करें",
     "Payment": "भुगतान",
     "Payment of :amount received. Thank you!": ":amount का भुगतान मिल गया। धन्यवाद!",
@@ -1327,6 +1328,7 @@
     "Renewal": "नवीनीकरण",
     "Taking you to the payment page...": "आपको भुगतान पेज पर ले जा रहे हैं...",
     "That page was open too long. Search again.": "वह पेज बहुत देर तक खुला रहा। फिर से खोजें।",
+    "The gateway reports :paid_currency :paid, not :currency :asked. Nothing was recorded.": "गेटवे :paid_currency :paid बता रहा है, :currency :asked नहीं। कुछ भी दर्ज नहीं किया गया।",
     "The gateway reports :currency :paid, not :currency :asked. Nothing was recorded.": "गेटवे :currency :paid बता रहा है, :currency :asked नहीं। कुछ भी दर्ज नहीं किया गया।",
     "The payment could not be started. Try again in a few minutes.": "भुगतान शुरू नहीं हो सका। कुछ मिनट बाद फिर कोशिश करें।",
     "The payment did not go through. If money left your account, your bank returns it in a few days.": "भुगतान पूरा नहीं हुआ। अगर आपके खाते से पैसे कटे हैं, तो बैंक कुछ दिनों में लौटा देगा।",
@@ -1751,5 +1753,11 @@
     "UPI settings changed": "UPI सेटिंग्स बदली गईं",
     "Pay by UPI": "UPI से भुगतान करें",
     "Or pay by UPI": "या UPI से भुगतान करें",
-    "Copy": "कॉपी करें"
+    "Copy": "कॉपी करें",
+    "Mobile number needed for this payment option, contact us.": "इस भुगतान विकल्प के लिए मोबाइल नंबर चाहिए, कृपया हमसे संपर्क करें।",
+    "Email address needed for this payment option, contact us.": "इस भुगतान विकल्प के लिए ईमेल पता चाहिए, कृपया हमसे संपर्क करें।",
+    "That payment option is not available. Search again or call us.": "यह भुगतान विकल्प उपलब्ध नहीं है। फिर से खोजें या हमें कॉल करें।",
+    "Your connection now runs until :date.": "आपका कनेक्शन :date तक चलेगा।",
+    "This page updates by itself.": "यह पेज अपने आप अपडेट होता है।",
+    "Back to Selfcare": "सेल्फकेयर पर वापस जाएँ"
 }

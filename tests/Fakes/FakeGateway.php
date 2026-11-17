@@ -77,7 +77,7 @@ final class FakeGateway implements PaymentGateway
             'order' => $payment->public_id,
             'amount' => (string) $payment->amount,
             'return' => $returnUrl,
-        ]);
+        ], 'FAKE-'.$payment->public_id);
     }
 
     public function status(OnlinePayment $payment): GatewayResult
@@ -95,10 +95,10 @@ final class FakeGateway implements PaymentGateway
     }
 
     /**
-     * Marks the payment paid at the "provider", for the amount given (its own amount by default).
+     * Marks the payment paid at the "provider", for the amount and currency given (its own by default).
      */
-    public static function pay(OnlinePayment $payment, ?string $amount = null): void
+    public static function pay(OnlinePayment $payment, ?string $amount = null, ?string $currency = null): void
     {
-        self::$results[$payment->public_id] = new GatewayResult(GatewayStatus::Paid, $amount ?? (string) $payment->amount, 'TXN'.$payment->id, now(), 'SUCCESS', ['note' => 'test']);
+        self::$results[$payment->public_id] = new GatewayResult(GatewayStatus::Paid, $amount ?? (string) $payment->amount, 'TXN'.$payment->id, now(), 'SUCCESS', ['note' => 'test'], $currency ?? $payment->currency);
     }
 }

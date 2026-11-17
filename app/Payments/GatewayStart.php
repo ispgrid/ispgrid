@@ -4,7 +4,7 @@ namespace App\Payments;
 
 /**
  * Where a gateway sends the customer to pay: a plain redirect, a form the page posts by itself, or the provider's
- * script with its data attributes.
+ * script with its data attributes. $orderId is the id the provider gave the order, when it is not our public id.
  */
 final readonly class GatewayStart
 {
@@ -16,35 +16,36 @@ final readonly class GatewayStart
         public string $kind,
         public string $url,
         public array $fields = [],
+        public ?string $orderId = null,
     ) {}
 
-    public static function redirect(string $url): self
+    public static function redirect(string $url, ?string $orderId = null): self
     {
-        return new self('redirect', $url);
+        return new self('redirect', $url, [], $orderId);
     }
 
     /**
      * @param  array<string, string>  $fields
      */
-    public static function form(string $action, array $fields): self
+    public static function form(string $action, array $fields, ?string $orderId = null): self
     {
-        return new self('form', $action, $fields);
+        return new self('form', $action, $fields, $orderId);
     }
 
     /**
      * @param  array<string, string>  $data
      */
-    public static function script(string $src, array $data): self
+    public static function script(string $src, array $data, ?string $orderId = null): self
     {
-        return new self('script', $src, $data);
+        return new self('script', $src, $data, $orderId);
     }
 
     /**
-     * @return array{kind: string, url: string, fields: array<string, string>}
+     * @return array{kind: string, url: string, fields: array<string, string>, orderId: ?string}
      */
     public function toArray(): array
     {
-        return ['kind' => $this->kind, 'url' => $this->url, 'fields' => $this->fields];
+        return ['kind' => $this->kind, 'url' => $this->url, 'fields' => $this->fields, 'orderId' => $this->orderId];
     }
 
     /**
@@ -57,11 +58,12 @@ final readonly class GatewayStart
         $kind = $stored['kind'] ?? null;
         $url = $stored['url'] ?? null;
         $fields = $stored['fields'] ?? [];
+        $orderId = $stored['orderId'] ?? null;
 
         if (! in_array($kind, ['redirect', 'form', 'script'], true) || ! is_string($url) || ! is_array($fields)) {
             return null;
         }
 
-        return new self($kind, $url, array_map(strval(...), array_filter($fields, is_scalar(...))));
+        return new self($kind, $url, array_map(strval(...), array_filter($fields, is_scalar(...))), is_string($orderId) ? $orderId : null);
     }
 }

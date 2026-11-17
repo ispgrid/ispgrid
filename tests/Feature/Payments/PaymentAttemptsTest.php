@@ -3,6 +3,7 @@
 use App\Actions\Billing\IssueInvoice;
 use App\Actions\Payments\StartOnlinePayment;
 use App\Enums\InvoiceKind;
+use App\Enums\OnlinePaymentOrigin;
 use App\Enums\OnlinePaymentStatus;
 use App\Exceptions\TooManyPaymentAttempts;
 use App\Models\Account;
@@ -32,6 +33,7 @@ it('reuses the open attempt when the customer presses Pay again', function () {
 
     expect($again->payment->public_id)->toBe($first->payment->public_id)
         ->and($again->start)->toEqual($first->start)
+        ->and($again->payment->fresh()->gateway_order_id)->toBe('FAKE-'.$first->payment->public_id)
         ->and(FakeGateway::$starts)->toBe(1)
         ->and(OnlinePayment::query()->count())->toBe(1);
 });
@@ -45,6 +47,29 @@ it('reuses an open attempt that renews the plan', function () {
 
     expect($first->payment->renewal_plan_id)->toBe($plan->id)
         ->and($again->payment->public_id)->toBe($first->payment->public_id);
+});
+
+it('passes the attempt id in the return url', function () {
+    $started = payFrom($this->account, '203.0.113.5');
+
+    expect($started->start->fields['return'])->toEndWith('?attempt='.$started->payment->public_id);
+});
+
+it('keeps the gateway order id from the start', function () {
+    $started = payFrom($this->account, '203.0.113.5');
+
+    expect($started->payment->fresh()->gateway_order_id)->toBe('FAKE-'.$started->payment->public_id)
+        ->and($started->start->orderId)->toBe('FAKE-'.$started->payment->public_id);
+});
+
+it('does not reuse a quick pay attempt for a Selfcare payment', function () {
+    $quick = payFrom($this->account, '203.0.113.5');
+    $selfcare = app(StartOnlinePayment::class)->handle($this->account->id, 'fake', '203.0.113.5', OnlinePaymentOrigin::Selfcare);
+
+    expect($selfcare->payment->public_id)->not->toBe($quick->payment->public_id)
+        ->and($quick->payment->fresh()->origin)->toBe(OnlinePaymentOrigin::QuickPay)
+        ->and($selfcare->payment->fresh()->origin)->toBe(OnlinePaymentOrigin::Selfcare)
+        ->and(OnlinePayment::query()->count())->toBe(2);
 });
 
 it('keeps the gateway start encrypted', function () {

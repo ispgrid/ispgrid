@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Payments\SettleOnlinePayment;
+use App\Enums\OnlinePaymentOrigin;
+use App\Models\OnlinePayment;
 use App\Payments\PaymentGateways;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +23,7 @@ class PaymentGatewayController extends Controller
         $publicId = $gateways->make($gateway)?->verify($request);
 
         if ($publicId === null) {
-            return redirect()->route('pay.show')->with('pay_message', __('We could not confirm that payment here. If money was taken, it is confirmed within a few minutes.'));
+            return redirect()->route('pay.show', ['unconfirmed' => 1]);
         }
 
         try {
@@ -30,7 +32,12 @@ class PaymentGatewayController extends Controller
             report($exception); // the scheduled check settles it later
         }
 
-        return redirect()->route('pay.result', $publicId);
+        // The row verify() resolved decides where to go, never the query string.
+        $origin = OnlinePayment::query()->where('public_id', $publicId)->value('origin');
+
+        return $origin === OnlinePaymentOrigin::Selfcare
+            ? redirect()->route('selfcare.payment', $publicId)
+            : redirect()->route('pay.result', $publicId);
     }
 
     public function webhook(Request $request, string $gateway, PaymentGateways $gateways, SettleOnlinePayment $settle): Response
