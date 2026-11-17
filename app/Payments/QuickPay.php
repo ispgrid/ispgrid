@@ -25,13 +25,13 @@ use Illuminate\Database\Eloquent\Collection;
 final class QuickPay
 {
     /**
-     * Whether the pay page is open: quick pay and invoicing on, and a gateway to pay with.
+     * Whether the pay page is open: quick pay and invoicing on, and a way to pay: a gateway, or UPI details.
      */
     public static function isOpen(): bool
     {
         return AppSetting::valueOf('billing.quick_pay', '0') === '1'
             && BillingSettings::current()->canIssue()
-            && app(PaymentGateways::class)->enabled() !== [];
+            && (app(PaymentGateways::class)->enabled() !== [] || UpiDetails::current() !== null);
     }
 
     /**

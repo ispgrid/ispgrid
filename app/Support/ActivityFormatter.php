@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Billing\India\GstStates;
 use App\Enums\AccountStatus;
 use App\Enums\DisconnectReason;
+use App\Enums\PaymentProofChange;
 use App\Models\Account;
 use App\Models\AddressList;
 use App\Models\AppSetting;
@@ -174,6 +175,7 @@ final class ActivityFormatter
             'online-payment' => __('Online payment'),
             'online-payment-handled' => __('Online payment handled'),
             'quick-pay-settings' => __('Quick pay settings changed'),
+            'upi-settings' => __('UPI settings changed'),
             'selfcare-login' => __('Selfcare login'),
             'selfcare-login-failed' => __('Selfcare login failed'),
             'selfcare-switch' => __('Selfcare connection opened'),
@@ -273,6 +275,7 @@ final class ActivityFormatter
             'connection_type_id' => self::name(ConnectionType::class, $text, 'name'),
             'ip_id' => self::name(Ip::class, $text, 'address'),
             'reason' => DisconnectReason::tryFrom($text)?->label(),
+            'screenshot' => PaymentProofChange::tryFrom($text)?->label(),
             default => null,
         };
 

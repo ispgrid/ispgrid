@@ -209,3 +209,38 @@ it('speaks the panel language', function () {
 
     $this->get(route('pay.show'))->assertSee('अपने बिल का भुगतान करें');
 });
+
+it('opens quick pay with UPI only and shows the box without Pay buttons', function () {
+    GatewaySetting::query()->update(['enabled' => false]);
+    AppSetting::put('currency_code', 'INR');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+    AppSetting::put('billing.upi_number', '9876543210');
+    AppSetting::put('notice_phone', '+91 99999 11111');
+
+    $html = $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee(__('Pay by UPI'))->assertSee('shop@okbank')->assertSee('9876543210')
+        ->assertSee('After paying, send the screenshot on WhatsApp to +91 99999 11111.')
+        ->assertSee('₹118.00')
+        ->assertDontSee(route('pay.start'))
+        ->getContent();
+
+    expect($html)->not->toContain('name="token"');
+    $this->get(route('pay.show'))->assertOk();
+});
+
+it('shows the UPI box under the Pay buttons when a gateway is on too', function () {
+    AppSetting::put('currency_code', 'INR');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee(route('pay.start'))->assertSee(__('Or pay by UPI'))->assertSee('shop@okbank');
+});
+
+it('closes quick pay when the currency is USD and only UPI is set up', function () {
+    GatewaySetting::query()->update(['enabled' => false]);
+    AppSetting::put('currency_code', 'USD');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+
+    $this->get(route('pay.show'))->assertNotFound();
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertNotFound();
+});

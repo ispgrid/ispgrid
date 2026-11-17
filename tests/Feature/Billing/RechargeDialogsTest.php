@@ -10,7 +10,9 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Plan;
 use App\Models\Recharge;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
@@ -54,6 +56,22 @@ it('records the payment taken in the dialog', function () {
         ->and($invoice->balance)->toBe('290.00')
         ->and(Payment::query()->sole()->only(['payment_method_id', 'amount', 'reference']))->toBe(['payment_method_id' => $upi->id, 'amount' => '300.00', 'reference' => 'UPI-123'])
         ->and(Recharge::query()->sole()->amount)->toBe('590.00');
+});
+
+it('keeps the screenshot chosen in the dialog with the payment', function () {
+    Storage::fake('billing');
+    turnInvoicingOn();
+
+    rechargeDialog($this->account)
+        ->set('payment_amount', '300')
+        ->set('payment_proof', UploadedFile::fake()->image('upi.png', 20, 20))
+        ->call('recharge')
+        ->assertHasNoErrors();
+
+    $payment = Payment::query()->sole();
+
+    expect($payment->proof_path)->toBe("payments/{$payment->id}/proof.png");
+    Storage::disk('billing')->assertExists($payment->proof_path);
 });
 
 it('leaves the invoice unpaid when no payment is taken', function () {

@@ -13,6 +13,7 @@ use App\Models\Radpostauth;
 use App\Models\SelfcareAccount;
 use App\Payments\PayCode;
 use App\Payments\QuickPay;
+use App\Payments\UpiDetails;
 use App\Support\Money;
 use App\Support\PublicPage;
 use App\Support\Selfcare;
@@ -66,9 +67,10 @@ new class extends Component
     }
 
     /**
-     * Renew: a quick pay link with the amount, the date renewal opens, or the number to call.
+     * Renew: a quick pay link with the amount, the date renewal opens, the UPI details when the customer owes
+     * something and the pay page is closed, or the number to call.
      *
-     * @return array{kind: 'pay'|'opens'|'call'|'none', label: string, url: ?string}
+     * @return array{kind: 'pay'|'upi'|'opens'|'call'|'none', label: string, url: ?string}
      */
     #[Computed]
     public function renew(): array
@@ -77,6 +79,12 @@ new class extends Component
         $phone = trim((string) AppSetting::valueOf('notice_phone', ''));
 
         if (! QuickPay::isOpen()) {
+            $owed = $this->upiDetails === null ? null : app(QuickPay::class)->quote($account);
+
+            if ($owed !== null) {
+                return ['kind' => 'upi', 'label' => __('Pay :amount', ['amount' => Money::fromSettings()->format($owed->total)]), 'url' => null];
+            }
+
             return $phone === ''
                 ? ['kind' => 'none', 'label' => '', 'url' => null]
                 : ['kind' => 'call', 'label' => __('To renew, call us: :phone', ['phone' => $phone]), 'url' => 'tel:'.preg_replace('/[^0-9+]/', '', $phone)];
@@ -100,6 +108,24 @@ new class extends Component
         return $opens !== null && $opens->isFuture()
             ? ['kind' => 'opens', 'label' => __('Renewal opens on :date', ['date' => $opens->format($this->dateFormat())]), 'url' => null]
             : ['kind' => 'none', 'label' => '', 'url' => null];
+    }
+
+    /**
+     * The UPI details once per render (null without INR or when none are set).
+     */
+    #[Computed]
+    public function upiDetails(): ?UpiDetails
+    {
+        return UpiDetails::current();
+    }
+
+    /**
+     * The operator's UPI details, shown in the Renew card when there is something to pay (null without INR).
+     */
+    #[Computed]
+    public function upi(): ?UpiDetails
+    {
+        return in_array($this->renew['kind'], ['pay', 'upi'], true) ? $this->upiDetails : null;
     }
 
     /**

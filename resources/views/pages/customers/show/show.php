@@ -69,11 +69,12 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Spatie\Activitylog\Models\Activity;
 
 new #[Title('Customer')] class extends Component
 {
-    use AuthorizesEveryRequest, PricesRecharges, ShowsToasts, TakesPayment;
+    use AuthorizesEveryRequest, PricesRecharges, ShowsToasts, TakesPayment, WithFileUploads;
 
     #[Locked]
     public int $accountId;
