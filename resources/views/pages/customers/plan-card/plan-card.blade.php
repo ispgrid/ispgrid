@@ -100,22 +100,37 @@
     </x-ui.card>
 
     @if ($this->buttons['change_plan'])
-        <x-ui.modal name="change-plan">
-            <form wire:submit="changePlan" class="grid grid-cols-1 gap-5" novalidate>
+        <x-ui.modal name="change-plan" :width="$this->changeCharge['mode'] === 'invoice' ? 'wide' : 'md'">
+            <x-slot:header>
                 <x-ui.heading size="lg">{{ __('Change plan') }}</x-ui.heading>
+            </x-slot:header>
+
+            <form id="change-plan-form" wire:submit="changePlan" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.text muted>{{ __('Starts now. The time left on the current plan ends, and an online customer is disconnected so the new plan applies at once.') }}</x-ui.text>
                 @if ($this->timeLeft !== null)
                     <x-ui.alert variant="warning">{{ __('The time left on the current plan (:time) ends now.', ['time' => $this->timeLeft]) }}</x-ui.alert>
                 @endif
-                <x-ui.select wire:model.live="change_plan_id" :label="__('Plan')" :options="$this->changePlans" :placeholder="__('Choose a plan')" />
-                @include('partials.billing-breakdown', ['charge' => $this->changeCharge, 'amountField' => 'change_amount', 'idPrefix' => 'change', 'amountDescription' => __('The plan price less the customer discount. Change it for a part payment.')])
-                <x-ui.input wire:model="change_expiry" type="datetime-local" :label="__('Expires')" :description="__('From now, with the plan validity and the expiry mode in App settings. You can change it.')" />
-                <x-ui.input wire:model="change_note" :label="__('Comment')" maxlength="255" />
-                <div class="flex justify-end gap-2">
-                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'change-plan' })">{{ __('Cancel') }}</x-ui.button>
-                    <x-ui.button type="submit">{{ __('Change plan') }}</x-ui.button>
+                <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->changeCharge['mode'] === 'invoice'])>
+                    <div class="grid grid-cols-1 content-start gap-5">
+                        <x-ui.select wire:model.live="change_plan_id" :label="__('Plan')" :options="$this->changePlans" :placeholder="__('Choose a plan')" />
+                        @include('partials.billing-breakdown', ['part' => 'left', 'charge' => $this->changeCharge, 'amountField' => 'change_amount', 'idPrefix' => 'change', 'amountDescription' => __('The plan price less the customer discount. Change it for a part payment.')])
+                        <x-ui.input wire:model="change_expiry" type="datetime-local" :label="__('Expires')" :description="__('From now, with the plan validity and the expiry mode in App settings. You can change it.')" />
+                        <x-ui.input wire:model="change_note" :label="__('Comment')" maxlength="255" />
+                    </div>
+                    @if ($this->changeCharge['mode'] === 'invoice')
+                        <div class="grid grid-cols-1 content-start gap-5">
+                            @include('partials.billing-breakdown', ['part' => 'right', 'charge' => $this->changeCharge, 'amountField' => 'change_amount', 'idPrefix' => 'change', 'amountDescription' => null])
+                        </div>
+                    @endif
                 </div>
             </form>
+
+            <x-slot:footer>
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'change-plan' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit" form="change-plan-form">{{ __('Change plan') }}</x-ui.button>
+                </div>
+            </x-slot:footer>
         </x-ui.modal>
 
         <x-ui.modal name="switch-plan">
@@ -131,19 +146,34 @@
             </form>
         </x-ui.modal>
 
-        <x-ui.modal name="renew-advance">
-            <form wire:submit="bookRenewal" class="grid grid-cols-1 gap-5" novalidate>
+        <x-ui.modal name="renew-advance" :width="$this->advanceCharge['mode'] === 'invoice' ? 'wide' : 'md'">
+            <x-slot:header>
                 <x-ui.heading size="lg">{{ __('Renew in advance') }}</x-ui.heading>
+            </x-slot:header>
+
+            <form id="renew-advance-form" wire:submit="bookRenewal" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.text muted>{{ __('Starts when the current plan ends, on :date. Until then nothing changes for the customer.', ['date' => $this->details['expires'] ?? '']) }}</x-ui.text>
-                <x-ui.select wire:model.live="advance_plan_id" :label="__('Next plan')" :options="$this->plans" :placeholder="__('Choose a plan')" />
-                @include('partials.billing-breakdown', ['charge' => $this->advanceCharge, 'amountField' => 'advance_amount', 'idPrefix' => 'advance', 'amountDescription' => null])
-                <x-ui.input wire:model="advance_expiry" type="datetime-local" :label="__('Expires')" />
-                <x-ui.input wire:model="advance_note" :label="__('Comment')" maxlength="255" />
-                <div class="flex justify-end gap-2">
-                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'renew-advance' })">{{ __('Cancel') }}</x-ui.button>
-                    <x-ui.button type="submit">{{ __('Renew in advance') }}</x-ui.button>
+                <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->advanceCharge['mode'] === 'invoice'])>
+                    <div class="grid grid-cols-1 content-start gap-5">
+                        <x-ui.select wire:model.live="advance_plan_id" :label="__('Next plan')" :options="$this->plans" :placeholder="__('Choose a plan')" />
+                        @include('partials.billing-breakdown', ['part' => 'left', 'charge' => $this->advanceCharge, 'amountField' => 'advance_amount', 'idPrefix' => 'advance', 'amountDescription' => null])
+                        <x-ui.input wire:model="advance_expiry" type="datetime-local" :label="__('Expires')" />
+                        <x-ui.input wire:model="advance_note" :label="__('Comment')" maxlength="255" />
+                    </div>
+                    @if ($this->advanceCharge['mode'] === 'invoice')
+                        <div class="grid grid-cols-1 content-start gap-5">
+                            @include('partials.billing-breakdown', ['part' => 'right', 'charge' => $this->advanceCharge, 'amountField' => 'advance_amount', 'idPrefix' => 'advance', 'amountDescription' => null])
+                        </div>
+                    @endif
                 </div>
             </form>
+
+            <x-slot:footer>
+                <div class="flex justify-end gap-2">
+                    <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'renew-advance' })">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit" form="renew-advance-form">{{ __('Renew in advance') }}</x-ui.button>
+                </div>
+            </x-slot:footer>
         </x-ui.modal>
 
         <x-ui.modal name="change-expiry" width="sm">

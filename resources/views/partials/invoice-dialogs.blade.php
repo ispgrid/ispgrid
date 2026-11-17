@@ -1,14 +1,20 @@
 {{-- Record payment, Remove payment and Cancel invoice (ManagesInvoices). $canRecord, $canRemove, $canCancel: what this staff member may do. --}}
 @if ($canRecord)
     <x-ui.modal name="billing-record-payment">
-        <form wire:submit="recordPayment" class="grid grid-cols-1 gap-5" novalidate>
+        <x-slot:header>
             <x-ui.heading size="lg">{{ __('Record payment') }}</x-ui.heading>
-            @include('partials.payment-fields', ['total' => $this->payingBalance, 'withSwitch' => false, 'idPrefix' => 'record'])
+        </x-slot:header>
+
+        <form id="billing-record-payment-form" wire:submit="recordPayment" class="grid grid-cols-1 gap-5" novalidate>
+            @include('partials.payment-fields', ['total' => $this->payingBalance, 'withSwitch' => false, 'idPrefix' => 'record', 'stacked' => true])
+        </form>
+
+        <x-slot:footer>
             <div class="flex justify-end gap-2">
                 <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'billing-record-payment' })">{{ __('Cancel') }}</x-ui.button>
-                <x-ui.button type="submit">{{ __('Record payment') }}</x-ui.button>
+                <x-ui.button type="submit" form="billing-record-payment-form">{{ __('Record payment') }}</x-ui.button>
             </div>
-        </form>
+        </x-slot:footer>
     </x-ui.modal>
 
 @endif
