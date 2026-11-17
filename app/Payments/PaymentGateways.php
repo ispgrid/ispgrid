@@ -3,7 +3,9 @@
 namespace App\Payments;
 
 use App\Billing\BillingSettings;
+use App\Contracts\NeedsCustomerDetails;
 use App\Contracts\PaymentGateway;
+use App\Models\Account;
 use App\Models\GatewaySetting;
 use App\Models\PaymentMethod;
 use InvalidArgumentException;
@@ -61,6 +63,61 @@ final class PaymentGateways
         $on = GatewaySetting::query()->where('enabled', true)->pluck('gateway')->all();
 
         return array_values(array_filter(array_keys($this->gateways), fn (string $key): bool => in_array($key, $on, true) && $this->supportsCurrency($key)));
+    }
+
+    /**
+     * The enabled gateways this customer can use: those whose required details (mobile, email) they have.
+     *
+     * @return list<string>
+     */
+    public function enabledFor(Account $account): array
+    {
+        $details = CustomerDetails::for($account);
+
+        return array_values(array_filter($this->enabled(), fn (string $key): bool => $this->missingDetail($key, $details) === null));
+    }
+
+    /**
+     * The enabled gateways hidden from this customer, with the reason to show them.
+     *
+     * @return array<string, string> gateway key => message
+     */
+    public function unavailableFor(Account $account): array
+    {
+        $details = CustomerDetails::for($account);
+        $hidden = [];
+
+        foreach ($this->enabled() as $key) {
+            $missing = $this->missingDetail($key, $details);
+
+            if ($missing !== null) {
+                $hidden[$key] = $missing === 'phone'
+                    ? __('Mobile number needed for this payment option, contact us.')
+                    : __('Email address needed for this payment option, contact us.');
+            }
+        }
+
+        return $hidden;
+    }
+
+    /**
+     * @return 'phone'|'email'|null the first detail the gateway needs and the customer has not
+     */
+    private function missingDetail(string $key, CustomerDetails $details): ?string
+    {
+        $class = $this->class($key);
+
+        if ($class === null || ! is_subclass_of($class, NeedsCustomerDetails::class)) {
+            return null;
+        }
+
+        foreach ($class::requiredDetails() as $detail) {
+            if (($detail === 'phone' ? $details->phone : $details->email) === null) {
+                return $detail;
+            }
+        }
+
+        return null;
     }
 
     /**

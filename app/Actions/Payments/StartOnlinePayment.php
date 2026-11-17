@@ -58,6 +58,11 @@ final class StartOnlinePayment
 
         $opened = DB::transaction(function () use ($accountId, $gatewayKey, $clientIp, $origin): OnlinePayment|StartedPayment {
             $account = Account::query()->lockForUpdate()->findOrFail($accountId);
+
+            if (! in_array($gatewayKey, $this->gateways->enabledFor($account), true)) {
+                throw new GatewayUnavailable("The payment gateway {$gatewayKey} cannot be used for this customer.");
+            }
+
             $quote = $this->quickPay->quote($account) ?? throw new NothingToPay;
             $attempt = [
                 'account_id' => $account->id,

@@ -10,8 +10,10 @@ use App\Models\OnlinePayment;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Payments\PayCode;
+use App\Payments\PaymentGateways;
 use Illuminate\Support\Carbon;
 use Tests\Fakes\FakeGateway;
+use Tests\Fakes\PhoneGateway;
 
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-10-21 10:00:00'));
@@ -243,4 +245,24 @@ it('closes quick pay when the currency is USD and only UPI is set up', function 
 
     $this->get(route('pay.show'))->assertNotFound();
     $this->post(route('pay.find'), ['who' => 'kushal'])->assertNotFound();
+});
+
+it('lists only the gateways each customer can use and says why another is hidden', function () {
+    $gateways = app(PaymentGateways::class);
+    $gateways->register(PhoneGateway::class);
+    GatewaySetting::query()->create(['gateway' => 'phonegw', 'enabled' => true, 'settings' => []]);
+    $this->account->update(['mobile' => '9876543210']);
+    $other = Account::factory()->create(['username' => 'nomobile', 'mobile' => '12345']);
+    app(IssueInvoice::class)->handle($other, billingLines('100'), false, InvoiceKind::Manual, now());
+
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee(__('Pay :amount with :gateway', ['amount' => '₹118.00', 'gateway' => 'Phone gateway']))
+        ->assertDontSee(__('Mobile number needed for this payment option, contact us.'));
+
+    $page = $this->post(route('pay.find'), ['who' => 'nomobile'])->assertOk()
+        ->assertSee('Phone gateway: '.__('Mobile number needed for this payment option, contact us.'))
+        ->assertDontSee(__('Pay :amount with :gateway', ['amount' => '₹118.00', 'gateway' => 'Phone gateway']));
+
+    $this->post(route('pay.start'), ['token' => payToken($page->getContent()), 'gateway' => 'phonegw'])->assertRedirect(route('pay.show'))->assertSessionHas('pay_message', __('That payment option is not available. Search again or call us.'));
+    expect(OnlinePayment::query()->count())->toBe(0);
 });

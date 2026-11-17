@@ -79,6 +79,12 @@ class QuickPayController extends Controller
             return redirect()->route('pay.show')->with('pay_message', __('That page was open too long. Search again.'));
         }
 
+        $account = Account::query()->find($accountId);
+
+        if ($account === null || ! in_array((string) $request->string('gateway'), $gateways->enabledFor($account), true)) {
+            return redirect()->route('pay.show')->with('pay_message', __('That payment option is not available. Search again or call us.'));
+        }
+
         try {
             $started = $start->handle($accountId, (string) $request->string('gateway'), $request->ip());
         } catch (NothingToPay) {
@@ -117,20 +123,33 @@ class QuickPayController extends Controller
     /**
      * Search results for the page: a masked username, the amounts and a Pay token that expires.
      *
+     * Each row also lists the gateways that customer can use and why another is hidden (it needs their mobile or
+     * email), as "Label: message".
+     *
      * @param  list<QuickPayQuote>  $quotes
-     * @return list<array{username: string, dues: string, renewal: ?string, total: string, token: string}>
+     * @return list<array{username: string, dues: string, renewal: ?string, total: string, token: string, gateways: list<array{key: string, label: string}>, unavailable: list<string>}>
      */
     private function rows(array $quotes): array
     {
         $expires = now()->addMinutes(self::TOKEN_MINUTES)->getTimestamp();
+        $gateways = app(PaymentGateways::class);
+        $label = fn (string $key): string => ($gateways->class($key) ?? '')::label();
 
-        return array_map(fn (QuickPayQuote $quote): array => [
-            'username' => $quote->maskedUsername,
-            'dues' => $quote->dues,
-            'renewal' => $quote->renewal?->price,
-            'total' => $quote->total,
-            'token' => Crypt::encryptString((string) json_encode(['a' => $quote->accountId, 'x' => $expires])),
-        ], $quotes);
+        return array_map(function (QuickPayQuote $quote) use ($expires, $gateways, $label): array {
+            $account = Account::withTrashed()->find($quote->accountId);
+            $usable = $account === null ? [] : $gateways->enabledFor($account);
+            $hidden = $account === null ? [] : $gateways->unavailableFor($account);
+
+            return [
+                'username' => $quote->maskedUsername,
+                'dues' => $quote->dues,
+                'renewal' => $quote->renewal?->price,
+                'total' => $quote->total,
+                'token' => Crypt::encryptString((string) json_encode(['a' => $quote->accountId, 'x' => $expires])),
+                'gateways' => array_map(fn (string $key): array => ['key' => $key, 'label' => $label($key)], $usable),
+                'unavailable' => array_map(fn (string $key, string $message): string => $label($key).': '.$message, array_keys($hidden), $hidden),
+            ];
+        }, $quotes);
     }
 
     /**
@@ -141,8 +160,7 @@ class QuickPayController extends Controller
     {
         $money = Money::fromSettings();
 
-        return view($view, [...$data, ...PublicPage::data(), 'upi' => UpiDetails::current(), 'money' => fn (?string $amount): string => $money->format((string) $amount),
-            'gateways' => array_map(fn (string $key): array => ['key' => $key, 'label' => (app(PaymentGateways::class)->class($key) ?? '')::label()], app(PaymentGateways::class)->enabled())]);
+        return view($view, [...$data, ...PublicPage::data(), 'upi' => UpiDetails::current(), 'money' => fn (?string $amount): string => $money->format((string) $amount)]);
     }
 
     private function accountFrom(string $token): ?int

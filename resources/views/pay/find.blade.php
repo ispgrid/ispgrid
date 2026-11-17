@@ -32,24 +32,27 @@
                             @endif
                             <div class="mt-1 flex justify-between gap-4 border-t border-zinc-200 pt-2 text-base font-semibold dark:border-zinc-700"><dt>{{ __('Total') }}</dt><dd class="tabular-nums">{{ $money($row['total']) }}</dd></div>
                         </dl>
-                        @if ($gateways !== [])
+                        @if ($row['gateways'] !== [])
                             <form method="POST" action="{{ route('pay.start') }}" class="grid grid-cols-1 gap-3">
                                 @csrf
                                 <input type="hidden" name="token" value="{{ $row['token'] }}">
-                                @if (count($gateways) > 1)
+                                @if (count($row['gateways']) > 1)
                                     <div class="grid grid-cols-1 gap-2">
-                                        @foreach ($gateways as $gateway)
+                                        @foreach ($row['gateways'] as $gateway)
                                             <x-ui.button type="submit" name="gateway" value="{{ $gateway['key'] }}" :variant="$loop->first ? 'primary' : 'secondary'">{{ __('Pay :amount with :gateway', ['amount' => $money($row['total']), 'gateway' => $gateway['label']]) }}</x-ui.button>
                                         @endforeach
                                     </div>
                                 @else
-                                    <input type="hidden" name="gateway" value="{{ $gateways[0]['key'] }}">
+                                    <input type="hidden" name="gateway" value="{{ $row['gateways'][0]['key'] }}">
                                     <x-ui.button type="submit">{{ __('Pay :amount', ['amount' => $money($row['total'])]) }}</x-ui.button>
                                 @endif
                             </form>
                         @endif
+                        @foreach ($row['unavailable'] as $note)
+                            <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $note }}</p>
+                        @endforeach
                         @if ($upi)
-                            @include('partials.upi-box', ['upi' => $upi, 'heading' => $gateways === [] ? __('Pay by UPI') : __('Or pay by UPI')])
+                            @include('partials.upi-box', ['upi' => $upi, 'heading' => $row['gateways'] === [] ? __('Pay by UPI') : __('Or pay by UPI')])
                         @endif
                     </div>
                 @endforeach

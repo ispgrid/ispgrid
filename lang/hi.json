@@ -1752,5 +1752,8 @@
     "UPI settings changed": "UPI सेटिंग्स बदली गईं",
     "Pay by UPI": "UPI से भुगतान करें",
     "Or pay by UPI": "या UPI से भुगतान करें",
-    "Copy": "कॉपी करें"
+    "Copy": "कॉपी करें",
+    "Mobile number needed for this payment option, contact us.": "इस भुगतान विकल्प के लिए मोबाइल नंबर चाहिए, कृपया हमसे संपर्क करें।",
+    "Email address needed for this payment option, contact us.": "इस भुगतान विकल्प के लिए ईमेल पता चाहिए, कृपया हमसे संपर्क करें।",
+    "That payment option is not available. Search again or call us.": "यह भुगतान विकल्प उपलब्ध नहीं है। फिर से खोजें या हमें कॉल करें।"
 }
