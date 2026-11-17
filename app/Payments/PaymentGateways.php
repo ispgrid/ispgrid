@@ -72,9 +72,7 @@ final class PaymentGateways
      */
     public function enabledFor(Account $account): array
     {
-        $details = CustomerDetails::for($account);
-
-        return array_values(array_filter($this->enabled(), fn (string $key): bool => $this->missingDetail($key, $details) === null));
+        return $this->splitFor($account)['usable'];
     }
 
     /**
@@ -84,20 +82,33 @@ final class PaymentGateways
      */
     public function unavailableFor(Account $account): array
     {
+        return $this->splitFor($account)['hidden'];
+    }
+
+    /**
+     * Both lists at once, from one look at the enabled gateways and one reading of the customer's details.
+     *
+     * @return array{usable: list<string>, hidden: array<string, string>}
+     */
+    public function splitFor(Account $account): array
+    {
         $details = CustomerDetails::for($account);
+        $usable = [];
         $hidden = [];
 
         foreach ($this->enabled() as $key) {
             $missing = $this->missingDetail($key, $details);
 
-            if ($missing !== null) {
+            if ($missing === null) {
+                $usable[] = $key;
+            } else {
                 $hidden[$key] = $missing === 'phone'
                     ? __('Mobile number needed for this payment option, contact us.')
                     : __('Email address needed for this payment option, contact us.');
             }
         }
 
-        return $hidden;
+        return ['usable' => $usable, 'hidden' => $hidden];
     }
 
     /**

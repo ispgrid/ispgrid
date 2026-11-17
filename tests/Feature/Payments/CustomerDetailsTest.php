@@ -15,6 +15,7 @@ use Tests\Fakes\EmailGateway;
 use Tests\Fakes\PhoneGateway;
 
 beforeEach(function () {
+    PhoneGateway::$seen = null;
     turnQuickPayOn('7');
     $gateways = app(PaymentGateways::class);
     $gateways->register(PhoneGateway::class);
@@ -56,7 +57,6 @@ it('refuses to start a hidden gateway even when the request names it', function 
 });
 
 it('starts a phone gateway with the customer details', function () {
-    PhoneGateway::$seen = null;
     $account = invoicedAccount(['mobile' => '9876543210', 'fullname' => '', 'email' => null, 'username' => 'kushal']);
 
     app(StartOnlinePayment::class)->handle($account->id, 'phonegw', '203.0.113.5');
@@ -89,4 +89,11 @@ it('shows every gateway to a customer with a mobile and email', function () {
 it('names the customer by full name, else username', function () {
     expect(CustomerDetails::for(Account::factory()->create(['fullname' => 'Kushal Example']))->name)->toBe('Kushal Example')
         ->and(CustomerDetails::for(Account::factory()->create(['fullname' => '', 'username' => 'kushal2']))->name)->toBe('kushal2');
+});
+
+it('has no usable mobile when the number belongs to another country than the panel', function () {
+    AppSetting::put('phone_country_code', '+977');
+    $account = Account::factory()->create(['mobile' => '+919876543210']);
+
+    expect(CustomerDetails::for($account)->phone)->toBeNull()->and(CustomerDetails::for($account)->nationalPhone())->toBeNull();
 });

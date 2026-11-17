@@ -50,6 +50,10 @@ final readonly class CustomerDetails
             return null;
         }
 
+        if (! str_starts_with($phone, '+'.self::countryCode())) {
+            return null;
+        }
+
         if (self::countryCode() === '91' && preg_match('/^\+91[6-9][0-9]{9}$/', $phone) !== 1) {
             return null;
         }

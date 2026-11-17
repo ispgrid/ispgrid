@@ -266,3 +266,17 @@ it('lists only the gateways each customer can use and says why another is hidden
     $this->post(route('pay.start'), ['token' => payToken($page->getContent()), 'gateway' => 'phonegw'])->assertRedirect(route('pay.show'))->assertSessionHas('pay_message', __('That payment option is not available. Search again or call us.'));
     expect(OnlinePayment::query()->count())->toBe(0);
 });
+
+it('still shows the UPI box when no gateway is usable for the customer', function () {
+    app(PaymentGateways::class)->register(PhoneGateway::class);
+    GatewaySetting::query()->create(['gateway' => 'phonegw', 'enabled' => true, 'settings' => []]);
+    GatewaySetting::query()->where('gateway', 'fake')->update(['enabled' => false]);
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+    $this->account->update(['mobile' => '12345']);
+
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee('Phone gateway: '.__('Mobile number needed for this payment option, contact us.'))
+        ->assertSee(__('Pay by UPI'))
+        ->assertSee('shop@okbank')
+        ->assertDontSee(__('Pay :amount with :gateway', ['amount' => '₹118.00', 'gateway' => 'Phone gateway']));
+});

@@ -137,8 +137,7 @@ class QuickPayController extends Controller
 
         return array_map(function (QuickPayQuote $quote) use ($expires, $gateways, $label): array {
             $account = Account::withTrashed()->find($quote->accountId);
-            $usable = $account === null ? [] : $gateways->enabledFor($account);
-            $hidden = $account === null ? [] : $gateways->unavailableFor($account);
+            ['usable' => $usable, 'hidden' => $hidden] = $account === null ? ['usable' => [], 'hidden' => []] : $gateways->splitFor($account);
 
             return [
                 'username' => $quote->maskedUsername,
