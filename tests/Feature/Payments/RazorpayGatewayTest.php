@@ -14,6 +14,7 @@ use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 
 const RAZORPAY_KEY_ID = 'rzp_test_KEYIDFORTESTS01';
 const RAZORPAY_SECRET = 'key-secret-value-5c2e';
@@ -249,6 +250,7 @@ it('does not capture when the in-lock re-read shows a captured payment', functio
 });
 
 it('stays pending without capturing when the capture lock of the order is held', function () {
+    Sleep::fake(syncWithCarbon: true);
     razorpayFake([razorpayPayment('authorized')]);
     $lock = Cache::lock('razorpay-capture:'.RAZORPAY_ORDER, 30);
     expect($lock->get())->toBeTrue();
