@@ -212,7 +212,7 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
 
     /**
      * Calls the API with the cached token. A 401 means the token went stale early: it is forgotten and the call is
-     * made once more with a fresh one (the trait words a refusal as "answered HTTP 401").
+     * made once more with a fresh one.
      *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -224,7 +224,7 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
         try {
             return $this->sendJson($this->authorized(), $method, $url, $payload);
         } catch (GatewayUnavailable $exception) {
-            if (! str_contains($exception->getMessage(), 'answered HTTP 401')) {
+            if ($exception->httpStatus !== 401) {
                 throw $exception;
             }
         }

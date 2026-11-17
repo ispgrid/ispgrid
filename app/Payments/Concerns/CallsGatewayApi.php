@@ -29,13 +29,13 @@ trait CallsGatewayApi
         try {
             $response = $request->acceptJson()->timeout(20)->send(strtoupper($method), $url, $options);
         } catch (RequestException $exception) {
-            throw new GatewayUnavailable("The gateway answered HTTP {$exception->response->status()} ({$where}).");
+            throw new GatewayUnavailable("The gateway answered HTTP {$exception->response->status()} ({$where}).", $exception->response->status());
         } catch (ConnectionException|HttpClientException) {
             throw new GatewayUnavailable("The gateway could not be reached ({$where}).");
         }
 
         if (! $response->successful()) {
-            throw new GatewayUnavailable("The gateway answered HTTP {$response->status()} ({$where}).");
+            throw new GatewayUnavailable("The gateway answered HTTP {$response->status()} ({$where}).", $response->status());
         }
 
         $decoded = $response->json();

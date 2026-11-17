@@ -98,3 +98,13 @@ it('keeps a query string already on the url for a GET without a payload', functi
     apiCaller()->call('get', 'https://api.gateway.test/v1/orders?id=o1');
     Http::assertSent(fn ($request) => str_contains($request->url(), 'id=o1'));
 });
+
+it('carries the HTTP status on the exception, and none when the gateway was not reached', function () {
+    Http::fake(['https://api.gateway.test/*' => Http::response(['error' => 'boom'], 500)]);
+    $status = fn (): ?int => rescue(fn () => apiCaller()->call('get', 'https://api.gateway.test/v1/orders/o1'), fn (GatewayUnavailable $e): ?int => $e->httpStatus, false);
+
+    expect($status())->toBe(500);
+
+    Http::fake(['https://api.gateway.test/*' => Http::failedConnection()]);
+    expect($status())->toBeNull();
+});
