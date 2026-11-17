@@ -1,5 +1,7 @@
 <?php
 
+use App\Billing\Decimal;
+use App\Enums\OnlinePaymentStatus;
 use App\Http\Middleware\SelfcareSession;
 use App\Models\AppSetting;
 use App\Models\OnlinePayment;
@@ -24,15 +26,33 @@ new class extends Component
     public function mount(string $publicId): void
     {
         $payment = OnlinePayment::query()->where('public_id', $publicId)->firstOrFail();
-        $account = SelfcareSession::validAccount();
 
-        if ($account === null || $account->id !== $payment->account_id) {
+        if (! $this->owns($payment)) {
             $this->redirectRoute('pay.result', $publicId);
 
             return;
         }
 
         $this->publicId = $publicId;
+    }
+
+    /**
+     * Runs on every later request (polls, refreshes): the session may have ended since mount.
+     */
+    public function hydrate(): void
+    {
+        if ($this->publicId !== '' && ! $this->owns($this->payment)) {
+            $this->redirectRoute('pay.result', $this->publicId);
+        }
+    }
+
+    /**
+     * Whether a valid Selfcare session may see this attempt: the payment's account is one of the connections the
+     * session may open (every eligible one on its mobile for a mobile login, else the open one).
+     */
+    private function owns(OnlinePayment $payment): bool
+    {
+        return SelfcareSession::validAccount() !== null && SelfcareSession::connections()->contains('id', $payment->account_id);
     }
 
     /**
@@ -52,7 +72,7 @@ new class extends Component
     {
         $payment = $this->payment;
         $expiry = $payment->account?->expiry;
-        $renewed = $payment->publicState() === 'received' && bccomp((string) $payment->renewal_amount, '0', 2) > 0;
+        $renewed = $payment->status === OnlinePaymentStatus::Paid && Decimal::compare((string) $payment->renewal_amount, '0') > 0;
 
         return [
             'state' => $payment->publicState(),

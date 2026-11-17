@@ -4,11 +4,15 @@ use App\Actions\Billing\IssueInvoice;
 use App\Enums\InvoiceKind;
 use App\Enums\OnlinePaymentOrigin;
 use App\Enums\OnlinePaymentStatus;
+use App\Http\Middleware\SelfcareSession;
 use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\OnlinePayment;
 use App\Models\Payment;
+use App\Models\SelfcareAccount;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Livewire;
 use Tests\Fakes\FakeGateway;
 
 beforeEach(function () {
@@ -81,4 +85,48 @@ it('still brings a quick pay payment to the public result page', function () {
     FakeGateway::pay($payment);
 
     $this->post(route('pay.return', 'fake'), selfcareSigned($payment))->assertRedirect(route('pay.result', $payment->public_id));
+});
+
+it('shows the new expiry for a paid renewal and omits it without one', function () {
+    actingAsCustomer($this->account);
+    $this->payment->update(['status' => OnlinePaymentStatus::Paid, 'renewal_amount' => '50.00']);
+    $date = $this->account->fresh()->expiry->format('d/m/Y H:i');
+
+    $this->get(route('selfcare.payment', $this->payment->public_id))->assertSee(__('Your connection now runs until :date.', ['date' => $date]));
+
+    $this->payment->update(['renewal_amount' => '0.00']);
+    $this->get(route('selfcare.payment', $this->payment->public_id))->assertDontSee(__('Your connection now runs until :date.', ['date' => $date]));
+
+    $this->payment->update(['status' => OnlinePaymentStatus::NeedsAttention, 'renewal_amount' => '50.00']);
+    $this->get(route('selfcare.payment', $this->payment->public_id))->assertDontSee(__('Your connection now runs until :date.', ['date' => $date]));
+});
+
+it('sends an idle session to the public result page on first load', function () {
+    actingAsCustomer($this->account);
+    session()->put(SelfcareSession::LAST_SEEN, now()->subMinutes(31)->getTimestamp());
+
+    $this->get(route('selfcare.payment', $this->payment->public_id))->assertRedirect(route('pay.result', $this->payment->public_id));
+});
+
+it('checks the session again on every poll', function () {
+    actingAsCustomer($this->account);
+    $page = Livewire::test('pages::selfcare.payment', ['publicId' => $this->payment->public_id])->assertNoRedirect();
+
+    session()->put(SelfcareSession::LAST_SEEN, now()->subMinutes(31)->getTimestamp());
+
+    $page->call('$refresh')->assertRedirect(route('pay.result', $this->payment->public_id));
+});
+
+it('treats any connection on the mobile of a mobile login as the owner', function () {
+    $this->account->update(['mobile' => '9876543210']);
+    $home = Account::factory()->selfcare()->create(['mobile' => '9876543210']);
+    $customer = SelfcareAccount::query()->findOrFail($home->id);
+    Auth::guard('selfcare')->login($customer);
+    SelfcareSession::remember($customer, '9876543210');
+
+    $this->get(route('selfcare.payment', $this->payment->public_id))->assertOk();
+
+    $stranger = Account::factory()->create(['mobile' => '9000000000']);
+    $theirs = OnlinePayment::factory()->create(['account_id' => $stranger->id, 'origin' => OnlinePaymentOrigin::Selfcare]);
+    $this->get(route('selfcare.payment', $theirs->public_id))->assertRedirect(route('pay.result', $theirs->public_id));
 });
