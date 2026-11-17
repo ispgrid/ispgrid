@@ -3,6 +3,7 @@
 use App\Exceptions\GatewayUnavailable;
 use App\Payments\Concerns\CallsGatewayApi;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
 function apiCaller(): object
@@ -15,6 +16,12 @@ function apiCaller(): object
         public function call(string $method, string $url, array $payload = []): array
         {
             return $this->sendJson(Http::withToken('sk_live_SECRET'), $method, $url, $payload);
+        }
+
+        /** @return array<string, mixed> */
+        public function callWith(PendingRequest $request): array
+        {
+            return $this->sendJson($request, 'post', 'https://api.gateway.test/v1/orders', ['amount' => 100]);
         }
     };
 }
@@ -66,4 +73,28 @@ it('turns a non-JSON success into GatewayUnavailable', function () {
 
     expect(fn () => apiCaller()->call('post', 'https://api.gateway.test/v1/orders'))
         ->toThrow(GatewayUnavailable::class, 'api.gateway.test/v1/orders');
+});
+
+it('hides the body when the request is built to throw or retry', function (string $how) {
+    Http::fake(['https://api.gateway.test/*' => Http::response(['error' => 'bad key sk_live_SECRET'], 500)]);
+    $caller = apiCaller();
+    $build = fn () => $how === 'throw' ? $caller->callWith(Http::throw()) : $caller->callWith(Http::retry(2, 0));
+
+    try {
+        $build();
+    } catch (GatewayUnavailable $exception) {
+        expect($exception->getMessage())->toContain('500')->toContain('api.gateway.test/v1/orders')
+            ->not->toContain('sk_live_SECRET')->and($exception->getPrevious())->toBeNull();
+
+        return;
+    }
+
+    $this->fail('Expected GatewayUnavailable.');
+})->with(['throw', 'retry']);
+
+it('keeps a query string already on the url for a GET without a payload', function () {
+    Http::fake(['https://api.gateway.test/*' => Http::response(['ok' => true], 200)]);
+
+    apiCaller()->call('get', 'https://api.gateway.test/v1/orders?id=o1');
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'id=o1'));
 });

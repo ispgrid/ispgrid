@@ -4,7 +4,9 @@ namespace App\Payments\Concerns;
 
 use App\Exceptions\GatewayUnavailable;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\HttpClientException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 
 /**
  * One way for gateways to call a provider's JSON API. Any failure becomes GatewayUnavailable, and its message names
@@ -22,9 +24,13 @@ trait CallsGatewayApi
     {
         $where = $this->describeEndpoint($url);
 
+        $options = strtoupper($method) === 'GET' ? ($payload === [] ? [] : ['query' => $payload]) : ['json' => $payload];
+
         try {
-            $response = $request->acceptJson()->timeout(20)->send(strtoupper($method), $url, strtoupper($method) === 'GET' ? ['query' => $payload] : ['json' => $payload]);
-        } catch (ConnectionException) {
+            $response = $request->acceptJson()->timeout(20)->send(strtoupper($method), $url, $options);
+        } catch (RequestException $exception) {
+            throw new GatewayUnavailable("The gateway answered HTTP {$exception->response->status()} ({$where}).");
+        } catch (ConnectionException|HttpClientException) {
             throw new GatewayUnavailable("The gateway could not be reached ({$where}).");
         }
 
