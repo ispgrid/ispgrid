@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\Http;
  * https://www.cashfree.com/docs/api-reference/payments/latest/orders/get
  * https://www.cashfree.com/docs/payments/online/webhooks/signature-verification
  *
+ * The webhook format follows Cashfree's PHP sample: base64 of HMAC-SHA256 over timestamp . rawBody (no separator) with
+ * the client secret.
+ *
  * The docs list 2026-01-01 as the newest x-api-version; this class stays on the documented 2025-01-01 contract it
  * was written against (API_VERSION), so a newer response shape cannot change what counts as paid.
  *
@@ -90,7 +93,12 @@ final class CashfreeGateway implements NeedsCustomerDetails, PaymentGateway, Unt
             throw new GatewayUnavailable('Cashfree needs the customer mobile number.');
         }
 
-        $customer = ['customer_id' => 'CUST'.$payment->account_id, 'customer_phone' => $phone, 'customer_name' => $details->name];
+        $customer = ['customer_id' => 'CUST'.$payment->account_id, 'customer_phone' => $phone];
+        $nameLength = mb_strlen($details->name);
+
+        if ($nameLength >= 3 && $nameLength <= 100) {
+            $customer['customer_name'] = $details->name;
+        }
 
         if ($details->email !== null) {
             $customer['customer_email'] = $details->email;
@@ -98,7 +106,7 @@ final class CashfreeGateway implements NeedsCustomerDetails, PaymentGateway, Unt
 
         $order = $this->json('post', '/pg/orders', [
             'order_id' => $payment->public_id,
-            'order_amount' => GatewayAmount::twoDecimals((string) $payment->amount),
+            'order_amount' => (float) GatewayAmount::twoDecimals((string) $payment->amount),
             'order_currency' => $payment->currency,
             'customer_details' => $customer,
             'order_meta' => ['return_url' => $returnUrl],
@@ -148,7 +156,8 @@ final class CashfreeGateway implements NeedsCustomerDetails, PaymentGateway, Unt
         $currency = $order['order_currency'] ?? null;
 
         try {
-            $converted = is_int($amount) || is_float($amount) || is_string($amount) ? GatewayAmount::twoDecimals((string) $amount) : null;
+            $text = is_float($amount) ? json_encode($amount) : (is_int($amount) || is_string($amount) ? (string) $amount : null);
+            $converted = is_string($text) ? GatewayAmount::twoDecimals($text) : null;
         } catch (GatewayUnavailable) {
             $converted = null;
         }

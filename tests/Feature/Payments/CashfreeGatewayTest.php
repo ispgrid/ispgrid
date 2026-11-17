@@ -102,7 +102,8 @@ it('starts a payment with the attempt\'s amount, currency, order id and return u
         && $request->header('x-client-id') === [CASHFREE_ID]
         && $request->header('x-client-secret') === [CASHFREE_SECRET]
         && $request['order_id'] === CASHFREE_ATTEMPT
-        && $request['order_amount'] === '708.50'
+        && $request['order_amount'] === 708.5
+        && str_contains($request->body(), '"order_amount":708.5,')
         && $request['order_currency'] === 'INR'
         && $request['customer_details'] === ['customer_id' => 'CUST'.$this->payment->account_id, 'customer_phone' => '9876543210', 'customer_name' => 'Asha Rao', 'customer_email' => 'asha@example.com']
         && $request['order_meta'] === ['return_url' => 'https://isp.example/pay/return/cashfree?attempt=X']);
@@ -132,6 +133,27 @@ it('sends no email when there is none, and refuses a customer without a mobile',
 
     $this->payment->account->update(['mobile' => '12345']);
     expect(fn () => cashfree()->start($this->payment->fresh(), 'https://isp.example/r'))->toThrow(GatewayUnavailable::class);
+});
+
+it('sends a name only when it is 3 to 100 characters', function () {
+    fakeCashfree(cashfreeOrder('ACTIVE'));
+    $this->payment->account->update(['fullname' => 'Al']);
+    $this->payment->account->update(['username' => 'ab']);
+
+    cashfree()->start($this->payment->fresh(), 'https://isp.example/r');
+
+    Http::assertSent(fn (ClientRequest $request): bool => ! array_key_exists('customer_name', $request['customer_details']));
+});
+
+it('reads a float amount by its shortest form whatever the precision setting', function () {
+    $before = ini_get('precision');
+    ini_set('precision', '17');
+    fakeCashfree(cashfreeOrder('PAID', 708.1));
+
+    $result = cashfree()->status($this->payment);
+    ini_set('precision', (string) $before);
+
+    expect($result->status)->toBe(GatewayStatus::Paid)->and($result->amount)->toBe('708.10');
 });
 
 it('refuses a start without a payment session, and keeps the keys out of the message', function () {
