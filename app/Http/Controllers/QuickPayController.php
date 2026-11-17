@@ -33,11 +33,11 @@ class QuickPayController extends Controller
      */
     private const TOKEN_MINUTES = 15;
 
-    public function show(): View
+    public function show(Request $request): View
     {
         abort_unless(QuickPay::isOpen(), 404);
 
-        return $this->page('pay.find', ['who' => '', 'rows' => null]);
+        return $this->page('pay.find', ['who' => '', 'rows' => null, 'unconfirmed' => $request->boolean('unconfirmed')]);
     }
 
     public function find(Request $request, QuickPay $quickPay): View

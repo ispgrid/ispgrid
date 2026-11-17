@@ -23,7 +23,7 @@ class PaymentGatewayController extends Controller
         $publicId = $gateways->make($gateway)?->verify($request);
 
         if ($publicId === null) {
-            return redirect()->route('pay.show')->with('pay_message', __('We could not confirm that payment here. If money was taken, it is confirmed within a few minutes.'));
+            return redirect()->route('pay.show', ['unconfirmed' => 1]);
         }
 
         try {

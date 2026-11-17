@@ -6,7 +6,12 @@ use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\QuickPayController;
 use App\Http\Controllers\UpiQrController;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::redirect('/', '/dashboard')->name('home');
 
@@ -17,8 +22,11 @@ Route::get('p/{code}', [QuickPayController::class, 'code'])->where('code', '[0-9
 Route::post('pay/start', [QuickPayController::class, 'start'])->middleware('throttle:quick-pay')->name('pay.start');
 Route::get('pay/result/{publicId}', [QuickPayController::class, 'result'])->where('publicId', '[0-9A-Z]{26}')->name('pay.result');
 Route::get('pay/upi-qr/{file}', UpiQrController::class)->where('file', 'qr-[A-Za-z0-9]{16}\.(png|jpg|webp)')->name('pay.upi-qr');
-Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->name('pay.return');
-Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->name('pay.webhook');
+// Gateway callbacks run without session, cookie and CSRF middleware: a gateway's cross-site POST carries no session
+// cookie, and the fresh session's Set-Cookie would replace the customer's own login cookie. The gateway checks each request instead.
+$callback = [EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class];
+Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->name('pay.return');
+Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->name('pay.webhook');
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');

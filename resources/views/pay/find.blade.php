@@ -8,6 +8,8 @@
 
         @if (session('pay_message'))
             <x-ui.alert>{{ session('pay_message') }}</x-ui.alert>
+        @elseif ($unconfirmed ?? false)
+            <x-ui.alert>{{ __('We could not confirm that payment here. If money was taken, it is confirmed within a few minutes.') }}</x-ui.alert>
         @endif
 
         <form method="POST" action="{{ route('pay.find') }}" class="grid grid-cols-1 gap-3" novalidate>

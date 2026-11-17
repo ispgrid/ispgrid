@@ -186,7 +186,8 @@ it('settles nothing on a return or webhook the gateway did not sign', function (
     FakeGateway::pay($payment);
     $forged = ['order' => $payment->public_id, 'signature' => 'forged'];
 
-    $this->post(route('pay.return', 'fake'), $forged)->assertRedirect(route('pay.show'));
+    $this->post(route('pay.return', 'fake'), $forged)->assertRedirect(route('pay.show', ['unconfirmed' => 1]));
+    $this->get(route('pay.show', ['unconfirmed' => 1]))->assertSee(__('We could not confirm that payment here. If money was taken, it is confirmed within a few minutes.'));
     $this->post(route('pay.webhook', 'fake'), $forged)->assertNotFound();
     $this->post(route('pay.webhook', 'nope'), signedReturn($payment))->assertNotFound();
 
