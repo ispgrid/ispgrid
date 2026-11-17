@@ -1,6 +1,6 @@
 {{-- Record payment, Remove payment and Cancel invoice (ManagesInvoices). $canRecord, $canRemove, $canCancel: what this staff member may do. --}}
 @if ($canRecord)
-    <x-ui.modal name="billing-record-payment">
+    <x-ui.modal name="billing-record-payment" width="lg">
         <x-slot:header>
             <x-ui.heading size="lg">{{ __('Record payment') }}</x-ui.heading>
         </x-slot:header>
