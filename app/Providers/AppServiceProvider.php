@@ -31,6 +31,7 @@ use App\Notifications\Triggers\RechargeDone;
 use App\Notifications\Triggers\SelfcareLogin;
 use App\Notifications\Triggers\ServiceExpired;
 use App\Notifications\Triggers\ServiceExpiresSoon;
+use App\Payments\Cashfree\CashfreeGateway;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
 use App\Payments\PhonePe\PhonePeGateway;
@@ -84,6 +85,7 @@ class AppServiceProvider extends ServiceProvider
             $gateways->register(PaytmGateway::class);
             $gateways->register(PhonePeGateway::class);
             $gateways->register(RazorpayGateway::class);
+            $gateways->register(CashfreeGateway::class);
 
             return $gateways;
         });

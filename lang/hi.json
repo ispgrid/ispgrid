@@ -1776,5 +1776,9 @@
     "The secret you set for the webhook in the Razorpay dashboard.": "Razorpay डैशबोर्ड में वेबहुक के लिए आपने जो सीक्रेट रखा है।",
     "Razorpay address": "Razorpay का पता",
     "Empty: the address Razorpay documents. Set it only if Razorpay moves.": "खाली: Razorpay का बताया हुआ पता। इसे तभी भरें जब Razorpay अपना पता बदले।",
-    "Webhook secret": "वेबहुक सीक्रेट"
+    "Webhook secret": "वेबहुक सीक्रेट",
+    "test (Cashfree sandbox) or live.": "test (Cashfree सैंडबॉक्स) या live।",
+    "Also signs the webhooks.": "वेबहुक पर हस्ताक्षर भी इसी से होते हैं।",
+    "Cashfree address": "Cashfree का पता",
+    "Empty: the address Cashfree documents. Set it only if Cashfree moves.": "खाली: Cashfree का बताया हुआ पता। इसे तभी भरें जब Cashfree अपना पता बदले।"
 }
