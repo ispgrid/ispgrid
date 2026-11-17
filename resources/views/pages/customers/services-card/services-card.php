@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * The Services card at the top of the customer's Billing tab: the services the customer takes (a static IP, OTT),
@@ -40,7 +41,7 @@ use Livewire\Component;
  */
 new class extends Component
 {
-    use AuthorizesEveryRequest, ShowsToasts, TakesPayment;
+    use AuthorizesEveryRequest, ShowsToasts, TakesPayment, WithFileUploads;
 
     private const MONTHS = ['1', '3', '6', '12'];
 

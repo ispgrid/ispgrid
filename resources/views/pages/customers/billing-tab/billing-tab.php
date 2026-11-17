@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * The customer's Billing tab: dues, invoices, payments and the statement, with New invoice and Cancel and reissue
@@ -25,7 +26,7 @@ use Livewire\Component;
  */
 new class extends Component
 {
-    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment, WritesInvoices;
+    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment, WithFileUploads, WritesInvoices;
 
     #[Locked]
     public int $accountId;

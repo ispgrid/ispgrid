@@ -4,6 +4,7 @@ namespace App\Actions\Billing;
 
 use App\Billing\Decimal;
 use App\Billing\PaymentInput;
+use App\Billing\PaymentProof;
 use App\Exceptions\PaymentExceedsBalance;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -40,6 +41,10 @@ final class RecordPayment
                 'paid_at' => $input->paidAt,
                 'user_id' => auth()->id(),
             ]);
+
+            if ($input->proof !== null && ! $input->online) {
+                $payment->update(['proof_path' => PaymentProof::store($payment->id, $input->proof)]);
+            }
 
             $invoice->refreshStatus();
 

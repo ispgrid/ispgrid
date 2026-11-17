@@ -13,6 +13,9 @@
                 <x-ui.input wire:model="payment_reference" :id="$fieldId('payment_reference')" :label="__('Reference')" maxlength="100" :description="__('UPI transaction ID or cheque number.')" />
                 <x-ui.input wire:model="payment_paid_at" :id="$fieldId('payment_paid_at')" type="datetime-local" :label="__('Received at')" />
                 <div class="sm:col-span-2">
+                    <x-ui.file-upload wire:model="payment_proof" :id="$fieldId('payment_proof')" :label="__('Screenshot')" accept="image/jpeg,image/png,image/webp,application/pdf" :description="__('Optional. UPI screenshot, cheque photo or PDF, up to 5 MB. Staff only, not on the receipt.')" />
+                </div>
+                <div class="sm:col-span-2">
                     <x-ui.input wire:model="payment_note" :id="$fieldId('payment_note')" :label="__('Note')" maxlength="255" :description="__('Staff only, not on the receipt.')" />
                 </div>
             </div>
