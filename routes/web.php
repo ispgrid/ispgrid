@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InvoicePdfController;
 use App\Http\Controllers\PaymentGatewayController;
+use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\QuickPayController;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('payments/{payment}', 'pages::payments.show')->name('payments.show')->withTrashed();
     Route::get('invoices/{invoice}/pdf', InvoicePdfController::class)->name('invoices.pdf');
     Route::get('payments/{payment}/receipt', PaymentReceiptController::class)->name('payments.receipt')->withTrashed();
+    Route::get('payments/{payment}/proof', PaymentProofController::class)->name('payments.proof')->withTrashed();
     Route::livewire('online', 'pages::online.index')->name('online.index');
     Route::livewire('login-log', 'pages::login-log.index')->name('login-log.index');
     Route::livewire('plans', 'pages::plans.index')->name('plans.index');

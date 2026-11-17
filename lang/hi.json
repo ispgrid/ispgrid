@@ -1722,5 +1722,13 @@
     "static IP added": "स्टैटिक IP जोड़ा गया",
     "Screenshot": "स्क्रीनशॉट",
     "screenshot": "स्क्रीनशॉट",
-    "Optional. UPI screenshot, cheque photo or PDF, up to 5 MB. Staff only, not on the receipt.": "वैकल्पिक। UPI स्क्रीनशॉट, चेक की फ़ोटो या PDF, 5 MB तक। केवल स्टाफ़ के लिए, रसीद पर नहीं।"
+    "Optional. UPI screenshot, cheque photo or PDF, up to 5 MB. Staff only, not on the receipt.": "वैकल्पिक। UPI स्क्रीनशॉट, चेक की फ़ोटो या PDF, 5 MB तक। केवल स्टाफ़ के लिए, रसीद पर नहीं।",
+    "View": "देखें",
+    "Remove the screenshot": "स्क्रीनशॉट हटाएँ",
+    "A screenshot is on file. Choosing another file replaces it.": "स्क्रीनशॉट सहेजा हुआ है। दूसरी फ़ाइल चुनने से वह बदल जाएगी।",
+    "Screenshot added": "स्क्रीनशॉट जोड़ा गया",
+    "Screenshot replaced": "स्क्रीनशॉट बदला गया",
+    "Screenshot removed": "स्क्रीनशॉट हटाया गया",
+    "On file": "सहेजा हुआ",
+    "The :attribute must be a picture (JPG, PNG, WebP) or a PDF.": "अनुरोध है कि :attribute एक तस्वीर (JPG, PNG, WebP) या PDF हो।"
 }

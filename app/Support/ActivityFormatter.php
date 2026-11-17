@@ -273,6 +273,13 @@ final class ActivityFormatter
             'connection_type_id' => self::name(ConnectionType::class, $text, 'name'),
             'ip_id' => self::name(Ip::class, $text, 'address'),
             'reason' => DisconnectReason::tryFrom($text)?->label(),
+            'screenshot' => match ($text) {
+                'added' => __('Screenshot added'),
+                'replaced' => __('Screenshot replaced'),
+                'removed' => __('Screenshot removed'),
+                'on file' => __('On file'),
+                default => null,
+            },
             default => null,
         };
 

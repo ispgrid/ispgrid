@@ -46,6 +46,10 @@
                 @if ($this->printed['reference'])
                     <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Reference') }}</dt><dd class="break-words">{{ $this->printed['reference'] }}</dd>
                 @endif
+                @if ($this->hasProof)
+                    <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Screenshot') }}</dt>
+                    <dd><x-ui.link href="{{ route('payments.proof', $this->paymentId) }}" target="_blank" rel="noopener">{{ __('View') }}</x-ui.link></dd>
+                @endif
                 <dt class="text-zinc-600 dark:text-zinc-400">{{ __('Invoice') }}</dt>
                 <dd><x-ui.link href="{{ route('invoices.show', $this->invoiceId) }}" wire:navigate>{{ $this->printed['invoice_number'] }}</x-ui.link> ({{ $this->printed['invoice_date'] }})</dd>
             </dl>
@@ -91,6 +95,15 @@
                     <div class="sm:col-span-2">
                         <x-ui.input wire:model="edit_note" :label="__('Note')" maxlength="255" :description="__('For staff only. It is not printed on the receipt.')" />
                     </div>
+                    <div class="sm:col-span-2">
+                        <x-ui.file-upload wire:model="edit_proof" :label="__('Screenshot')" accept="image/jpeg,image/png,image/webp,application/pdf"
+                            :description="$this->hasProof ? __('A screenshot is on file. Choosing another file replaces it.') : __('Optional. UPI screenshot, cheque photo or PDF, up to 5 MB. Staff only, not on the receipt.')" />
+                    </div>
+                    @if ($this->hasProof)
+                        <div class="sm:col-span-2">
+                            <x-ui.checkbox wire:model="edit_remove_proof" :label="__('Remove the screenshot')" />
+                        </div>
+                    @endif
                 </div>
                 <div class="flex justify-end gap-2">
                     <x-ui.button variant="secondary" x-on:click="$dispatch('modal-close', { name: 'edit-payment' })">{{ __('Cancel') }}</x-ui.button>
