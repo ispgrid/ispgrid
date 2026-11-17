@@ -18,13 +18,13 @@ class SelfcarePayController extends Controller
 {
     public function __invoke(string $publicId): View
     {
-        $account = SelfcareSession::account() ?? abort(404);
+        SelfcareSession::account() ?? abort(404);
         $payment = OnlinePayment::query()
             ->where('public_id', $publicId)
-            ->where('account_id', $account->id)
             ->where('origin', OnlinePaymentOrigin::Selfcare)
             ->where('status', OnlinePaymentStatus::Pending)
             ->firstOrFail();
+        abort_unless(SelfcareSession::connections()->contains('id', $payment->account_id), 404);
         $start = GatewayStart::fromArray($payment->gateway_start ?? []) ?? abort(404);
 
         return view('pay.go', [...PublicPage::data(), 'start' => $start]);

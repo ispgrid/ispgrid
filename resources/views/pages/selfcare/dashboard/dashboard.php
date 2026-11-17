@@ -106,14 +106,14 @@ new class extends Component
             $amount = Money::fromSettings()->format($quote->total);
 
             $gateways = app(PaymentGateways::class);
-            $label = fn (string $key): string => ($gateways->class($key) ?? '')::label();
+            $label = fn (string $key): ?string => ($class = $gateways->class($key)) === null ? null : $class::label();
             ['usable' => $usable, 'hidden' => $hidden] = $gateways->splitFor(Account::query()->findOrFail($account->id));
 
             return [
                 'kind' => 'pay',
                 'label' => $quote->renewal !== null ? __('Renew for :amount', ['amount' => $amount]) : __('Pay :amount', ['amount' => $amount]),
-                'gateways' => array_map(fn (string $key): array => ['key' => $key, 'label' => $label($key)], $usable),
-                'unavailable' => array_map(fn (string $key, string $message): string => $label($key).': '.$message, array_keys($hidden), $hidden),
+                'gateways' => array_values(array_filter(array_map(fn (string $key): ?array => ($name = $label($key)) === null ? null : ['key' => $key, 'label' => $name], $usable))),
+                'unavailable' => array_values(array_filter(array_map(fn (string $key, string $message): ?string => ($name = $label($key)) === null ? null : $name.': '.$message, array_keys($hidden), $hidden))),
             ];
         }
 
@@ -132,6 +132,13 @@ new class extends Component
     public function pay(string $gateway, StartOnlinePayment $start): void
     {
         $this->payError = '';
+
+        if (! QuickPay::isOpen()) {
+            $this->payError = __('The payment could not be started. Try again in a few minutes.');
+
+            return;
+        }
+
         $account = Account::query()->find($this->account->id);
 
         if ($account === null || ! in_array($gateway, app(PaymentGateways::class)->enabledFor($account), true)) {

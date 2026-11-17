@@ -4,12 +4,18 @@ use App\Actions\Billing\IssueInvoice;
 use App\Enums\InvoiceKind;
 use App\Enums\OnlinePaymentOrigin;
 use App\Enums\OnlinePaymentStatus;
+use App\Http\Middleware\SelfcareSession;
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Models\GatewaySetting;
 use App\Models\OnlinePayment;
+use App\Models\SelfcareAccount;
+use App\Payments\PaymentGateways;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Livewire;
 use Tests\Fakes\FakeGateway;
+use Tests\Fakes\OtherGateway;
 
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-17 10:00:00'));
@@ -117,7 +123,7 @@ it('sets no session or CSRF cookie on a gateway return or webhook', function () 
     }
 });
 
-it('leaves the customer logged in after the gateway posts back', function () {
+it('sets no cookie when the gateway posts back, so the customer\'s own cookie stays', function () {
     $payment = OnlinePayment::factory()->create(['account_id' => $this->account->id, 'origin' => OnlinePaymentOrigin::Selfcare, 'amount' => '118.00', 'dues_amount' => '118.00']);
     FakeGateway::pay($payment);
     actingAsCustomer($this->account);
@@ -127,7 +133,48 @@ it('leaves the customer logged in after the gateway posts back', function () {
     $back->assertRedirect(route('selfcare.payment', $payment->public_id));
     expect($back->headers->getCookies())->toBe([]);
 
-    // The customer's own cookie was never replaced, so the follow-up GET still sees them as the owner.
+    // Proves only: no Set-Cookie on the return (above) and the owner's page still opens in this test session.
     $this->get(route('selfcare.payment', $payment->public_id))->assertOk()
         ->assertSee(__('Payment of :amount received. Thank you!', ['amount' => '₹118.00']));
+});
+
+it('starts nothing when quick pay is off', function () {
+    AppSetting::put('billing.quick_pay', '0');
+    actingAsCustomer($this->account);
+
+    Livewire::test('pages::selfcare.dashboard')->call('pay', 'fake')
+        ->assertNoRedirect()->assertSet('payError', __('The payment could not be started. Try again in a few minutes.'));
+    expect(OnlinePayment::query()->count())->toBe(0);
+});
+
+it('shows one button per gateway label when two gateways are on', function () {
+    app(PaymentGateways::class)->register(OtherGateway::class);
+    GatewaySetting::query()->create(['gateway' => 'othergw', 'enabled' => true, 'settings' => []]);
+    actingAsCustomer($this->account);
+
+    $this->get(route('selfcare.dashboard'))->assertOk()
+        ->assertSee('Test gateway')->assertSee('Other gateway')->assertDontSee(__('Pay online'));
+});
+
+it('opens the go page for any connection on the mobile of a mobile login', function () {
+    $this->account->update(['mobile' => '9876543210']);
+    $this->other->update(['mobile' => '9876543210']);
+    $customer = SelfcareAccount::query()->findOrFail($this->account->id);
+    Auth::guard('selfcare')->login($customer);
+    SelfcareSession::remember($customer, '9876543210');
+    $attempt = OnlinePayment::factory()->create([
+        'account_id' => $this->other->id, 'origin' => OnlinePaymentOrigin::Selfcare,
+        'gateway_start' => ['kind' => 'form', 'url' => 'https://gateway.test/pay', 'fields' => ['order' => 'X'], 'orderId' => 'X'],
+    ]);
+
+    $this->get(route('selfcare.pay-go', $attempt->public_id))->assertOk();
+});
+
+it('limits gateway returns per address, without a cookie on the refusal', function () {
+    foreach (range(1, 60) as $i) {
+        $this->post(route('pay.return', 'fake'), ['order' => 'X', 'signature' => 'bad']);
+    }
+
+    $refused = $this->post(route('pay.return', 'fake'), ['order' => 'X', 'signature' => 'bad'])->assertStatus(429);
+    expect(collect($refused->headers->getCookies())->map->getName()->all())->toBe([]);
 });

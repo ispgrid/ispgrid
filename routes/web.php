@@ -25,7 +25,7 @@ Route::get('pay/upi-qr/{file}', UpiQrController::class)->where('file', 'qr-[A-Za
 // Gateway callbacks run without session, cookie and CSRF middleware: a gateway's cross-site POST carries no session
 // cookie, and the fresh session's Set-Cookie would replace the customer's own login cookie. The gateway checks each request instead.
 $callback = [EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class];
-Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->name('pay.return');
+Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->middleware('throttle:60,1')->name('pay.return');
 Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->name('pay.webhook');
 
 Route::middleware(['auth'])->group(function () {

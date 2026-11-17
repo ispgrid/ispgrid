@@ -36,7 +36,7 @@
                 <x-ui.alert>{{ $payError }}</x-ui.alert>
             @endif
             @foreach ($this->renew['gateways'] as $gateway)
-                <x-ui.button type="button" wire:click="pay('{{ $gateway['key'] }}')" wire:loading.attr="disabled" class="w-full">{{ count($this->renew['gateways']) === 1 ? __('Pay online') : $gateway['label'] }}</x-ui.button>
+                <x-ui.button type="button" wire:click="pay({{ Illuminate\Support\Js::from($gateway['key']) }})" wire:loading.attr="disabled" class="w-full">{{ count($this->renew['gateways']) === 1 ? __('Pay online') : $gateway['label'] }}</x-ui.button>
             @endforeach
             @foreach ($this->renew['unavailable'] as $note)
                 <x-ui.text muted class="text-sm">{{ $note }}</x-ui.text>
@@ -50,7 +50,7 @@
         @endif
 
         @if ($this->upi)
-            @include('partials.upi-box', ['upi' => $this->upi, 'heading' => $this->renew['kind'] === 'upi' ? __('Pay by UPI') : __('Or pay by UPI')])
+            @include('partials.upi-box', ['upi' => $this->upi, 'heading' => $this->renew['kind'] === 'upi' || ($this->renew['gateways'] ?? []) === [] ? __('Pay by UPI') : __('Or pay by UPI')])
         @endif
     </section>
 
