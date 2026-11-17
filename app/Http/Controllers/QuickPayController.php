@@ -14,6 +14,7 @@ use App\Payments\PayCode;
 use App\Payments\PaymentGateways;
 use App\Payments\QuickPay;
 use App\Payments\QuickPayQuote;
+use App\Payments\UpiDetails;
 use App\Support\Money;
 use App\Support\PublicPage;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -140,7 +141,7 @@ class QuickPayController extends Controller
     {
         $money = Money::fromSettings();
 
-        return view($view, [...$data, ...PublicPage::data(), 'money' => fn (?string $amount): string => $money->format((string) $amount),
+        return view($view, [...$data, ...PublicPage::data(), 'upi' => UpiDetails::current(), 'money' => fn (?string $amount): string => $money->format((string) $amount),
             'gateways' => array_map(fn (string $key): array => ['key' => $key, 'label' => (app(PaymentGateways::class)->class($key) ?? '')::label()], app(PaymentGateways::class)->enabled())]);
     }
 

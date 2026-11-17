@@ -91,3 +91,33 @@ it('never shows the NAS name or NAS IP', function () {
 
     $this->get(route('selfcare.dashboard'))->assertOk()->assertDontSee('Tower-NAS-77')->assertDontSee('10.99.99.7');
 });
+
+it('shows the UPI box in the Selfcare Renew card when there is something to pay', function () {
+    turnQuickPayOn('7');
+    AppSetting::put('currency_code', 'INR');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+    actingAsCustomer(customerOn($this->plan, ['expiry' => now()->addDays(3)]));
+
+    $this->get(route('selfcare.dashboard'))->assertOk()
+        ->assertSee(__('Renew for :amount', ['amount' => '₹590.00']))
+        ->assertSee(__('Or pay by UPI'))->assertSee('shop@okbank');
+});
+
+it('shows the UPI box instead of the support number when quick pay is closed and the customer owes', function () {
+    turnInvoicingOn();
+    AppSetting::put('currency_code', 'INR');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+    actingAsCustomer(customerOn($this->plan, ['expiry' => now()->subDay()]));
+
+    $this->get(route('selfcare.dashboard'))->assertOk()
+        ->assertSee('shop@okbank')->assertDontSee(__('To renew, call us: :phone', ['phone' => '+91 98765 00000']));
+});
+
+it('shows no UPI box in Selfcare for a USD panel', function () {
+    turnQuickPayOn('7');
+    AppSetting::put('currency_code', 'USD');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+    actingAsCustomer(customerOn($this->plan, ['expiry' => now()->addDays(3)]));
+
+    $this->get(route('selfcare.dashboard'))->assertOk()->assertDontSee('shop@okbank')->assertDontSee(__('Or pay by UPI'));
+});

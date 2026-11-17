@@ -32,10 +32,16 @@
 
         @if ($this->renew['kind'] === 'pay')
             <x-ui.button :href="$this->renew['url']" class="w-full">{{ $this->renew['label'] }}</x-ui.button>
+        @elseif ($this->renew['kind'] === 'upi')
+            <x-ui.text class="text-sm font-medium">{{ $this->renew['label'] }}</x-ui.text>
         @elseif ($this->renew['kind'] === 'call')
             <x-ui.text class="text-sm"><a href="{{ $this->renew['url'] }}" class="underline-offset-2 hover:underline">{{ $this->renew['label'] }}</a></x-ui.text>
         @elseif ($this->renew['kind'] === 'opens')
             <x-ui.text muted class="text-sm">{{ $this->renew['label'] }}</x-ui.text>
+        @endif
+
+        @if ($this->upi)
+            @include('partials.upi-box', ['upi' => $this->upi])
         @endif
     </section>
 

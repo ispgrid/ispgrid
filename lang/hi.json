@@ -1748,5 +1748,8 @@
     "UPI QR": "UPI QR",
     "Remove the QR picture?": "QR तस्वीर हटाएँ?",
     "Remove picture": "तस्वीर हटाएँ",
-    "UPI settings changed": "UPI सेटिंग्स बदली गईं"
+    "UPI settings changed": "UPI सेटिंग्स बदली गईं",
+    "Pay by UPI": "UPI से भुगतान करें",
+    "Or pay by UPI": "या UPI से भुगतान करें",
+    "Copy": "कॉपी करें"
 }
