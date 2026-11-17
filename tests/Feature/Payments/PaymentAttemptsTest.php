@@ -33,6 +33,7 @@ it('reuses the open attempt when the customer presses Pay again', function () {
 
     expect($again->payment->public_id)->toBe($first->payment->public_id)
         ->and($again->start)->toEqual($first->start)
+        ->and($again->payment->fresh()->gateway_order_id)->toBe('FAKE-'.$first->payment->public_id)
         ->and(FakeGateway::$starts)->toBe(1)
         ->and(OnlinePayment::query()->count())->toBe(1);
 });
