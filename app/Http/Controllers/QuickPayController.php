@@ -3,13 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Payments\StartOnlinePayment;
-use App\Enums\OnlinePaymentStatus;
 use App\Exceptions\GatewayUnavailable;
 use App\Exceptions\NothingToPay;
 use App\Exceptions\TooManyPaymentAttempts;
 use App\Models\Account;
 use App\Models\OnlinePayment;
-use App\Models\Payment;
 use App\Payments\PayCode;
 use App\Payments\PaymentGateways;
 use App\Payments\QuickPay;
@@ -105,19 +103,8 @@ class QuickPayController extends Controller
     public function result(string $publicId): View
     {
         $payment = OnlinePayment::query()->where('public_id', $publicId)->firstOrFail();
-        $receipts = $payment->status === OnlinePaymentStatus::Paid
-            ? Payment::query()->where('account_id', $payment->account_id)->where('reference', $payment->gateway_txn_id ?? $payment->public_id)
-                ->whereHas('method', fn ($query) => $query->where('gateway', $payment->gateway))
-                ->orderBy('id')->pluck('id')->map(fn (int $id): string => 'RCPT-'.$id)->all()
-            : [];
 
-        $state = match ($payment->status) {
-            OnlinePaymentStatus::Paid, OnlinePaymentStatus::NeedsAttention => 'received',
-            OnlinePaymentStatus::Pending => 'pending',
-            OnlinePaymentStatus::Failed => 'failed',
-        };
-
-        return $this->page('pay.result', ['payment' => $payment, 'receipts' => $receipts, 'state' => $state]);
+        return $this->page('pay.result', ['payment' => $payment, 'receipts' => $payment->receiptNumbers(), 'state' => $payment->publicState()]);
     }
 
     /**

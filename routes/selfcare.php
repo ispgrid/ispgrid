@@ -9,6 +9,9 @@ Route::prefix('selfcare')->name('selfcare.')->group(function () {
     Route::livewire('/', 'pages::selfcare.login')->name('login');
     Route::post('logout', SelfcareLogoutController::class)->name('logout');
 
+    // Where a payment started in Selfcare lands; outside the middleware so a visitor without the session still gets the public result.
+    Route::livewire('payment/{publicId}', 'pages::selfcare.payment')->where('publicId', '[0-9A-Z]{26}')->name('payment');
+
     Route::middleware('selfcare')->group(function () {
         Route::livewire('password', 'pages::selfcare.password')->name('password');
         Route::livewire('home', 'pages::selfcare.dashboard')->name('dashboard');

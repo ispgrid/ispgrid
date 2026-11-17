@@ -1755,5 +1755,8 @@
     "Copy": "कॉपी करें",
     "Mobile number needed for this payment option, contact us.": "इस भुगतान विकल्प के लिए मोबाइल नंबर चाहिए, कृपया हमसे संपर्क करें।",
     "Email address needed for this payment option, contact us.": "इस भुगतान विकल्प के लिए ईमेल पता चाहिए, कृपया हमसे संपर्क करें।",
-    "That payment option is not available. Search again or call us.": "यह भुगतान विकल्प उपलब्ध नहीं है। फिर से खोजें या हमें कॉल करें।"
+    "That payment option is not available. Search again or call us.": "यह भुगतान विकल्प उपलब्ध नहीं है। फिर से खोजें या हमें कॉल करें।",
+    "Your connection now runs until :date.": "आपका कनेक्शन :date तक चलेगा।",
+    "This page updates by itself.": "यह पेज अपने आप अपडेट होता है।",
+    "Back to Selfcare": "सेल्फकेयर पर वापस जाएँ"
 }
