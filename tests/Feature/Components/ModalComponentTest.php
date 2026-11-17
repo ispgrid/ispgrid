@@ -13,3 +13,9 @@ it('keeps small dialogs without slots as they were', function () {
 
     expect($html)->toContain('max-w-sm')->toContain('p-6')->not->toContain('max-h-[calc(100dvh-2rem)]');
 });
+
+it('keeps the plain panel when only a header is given', function () {
+    $html = Blade::render('<x-ui.modal name="t"><x-slot:header>Head</x-slot:header>Body</x-ui.modal>');
+
+    expect($html)->toContain('Head')->toContain('Body')->toContain('p-6')->not->toContain('max-h-[calc(100dvh-2rem)]')->not->toContain('flex-col');
+});

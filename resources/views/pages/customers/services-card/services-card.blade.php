@@ -60,7 +60,7 @@
     </x-ui.card>
 
     @if ($this->canManage)
-        <x-ui.modal name="service-add" :width="$this->invoiced && $this->pickedItem ? 'wide' : 'lg'">
+        <x-ui.modal name="service-add" :width="$this->invoiced ? 'wide' : 'lg'">
             <x-slot:header>
                 <x-ui.heading size="lg">{{ __('Add service') }}</x-ui.heading>
             </x-slot:header>
@@ -69,7 +69,7 @@
                 @if ($this->itemOptions === [])
                     <x-ui.text>{{ __('No active service items yet. Add one under Billing, Items, sold as a service.') }}</x-ui.text>
                 @else
-                    <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->invoiced && $this->pickedItem])>
+                    <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->invoiced])>
                         <div class="grid grid-cols-1 content-start gap-5">
                             <x-ui.select wire:model.live="item_id" id="service-add-item" :label="__('Service')" :options="$this->itemOptions" :placeholder="__('Choose')" />
 
@@ -82,18 +82,20 @@
                                 </div>
                             @endif
 
-                            <div @class(['grid grid-cols-1 gap-4', 'sm:grid-cols-2' => $this->invoiced && $this->pickedItem, 'sm:grid-cols-3' => ! ($this->invoiced && $this->pickedItem)])>
+                            <div @class(['grid grid-cols-1 gap-4', 'sm:grid-cols-2' => $this->invoiced, 'sm:grid-cols-3' => ! $this->invoiced])>
                                 <x-ui.select wire:model.live="months" id="service-add-months" :label="__('Months')" :options="$this->monthOptions" />
                                 <x-ui.input wire:model="start_date" id="service-add-start" type="date" :label="__('Start date')" />
                                 <x-ui.input wire:model.live.blur="amount" id="service-add-amount" inputmode="decimal" :label="__('Amount')" :readonly="! $this->canPrice" />
                             </div>
                         </div>
 
-                        @if ($this->invoiced && $this->pickedItem)
+                        @if ($this->invoiced)
                             <div class="grid grid-cols-1 content-start gap-5">
-                                <p class="-mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Payment') }}</p>
-                                <x-ui.text>{{ __('Invoice total') }}: <span class="font-semibold tabular-nums">{{ $this->invoiceTotalText }}</span></x-ui.text>
-                                @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-add', 'stacked' => true, 'panel' => true])
+                                @if ($this->pickedItem)
+                                    <p class="-mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Payment') }}</p>
+                                    <x-ui.text>{{ __('Invoice total') }}: <span class="font-semibold tabular-nums">{{ $this->invoiceTotalText }}</span></x-ui.text>
+                                    @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-add', 'panel' => true])
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -110,7 +112,7 @@
             </x-slot:footer>
         </x-ui.modal>
 
-        <x-ui.modal name="service-renew" :width="$this->invoiced && $serviceId ? 'wide' : 'lg'">
+        <x-ui.modal name="service-renew" :width="$this->invoiced ? 'wide' : 'lg'">
             <x-slot:header>
                 <x-ui.heading size="lg">{{ __('Renew :service', ['service' => $this->serviceName]) }}</x-ui.heading>
             </x-slot:header>
@@ -118,7 +120,7 @@
             <form id="service-renew-form" wire:submit="renew" class="grid grid-cols-1 gap-5" novalidate>
                 <x-ui.text muted>{{ __('Adds the months to the paid-until date while it is ahead, else from now.') }}</x-ui.text>
 
-                <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->invoiced && $serviceId])>
+                <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => $this->invoiced])>
                     <div class="grid grid-cols-1 content-start gap-4 sm:grid-cols-2">
                         <x-ui.select wire:model.live="months" id="service-renew-months" :label="__('Months')" :options="$this->monthOptions" />
                         <x-ui.input wire:model.live.blur="amount" id="service-renew-amount" inputmode="decimal" :label="__('Amount')" :readonly="! $this->canPrice" />
@@ -128,7 +130,7 @@
                         <div class="grid grid-cols-1 content-start gap-5">
                             <p class="-mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Payment') }}</p>
                             <x-ui.text>{{ __('Invoice total') }}: <span class="font-semibold tabular-nums">{{ $this->invoiceTotalText }}</span></x-ui.text>
-                            @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-renew', 'stacked' => true, 'panel' => true])
+                            @include('partials.payment-fields', ['total' => $this->invoiceTotal, 'idPrefix' => 'service-renew', 'panel' => true])
                         </div>
                     @endif
                 </div>

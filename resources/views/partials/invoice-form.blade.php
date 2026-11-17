@@ -14,76 +14,58 @@
         @endif
 
         <div @class(['grid grid-cols-1 gap-x-7 gap-y-5', 'md:grid-cols-2' => ! $this->reissuing_invoice_id])>
-        <div class="grid grid-cols-1 content-start gap-5">
-        @foreach ($lines as $index => $line)
-            <div class="grid grid-cols-1 gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" wire:key="line-{{ $index }}">
-                @if ($line['source'] === null && $this->invoiceItemOptions !== [])
-                    <x-ui.select wire:model="lines.{{ $index }}.item_id" wire:change="pickItem({{ $index }}, $event.target.value)" :label="__('Item')" :options="$this->invoiceItemOptions" :placeholder="__('No item')" :description="__('Fills the line from Billing, Items. You can still change it.')" />
-                @endif
-                <div class="flex items-end gap-2">
-                    <div class="min-w-0 flex-1">
-                        <x-ui.input wire:model="lines.{{ $index }}.description" :label="__('Description')" maxlength="255" />
-                    </div>
-                    @if (count($lines) > 1)
-                        <x-ui.button size="sm" variant="ghost" wire:click="removeLine({{ $index }})">{{ __('Remove') }}</x-ui.button>
-                    @endif
-                </div>
-                <x-ui.input wire:model="lines.{{ $index }}.details" :label="__('More details')" maxlength="255" :description="__('Optional second line, such as the period or speed.')" />
-                <div @class(['grid grid-cols-1 gap-3', 'sm:grid-cols-4' => $this->reissuing_invoice_id, 'sm:grid-cols-2' => ! $this->reissuing_invoice_id])>
-                    <x-ui.input wire:model.live.blur="lines.{{ $index }}.quantity" inputmode="decimal" :label="__('Quantity')" />
-                    <x-ui.input wire:model.live.blur="lines.{{ $index }}.unit_price" inputmode="decimal" :label="__('Unit price')" />
-                    @if ($this->canDiscount)
-                        <x-ui.input wire:model.live.blur="lines.{{ $index }}.discount" inputmode="decimal" :label="__('Discount %')" />
-                    @endif
-                    @if ($this->itemCodeLabel)
-                        <x-ui.input wire:model="lines.{{ $index }}.item_code" :label="$this->itemCodeLabel" maxlength="20" />
-                    @endif
-                </div>
-                <x-ui.checkbox wire:model.live="lines.{{ $index }}.taxed" id="line-taxed-{{ $index }}" :label="__('Charge tax on this line')" />
-            </div>
-        @endforeach
-
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <x-ui.button size="sm" variant="secondary" wire:click="addLine" icon="plus">{{ __('Add line') }}</x-ui.button>
-            <x-ui.checkbox wire:model.live="round_off" :label="__('Round off the total')" />
-        </div>
-
-        @if ($this->reissuing_invoice_id)
-            @if ($this->newInvoiceTotals !== [])
-                <dl class="grid grid-cols-1 gap-1 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700">
-                    @foreach ($this->newInvoiceTotals as $row)
-                        <div @class(['flex justify-between gap-4', 'mt-1 border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-700' => $row['total']])>
-                            <dt @class(['text-zinc-600 dark:text-zinc-400' => ! $row['total']])>{{ $row['label'] }}</dt>
-                            <dd class="tabular-nums">{{ $row['value'] }}</dd>
-                        </div>
-                    @endforeach
-                </dl>
-            @endif
-        @endif
-
-        <x-ui.input wire:model="invoice_date" type="date" :label="__('Invoice date')" :description="__('Any earlier date is allowed; not a future one.')" />
-
-        @if ($this->reissuing_invoice_id)
-            <x-ui.input wire:model="reissue_reason" :label="__('Reason')" maxlength="255" />
-        @endif
-        </div>
-
-        @unless ($this->reissuing_invoice_id)
             <div class="grid grid-cols-1 content-start gap-5">
-                <p class="-mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Payment') }}</p>
-                @if ($this->newInvoiceTotals !== [])
-                    <dl class="grid grid-cols-1 gap-1 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700">
-                        @foreach ($this->newInvoiceTotals as $row)
-                            <div @class(['flex justify-between gap-4', 'mt-1 border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-700' => $row['total']])>
-                                <dt @class(['text-zinc-600 dark:text-zinc-400' => ! $row['total']])>{{ $row['label'] }}</dt>
-                                <dd class="tabular-nums">{{ $row['value'] }}</dd>
+                @foreach ($lines as $index => $line)
+                    <div class="grid grid-cols-1 gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" wire:key="line-{{ $index }}">
+                        @if ($line['source'] === null && $this->invoiceItemOptions !== [])
+                            <x-ui.select wire:model="lines.{{ $index }}.item_id" wire:change="pickItem({{ $index }}, $event.target.value)" :label="__('Item')" :options="$this->invoiceItemOptions" :placeholder="__('No item')" :description="__('Fills the line from Billing, Items. You can still change it.')" />
+                        @endif
+                        <div class="flex items-end gap-2">
+                            <div class="min-w-0 flex-1">
+                                <x-ui.input wire:model="lines.{{ $index }}.description" :label="__('Description')" maxlength="255" />
                             </div>
-                        @endforeach
-                    </dl>
+                            @if (count($lines) > 1)
+                                <x-ui.button size="sm" variant="ghost" wire:click="removeLine({{ $index }})">{{ __('Remove') }}</x-ui.button>
+                            @endif
+                        </div>
+                        <x-ui.input wire:model="lines.{{ $index }}.details" :label="__('More details')" maxlength="255" :description="__('Optional second line, such as the period or speed.')" />
+                        <div @class(['grid grid-cols-1 gap-3', 'sm:grid-cols-4' => $this->reissuing_invoice_id, 'sm:grid-cols-2' => ! $this->reissuing_invoice_id])>
+                            <x-ui.input wire:model.live.blur="lines.{{ $index }}.quantity" inputmode="decimal" :label="__('Quantity')" />
+                            <x-ui.input wire:model.live.blur="lines.{{ $index }}.unit_price" inputmode="decimal" :label="__('Unit price')" />
+                            @if ($this->canDiscount)
+                                <x-ui.input wire:model.live.blur="lines.{{ $index }}.discount" inputmode="decimal" :label="__('Discount %')" />
+                            @endif
+                            @if ($this->itemCodeLabel)
+                                <x-ui.input wire:model="lines.{{ $index }}.item_code" :label="$this->itemCodeLabel" maxlength="20" />
+                            @endif
+                        </div>
+                        <x-ui.checkbox wire:model.live="lines.{{ $index }}.taxed" id="line-taxed-{{ $index }}" :label="__('Charge tax on this line')" />
+                    </div>
+                @endforeach
+
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <x-ui.button size="sm" variant="secondary" wire:click="addLine" icon="plus">{{ __('Add line') }}</x-ui.button>
+                    <x-ui.checkbox wire:model.live="round_off" :label="__('Round off the total')" />
+                </div>
+
+                @if ($this->reissuing_invoice_id)
+                    @include('partials.invoice-totals', ['rows' => $this->newInvoiceTotals])
                 @endif
-                @include('partials.payment-fields', ['total' => $this->newInvoiceTotal, 'idPrefix' => 'new-invoice', 'stacked' => true, 'panel' => true])
+
+                <x-ui.input wire:model="invoice_date" type="date" :label="__('Invoice date')" :description="__('Any earlier date is allowed; not a future one.')" />
+
+                @if ($this->reissuing_invoice_id)
+                    <x-ui.input wire:model="reissue_reason" :label="__('Reason')" maxlength="255" />
+                @endif
             </div>
-        @endunless
+
+            @unless ($this->reissuing_invoice_id)
+                <div class="grid grid-cols-1 content-start gap-5">
+                    <p class="-mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Payment') }}</p>
+                    @include('partials.invoice-totals', ['rows' => $this->newInvoiceTotals])
+                    @include('partials.payment-fields', ['total' => $this->newInvoiceTotal, 'idPrefix' => 'new-invoice', 'panel' => true])
+                </div>
+            @endunless
         </div>
     </form>
 

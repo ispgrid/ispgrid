@@ -25,7 +25,7 @@
     <div class="fixed inset-0 bg-black/50" x-on:click="open = false"></div>
 
     @if ($fixedParts)
-        <div x-trap.noscroll="open" class="relative flex max-h-[calc(100dvh-2rem)] w-full flex-col {{ $widthClass }} rounded-xl bg-white p-0 shadow-xl dark:bg-zinc-900">
+        <div x-trap.noscroll="open" class="relative flex max-h-[calc(100dvh-2rem)] w-full flex-col {{ $widthClass }} rounded-xl bg-white shadow-xl dark:bg-zinc-900">
             @isset($header)
                 <div class="shrink-0 px-6 pt-6">{{ $header }}</div>
             @endisset

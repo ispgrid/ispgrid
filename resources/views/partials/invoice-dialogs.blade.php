@@ -6,7 +6,7 @@
         </x-slot:header>
 
         <form id="billing-record-payment-form" wire:submit="recordPayment" class="grid grid-cols-1 gap-5" novalidate>
-            @include('partials.payment-fields', ['total' => $this->payingBalance, 'withSwitch' => false, 'idPrefix' => 'record', 'stacked' => true])
+            @include('partials.payment-fields', ['total' => $this->payingBalance, 'withSwitch' => false, 'idPrefix' => 'record'])
         </form>
 
         <x-slot:footer>
