@@ -62,7 +62,7 @@ final class PaymentProof
     /**
      * The extension for what the file's bytes are, or null when they are not an allowed type.
      */
-    private static function extensionOf(UploadedFile $file): ?string
+    public static function extensionOf(UploadedFile $file): ?string
     {
         $path = $file->getRealPath();
 

@@ -174,6 +174,7 @@ final class ActivityFormatter
             'online-payment' => __('Online payment'),
             'online-payment-handled' => __('Online payment handled'),
             'quick-pay-settings' => __('Quick pay settings changed'),
+            'upi-settings' => __('UPI settings changed'),
             'selfcare-login' => __('Selfcare login'),
             'selfcare-login-failed' => __('Selfcare login failed'),
             'selfcare-switch' => __('Selfcare connection opened'),

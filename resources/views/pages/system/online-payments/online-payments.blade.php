@@ -26,6 +26,34 @@
         </form>
     </x-ui.card>
 
+    @if ($this->upi)
+        <x-ui.card>
+            <form wire:submit="saveUpi" class="grid grid-cols-1 gap-5">
+                <div>
+                    <x-ui.heading>{{ __('UPI') }}</x-ui.heading>
+                    <x-ui.text muted class="mt-1">{{ __('Customers pay to your UPI by hand and send you a screenshot. Nothing here is automatic. Shown on the pay page and in Selfcare.') }}</x-ui.text>
+                </div>
+                <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
+                    <x-ui.input wire:model="upi_id" :label="__('UPI ID')" placeholder="name@bank" autocomplete="off" autocapitalize="off" spellcheck="false" />
+                    <x-ui.input wire:model="upi_number" :label="__('UPI number')" :description="__('The phone number customers can pay to.')" autocomplete="off" />
+                </div>
+                <x-ui.input wire:model="upi_note" :label="__('Note for customers')" :placeholder="$this->upi['defaultNote']" :description="__('Empty: the default line with your notice phone.')" maxlength="200" />
+                <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
+                    <x-ui.file-upload wire:model="upi_qr" :label="__('QR picture')" accept="image/png,image/jpeg,image/webp" :description="__('PNG, JPG or WebP, up to 2 MB. A new picture replaces the old one.')" />
+                    @if ($this->upi['qrUrl'])
+                        <div class="grid grid-cols-1 justify-items-start gap-2">
+                            <img src="{{ $this->upi['qrUrl'] }}" alt="{{ __('UPI QR') }}" class="size-32 rounded-lg border border-zinc-200 bg-white object-contain dark:border-zinc-700">
+                            <x-ui.button type="button" variant="secondary" wire:click="removeUpiQr" wire:confirm="{{ __('Remove the QR picture?') }}">{{ __('Remove picture') }}</x-ui.button>
+                        </div>
+                    @endif
+                </div>
+                <div>
+                    <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.card>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         @foreach ($this->gatewayCards as $gateway)
             <x-ui.card wire:key="gateway-{{ $gateway['key'] }}" class="flex flex-col">

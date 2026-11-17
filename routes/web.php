@@ -5,6 +5,7 @@ use App\Http\Controllers\PaymentGatewayController;
 use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\QuickPayController;
+use App\Http\Controllers\UpiQrController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
@@ -15,6 +16,7 @@ Route::post('pay', [QuickPayController::class, 'find'])->middleware('throttle:qu
 Route::get('p/{code}', [QuickPayController::class, 'code'])->where('code', '[0-9A-Za-z-]{1,40}')->middleware('throttle:quick-pay')->name('pay.code');
 Route::post('pay/start', [QuickPayController::class, 'start'])->middleware('throttle:quick-pay')->name('pay.start');
 Route::get('pay/result/{publicId}', [QuickPayController::class, 'result'])->where('publicId', '[0-9A-Z]{26}')->name('pay.result');
+Route::get('pay/upi-qr/{file}', UpiQrController::class)->where('file', 'qr-[A-Za-z0-9]{16}\.(png|jpg|webp)')->name('pay.upi-qr');
 Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->name('pay.return');
 Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->name('pay.webhook');
 
