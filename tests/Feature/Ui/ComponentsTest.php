@@ -122,3 +122,28 @@ it('keeps an English-only field in English and warns while non-English text is t
         ->assertDontSee('lang="en"', false)
         ->assertDontSee('notEnglish', false);
 });
+
+it('renders the wide modal with a fixed header and footer and a scrolling body', function () {
+    $this->blade('<x-ui.modal name="t" width="wide"><x-slot:header>Head</x-slot:header>Body<x-slot:footer>Foot</x-slot:footer></x-ui.modal>')
+        ->assertSee('max-w-[55rem]', false)
+        ->assertSee('max-h-[calc(100dvh-2rem)]', false)
+        ->assertSee('overflow-y-auto', false)
+        ->assertSee('Head')
+        ->assertSee('Foot');
+});
+
+it('keeps small modals without slots as they were', function () {
+    $this->blade('<x-ui.modal name="t" width="sm">Body</x-ui.modal>')
+        ->assertSee('max-w-sm', false)
+        ->assertSee('p-6', false)
+        ->assertDontSee('max-h-[calc(100dvh-2rem)]', false);
+});
+
+it('keeps the plain modal panel when only a header is given', function () {
+    $this->blade('<x-ui.modal name="t"><x-slot:header>Head</x-slot:header>Body</x-ui.modal>')
+        ->assertSee('Head')
+        ->assertSee('Body')
+        ->assertSee('p-6', false)
+        ->assertDontSee('max-h-[calc(100dvh-2rem)]', false)
+        ->assertDontSee('flex-col', false);
+});

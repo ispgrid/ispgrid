@@ -23,6 +23,7 @@ class PaymentFactory extends Factory
             'payment_method_id' => fn (): int => PaymentMethod::query()->orderBy('position')->value('id') ?? PaymentMethod::factory()->create()->id,
             'amount' => '100.00',
             'paid_at' => now(),
+            'proof_path' => null,
         ];
     }
 }

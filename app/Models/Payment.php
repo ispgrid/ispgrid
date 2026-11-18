@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Money received against an invoice. Removing one keeps the row (soft delete) with who removed it and why.
  */
-#[Fillable(['invoice_id', 'account_id', 'payment_method_id', 'amount', 'reference', 'note', 'paid_at', 'user_id',
+#[Fillable(['invoice_id', 'account_id', 'payment_method_id', 'amount', 'reference', 'note', 'proof_path', 'paid_at', 'user_id',
     'removed_by', 'remove_reason'])]
 class Payment extends Model
 {

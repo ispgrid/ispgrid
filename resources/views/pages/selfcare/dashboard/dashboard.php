@@ -1,18 +1,25 @@
 <?php
 
+use App\Actions\Payments\StartOnlinePayment;
 use App\Billing\BillingSettings;
 use App\Billing\Pdf\ReceiptView;
 use App\Enums\InvoiceStatus;
+use App\Enums\OnlinePaymentOrigin;
 use App\Enums\ServiceType;
+use App\Exceptions\GatewayUnavailable;
+use App\Exceptions\NothingToPay;
+use App\Exceptions\TooManyPaymentAttempts;
 use App\Http\Middleware\SelfcareSession;
+use App\Models\Account;
 use App\Models\AppSetting;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Radacct;
 use App\Models\Radpostauth;
 use App\Models\SelfcareAccount;
-use App\Payments\PayCode;
+use App\Payments\PaymentGateways;
 use App\Payments\QuickPay;
+use App\Payments\UpiDetails;
 use App\Support\Money;
 use App\Support\PublicPage;
 use App\Support\Selfcare;
@@ -30,6 +37,9 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    /** Why the last Pay press did not start a payment, shown in the Renew card. */
+    public string $payError = '';
+
     #[Computed]
     public function account(): SelfcareAccount
     {
@@ -66,9 +76,11 @@ new class extends Component
     }
 
     /**
-     * Renew: a quick pay link with the amount, the date renewal opens, or the number to call.
+     * Renew: Pay buttons with the amount (one per gateway this customer can use, and why another is hidden), the
+     * date renewal opens, the UPI details when the customer owes something and the pay page is closed, or the
+     * number to call.
      *
-     * @return array{kind: 'pay'|'opens'|'call'|'none', label: string, url: ?string}
+     * @return array{kind: 'pay'|'upi'|'opens'|'call'|'none', label: string, url?: ?string, gateways?: list<array{key: string, label: string}>, unavailable?: list<string>}
      */
     #[Computed]
     public function renew(): array
@@ -77,6 +89,12 @@ new class extends Component
         $phone = trim((string) AppSetting::valueOf('notice_phone', ''));
 
         if (! QuickPay::isOpen()) {
+            $owed = $this->upiDetails === null ? null : app(QuickPay::class)->quote($account);
+
+            if ($owed !== null) {
+                return ['kind' => 'upi', 'label' => __('Pay :amount', ['amount' => Money::fromSettings()->format($owed->total)]), 'url' => null];
+            }
+
             return $phone === ''
                 ? ['kind' => 'none', 'label' => '', 'url' => null]
                 : ['kind' => 'call', 'label' => __('To renew, call us: :phone', ['phone' => $phone]), 'url' => 'tel:'.preg_replace('/[^0-9+]/', '', $phone)];
@@ -87,10 +105,15 @@ new class extends Component
         if ($quote !== null) {
             $amount = Money::fromSettings()->format($quote->total);
 
+            $gateways = app(PaymentGateways::class);
+            $label = fn (string $key): ?string => ($class = $gateways->class($key)) === null ? null : $class::label();
+            ['usable' => $usable, 'hidden' => $hidden] = $gateways->splitFor(Account::query()->findOrFail($account->id));
+
             return [
                 'kind' => 'pay',
                 'label' => $quote->renewal !== null ? __('Renew for :amount', ['amount' => $amount]) : __('Pay :amount', ['amount' => $amount]),
-                'url' => route('pay.code', PayCode::for($account->id)),
+                'gateways' => array_values(array_filter(array_map(fn (string $key): ?array => ($name = $label($key)) === null ? null : ['key' => $key, 'label' => $name], $usable))),
+                'unavailable' => array_values(array_filter(array_map(fn (string $key, string $message): ?string => ($name = $label($key)) === null ? null : $name.': '.$message, array_keys($hidden), $hidden))),
             ];
         }
 
@@ -100,6 +123,66 @@ new class extends Component
         return $opens !== null && $opens->isFuture()
             ? ['kind' => 'opens', 'label' => __('Renewal opens on :date', ['date' => $opens->format($this->dateFormat())]), 'url' => null]
             : ['kind' => 'none', 'label' => '', 'url' => null];
+    }
+
+    /**
+     * Starts an online payment for the logged-in customer (never for a client-sent account) and hands them to the
+     * gateway. The gateway must be one this customer can use; the action checks again.
+     */
+    public function pay(string $gateway, StartOnlinePayment $start): void
+    {
+        $this->payError = '';
+
+        if (! QuickPay::isOpen()) {
+            $this->payError = __('The payment could not be started. Try again in a few minutes.');
+
+            return;
+        }
+
+        $account = Account::query()->find($this->account->id);
+
+        if ($account === null || ! in_array($gateway, app(PaymentGateways::class)->enabledFor($account), true)) {
+            $this->payError = __('The payment could not be started. Try again in a few minutes.');
+
+            return;
+        }
+
+        try {
+            $started = $start->handle($account->id, $gateway, request()->ip(), OnlinePaymentOrigin::Selfcare);
+        } catch (NothingToPay) {
+            $this->payError = __('Nothing to pay for this username or number.');
+
+            return;
+        } catch (TooManyPaymentAttempts) {
+            $this->payError = __('Too many tries. Wait an hour and try again, or call us.');
+
+            return;
+        } catch (GatewayUnavailable $refused) {
+            report($refused);
+            $this->payError = __('The payment could not be started. Try again in a few minutes.');
+
+            return;
+        }
+
+        $this->redirect($started->start->kind === 'redirect' ? $started->start->url : route('selfcare.pay-go', $started->payment->public_id));
+    }
+
+    /**
+     * The UPI details once per render (null without INR or when none are set).
+     */
+    #[Computed]
+    public function upiDetails(): ?UpiDetails
+    {
+        return UpiDetails::current();
+    }
+
+    /**
+     * The operator's UPI details, shown in the Renew card when there is something to pay (null without INR).
+     */
+    #[Computed]
+    public function upi(): ?UpiDetails
+    {
+        return in_array($this->renew['kind'], ['pay', 'upi'], true) ? $this->upiDetails : null;
     }
 
     /**

@@ -18,6 +18,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * One invoice as it prints, with Download PDF, Print, Record payment, Remove payment, Cancel and Cancel and reissue
@@ -25,7 +26,7 @@ use Livewire\Component;
  */
 new #[Title('Invoice')] class extends Component
 {
-    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment, WritesInvoices;
+    use AuthorizesEveryRequest, ManagesInvoices, ShowsToasts, TakesPayment, WithFileUploads, WritesInvoices;
 
     #[Locked]
     public int $invoiceId;

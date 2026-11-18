@@ -102,6 +102,30 @@ class SelfcareSession
     }
 
     /**
+     * The open connection when this session is a valid Selfcare login by the same checks handle() makes, else null.
+     * For pages outside the middleware that may show a customer's own details (never redirects or logs out, and
+     * does not renew the idle clock).
+     */
+    public static function validAccount(): ?SelfcareAccount
+    {
+        if (! Selfcare::isOpen()) {
+            return null;
+        }
+
+        $account = self::account();
+        $login = self::loginAccount();
+
+        if ($account === null || $login === null || ! Selfcare::eligible($login) || $login->selfcare_password === null
+            || session(self::FINGERPRINT) !== self::fingerprint($login)
+            || ! Selfcare::eligible($account) || ! self::sameSession($login, $account)
+            || now()->getTimestamp() - (int) session(self::LAST_SEEN, 0) > self::IDLE_MINUTES * 60) {
+            return null;
+        }
+
+        return $account;
+    }
+
+    /**
      * The account whose selfcare password this session logged in with: its password is the one the customer
      * confirms and changes, whichever connection is open.
      */

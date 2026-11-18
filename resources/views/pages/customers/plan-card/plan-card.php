@@ -46,6 +46,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * The customer's plan, its dates and every plan action (Details tab): change plan, renew in advance, change
@@ -54,7 +55,7 @@ use Livewire\Component;
  */
 new class extends Component
 {
-    use AuthorizesEveryRequest, PricesRecharges, ShowsToasts, TakesPayment;
+    use AuthorizesEveryRequest, PricesRecharges, ShowsToasts, TakesPayment, WithFileUploads;
 
     #[Locked]
     public int $accountId;

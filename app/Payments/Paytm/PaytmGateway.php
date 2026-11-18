@@ -86,6 +86,9 @@ final class PaytmGateway implements PaymentGateway
         ]);
     }
 
+    /**
+     * Paytm's status reply carries no currency, so the result has none: the gateway is INR-only through currencies().
+     */
     public function status(OnlinePayment $payment): GatewayResult
     {
         try {

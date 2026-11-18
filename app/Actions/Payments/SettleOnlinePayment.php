@@ -92,6 +92,18 @@ final class SettleOnlinePayment
         $payment->fill(['paid_at' => $paidAt, 'settled_at' => now()]);
         $currency = $payment->currency;
 
+        if ($result->currency !== null && strtoupper($result->currency) !== $currency) {
+            $payment->fill([
+                'status' => OnlinePaymentStatus::NeedsAttention,
+                'note' => mb_substr(__('The gateway reports :paid_currency :paid, not :currency :asked. Nothing was recorded.', [
+                    'paid_currency' => strtoupper($result->currency), 'paid' => $result->amount ?? '?', 'currency' => $currency, 'asked' => (string) $payment->amount,
+                ]), 0, 255),
+            ])->save();
+            $this->log($payment);
+
+            return;
+        }
+
         if ($result->amount === null || Decimal::compare($result->amount, (string) $payment->amount) !== 0) {
             $payment->fill([
                 'status' => OnlinePaymentStatus::NeedsAttention,

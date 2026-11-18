@@ -31,11 +31,26 @@
         </dl>
 
         @if ($this->renew['kind'] === 'pay')
-            <x-ui.button :href="$this->renew['url']" class="w-full">{{ $this->renew['label'] }}</x-ui.button>
+            <x-ui.text class="text-sm font-medium">{{ $this->renew['label'] }}</x-ui.text>
+            @if ($payError !== '')
+                <x-ui.alert>{{ $payError }}</x-ui.alert>
+            @endif
+            @foreach ($this->renew['gateways'] as $gateway)
+                <x-ui.button type="button" wire:click="pay({{ Illuminate\Support\Js::from($gateway['key']) }})" wire:loading.attr="disabled" class="w-full">{{ count($this->renew['gateways']) === 1 ? __('Pay online') : $gateway['label'] }}</x-ui.button>
+            @endforeach
+            @foreach ($this->renew['unavailable'] as $note)
+                <x-ui.text muted class="text-sm">{{ $note }}</x-ui.text>
+            @endforeach
+        @elseif ($this->renew['kind'] === 'upi')
+            <x-ui.text class="text-sm font-medium">{{ $this->renew['label'] }}</x-ui.text>
         @elseif ($this->renew['kind'] === 'call')
             <x-ui.text class="text-sm"><a href="{{ $this->renew['url'] }}" class="underline-offset-2 hover:underline">{{ $this->renew['label'] }}</a></x-ui.text>
         @elseif ($this->renew['kind'] === 'opens')
             <x-ui.text muted class="text-sm">{{ $this->renew['label'] }}</x-ui.text>
+        @endif
+
+        @if ($this->upi)
+            @include('partials.upi-box', ['upi' => $this->upi, 'heading' => $this->renew['kind'] === 'upi' || ($this->renew['gateways'] ?? []) === [] ? __('Pay by UPI') : __('Or pay by UPI')])
         @endif
     </section>
 

@@ -94,19 +94,37 @@ registers another the same way.
    - `settingFields()`: merchant ids and keys as `SettingField`s (mark keys `'secret'`), test or live, and a host
      override: gateways move their domains, so never rely on a constant alone.
    - `start($payment, $returnUrl)`: open the payment at the provider (amount `$payment->amount`, order id
-     `$payment->public_id`) and return a `GatewayStart`: `redirect()`, a self-posting `form()`, or the provider's
+     `$payment->public_id`; pass the provider's own order id as `orderId` when it differs, it is kept as
+     `gateway_order_id`) and return a `GatewayStart`: `redirect()`, a self-posting `form()`, or the provider's
      `script()`. Throw `GatewayUnavailable` when the provider refuses. Send no customer name, phone or email unless
      the provider requires it.
-   - `status($payment)`: ask the provider server to server and return a `GatewayResult` (`Paid`, `Failed` or
-     `Pending`, the amount taken with two decimals, its transaction id and time). This is the only proof of payment.
-     Leave signatures, tokens and keys out of `raw`. Answer `Pending` when the provider cannot be reached.
-   - `verify($request)`: check a return or webhook really comes from the provider (its signature) and return the
-     attempt's `public_id`, or null.
+   - `status($payment)`: ask the provider server to server and return a `GatewayResult`. This is the only thing
+     that decides `Paid`, with the amount (two decimals) AND the `currency` (ISO code) taken from the provider's
+     answer: an attempt whose amount or currency differs is never recorded. Only when the provider's answer carries no
+     currency, leave it null or use the one code `currencies()` allows. Unknown or error answers are `Pending`
+     (also when the provider cannot be reached); `Failed` only for a final provider state. Leave signatures, tokens
+     and keys out of `raw`.
+   - `verify($request)`: return the `public_id` of an attempt of your own gateway (filter by `gateway` = your key),
+     or null. A return may be unsigned: then it resolves only the `attempt` query parameter, which the return URL
+     always carries. A webhook must prove itself: check the provider's signature with `hash_equals`, or ask the
+     provider's verify API. Nothing from the request is ever used as the payment outcome, it only says "check now".
+     A null for a webhook is answered with a 404 so the provider retries; select only the events you handle.
+   - `$returnUrl` already has a query string: append extra parameters with `&`.
+   - Needs the customer's phone or email? Implement `App\Contracts\NeedsCustomerDetails` and read the values with
+     `App\Payments\CustomerDetails::for($account)`. Never invent a value: the gateway is hidden for a customer who
+     lacks one.
 2. Register it: in core, in `AppServiceProvider` next to Paytm; in an add-on, in its service provider,
    `app(PaymentGateways::class)->register(YourGateway::class)`.
 3. Test it like `tests/Feature/Payments/PaytmGatewayTest.php` with `Http::fake()`: the exact request and its
    signature, the status mapping, and a forged return and webhook refused. `tests/Fakes/FakeGateway.php` is the
    smallest complete gateway.
+
+Helpers for gateways: add the marker interface `App\Contracts\UntestedGateway` until a live payment is confirmed
+(the settings card then warns staff to make a small payment first), convert amounts with
+`App\Payments\GatewayAmount` (decimal strings to paise or cents and back, never floats), and call a provider with the
+`App\Payments\Concerns\CallsGatewayApi` trait (`sendJson()`, `sendForm()`), whose errors never carry keys or response
+bodies. A provider's browser script is handed off with `GatewayStart::script` and an `init` partial under
+`resources/views/pay/init/` (core only); pass values to it only through `@js`.
 
 Abilities a gateway may add later (refunds from the panel, pay links in reminders) come as small extra interfaces,
 so `PaymentGateway` itself does not change.

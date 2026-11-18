@@ -65,7 +65,7 @@ it('starts a payment for what the customer owes and sends them to the gateway', 
         ->and(strlen($started->payment->public_id))->toBe(26)
         ->and($started->start->kind)->toBe('form')
         ->and($started->start->fields['order'])->toBe($started->payment->public_id)
-        ->and($started->start->fields['return'])->toBe(route('pay.return', 'fake'));
+        ->and($started->start->fields['return'])->toBe(route('pay.return', ['fake', 'attempt' => $started->payment->public_id]));
 });
 
 it('pays the dues into the oldest invoices first', function () {
@@ -150,6 +150,27 @@ it('records nothing when the gateway took another amount', function () {
     expect($settled->status)->toBe(OnlinePaymentStatus::NeedsAttention)
         ->and($settled->note)->toContain('1.00')
         ->and(Payment::query()->count())->toBe(0);
+});
+
+it('records nothing when the gateway reports another currency', function () {
+    quickPayInvoice($this->account, '100');
+    $payment = startPayment($this->account);
+    FakeGateway::pay($payment, null, 'USD');
+
+    $settled = settle($payment);
+
+    expect($settled->status)->toBe(OnlinePaymentStatus::NeedsAttention)
+        ->and($settled->note)->toContain('USD')->toContain('Nothing was recorded')
+        ->and(Payment::query()->count())->toBe(0);
+});
+
+it('records the payment when the gateway reports the right currency in lower case', function () {
+    quickPayInvoice($this->account, '100');
+    $payment = startPayment($this->account);
+    FakeGateway::pay($payment, null, strtolower($payment->currency));
+
+    expect(settle($payment)->status)->toBe(OnlinePaymentStatus::Paid)
+        ->and(Payment::query()->count())->toBe(1);
 });
 
 it('flags what no longer fits after staff took cash meanwhile', function () {

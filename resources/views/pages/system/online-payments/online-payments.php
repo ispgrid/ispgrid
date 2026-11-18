@@ -1,17 +1,23 @@
 <?php
 
 use App\Billing\BillingSettings;
+use App\Contracts\UntestedGateway;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\AppSetting;
 use App\Models\GatewaySetting;
 use App\Notifications\SettingField;
 use App\Payments\PaymentGateways;
+use App\Payments\UpiDetails;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 /**
  * Quick pay settings: the pay page on or off, how early it offers a renewal, and each payment gateway's keys.
@@ -19,11 +25,20 @@ use Livewire\Component;
  */
 new #[Title('Quick pay')] class extends Component
 {
-    use AuthorizesEveryRequest, ShowsToasts;
+    use AuthorizesEveryRequest, ShowsToasts, WithFileUploads;
 
     public bool $quick_pay = false;
 
     public string $renewal_days = '';
+
+    public string $upi_id = '';
+
+    public string $upi_number = '';
+
+    public string $upi_note = '';
+
+    /** The QR picture chosen but not saved yet. */
+    public ?TemporaryUploadedFile $upi_qr = null;
 
     /** @var array<string, array<string, string>> */
     public array $settings = [];
@@ -41,6 +56,10 @@ new #[Title('Quick pay')] class extends Component
         $this->quick_pay = AppSetting::valueOf('billing.quick_pay', '0') === '1';
         $this->renewal_days = (string) AppSetting::valueOf('billing.quick_pay_renewal_days', '7');
 
+        $this->upi_id = (string) AppSetting::valueOf('billing.upi_id', '');
+        $this->upi_number = (string) AppSetting::valueOf('billing.upi_number', '');
+        $this->upi_note = (string) AppSetting::valueOf('billing.upi_note', '');
+
         foreach ($this->gateways()->all() as $key => $class) {
             $this->load($key, $class::settingFields());
         }
@@ -55,7 +74,7 @@ new #[Title('Quick pay')] class extends Component
     }
 
     /**
-     * @return list<array{key: string, label: string, fields: list<array{name: string, label: string, type: string, help: ?string}>, webhook: string, currencyOk: bool, currencies: string}>
+     * @return list<array{key: string, label: string, fields: list<array{name: string, label: string, type: string, help: ?string}>, webhook: string, currencyOk: bool, currencies: string, untested: bool}>
      */
     #[Computed]
     public function gatewayCards(): array
@@ -77,6 +96,7 @@ new #[Title('Quick pay')] class extends Component
                 'webhook' => route('pay.webhook', $key),
                 'currencyOk' => $this->gateways()->supportsCurrency($key),
                 'currencies' => implode(', ', $class::currencies()),
+                'untested' => is_subclass_of($class, UntestedGateway::class),
             ];
         }
 
@@ -98,6 +118,115 @@ new #[Title('Quick pay')] class extends Component
         ];
     }
 
+    /**
+     * The UPI card: null (hidden) unless the currency is INR. The saved QR is previewed through the public QR route.
+     *
+     * @return ?array{qrUrl: ?string, defaultNote: string}
+     */
+    #[Computed]
+    public function upi(): ?array
+    {
+        if (! UpiDetails::available()) {
+            return null;
+        }
+
+        $qr = (string) AppSetting::valueOf('billing.upi_qr', '');
+        $phone = trim((string) AppSetting::valueOf('notice_phone', ''));
+
+        return [
+            'qrUrl' => $qr === '' ? null : route('pay.upi-qr', basename($qr)),
+            'defaultNote' => __('After paying, send the screenshot on WhatsApp to :phone.', ['phone' => $phone === '' ? '...' : $phone]),
+        ];
+    }
+
+    /**
+     * Saves the UPI ID, number, note and a new QR picture (which replaces the old one and deletes its file).
+     */
+    public function saveUpi(): void
+    {
+        $this->authorize('manage-billing');
+        abort_unless(UpiDetails::available(), 403);
+        $this->upi_id = trim($this->upi_id);
+        $this->upi_number = trim($this->upi_number);
+        $this->upi_note = trim($this->upi_note);
+        $this->validate([
+            'upi_id' => ['nullable', 'max:60', 'regex:/^[A-Za-z0-9._-]{2,}@[A-Za-z0-9]{2,}$/'],
+            'upi_number' => ['nullable', 'max:20', 'regex:/^[0-9 +-]+$/'],
+            'upi_note' => ['nullable', 'max:200'],
+            'upi_qr' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:2048', UpiDetails::qrRule()],
+        ], attributes: ['upi_id' => __('UPI ID'), 'upi_number' => __('UPI number'), 'upi_note' => __('note'), 'upi_qr' => __('QR picture')]);
+
+        $old = $this->savedUpi();
+        AppSetting::put('billing.upi_id', $this->upi_id);
+        AppSetting::put('billing.upi_number', $this->upi_number);
+        AppSetting::put('billing.upi_note', $this->upi_note);
+        $changed = array_keys(array_filter($this->savedUpi(), fn (string $value, string $key): bool => $old[$key] !== $value, ARRAY_FILTER_USE_BOTH));
+
+        if ($this->upi_qr !== null) {
+            $disk = Storage::disk(UpiDetails::DISK);
+            $previous = (string) AppSetting::valueOf('billing.upi_qr', '');
+            $path = (string) $disk->putFileAs(UpiDetails::DIRECTORY, $this->upi_qr, 'qr-'.Str::random(16).'.'.UpiDetails::qrExtension($this->upi_qr));
+            AppSetting::put('billing.upi_qr', $path);
+
+            if ($previous !== '') {
+                $disk->delete($previous);
+            }
+
+            $changed[] = 'upi_qr';
+            $this->upi_qr = null;
+        }
+
+        $this->logUpi($changed);
+        unset($this->upi);
+        $this->toast(__('UPI details saved.'));
+    }
+
+    /**
+     * Removes the saved QR picture and deletes its file.
+     */
+    public function removeUpiQr(): void
+    {
+        $this->authorize('manage-billing');
+        abort_unless(UpiDetails::available(), 403);
+        $previous = (string) AppSetting::valueOf('billing.upi_qr', '');
+
+        if ($previous === '') {
+            return;
+        }
+
+        Storage::disk(UpiDetails::DISK)->delete($previous);
+        AppSetting::put('billing.upi_qr', '');
+        $this->logUpi(['upi_qr']);
+        unset($this->upi);
+        $this->toast(__('QR picture removed.'));
+    }
+
+    /**
+     * @return array{upi_id: string, upi_number: string, upi_note: string}
+     */
+    private function savedUpi(): array
+    {
+        return [
+            'upi_id' => (string) AppSetting::valueOf('billing.upi_id', ''),
+            'upi_number' => (string) AppSetting::valueOf('billing.upi_number', ''),
+            'upi_note' => (string) AppSetting::valueOf('billing.upi_note', ''),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $changed  the names of what changed (never the values)
+     */
+    private function logUpi(array $changed): void
+    {
+        if ($changed === []) {
+            return;
+        }
+
+        activity()->event('upi-settings')
+            ->withChanges(['attributes' => ['changed' => implode(', ', $changed)]])
+            ->log('upi-settings');
+    }
+
     public function saveQuickPay(): void
     {
         $this->authorize('manage-billing');
@@ -111,8 +240,8 @@ new #[Title('Quick pay')] class extends Component
             throw ValidationException::withMessages(['quick_pay' => __('Turn invoicing on in Billing first.')]);
         }
 
-        if ($this->quick_pay && $this->gateways()->enabled() === []) {
-            throw ValidationException::withMessages(['quick_pay' => __('Turn on a payment gateway below first.')]);
+        if ($this->quick_pay && $this->gateways()->enabled() === [] && UpiDetails::current() === null) {
+            throw ValidationException::withMessages(['quick_pay' => __('Turn on a payment gateway or set up UPI below first.')]);
         }
 
         $old = ['quick_pay' => AppSetting::valueOf('billing.quick_pay', '0'), 'renewal_days' => AppSetting::valueOf('billing.quick_pay_renewal_days', '7')];

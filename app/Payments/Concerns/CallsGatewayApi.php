@@ -1,0 +1,83 @@
+<?php
+
+namespace App\Payments\Concerns;
+
+use App\Exceptions\GatewayUnavailable;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\HttpClientException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
+
+/**
+ * One way for gateways to call a provider's JSON API. Any failure becomes GatewayUnavailable, and its message names
+ * the host and path and the HTTP status only: never headers, the body, the query string or a key.
+ */
+trait CallsGatewayApi
+{
+    /**
+     * @param  array<string, mixed>  $payload  sent as the JSON body, or as the query string for a GET
+     * @return array<string, mixed>
+     *
+     * @throws GatewayUnavailable
+     */
+    protected function sendJson(PendingRequest $request, string $method, string $url, array $payload = []): array
+    {
+        $options = match (true) {
+            strtoupper($method) === 'GET' => $payload === [] ? [] : ['query' => $payload],
+            // An empty list would be sent as `[]`; a JSON API that wants an object is sent `{}`.
+            $payload === [] => ['body' => '{}', 'headers' => ['Content-Type' => 'application/json']],
+            default => ['json' => $payload],
+        };
+
+        return $this->dispatchRequest($request, strtoupper($method), $url, $options);
+    }
+
+    /**
+     * For a provider that takes a form-encoded POST and answers JSON. Same failure handling as sendJson.
+     *
+     * @param  array<string, string>  $fields
+     * @return array<string, mixed>
+     *
+     * @throws GatewayUnavailable
+     */
+    protected function sendForm(PendingRequest $request, string $url, array $fields): array
+    {
+        return $this->dispatchRequest($request->asForm(), 'POST', $url, ['form_params' => $fields]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     *
+     * @throws GatewayUnavailable
+     */
+    private function dispatchRequest(PendingRequest $request, string $method, string $url, array $options): array
+    {
+        $where = $this->describeEndpoint($url);
+
+        try {
+            $response = $request->acceptJson()->timeout(20)->send($method, $url, $options);
+        } catch (RequestException $exception) {
+            throw new GatewayUnavailable("The gateway answered HTTP {$exception->response->status()} ({$where}).", $exception->response->status());
+        } catch (ConnectionException|HttpClientException) {
+            throw new GatewayUnavailable("The gateway could not be reached ({$where}).");
+        }
+
+        if (! $response->successful()) {
+            throw new GatewayUnavailable("The gateway answered HTTP {$response->status()} ({$where}).", $response->status());
+        }
+
+        $decoded = $response->json();
+
+        if (! is_array($decoded)) {
+            throw new GatewayUnavailable("The gateway answered something that is not JSON ({$where}).");
+        }
+
+        return $decoded;
+    }
+
+    private function describeEndpoint(string $url): string
+    {
+        return (string) parse_url($url, PHP_URL_HOST).(string) parse_url($url, PHP_URL_PATH);
+    }
+}

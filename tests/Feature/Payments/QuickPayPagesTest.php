@@ -10,8 +10,10 @@ use App\Models\OnlinePayment;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Payments\PayCode;
+use App\Payments\PaymentGateways;
 use Illuminate\Support\Carbon;
 use Tests\Fakes\FakeGateway;
+use Tests\Fakes\PhoneGateway;
 
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-10-21 10:00:00'));
@@ -184,7 +186,8 @@ it('settles nothing on a return or webhook the gateway did not sign', function (
     FakeGateway::pay($payment);
     $forged = ['order' => $payment->public_id, 'signature' => 'forged'];
 
-    $this->post(route('pay.return', 'fake'), $forged)->assertRedirect(route('pay.show'));
+    $this->post(route('pay.return', 'fake'), $forged)->assertRedirect(route('pay.show', ['unconfirmed' => 1]));
+    $this->get(route('pay.show', ['unconfirmed' => 1]))->assertSee(__('We could not confirm that payment here. If money was taken, it is confirmed within a few minutes.'));
     $this->post(route('pay.webhook', 'fake'), $forged)->assertNotFound();
     $this->post(route('pay.webhook', 'nope'), signedReturn($payment))->assertNotFound();
 
@@ -208,4 +211,73 @@ it('speaks the panel language', function () {
     AppSetting::put('locale', 'hi');
 
     $this->get(route('pay.show'))->assertSee('अपने बिल का भुगतान करें');
+});
+
+it('opens quick pay with UPI only and shows the box without Pay buttons', function () {
+    GatewaySetting::query()->update(['enabled' => false]);
+    AppSetting::put('currency_code', 'INR');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+    AppSetting::put('billing.upi_number', '9876543210');
+    AppSetting::put('notice_phone', '+91 99999 11111');
+
+    $html = $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee(__('Pay by UPI'))->assertSee('shop@okbank')->assertSee('9876543210')
+        ->assertSee('After paying, send the screenshot on WhatsApp to +91 99999 11111.')
+        ->assertSee('₹118.00')
+        ->assertDontSee(route('pay.start'))
+        ->getContent();
+
+    expect($html)->not->toContain('name="token"');
+    $this->get(route('pay.show'))->assertOk();
+});
+
+it('shows the UPI box under the Pay buttons when a gateway is on too', function () {
+    AppSetting::put('currency_code', 'INR');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee(route('pay.start'))->assertSee(__('Or pay by UPI'))->assertSee('shop@okbank');
+});
+
+it('closes quick pay when the currency is USD and only UPI is set up', function () {
+    GatewaySetting::query()->update(['enabled' => false]);
+    AppSetting::put('currency_code', 'USD');
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+
+    $this->get(route('pay.show'))->assertNotFound();
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertNotFound();
+});
+
+it('lists only the gateways each customer can use and says why another is hidden', function () {
+    $gateways = app(PaymentGateways::class);
+    $gateways->register(PhoneGateway::class);
+    GatewaySetting::query()->create(['gateway' => 'phonegw', 'enabled' => true, 'settings' => []]);
+    $this->account->update(['mobile' => '9876543210']);
+    $other = Account::factory()->create(['username' => 'nomobile', 'mobile' => '12345']);
+    app(IssueInvoice::class)->handle($other, billingLines('100'), false, InvoiceKind::Manual, now());
+
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee(__('Pay :amount with :gateway', ['amount' => '₹118.00', 'gateway' => 'Phone gateway']))
+        ->assertDontSee(__('Mobile number needed for this payment option, contact us.'));
+
+    $page = $this->post(route('pay.find'), ['who' => 'nomobile'])->assertOk()
+        ->assertSee('Phone gateway: '.__('Mobile number needed for this payment option, contact us.'))
+        ->assertDontSee(__('Pay :amount with :gateway', ['amount' => '₹118.00', 'gateway' => 'Phone gateway']));
+
+    $this->post(route('pay.start'), ['token' => payToken($page->getContent()), 'gateway' => 'phonegw'])->assertRedirect(route('pay.show'))->assertSessionHas('pay_message', __('That payment option is not available. Search again or call us.'));
+    expect(OnlinePayment::query()->count())->toBe(0);
+});
+
+it('still shows the UPI box when no gateway is usable for the customer', function () {
+    app(PaymentGateways::class)->register(PhoneGateway::class);
+    GatewaySetting::query()->create(['gateway' => 'phonegw', 'enabled' => true, 'settings' => []]);
+    GatewaySetting::query()->where('gateway', 'fake')->update(['enabled' => false]);
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+    $this->account->update(['mobile' => '12345']);
+
+    $this->post(route('pay.find'), ['who' => 'kushal'])->assertOk()
+        ->assertSee('Phone gateway: '.__('Mobile number needed for this payment option, contact us.'))
+        ->assertSee(__('Pay by UPI'))
+        ->assertSee('shop@okbank')
+        ->assertDontSee(__('Pay :amount with :gateway', ['amount' => '₹118.00', 'gateway' => 'Phone gateway']));
 });

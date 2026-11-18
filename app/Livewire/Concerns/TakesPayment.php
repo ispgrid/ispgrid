@@ -4,16 +4,18 @@ namespace App\Livewire\Concerns;
 
 use App\Billing\Decimal;
 use App\Billing\PaymentInput;
+use App\Billing\PaymentProof;
 use App\Models\PaymentMethod;
 use App\Support\Currency;
 use Closure;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 /**
  * The payment section of the recharge dialogs and New invoice: "Payment received now" with the method, the amount
- * (empty means the whole total), a reference, when, and a note for staff. Off, the invoice stays unpaid, due by the payment terms.
+ * (empty means the whole total), a reference, an optional screenshot (UPI screenshot, cheque photo), when, and a note for staff. Off, the invoice stays unpaid, due by the payment terms.
  */
 trait TakesPayment
 {
@@ -28,6 +30,11 @@ trait TakesPayment
     public string $payment_paid_at = '';
 
     public string $payment_note = '';
+
+    /**
+     * The screenshot chosen for a manual payment (the component needs WithFileUploads).
+     */
+    public ?TemporaryUploadedFile $payment_proof = null;
 
     /**
      * The payment methods turned on, by id, in their order.
@@ -48,6 +55,7 @@ trait TakesPayment
         $this->payment_reference = '';
         $this->payment_paid_at = now()->format('Y-m-d\TH:i');
         $this->payment_note = '';
+        $this->payment_proof = null;
     }
 
     /**
@@ -69,6 +77,7 @@ trait TakesPayment
                 }
             }],
             'payment_reference' => ['nullable', 'string', 'max:100'],
+            'payment_proof' => PaymentProof::rules(),
             'payment_paid_at' => ['required', 'date_format:Y-m-d\TH:i', 'before_or_equal:now'],
             'payment_note' => ['nullable', 'string', 'max:255'],
         ];
@@ -84,6 +93,7 @@ trait TakesPayment
             'payment_amount' => __('amount received'),
             'payment_reference' => __('reference'),
             'payment_paid_at' => __('received at'),
+            'payment_proof' => __('screenshot'),
             'payment_note' => __('note'),
         ];
     }
@@ -106,6 +116,7 @@ trait TakesPayment
             $reference === '' ? null : $reference,
             Carbon::createFromFormat('!Y-m-d\TH:i', $this->payment_paid_at) ?: now(),
             $note === '' ? null : $note,
+            proof: $this->payment_proof,
         );
     }
 

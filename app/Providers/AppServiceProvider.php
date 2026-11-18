@@ -31,9 +31,16 @@ use App\Notifications\Triggers\RechargeDone;
 use App\Notifications\Triggers\SelfcareLogin;
 use App\Notifications\Triggers\ServiceExpired;
 use App\Notifications\Triggers\ServiceExpiresSoon;
+use App\Payments\Cashfree\CashfreeGateway;
+use App\Payments\Easebuzz\EasebuzzGateway;
 use App\Payments\PaymentGateways;
+use App\Payments\PayPal\PayPalGateway;
 use App\Payments\Paytm\PaytmGateway;
+use App\Payments\Payu\PayuGateway;
+use App\Payments\PhonePe\PhonePeGateway;
 use App\Payments\QuickPay;
+use App\Payments\Razorpay\RazorpayGateway;
+use App\Payments\Stripe\StripeGateway;
 use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerFormTabs;
@@ -80,6 +87,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(PaymentGateways::class, function (): PaymentGateways {
             $gateways = new PaymentGateways;
             $gateways->register(PaytmGateway::class);
+            $gateways->register(PhonePeGateway::class);
+            $gateways->register(RazorpayGateway::class);
+            $gateways->register(CashfreeGateway::class);
+            $gateways->register(PayuGateway::class);
+            $gateways->register(EasebuzzGateway::class);
+            $gateways->register(StripeGateway::class);
+            $gateways->register(PayPalGateway::class);
 
             return $gateways;
         });

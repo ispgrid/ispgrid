@@ -2,9 +2,16 @@
 
 use App\Http\Controllers\InvoicePdfController;
 use App\Http\Controllers\PaymentGatewayController;
+use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\QuickPayController;
+use App\Http\Controllers\UpiQrController;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::redirect('/', '/dashboard')->name('home');
 
@@ -14,8 +21,12 @@ Route::post('pay', [QuickPayController::class, 'find'])->middleware('throttle:qu
 Route::get('p/{code}', [QuickPayController::class, 'code'])->where('code', '[0-9A-Za-z-]{1,40}')->middleware('throttle:quick-pay')->name('pay.code');
 Route::post('pay/start', [QuickPayController::class, 'start'])->middleware('throttle:quick-pay')->name('pay.start');
 Route::get('pay/result/{publicId}', [QuickPayController::class, 'result'])->where('publicId', '[0-9A-Z]{26}')->name('pay.result');
-Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->name('pay.return');
-Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->name('pay.webhook');
+Route::get('pay/upi-qr/{file}', UpiQrController::class)->where('file', 'qr-[A-Za-z0-9]{16}\.(png|jpg|webp)')->name('pay.upi-qr');
+// Gateway callbacks run without session, cookie and CSRF middleware: a gateway's cross-site POST carries no session
+// cookie, and the fresh session's Set-Cookie would replace the customer's own login cookie. The gateway checks each request instead.
+$callback = [EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class];
+Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->middleware('throttle:60,1')->name('pay.return');
+Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->name('pay.webhook');
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
@@ -31,6 +42,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('payments/{payment}', 'pages::payments.show')->name('payments.show')->withTrashed();
     Route::get('invoices/{invoice}/pdf', InvoicePdfController::class)->name('invoices.pdf');
     Route::get('payments/{payment}/receipt', PaymentReceiptController::class)->name('payments.receipt')->withTrashed();
+    Route::get('payments/{payment}/proof', PaymentProofController::class)->name('payments.proof')->withTrashed();
     Route::livewire('online', 'pages::online.index')->name('online.index');
     Route::livewire('login-log', 'pages::login-log.index')->name('login-log.index');
     Route::livewire('plans', 'pages::plans.index')->name('plans.index');

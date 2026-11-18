@@ -4,12 +4,14 @@ namespace App\Actions\Billing;
 
 use App\Billing\Decimal;
 use App\Billing\PaymentInput;
+use App\Billing\PaymentProof;
 use App\Exceptions\PaymentExceedsBalance;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Support\Currency;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Records money received against an invoice. The invoice row is locked, so two staff taking the last payment at
@@ -19,7 +21,23 @@ final class RecordPayment
 {
     public function handle(int $invoiceId, PaymentInput $input): Payment
     {
-        return DB::transaction(function () use ($invoiceId, $input): Payment {
+        $stored = null;
+
+        try {
+            return $this->record($invoiceId, $input, $stored);
+        } catch (Throwable $failure) {
+            PaymentProof::delete($stored);
+
+            throw $failure;
+        }
+    }
+
+    /**
+     * @param  ?string  $stored  set to the screenshot's path as soon as it is stored, so a rolled back payment can delete it
+     */
+    private function record(int $invoiceId, PaymentInput $input, ?string &$stored): Payment
+    {
+        return DB::transaction(function () use ($invoiceId, $input, &$stored): Payment {
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoiceId);
             $amount = Decimal::round($input->amount, Currency::decimals());
 
@@ -40,6 +58,10 @@ final class RecordPayment
                 'paid_at' => $input->paidAt,
                 'user_id' => auth()->id(),
             ]);
+
+            if ($input->proof !== null && ! $input->online) {
+                $payment->update(['proof_path' => $stored = PaymentProof::store($payment->id, $input->proof)]);
+            }
 
             $invoice->refreshStatus();
 
