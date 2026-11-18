@@ -186,6 +186,14 @@ it('falls back to the approve link and refuses an answer without a link', functi
     Http::preventStrayRequests();
 
     expect(fn () => paypal()->start($this->payment, 'https://isp.example/r?attempt=X'))->toThrow(GatewayUnavailable::class);
+
+    foreach (['https://evil.example/paypal.com', 'https://paypal.com.evil.example/x', 'https://notpaypal.com/x'] as $href) {
+        Http::swap(new Factory);
+        Http::fake(['*/v1/oauth2/token' => Http::response(paypalToken()), '*/v2/checkout/orders' => Http::response(['id' => PAYPAL_ORDER, 'links' => [['href' => $href, 'rel' => 'payer-action']]], 201)]);
+        Http::preventStrayRequests();
+
+        expect(fn () => paypal()->start($this->payment, 'https://isp.example/r?attempt=X'))->toThrow(GatewayUnavailable::class);
+    }
 });
 
 it('sends zero-decimal currencies in whole units and refuses a fraction before calling PayPal', function () {
@@ -265,7 +273,7 @@ it('reports paid only for the final success state with the amount and currency',
     Http::assertSent(fn (ClientRequest $request): bool => $request->method() === 'GET' && $request->url() === PAYPAL_HOST.'/v2/checkout/orders/'.PAYPAL_ORDER
         && $request->hasHeader('Authorization', 'Bearer A21AAtoken-abc'));
     Http::assertSent(fn (ClientRequest $request): bool => $request->method() === 'POST' && $request->url() === PAYPAL_HOST.'/v2/checkout/orders/'.PAYPAL_ORDER.'/capture'
-        && $request->body() === '{}' && $request->hasHeader('PayPal-Request-Id', 'capture-'.PAYPAL_ATTEMPT) && $request->hasHeader('Authorization', 'Bearer A21AAtoken-abc'));
+        && $request->body() === '{}' && $request->hasHeader('PayPal-Request-Id', 'capture-'.PAYPAL_ATTEMPT) && $request->hasHeader('Prefer', 'return=representation') && $request->hasHeader('Authorization', 'Bearer A21AAtoken-abc'));
 
     expect($result->status)->toBe(GatewayStatus::Paid)->and($result->amount)->toBe('708.50')->and($result->currency)->toBe('USD')
         ->and($result->txnId)->toBe('3C679366HH908993F')->and($result->providerStatus)->toBe('COMPLETED')
@@ -418,13 +426,21 @@ it('accepts a genuine return and webhook and names the attempt', function () {
     expect(paypal()->verify(paypalWebhook($capture)))->toBe(PAYPAL_ATTEMPT)
         ->and(paypal()->verify(paypalWebhook($approved)))->toBe(PAYPAL_ATTEMPT);
 
+    $spaced = '{ "event_type" : "PAYMENT.CAPTURE.COMPLETED",'.'
+'.'  "resource":{"custom_id":"'.PAYPAL_ATTEMPT.'","amount":{"value":"1.0"},"supplementary_data":{"related_ids":{"order_id":"'.PAYPAL_ORDER.'"}}} }';
+    expect(paypal()->verify(paypalWebhook($spaced)))->toBe(PAYPAL_ATTEMPT);
+    Http::assertSent(fn (ClientRequest $request): bool => str_ends_with($request->url(), '/verify-webhook-signature')
+        && str_contains($request->body(), '"webhook_event":'.$spaced.'}')
+        && str_contains($request->header('Content-Type')[0], 'application/json')
+        && json_decode($request->body(), true)['webhook_id'] === PAYPAL_WEBHOOK);
+
     foreach ([$capture, $approved] as $body) {
         Http::assertSent(fn (ClientRequest $request): bool => $request->url() === PAYPAL_HOST.'/v1/notifications/verify-webhook-signature'
             && $request->hasHeader('Authorization', 'Bearer A21AAtoken-abc')
             && $request->data() === [
-                'webhook_id' => PAYPAL_WEBHOOK, 'webhook_event' => json_decode($body, true), 'auth_algo' => 'SHA256withRSA',
+                'webhook_id' => PAYPAL_WEBHOOK, 'auth_algo' => 'SHA256withRSA',
                 'cert_url' => 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-360caa42', 'transmission_id' => 'tx-1', 'transmission_sig' => 'c2ln',
-                'transmission_time' => '2026-11-18T10:00:00Z',
+                'transmission_time' => '2026-11-18T10:00:00Z', 'webhook_event' => json_decode($body, true),
             ]);
     }
 });
@@ -464,11 +480,13 @@ it('rejects a bad signature, an unknown attempt and another gateway\'s attempt',
     $foreign = paypalHookBody('ORDER-FAKE', 'OTHERGATEWAYATTEMPT00001');
     $mismatch = paypalHookBody('ORDER-OTHER');
     $noIds = (string) json_encode(['event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => ['id' => 'CAP1']]);
+    $customOnly = (string) json_encode(['event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => ['id' => 'CAP1', 'custom_id' => PAYPAL_ATTEMPT]]);
 
     expect(paypal()->verify(paypalWebhook($unknown)))->toBeNull()
         ->and(paypal()->verify(paypalWebhook($foreign)))->toBeNull()
         ->and(paypal()->verify(paypalWebhook($mismatch)))->toBeNull()
-        ->and(paypal()->verify(paypalWebhook($noIds)))->toBeNull();
+        ->and(paypal()->verify(paypalWebhook($noIds)))->toBeNull()
+        ->and(paypal()->verify(paypalWebhook($customOnly)))->toBeNull();
 });
 
 describe('through the routes', function () {

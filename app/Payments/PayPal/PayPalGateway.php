@@ -207,7 +207,7 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
     {
         $webhookId = $this->setting('webhook_id');
         $event = $request->json()->all();
-        $body = ['webhook_id' => $webhookId, 'webhook_event' => $event];
+        $body = ['webhook_id' => $webhookId];
 
         foreach (self::WEBHOOK_HEADERS as $header => $field) {
             $value = $request->header($header);
@@ -224,7 +224,9 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
         }
 
         try {
-            $answer = $this->authorizedJson('post', $this->host().'/v1/notifications/verify-webhook-signature', $body);
+            // The event goes in as received: PayPal checks the signature over its exact bytes.
+            $raw = substr((string) json_encode($body), 0, -1).',"webhook_event":'.$request->getContent().'}';
+            $answer = $this->authorizedJson('post', $this->host().'/v1/notifications/verify-webhook-signature', rawBody: $raw);
         } catch (GatewayUnavailable) {
             return null;
         }
@@ -240,15 +242,11 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
         $order = is_string($order) && $order !== '' ? $order : null;
         $custom = is_string($custom) && $custom !== '' ? $custom : null;
 
-        if ($order === null && $custom === null) {
+        if ($order === null) {
             return null;
         }
 
-        $query = OnlinePayment::query()->where('gateway', self::key());
-
-        if ($order !== null) {
-            $query->where('gateway_order_id', $order);
-        }
+        $query = OnlinePayment::query()->where('gateway', self::key())->where('gateway_order_id', $order);
 
         if ($custom !== null) {
             $query->where('public_id', $custom);
@@ -293,7 +291,7 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
         }
 
         try {
-            $answer = $this->authorizedJson('post', $this->host().'/v2/checkout/orders/'.rawurlencode($orderId).'/capture', [], ['PayPal-Request-Id' => 'capture-'.$payment->public_id]);
+            $answer = $this->authorizedJson('post', $this->host().'/v2/checkout/orders/'.rawurlencode($orderId).'/capture', [], ['PayPal-Request-Id' => 'capture-'.$payment->public_id, 'Prefer' => 'return=representation']);
 
             if (($answer['id'] ?? null) === $orderId && is_string($answer['status'] ?? null)) {
                 return $answer;
@@ -396,12 +394,19 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
     private function link(array $order, string $rel): ?string
     {
         foreach (is_array($order['links'] ?? null) ? $order['links'] : [] as $link) {
-            if (is_array($link) && ($link['rel'] ?? null) === $rel && is_string($link['href'] ?? null) && str_starts_with($link['href'], 'https://')) {
+            if (is_array($link) && ($link['rel'] ?? null) === $rel && is_string($link['href'] ?? null) && $this->isPayPalUrl($link['href'])) {
                 return $link['href'];
             }
         }
 
         return null;
+    }
+
+    private function isPayPalUrl(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        return str_starts_with($url, 'https://') && is_string($host) && ($host === 'paypal.com' || str_ends_with($host, '.paypal.com'));
     }
 
     /**
@@ -444,14 +449,19 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
      *
      * @param  array<string, mixed>  $payload
      * @param  array<string, string>  $headers
+     * @param  string|null  $rawBody  a JSON body sent as is
      * @return array<string, mixed>
      *
      * @throws GatewayUnavailable
      */
-    private function authorizedJson(string $method, string $url, array $payload = [], array $headers = []): array
+    private function authorizedJson(string $method, string $url, array $payload = [], array $headers = [], ?string $rawBody = null): array
     {
+        $send = fn (): array => $rawBody === null
+            ? $this->sendJson($this->authorized($headers), $method, $url, $payload)
+            : $this->dispatchRequest($this->authorized($headers), strtoupper($method), $url, ['body' => $rawBody, 'headers' => ['Content-Type' => 'application/json']]);
+
         try {
-            return $this->sendJson($this->authorized($headers), $method, $url, $payload);
+            return $send();
         } catch (GatewayUnavailable $exception) {
             if ($exception->httpStatus !== 401) {
                 throw $exception;
@@ -460,7 +470,7 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
 
         Cache::forget($this->tokenCacheKey());
 
-        return $this->sendJson($this->authorized($headers), $method, $url, $payload);
+        return $send();
     }
 
     /**
