@@ -61,6 +61,7 @@ function payuEntry(string $status, string $amount = '708.50', string $txn = PAYU
 function payuFake(array $entry, int $top = 1): void
 {
     Http::swap(new HttpFactory);
+    Http::preventStrayRequests();
     Http::fake(['*/merchant/postservice*' => Http::response(['status' => $top, 'msg' => '1 out of 1 Transactions Fetched Successfully', 'transaction_details' => [PAYU_TXN => $entry]])]);
 }
 
@@ -151,6 +152,7 @@ it('accepts a numeric amount and an array top level status without failing', fun
     expect(payu()->status($this->payment)->amount)->toBe('708.50');
 
     Http::swap(new HttpFactory);
+    Http::preventStrayRequests();
     Http::fake(['*/merchant/postservice*' => Http::response(['status' => ['1'], 'transaction_details' => [PAYU_TXN => payuEntry('success')]])]);
     expect(payu()->status($this->payment)->status)->toBe(GatewayStatus::Pending);
 });
