@@ -39,6 +39,7 @@ use App\Payments\Payu\PayuGateway;
 use App\Payments\PhonePe\PhonePeGateway;
 use App\Payments\QuickPay;
 use App\Payments\Razorpay\RazorpayGateway;
+use App\Payments\Stripe\StripeGateway;
 use App\Support\Addons\AddonSettings;
 use App\Support\Addons\CustomerCards;
 use App\Support\Addons\CustomerFormTabs;
@@ -90,6 +91,7 @@ class AppServiceProvider extends ServiceProvider
             $gateways->register(CashfreeGateway::class);
             $gateways->register(PayuGateway::class);
             $gateways->register(EasebuzzGateway::class);
+            $gateways->register(StripeGateway::class);
 
             return $gateways;
         });

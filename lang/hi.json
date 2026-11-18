@@ -1793,5 +1793,12 @@
     "Easebuzz payment address": "Easebuzz के भुगतान का पता",
     "Empty: the address Easebuzz documents. Set it only if Easebuzz moves.": "खाली: Easebuzz का बताया हुआ पता। इसे तभी भरें जब Easebuzz अपना पता बदले।",
     "Easebuzz status address": "Easebuzz के स्टेटस जाँच का पता",
-    "Empty: the address Easebuzz documents for status checks. Set it only if Easebuzz moves.": "खाली: स्टेटस जाँच के लिए Easebuzz का बताया हुआ पता। इसे तभी भरें जब Easebuzz अपना पता बदले।"
+    "Empty: the address Easebuzz documents for status checks. Set it only if Easebuzz moves.": "खाली: स्टेटस जाँच के लिए Easebuzz का बताया हुआ पता। इसे तभी भरें जब Easebuzz अपना पता बदले।",
+    "test (Stripe test mode) or live. A label only: the secret key decides the mode.": "test (Stripe टेस्ट मोड) या live। यह सिर्फ़ नाम है: मोड सीक्रेट कुंजी से तय होता है।",
+    "Secret key": "सीक्रेट कुंजी",
+    "The Stripe secret key (sk_...) or a restricted key that can read and create Checkout Sessions.": "Stripe की सीक्रेट कुंजी (sk_...) या ऐसी प्रतिबंधित कुंजी जो Checkout Session बना और पढ़ सके।",
+    "Webhook signing secret": "वेबहुक साइनिंग सीक्रेट",
+    "The signing secret (whsec_...) of the webhook endpoint you add in the Stripe dashboard.": "Stripe डैशबोर्ड में जोड़े गए वेबहुक एंडपॉइंट का साइनिंग सीक्रेट (whsec_...)।",
+    "Stripe address": "Stripe का पता",
+    "Empty: the address Stripe documents. Set it only if Stripe moves.": "खाली: Stripe का बताया हुआ पता। इसे तभी भरें जब Stripe अपना पता बदले।"
 }
