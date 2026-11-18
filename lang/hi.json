@@ -1800,5 +1800,10 @@
     "Webhook signing secret": "वेबहुक साइनिंग सीक्रेट",
     "The signing secret (whsec_...) of the webhook endpoint you add in the Stripe dashboard. Select these events: checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.expired.": "Stripe डैशबोर्ड में जोड़े गए वेबहुक एंडपॉइंट का साइनिंग सीक्रेट (whsec_...)। ये इवेंट चुनें: checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.expired।",
     "Stripe address": "Stripe का पता",
-    "Empty: the address Stripe documents. Set it only if Stripe moves.": "खाली: Stripe का बताया हुआ पता। इसे तभी भरें जब Stripe अपना पता बदले।"
+    "Empty: the address Stripe documents. Set it only if Stripe moves.": "खाली: Stripe का बताया हुआ पता। इसे तभी भरें जब Stripe अपना पता बदले।",
+    "test (PayPal sandbox) or live. Sandbox credentials work only with test, live credentials only with live.": "test (PayPal सैंडबॉक्स) या live। सैंडबॉक्स क्रेडेंशियल सिर्फ़ test के साथ चलते हैं, live क्रेडेंशियल सिर्फ़ live के साथ।",
+    "Webhook ID": "वेबहुक आईडी",
+    "The ID of the webhook you add in the PayPal developer dashboard. Select these events: Checkout order approved, Payment capture completed.": "PayPal डेवलपर डैशबोर्ड में जोड़े गए वेबहुक की आईडी। ये इवेंट चुनें: Checkout order approved, Payment capture completed।",
+    "PayPal address": "PayPal का पता",
+    "Empty: the address PayPal documents for the environment. Set it only if PayPal moves.": "खाली: इस माहौल के लिए PayPal का बताया हुआ पता। इसे तभी भरें जब PayPal अपना पता बदले।"
 }

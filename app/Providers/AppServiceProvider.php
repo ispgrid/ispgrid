@@ -34,6 +34,7 @@ use App\Notifications\Triggers\ServiceExpiresSoon;
 use App\Payments\Cashfree\CashfreeGateway;
 use App\Payments\Easebuzz\EasebuzzGateway;
 use App\Payments\PaymentGateways;
+use App\Payments\PayPal\PayPalGateway;
 use App\Payments\Paytm\PaytmGateway;
 use App\Payments\Payu\PayuGateway;
 use App\Payments\PhonePe\PhonePeGateway;
@@ -92,6 +93,7 @@ class AppServiceProvider extends ServiceProvider
             $gateways->register(PayuGateway::class);
             $gateways->register(EasebuzzGateway::class);
             $gateways->register(StripeGateway::class);
+            $gateways->register(PayPalGateway::class);
 
             return $gateways;
         });

@@ -22,7 +22,12 @@ trait CallsGatewayApi
      */
     protected function sendJson(PendingRequest $request, string $method, string $url, array $payload = []): array
     {
-        $options = strtoupper($method) === 'GET' ? ($payload === [] ? [] : ['query' => $payload]) : ['json' => $payload];
+        $options = match (true) {
+            strtoupper($method) === 'GET' => $payload === [] ? [] : ['query' => $payload],
+            // An empty list would be sent as `[]`; a JSON API that wants an object is sent `{}`.
+            $payload === [] => ['body' => '{}', 'headers' => ['Content-Type' => 'application/json']],
+            default => ['json' => $payload],
+        };
 
         return $this->dispatchRequest($request, strtoupper($method), $url, $options);
     }
