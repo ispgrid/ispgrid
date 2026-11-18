@@ -73,8 +73,8 @@ final class Selfcare
 
     /**
      * The mobile number a customer typed at the login, as the last digits customers are compared on: the last 10, or
-     * the panel's phone number length when shorter, so a country code, spaces or a leading 0 do not matter. Null when
-     * the text is not a phone number (other characters than digits, spaces, + and -, or too few digits).
+     * the panel's shortest phone number length when shorter, so a country code, spaces or a leading 0 do not matter.
+     * Null when the text is not a phone number (other characters than digits, spaces, + and -, or too few digits).
      */
     public static function mobileKey(string $typed): ?string
     {
@@ -83,22 +83,23 @@ final class Selfcare
         }
 
         $digits = (string) preg_replace('/\D/', '', $typed);
-        $length = min(10, max(4, (int) AppSetting::valueOf('phone_digits', '10')));
+        $length = min(10, max(4, PhoneLength::current()->min));
 
         return strlen($digits) >= $length ? substr($digits, -$length) : null;
     }
 
     /**
      * The customers who may use Selfcare and whose mobile number ends with this key (mobileKey()), oldest first. Empty
-     * when more than MOBILE_LOGIN_MAX share it. Mobiles are saved as exactly the panel's phone number length, so while
-     * that is at most 10 digits the key is the whole number and the lookup is an exact match on the indexed column.
+     * when more than MOBILE_LOGIN_MAX share it. When every mobile has the same length of at most 10 digits the key is
+     * the whole number and the lookup is an exact match on the indexed column.
      *
      * @return Collection<int, SelfcareAccount>
      */
     public static function connectionsOnMobile(string $key): Collection
     {
         $query = SelfcareAccount::query()->where(fn (Builder $query) => self::scopeEligible($query))->orderBy('id');
-        $exact = strlen($key) === (int) AppSetting::valueOf('phone_digits', '10');
+        $length = PhoneLength::current();
+        $exact = $length->min === $length->max && strlen($key) === $length->max;
         $exact ? $query->where('mobile', $key) : $query->whereNotNull('mobile')->whereRaw('RIGHT(mobile, ?) = ?', [strlen($key), $key]);
         $connections = $query->limit(self::MOBILE_LOGIN_MAX + 1)->get();
 

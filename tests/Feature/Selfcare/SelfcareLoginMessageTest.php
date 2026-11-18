@@ -11,6 +11,8 @@ use App\Models\NotificationRule;
 use App\Models\User;
 use App\Notifications\NotificationRegistry;
 use App\Notifications\Notifier;
+use App\Notifications\Providers\Msg91Sms;
+use App\Notifications\Providers\WacrmWhatsApp;
 use App\Notifications\SendResult;
 use App\Support\Selfcare;
 use Database\Seeders\AppSettingSeeder;
@@ -232,10 +234,14 @@ it('test send uses a sample password, not a real one', function () {
         ->and(DB::table('notification_log')->value('secret'))->toBeNull();
 });
 
-it('tells the operator the DLT template needs the password variable', function () {
+it('tells the operator the DLT template needs the password variable, only for MSG91', function () {
     Livewire::test('pages::notifications.rule-form')
         ->set('trigger', 'selfcare_login')
-        ->assertSee(__('MSG91 needs a DLT-approved template that includes the password variable.'));
+        ->set('provider', Msg91Sms::key())
+        ->assertSee(__('MSG91 needs a DLT-approved template that includes the password variable.'))
+        ->set('provider', WacrmWhatsApp::key())
+        ->assertSee(__('Each message carries a new password, shown as ******** in the message log.'))
+        ->assertDontSee(__('MSG91 needs a DLT-approved template that includes the password variable.'));
 });
 
 it('keeps the password when no rule matches this customer', function () {

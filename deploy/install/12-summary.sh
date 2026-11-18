@@ -77,7 +77,7 @@ summary_rows() {
 
   echo "section|NEXT"
   if [[ -n "${ADMIN_CREATED:-}" ]]; then
-    echo "text|1. Open $url, log in with $ADMIN_EMAIL and change the password."
+    echo "text|1. Open $url, log in with $ADMIN_EMAIL and change the password. The setup page opens: country, first NAS, pools and a plan."
   else
     echo "text|1. Open $url and log in."
   fi
@@ -93,6 +93,24 @@ summary_rows() {
   echo "text|3. Create a plan, then a customer."
   echo "text|4. So that disabled customers see the notice page, the router/NAS sends their web traffic to $radius_ip:8088."
 }
+
+#  router_radius_ip: the address routers send RADIUS to (the summary shows the same one)
+router_radius_ip() {
+  local net
+  case "$ROUTERS" in
+    wireguard)
+      net=$(awk -F' = ' '$1 == "Address" { print $2 }' /etc/wireguard/wg0.conf)
+      echo "${net%/*}"
+      ;;
+    l2tp) cidr_host "$L2TP_SUBNET" 1 ;;
+    public) echo "$PUBLIC_IP" ;;
+    *) primary_ip ;;
+  esac
+}
+
+#  The setup page shows commands with this server's addresses; a fresh install opens it after the first login.
+artisan setup:server-info --routers="$ROUTERS" --radius-ip="$(router_radius_ip)" --home="$ISPGRID_HOME" ${ADMIN_CREATED:+--pending} >/dev/null ||
+  warn "The setup page could not be prepared; the panel works without it."
 
 summary_rows no | box_render yes no > "$(dirname "$ISPGRID_CONF")/info.txt"
 chmod 600 "$(dirname "$ISPGRID_CONF")/info.txt"

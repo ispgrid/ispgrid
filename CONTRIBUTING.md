@@ -41,6 +41,9 @@ customers, fills the values, stops duplicates, retries, logs and keeps keys secr
      `SendResult::failed($reason, retryable: ..., retryAfterSeconds: ...)`. Map every API error; mark rate limits,
      server errors and temporary outages retryable. Throw only when the API cannot be reached.
    - `testConnection()`: check the key without messaging anyone, or return false from `supportsConnectionTest()`.
+   - Only if the provider's templates cap the length of one value (India's DLT SMS rules allow 30 characters), also
+     implement `App\Notifications\Contracts\LimitsValueLength`; values are then cut to `maxValueLength()`. Without
+     it every value is sent whole.
 2. Register it in `AppServiceProvider` next to the built-ins: `$registry->registerProvider(YourProvider::class);`.
 3. Add an entry to the `providers` dataset in `tests/Feature/Notifications/ProviderContractTest.php` with fake
    responses for a sent message, a refusal that echoes the key back, and a rate limit of 30 seconds. Every contract

@@ -319,8 +319,8 @@ it('saves a format with the day, month and year codes', function () {
     expect(BillingSettings::current()->numbering->format)->toBe('INV{DD}{MM}{YY}{N}');
 });
 
-it('warns when numbers can be longer than 16 characters, without blocking the save', function () {
-    Livewire::test('pages::system.billing-settings')
+it('warns under India GST when numbers can be longer than 16 characters, without blocking the save', function () {
+    billingPageForIndia()
         ->set('numbering_format', 'LINK{DD}{MM}{YY}-{N}')
         ->assertSee('longer than 16 characters')
         ->call('save')
@@ -329,6 +329,14 @@ it('warns when numbers can be longer than 16 characters, without blocking the sa
         ->assertDontSee('longer than 16 characters');
 
     expect(BillingSettings::current()->numbering->format)->toBe('LINK{DD}{MM}{YY}-{N}');
+});
+
+it('says nothing about the GST length outside India GST', function () {
+    Livewire::test('pages::system.billing-settings')
+        ->set('company_name', 'Example ISP')
+        ->set('country', 'AE')
+        ->set('numbering_format', 'LINK{DD}{MM}{YY}-{N}')
+        ->assertDontSee('longer than 16 characters');
 });
 
 it('saves the invoice and receipt titles', function () {

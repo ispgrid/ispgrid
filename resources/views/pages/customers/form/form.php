@@ -41,6 +41,7 @@ use App\Support\CustomerRules;
 use App\Support\Hotspot;
 use App\Support\IpAddress;
 use App\Support\PasswordPattern;
+use App\Support\PhoneLength;
 use App\Support\RadiusAttributeValue;
 use App\Support\RateLimit;
 use App\Support\RequiredCustomerFields;
@@ -627,9 +628,9 @@ new #[Title('Customer')] class extends Component
     }
 
     #[Computed]
-    public function phoneDigits(): int
+    public function phoneLength(): PhoneLength
     {
-        return (int) AppSetting::valueOf('phone_digits', '10');
+        return PhoneLength::current();
     }
 
     /**
@@ -1079,7 +1080,7 @@ new #[Title('Customer')] class extends Component
     {
         $isIpoe = $this->isIpoe;
         $speed = ['nullable', 'string', 'max:20'];
-        $shared = CustomerRules::rules($this->accountId === null, $isIpoe, $this->hasAddress(), $this->phoneDigits);
+        $shared = CustomerRules::rules($this->accountId === null, $isIpoe, $this->hasAddress(), $this->phoneLength);
 
         if ($this->keepsPassword) {
             $shared['password'][0] = 'nullable';
@@ -1136,7 +1137,7 @@ new #[Title('Customer')] class extends Component
     protected function messages(): array
     {
         return [
-            ...CustomerRules::messages($this->phoneDigits),
+            ...CustomerRules::messages($this->phoneLength),
             'nas_id.exists' => __('This NAS was deleted. Choose another one.'),
             'account_number.unique' => __('Another customer has this account ID.'),
             'account_number.regex' => __('Use letters, digits and / . _ - only.'),

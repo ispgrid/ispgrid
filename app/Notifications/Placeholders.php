@@ -7,6 +7,8 @@ use App\Models\AppSetting;
 use App\Models\CustomerService;
 use App\Models\NotificationLog;
 use App\Models\Recharge;
+use App\Notifications\Contracts\LimitsValueLength;
+use App\Notifications\Contracts\Provider;
 use App\Payments\PayCode;
 use App\Payments\QuickPay;
 use App\Support\Selfcare;
@@ -14,13 +16,11 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
 /**
- * The values a rule can put into a template, in the order the rule lists them. Each is cut to 30 characters,
- * the DLT limit for one variable, except a link (half a link does not open).
+ * The values a rule can put into a template, in the order the rule lists them. For a provider that limits value
+ * length (MSG91: 30 characters, the DLT limit) each is cut to that, except a link (half a link does not open).
  */
 final class Placeholders
 {
-    public const MAX_LENGTH = 30;
-
     /** Values every customer has. */
     public const COMMON = ['customer_name', 'username', 'mobile', 'plan_name', 'plan_speed', 'plan_price',
         'expiry_date', 'expiry_datetime', 'days_left', 'isp_name', 'support_number', 'pay_code', 'pay_link'];
@@ -83,9 +83,10 @@ final class Placeholders
 
     /**
      * @param  list<string>  $keys
+     * @param  ?int  $maxLength  the provider's limit for one value (maxLengthFor()), or null to keep values whole
      * @return array{values: list<string>, trimmed: bool}
      */
-    public function values(array $keys, ?Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null, ?CustomerService $service = null): array
+    public function values(array $keys, ?Account $account, ?Recharge $recharge, CarbonImmutable $now, ?PaymentNotice $payment = null, ?CustomerService $service = null, ?int $maxLength = null): array
     {
         $values = [];
         $trimmed = false;
@@ -93,8 +94,8 @@ final class Placeholders
         foreach ($keys as $key) {
             $value = $account === null ? '['.(self::labels()[$key] ?? $key).']' : $this->resolve($key, $account, $recharge, $now, $payment, $service);
 
-            if (mb_strlen($value) > self::MAX_LENGTH && ! in_array($key, self::WHATSAPP_ONLY, true)) {
-                $value = mb_substr($value, 0, self::MAX_LENGTH);
+            if ($maxLength !== null && mb_strlen($value) > $maxLength && ! in_array($key, self::WHATSAPP_ONLY, true)) {
+                $value = mb_substr($value, 0, $maxLength);
                 $trimmed = true;
             }
 
@@ -102,6 +103,16 @@ final class Placeholders
         }
 
         return ['values' => $values, 'trimmed' => $trimmed];
+    }
+
+    /**
+     * The limit for one value of this provider, or null when it takes values of any length.
+     *
+     * @param  ?class-string<Provider>  $provider
+     */
+    public static function maxLengthFor(?string $provider): ?int
+    {
+        return $provider !== null && is_subclass_of($provider, LimitsValueLength::class) ? $provider::maxValueLength() : null;
     }
 
     /**

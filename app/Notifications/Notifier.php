@@ -121,7 +121,7 @@ final class Notifier
     {
         $provider = $this->registry->providerClass($rule->provider);
         $result = $this->placeholders->values($rule->values ?? [], self::sample(), null, CarbonImmutable::now(),
-            new PaymentNotice('test', '590.00', 'RCPT-1', 'INV-1', __('Online (Paytm)'), '0.00'));
+            new PaymentNotice('test', '590.00', 'RCPT-1', 'INV-1', __('Online (Paytm)'), '0.00'), maxLength: Placeholders::maxLengthFor($provider));
         $hasSecret = array_intersect(Placeholders::SECRETS, $rule->values ?? []) !== [];
 
         $log = NotificationLog::query()->create([
@@ -216,7 +216,7 @@ final class Notifier
 
         $raw = PhoneNumber::rawFor($account, $provider::channel());
         $to = PhoneNumber::fromSettings($raw);
-        $result = $this->placeholders->values($rule->values ?? [], $account, $recharge, $now, $payment, $service);
+        $result = $this->placeholders->values($rule->values ?? [], $account, $recharge, $now, $payment, $service, Placeholders::maxLengthFor($provider));
         [$status, $error] = match (true) {
             trim((string) $raw) === '' => [NotificationStatus::Skipped, __('No mobile number.')],
             $to === null => [NotificationStatus::Skipped, __('Invalid number: :number', ['number' => $raw])],

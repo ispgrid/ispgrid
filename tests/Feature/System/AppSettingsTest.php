@@ -9,6 +9,7 @@ use App\Models\RadiusSetting;
 use App\Models\User;
 use App\Support\Hotspot;
 use App\Support\NoticePage;
+use App\Support\PhoneLength;
 use Database\Seeders\AppSettingSeeder;
 use Database\Seeders\RadiusSettingSeeder;
 use Livewire\Livewire;
@@ -44,6 +45,16 @@ it('saves the settings and records each change', function () {
         ->and(Activity::query()->where('event', 'updated')->count())->toBe(4);
 });
 
+it('saves a range of phone number lengths', function () {
+    Livewire::test('pages::system.app-settings')
+        ->set('phone_digits', '11')
+        ->set('phone_digits_min', '10')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(PhoneLength::current())->toEqual(new PhoneLength(10, 11));
+});
+
 it('saves nothing when one field is invalid', function () {
     Livewire::test('pages::system.app-settings')
         ->set('phone_country_code', '+1')
@@ -64,6 +75,7 @@ it('rejects values outside the allowed lists', function (string $field, string $
     'unknown expiry mode' => ['expiry_mode', 'weekly'],
     'phone code without plus' => ['phone_country_code', '91'],
     'too many phone digits' => ['phone_digits', '16'],
+    'shortest number longer than the full length' => ['phone_digits_min', '11'],
     'empty notice message' => ['notice_message', ''],
     'language the panel does not ship' => ['locale', 'fr'],
     'login log kept under a week' => ['login_log_days', '6'],

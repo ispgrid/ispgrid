@@ -14,6 +14,7 @@ use App\Support\AccountNumbers;
 use App\Support\Hotspot;
 use App\Support\NoticePage;
 use App\Support\PasswordPattern;
+use App\Support\PhoneLength;
 use App\Support\RequiredCustomerFields;
 use App\Support\Selfcare;
 use Carbon\CarbonImmutable;
@@ -52,6 +53,7 @@ new #[Title('App settings')] class extends Component
         'account_id_prefix' => AccountNumbers::PREFIX,
         'account_id_start' => AccountNumbers::START,
         'password_pattern' => PasswordPattern::SETTING,
+        'phone_digits_min' => PhoneLength::MIN_SETTING,
     ];
 
     public string $date_format = '';
@@ -59,6 +61,8 @@ new #[Title('App settings')] class extends Component
     public string $phone_country_code = '';
 
     public string $phone_digits = '';
+
+    public string $phone_digits_min = '';
 
     public string $tax_id_label = '';
 
@@ -141,6 +145,7 @@ new #[Title('App settings')] class extends Component
             'date_format' => ['required', Rule::in(self::DATE_FORMATS)],
             'phone_country_code' => ['required', 'regex:/^\+[1-9][0-9]{0,3}$/'],
             'phone_digits' => ['required', 'integer', 'between:4,15'],
+            'phone_digits_min' => ['nullable', 'integer', 'between:4,15', 'lte:phone_digits'],
             'tax_id_label' => ['nullable', 'string', 'max:30'],
             'business_id_label' => ['nullable', 'string', 'max:30'],
             'expiry_mode' => ['required', Rule::in(array_keys($this->expiryModes()))],
@@ -174,6 +179,7 @@ new #[Title('App settings')] class extends Component
             'default_pool_hotspot.exists' => __('This pool was deleted. Choose another one.'),
             'default_ip_range_ipoe.exists' => __('This range was deleted. Choose another one.'),
             'account_id_prefix.regex' => __('Use letters, digits and / . _ - only.'),
+            'phone_digits_min.lte' => __('The shortest number cannot be longer than the phone number digits.'),
         ];
     }
 

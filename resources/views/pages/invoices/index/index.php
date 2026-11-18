@@ -1,5 +1,6 @@
 <?php
 
+use App\Billing\BillingSettings;
 use App\Billing\Decimal;
 use App\Enums\InvoiceKind;
 use App\Enums\InvoiceStatus;
@@ -11,6 +12,7 @@ use App\Models\PaymentMethod;
 use App\Support\CsvExport;
 use App\Support\Currency;
 use App\Support\Money;
+use App\Support\TaxIdLabel;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
@@ -30,6 +32,9 @@ new #[Title('Invoices')] class extends Component
     use AuthorizesEveryRequest, WithPagination;
 
     private const FILTERS = ['from', 'to', 'status', 'kind', 'method', 'search'];
+
+    /** The tax line names India GST writes. */
+    private const GST_PARTS = ['CGST', 'SGST', 'IGST'];
 
     /**
      * The period, Y-m-d.
@@ -152,11 +157,19 @@ new #[Title('Invoices')] class extends Component
     }
 
     /**
-     * The filtered invoices as a CSV, one row per invoice with its tax split for GST filing.
+     * The filtered invoices as a CSV, one row per invoice: with the GST split for filing while India GST is in use or
+     * any exported invoice carries GST, otherwise with one tax column.
      */
     public function export(): StreamedResponse
     {
         $this->authorize('view-sales');
+
+        $gst = BillingSettings::current()->tax()->usesPlaceOfSupply()
+            || $this->filtered()->whereHas('taxLines', fn (Builder $lines) => $lines->whereIn('name', self::GST_PARTS))->exists();
+
+        if (! $gst) {
+            return $this->exportWithOneTax();
+        }
 
         $rows = function (): Generator {
             foreach ($this->filtered()->with('taxLines')->oldest('issue_date')->oldest('id')->lazy(500) as $invoice) {
@@ -191,6 +204,43 @@ new #[Title('Invoices')] class extends Component
 
         return CsvExport::download('invoices-'.now()->format('Y-m-d').'.csv', [
             'Number', 'Date', 'Customer', 'Username', 'GSTIN', 'Place of supply', 'Taxable', 'CGST', 'SGST', 'IGST', 'Other tax',
+            'Round off', 'Total', 'Paid', 'Balance', 'Status',
+        ], $rows());
+    }
+
+    /**
+     * The export for invoices without GST: the customer's tax ID under the panel's label and all tax in one column.
+     */
+    private function exportWithOneTax(): StreamedResponse
+    {
+        $rows = function (): Generator {
+            foreach ($this->filtered()->with('taxLines')->oldest('issue_date')->oldest('id')->lazy(500) as $invoice) {
+                $tax = '0';
+
+                foreach ($invoice->taxLines as $line) {
+                    /** @var InvoiceTaxLine $line */
+                    $tax = Decimal::add($tax, (string) $line->amount);
+                }
+
+                yield [
+                    $invoice->number,
+                    $invoice->issue_date->format('Y-m-d'),
+                    (string) ($invoice->customer['name'] ?? ''),
+                    (string) ($invoice->customer['username'] ?? ''),
+                    (string) ($invoice->customer['tax_number'] ?? ''),
+                    (string) $invoice->taxable_total,
+                    Decimal::round($tax, Currency::decimals()),
+                    (string) $invoice->round_off,
+                    (string) $invoice->total,
+                    (string) $invoice->paid_total,
+                    (string) $invoice->balance,
+                    $invoice->status->label(),
+                ];
+            }
+        };
+
+        return CsvExport::download('invoices-'.now()->format('Y-m-d').'.csv', [
+            'Number', 'Date', 'Customer', 'Username', TaxIdLabel::forDisplay(), 'Taxable', 'Tax',
             'Round off', 'Total', 'Paid', 'Balance', 'Status',
         ], $rows());
     }

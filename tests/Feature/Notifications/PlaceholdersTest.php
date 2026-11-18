@@ -6,6 +6,8 @@ use App\Models\Plan;
 use App\Models\Recharge;
 use App\Notifications\PaymentNotice;
 use App\Notifications\Placeholders;
+use App\Notifications\Providers\Msg91Sms;
+use App\Notifications\Providers\WacrmWhatsApp;
 use App\Payments\PayCode;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AppSettingSeeder;
@@ -89,13 +91,22 @@ it('gives the pay code only while the pay page is open', function () {
         ->and(PayCode::for($account->id))->toMatch('/^'.$account->id.'-[0-9a-z]{6}$/');
 });
 
-it('cuts a value to the DLT limit of 30 characters and says so', function () {
+it('cuts a value to the DLT limit of 30 characters for MSG91 and says so', function () {
     $account = Account::factory()->create(['fullname' => str_repeat('A', 40)]);
 
-    $result = (new Placeholders)->values(['customer_name'], $account, null, CarbonImmutable::now());
+    $result = (new Placeholders)->values(['customer_name'], $account, null, CarbonImmutable::now(), maxLength: Placeholders::maxLengthFor(Msg91Sms::class));
 
     expect($result['values'][0])->toBe(str_repeat('A', 30))
         ->and($result['trimmed'])->toBeTrue();
+});
+
+it('keeps every value whole for a provider without a length limit', function () {
+    $account = Account::factory()->create(['fullname' => str_repeat('A', 40)]);
+
+    $result = (new Placeholders)->values(['customer_name'], $account, null, CarbonImmutable::now(), maxLength: Placeholders::maxLengthFor(WacrmWhatsApp::class));
+
+    expect($result['values'][0])->toBe(str_repeat('A', 40))
+        ->and($result['trimmed'])->toBeFalse();
 });
 
 it('says zero days left once the plan has expired, and nothing for a customer who never expires', function () {

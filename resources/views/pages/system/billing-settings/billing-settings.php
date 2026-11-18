@@ -7,6 +7,7 @@ use App\Billing\India\GstStates;
 use App\Billing\InvoiceNumbers;
 use App\Billing\LatinText;
 use App\Billing\Numbering;
+use App\Billing\Tax\IndiaGst;
 use App\Billing\Tax\TaxSetup;
 use App\Billing\Tax\TaxSetups;
 use App\Livewire\Concerns\AuthorizesEveryRequest;
@@ -475,13 +476,13 @@ new #[Title('Billing')] class extends Component
     }
 
     /**
-     * A warning when numbers in the form's format can be longer than GST's 16 characters, or null. It never blocks
-     * saving: operators outside GST may want longer numbers.
+     * A warning when the form's tax setup is India GST and numbers in its format can be longer than GST's 16
+     * characters, or null. It never blocks saving.
      */
     #[Computed]
     public function numberLengthWarning(): ?string
     {
-        if (! str_contains($this->numbering_format, '{N}') || ! ctype_digit($this->number_digits)) {
+        if (! $this->setup() instanceof IndiaGst || ! str_contains($this->numbering_format, '{N}') || ! ctype_digit($this->number_digits)) {
             return null;
         }
 

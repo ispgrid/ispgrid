@@ -211,6 +211,21 @@ it('looks a mobile up by an exact match on the indexed column', function () {
     expect(collect(DB::getQueryLog())->pluck('query')->filter(fn (string $sql): bool => str_contains($sql, 'RIGHT(')))->toBeEmpty();
 });
 
+it('finds mobiles of either length when the numbers vary in length', function () {
+    AppSetting::put('phone_digits', '11');
+    AppSetting::put('phone_digits_min', '10');
+    $short = Account::factory()->selfcare('Home-pass-1')->create(['mobile' => '1512345678']);
+    $long = Account::factory()->selfcare('Shop-pass-1')->create(['mobile' => '15123456789']);
+
+    mobileLogin('+49 1512345678', 'Home-pass-1')->assertHasNoErrors();
+    expect(Auth::guard('selfcare')->id())->toBe($short->id);
+
+    Auth::guard('selfcare')->logout();
+
+    mobileLogin('015123456789', 'Shop-pass-1')->assertHasNoErrors();
+    expect(Auth::guard('selfcare')->id())->toBe($long->id);
+});
+
 it('keeps an index on the mobile number', function () {
     expect(Schema::hasIndex('accounts', ['mobile']))->toBeTrue();
 });
