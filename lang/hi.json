@@ -1787,5 +1787,11 @@
     "PayU payment address": "PayU के भुगतान का पता",
     "Empty: the address PayU documents. Set it only if PayU moves.": "खाली: PayU का बताया हुआ पता। इसे तभी भरें जब PayU अपना पता बदले।",
     "PayU status address": "PayU के स्टेटस जाँच का पता",
-    "Empty: the address PayU documents for status checks. Set it only if PayU moves.": "खाली: स्टेटस जाँच के लिए PayU का बताया हुआ पता। इसे तभी भरें जब PayU अपना पता बदले।"
+    "Empty: the address PayU documents for status checks. Set it only if PayU moves.": "खाली: स्टेटस जाँच के लिए PayU का बताया हुआ पता। इसे तभी भरें जब PayU अपना पता बदले।",
+    "test (Easebuzz test server) or live.": "test (Easebuzz टेस्ट सर्वर) या live।",
+    "Salt": "सॉल्ट",
+    "Easebuzz payment address": "Easebuzz के भुगतान का पता",
+    "Empty: the address Easebuzz documents. Set it only if Easebuzz moves.": "खाली: Easebuzz का बताया हुआ पता। इसे तभी भरें जब Easebuzz अपना पता बदले।",
+    "Easebuzz status address": "Easebuzz के स्टेटस जाँच का पता",
+    "Empty: the address Easebuzz documents for status checks. Set it only if Easebuzz moves.": "खाली: स्टेटस जाँच के लिए Easebuzz का बताया हुआ पता। इसे तभी भरें जब Easebuzz अपना पता बदले।"
 }
