@@ -46,6 +46,9 @@ new #[Title('Setup')] class extends Component
 
     private const DATE_FORMATS = ['d/m/Y', 'm/d/Y', 'Y-m-d', 'd.m.Y', 'd-m-Y'];
 
+    /** Where the step and the saved steps are kept in the session. */
+    private const PROGRESS = 'setup_progress';
+
     /** The name and range rule pools share with the NAS (letters, digits and . _ -). */
     private const POOL_NAME = '/^[A-Za-z0-9_.-]+$/D';
 
@@ -138,11 +141,13 @@ new #[Title('Setup')] class extends Component
             return;
         }
 
-        $this->step = in_array(session('setup_step'), array_keys($this->steps()), true) ? session('setup_step') : 'region';
-        $this->done = array_values(array_filter((array) session('setup_done', []), 'is_string'));
+        $this->done = array_values(array_filter((array) session(self::PROGRESS.'.done', []), 'is_string'));
 
         $company = BillingSettings::current()->company;
-        $this->country = FirstRunSetup::detectedCountry() ?? ($company->country !== '' ? $company->country : 'IN');
+        // The country saved in the first step, else the one of the server timezone.
+        $this->country = in_array('region', $this->done, true) && $company->country !== ''
+            ? $company->country
+            : (FirstRunSetup::detectedCountry() ?? ($company->country !== '' ? $company->country : 'IN'));
         $this->applyCountry();
         $this->isp_name = (string) AppSetting::valueOf('notice_isp_name', '');
         $this->locale = (string) AppSetting::valueOf('locale', config('app.fallback_locale'));
@@ -150,6 +155,8 @@ new #[Title('Setup')] class extends Component
         $this->secret = Str::password(24, symbols: false);
         $this->disabled_pool_name = (string) (RadiusSetting::query()->value('disabled_users_pool') ?: 'disabled_pool');
         $this->company_name = $company->name !== '' ? $company->name : $this->isp_name;
+        $saved = session(self::PROGRESS.'.step');
+        $this->step = is_string($saved) && array_key_exists($saved, $this->steps()) ? $saved : 'region';
     }
 
     /**
@@ -230,18 +237,14 @@ new #[Title('Setup')] class extends Component
 
         $this->company_name = $this->company_name !== '' ? $this->company_name : trim((string) $validated['isp_name']);
         $this->markDone('region');
-        $next = $this->nextStep();
+        $this->goTo($this->nextStep());
 
         if (! $languageChanged) {
-            $this->step = $next;
-
             return;
         }
 
-        // A full reload, so the whole page shows the new language; the step goes along in the session.
+        // A full reload, so the whole page shows the new language; the step is kept in the session.
         App::setLocale(SetLocale::resolve(auth()->user()->locale));
-        session()->flash('setup_step', $next);
-        session()->flash('setup_done', $this->done);
         $this->redirectRoute('setup');
     }
 
@@ -410,7 +413,7 @@ new #[Title('Setup')] class extends Component
         }, attempts: 3);
 
         $this->markDone('pools');
-        $this->step = $this->nextStep();
+        $this->goTo($this->nextStep());
 
         if ($restart) {
             $this->restartFreeRadiusAfter(__('Pools saved.'));
@@ -474,7 +477,7 @@ new #[Title('Setup')] class extends Component
 
         $this->resetErrorBag();
         $this->markDone('plan');
-        $this->step = $this->nextStep();
+        $this->goTo($this->nextStep());
         $this->toast(__('Plan saved.'));
     }
 
@@ -564,14 +567,14 @@ new #[Title('Setup')] class extends Component
         }, attempts: 3);
 
         $this->markDone('india');
-        $this->step = $this->nextStep();
+        $this->goTo($this->nextStep());
         $this->toast(__('Settings saved.'));
     }
 
     public function skip(): void
     {
         $this->resetErrorBag();
-        $this->step = $this->nextStep();
+        $this->goTo($this->nextStep());
     }
 
     public function back(): void
@@ -579,7 +582,7 @@ new #[Title('Setup')] class extends Component
         $keys = array_keys($this->steps());
         $index = array_search($this->step, $keys, true);
         $this->resetErrorBag();
-        $this->step = $keys[max(0, ($index === false ? 0 : $index) - 1)];
+        $this->goTo($keys[max(0, ($index === false ? 0 : $index) - 1)]);
     }
 
     /**
@@ -591,6 +594,7 @@ new #[Title('Setup')] class extends Component
         $this->authorize('manage-app-settings');
 
         FirstRunSetup::finish();
+        session()->forget(self::PROGRESS);
         session()->flash('toast', __('Setup finished. Everything here can be changed later in the settings.'));
         $this->redirectRoute(array_key_exists((string) $to, $this->nextPages()) ? (string) $to : 'dashboard');
     }
@@ -704,6 +708,17 @@ new #[Title('Setup')] class extends Component
         if (! in_array($step, $this->done, true)) {
             $this->done[] = $step;
         }
+
+        session()->put(self::PROGRESS.'.done', $this->done);
+    }
+
+    /**
+     * Moves to a step and keeps it in the session, so a reload (or a new language) opens the same step.
+     */
+    private function goTo(string $step): void
+    {
+        $this->step = $step;
+        session()->put(self::PROGRESS.'.step', $step);
     }
 
     /**

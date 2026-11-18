@@ -76,7 +76,7 @@
                                 ? __('1. On this server, run as root (it adds the NAS to the WireGuard tunnel and prints the commands for the NAS):')
                                 : __('1. On this server, run as root (it adds the NAS to the L2TP/IPsec tunnel and prints the commands for the NAS):') }}</x-ui.text>
                             @if ($this->peerCommand)
-                                <pre class="overflow-x-auto rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800" data-command>{{ $this->peerCommand }}</pre>
+                                <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ $this->peerCommand }}</pre>
                             @else
                                 <x-ui.text muted>{{ __('Type the NAS name above to see the command.') }}</x-ui.text>
                             @endif
@@ -103,7 +103,7 @@
                 <x-ui.text>{{ $this->usesTunnel
                     ? __('Paste this on the NAS too, so PPPoE logins go to RADIUS (the /radius lines came from the tunnel script, with the secret :secret):', ['secret' => $secret])
                     : __('Paste these commands on the NAS:') }}</x-ui.text>
-                <pre class="overflow-x-auto rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800" data-command>{{ implode("\n", $this->radiusCommands) }}</pre>
+                <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->radiusCommands) }}</pre>
                 <div class="flex justify-end">
                     <x-ui.button wire:click="skip">{{ __('Continue') }}</x-ui.button>
                 </div>
@@ -122,7 +122,7 @@
                 </div>
                 @if ($this->poolCommands !== [])
                     <x-ui.text>{{ __('If this pool does not exist on the NAS yet (the first command lists nothing), paste the second. Use the NAT line only if this NAS gives customers the internet; its internet port must be in the WAN interface list.') }}</x-ui.text>
-                    <pre class="overflow-x-auto rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800" data-command>{{ implode("\n", $this->poolCommands) }}</pre>
+                    <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->poolCommands) }}</pre>
                     @if ($this->localAddress)
                         <x-ui.text muted>{{ __('The NAS keeps :address for its own end of the PPPoE link (local address in the PPP profile), so it is left out of the pool.', ['address' => $this->localAddress]) }}</x-ui.text>
                     @endif
@@ -141,7 +141,7 @@
                 </div>
                 @if ($this->disabledCommands !== [])
                     <x-ui.text>{{ __('If this pool does not exist on the NAS yet, paste the pool line, then the rules that send these customers to the notice page on :ip:8088.', ['ip' => $this->radiusIp]) }}</x-ui.text>
-                    <pre class="overflow-x-auto rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800" data-command>{{ implode("\n", $this->disabledCommands) }}</pre>
+                    <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->disabledCommands) }}</pre>
                     <x-ui.alert variant="warning">{{ __('These addresses must not reach the internet, so this pool gets no NAT rule of its own: from one of them, a web page on http:// should show the notice page and nothing else should open.') }}</x-ui.alert>
                 @endif
             </x-ui.card>
@@ -186,7 +186,7 @@
                 </div>
                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <x-ui.input wire:model="company_name" maxlength="150" :label="__('Legal name')" required />
-                    <x-ui.input wire:model.blur="gstin" maxlength="15" :label="__('GSTIN')" placeholder="07ABCDE1234F1Z5" :description="__('Leave empty if you are not registered for GST.')" />
+                    <x-ui.input wire:model.live.blur="gstin" maxlength="15" :label="__('GSTIN')" placeholder="07ABCDE1234F1Z5" :description="__('Leave empty if you are not registered for GST.')" />
                     <x-ui.input wire:model="address_line1" maxlength="150" :label="__('Address')" />
                     <x-ui.input wire:model="city" maxlength="60" :label="__('City')" />
                     <x-ui.select wire:model="gst_state" :label="__('State')" :options="$this->gstStates" :placeholder="__('Choose a state')" required />
@@ -213,7 +213,7 @@
                 </div>
                 <x-ui.checkbox wire:model="keep_two_years" :label="__('Keep session history for 2 years (730 days)')" />
                 <x-ui.text>{{ __('IPDR reports and customer documents (KYC) are add-ons. To install them, run on this server:') }}</x-ui.text>
-                <pre class="overflow-x-auto rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800" data-command>{{ implode("\n", $this->indiaAddons) }}</pre>
+                <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->indiaAddons) }}</pre>
             </x-ui.card>
 
             <div class="flex flex-wrap justify-between gap-3">
