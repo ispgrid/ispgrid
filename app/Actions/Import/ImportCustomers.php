@@ -12,7 +12,6 @@ use App\Enums\ServiceType;
 use App\Exceptions\ImportFailed;
 use App\Models\Account;
 use App\Models\Address;
-use App\Models\AppSetting;
 use App\Models\ConnectionType;
 use App\Models\Ip;
 use App\Models\Plan;
@@ -23,6 +22,7 @@ use App\Support\CsvFile;
 use App\Support\CustomerDefaults;
 use App\Support\CustomerRules;
 use App\Support\IpAddress;
+use App\Support\PhoneLength;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Carbon\Exceptions\InvalidFormatException;
@@ -146,7 +146,7 @@ final class ImportCustomers implements Importer
      */
     private function prepare(array $rows): array
     {
-        $digits = (int) AppSetting::valueOf('phone_digits', '10');
+        $phoneLength = PhoneLength::current();
         $plans = Plan::query()->get(['id', 'slug'])->keyBy(fn (Plan $plan): string => strtolower($plan->slug));
         $pools = Pool::query()->get(['id', 'name'])->keyBy(fn (Pool $pool): string => strtolower($pool->name));
         $types = ConnectionType::query()->get(['id', 'name'])->keyBy(fn (ConnectionType $type): string => strtolower($type->name));
@@ -155,7 +155,7 @@ final class ImportCustomers implements Importer
         $prepared = [];
 
         foreach ($rows as ['line' => $line, 'values' => $values]) {
-            $prepared[] = $this->prepareRow($line, $values, $digits, $plans, $pools, $types, $settings, $seen);
+            $prepared[] = $this->prepareRow($line, $values, $phoneLength, $plans, $pools, $types, $settings, $seen);
         }
 
         return $prepared;
@@ -169,7 +169,7 @@ final class ImportCustomers implements Importer
      * @param  array<string, array<string, int>>  $seen  the first row of each username, IP and MAC so far
      * @return array{errors: list<RowError>, columns: array<string, mixed>, address: ?array<string, ?string>, mac: ?string}
      */
-    private function prepareRow(int $line, array $values, int $digits, Collection $plans, Collection $pools, Collection $types, BillingSettings $settings, array &$seen): array
+    private function prepareRow(int $line, array $values, PhoneLength $phoneLength, Collection $plans, Collection $pools, Collection $types, BillingSettings $settings, array &$seen): array
     {
         $errors = CsvFile::textErrors($values, ['fullname', 'company', 'billing_name', ...self::ADDRESS]);
         // The panel says PPPoE, so the file may too; the stored value is PPP.
@@ -220,9 +220,9 @@ final class ImportCustomers implements Importer
             'ip_address' => $values['ip'],
             'pool_id' => $isIpoe ? null : $pool?->id,
         ];
-        $rules = [...CustomerRules::rules(true, $isIpoe, $hasAddress, $digits), 'account_number' => AccountNumbers::rules()];
+        $rules = [...CustomerRules::rules(true, $isIpoe, $hasAddress, $phoneLength), 'account_number' => AccountNumbers::rules()];
 
-        $messages = [...CustomerRules::messages($digits), 'account_number.unique' => __('Another customer has this account ID.'), 'account_number.regex' => __('Use letters, digits and / . _ - only.')];
+        $messages = [...CustomerRules::messages($phoneLength), 'account_number.unique' => __('Another customer has this account ID.'), 'account_number.regex' => __('Use letters, digits and / . _ - only.')];
 
         foreach (Validator::make($data, $rules, $messages, self::attributeNames())->errors()->messages() as $field => $messages) {
             $column = str_starts_with($field, 'address.') ? substr($field, 8) : (self::COLUMN_OF[$field] ?? $field);

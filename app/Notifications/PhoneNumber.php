@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Enums\NotificationChannel;
 use App\Models\Account;
 use App\Models\AppSetting;
+use App\Support\PhoneLength;
 
 /**
  * Customer numbers are stored as staff typed them. Providers need E.164 (+919876543210).
@@ -14,10 +15,12 @@ final class PhoneNumber
     private const E164 = '/^\+[1-9][0-9]{6,14}$/';
 
     /**
+     * @param  int  $digits  the national number's length, or its shortest when $maxDigits is given
      * @return ?string E.164, or null when the number cannot be read
      */
-    public static function toE164(?string $raw, string $countryCode, int $digits): ?string
+    public static function toE164(?string $raw, string $countryCode, int $digits, ?int $maxDigits = null): ?string
     {
+        $length = new PhoneLength($digits, max($digits, $maxDigits ?? $digits));
         $clean = preg_replace('/[\s\-().]/', '', (string) $raw) ?? '';
 
         if ($clean === '') {
@@ -39,11 +42,11 @@ final class PhoneNumber
         $code = ltrim($countryCode, '+');
         $national = ltrim($clean, '0');
 
-        if (strlen($national) === $digits) {
+        if ($length->allows(strlen($national))) {
             return '+'.$code.$national;
         }
 
-        if (strlen($clean) === strlen($code) + $digits && str_starts_with($clean, $code)) {
+        if (str_starts_with($clean, $code) && $length->allows(strlen($clean) - strlen($code))) {
             return '+'.$clean;
         }
 
@@ -52,7 +55,9 @@ final class PhoneNumber
 
     public static function fromSettings(?string $raw): ?string
     {
-        return self::toE164($raw, (string) AppSetting::valueOf('phone_country_code', '+91'), (int) AppSetting::valueOf('phone_digits', '10'));
+        $length = PhoneLength::current();
+
+        return self::toE164($raw, (string) AppSetting::valueOf('phone_country_code', '+91'), $length->min, $length->max);
     }
 
     /**

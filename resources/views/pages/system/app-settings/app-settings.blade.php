@@ -36,7 +36,8 @@
                 <x-ui.heading>{{ __('Customer details') }}</x-ui.heading>
                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <x-ui.input wire:model="phone_country_code" :label="__('Phone country code')" placeholder="+91" />
-                    <x-ui.input wire:model="phone_digits" type="number" min="4" max="15" :label="__('Phone number digits')" />
+                    <x-ui.input wire:model="phone_digits" type="number" min="4" max="15" :label="__('Phone number digits')" :description="__('Without the country code.')" />
+                    <x-ui.input wire:model="phone_digits_min" type="number" min="4" max="15" :label="__('Shortest phone number')" :description="__('For countries where numbers differ in length. Leave empty when every number has the full length.')" />
                     <x-ui.input wire:model="tax_id_label" :label="__('Tax ID label')" :description="__('e.g. GSTIN or VAT number. Leave empty to hide the field.')" />
                     <x-ui.input wire:model="business_id_label" :label="__('Business ID label')" :description="__('e.g. PAN. Leave empty to hide the field.')" />
                 </div>

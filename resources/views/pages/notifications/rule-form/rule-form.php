@@ -13,6 +13,7 @@ use App\Notifications\NotificationRegistry;
 use App\Notifications\Notifier;
 use App\Notifications\PhoneNumber;
 use App\Notifications\Placeholders;
+use App\Notifications\Providers\Msg91Sms;
 use App\Notifications\RulePresets;
 use App\Notifications\SettingField;
 use App\Notifications\Triggers\PppoePassword;
@@ -241,6 +242,15 @@ new #[Title('Notification rule')] class extends Component
     }
 
     /**
+     * Whether the picked provider sends through DLT-registered templates (MSG91 SMS).
+     */
+    #[Computed]
+    public function usesDltTemplates(): bool
+    {
+        return $this->provider === Msg91Sms::key();
+    }
+
+    /**
      * The value that carries the new password of this trigger, if it sends one.
      */
     #[Computed]
@@ -300,6 +310,7 @@ new #[Title('Notification rule')] class extends Component
             Notifier::sample(),
             null,
             CarbonImmutable::now(),
+            maxLength: Placeholders::maxLengthFor($this->registry()->providerClass($this->provider)),
         )['values'];
 
         return Placeholders::preview($this->approved_text, $values)

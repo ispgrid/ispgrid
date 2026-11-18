@@ -3,9 +3,9 @@
 use App\Actions\Customers\ChangePppoePassword;
 use App\Enums\ServiceType;
 use App\Http\Middleware\SelfcareSession;
-use App\Models\AppSetting;
 use App\Models\SelfcareAccount;
 use App\Support\CustomerRules;
+use App\Support\PhoneLength;
 use App\Support\PublicPage;
 use App\Support\Selfcare;
 use Illuminate\Contracts\View\View;
@@ -32,14 +32,14 @@ new class extends Component
     public function save(): void
     {
         $account = $this->account();
-        $digits = (int) AppSetting::valueOf('phone_digits', '10');
+        $phoneLength = PhoneLength::current();
 
         $this->validate(
             [
                 'selfcare_password' => ['required', 'string'],
-                'password' => [...CustomerRules::rules(false, false, false, $digits)['password'], 'confirmed'],
+                'password' => [...CustomerRules::rules(false, false, false, $phoneLength)['password'], 'confirmed'],
             ],
-            Arr::only(CustomerRules::messages($digits), ['password.regex', 'password.not_regex']),
+            Arr::only(CustomerRules::messages($phoneLength), ['password.regex', 'password.not_regex']),
             ['password' => __('new PPPoE password')],
         );
 

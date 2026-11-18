@@ -3,6 +3,7 @@
 namespace App\Notifications\Providers;
 
 use App\Enums\NotificationChannel;
+use App\Notifications\Contracts\LimitsValueLength;
 use App\Notifications\Contracts\Provider;
 use App\Notifications\OutgoingMessage;
 use App\Notifications\SendResult;
@@ -14,9 +15,14 @@ use Illuminate\Support\Facades\Http;
  * SMS through MSG91's template ("flow") API (https://docs.msg91.com/sms/send-sms). In India every SMS uses a
  * DLT-registered template; MSG91 maps its template ID to the DLT one. Variables are matched by name.
  */
-final class Msg91Sms implements Provider
+final class Msg91Sms implements LimitsValueLength, Provider
 {
     private const URL = 'https://control.msg91.com/api/v5/flow';
+
+    /**
+     * The DLT limit for one variable.
+     */
+    private const MAX_VALUE_LENGTH = 30;
 
     /**
      * @param  array<string, string>  $settings
@@ -31,6 +37,11 @@ final class Msg91Sms implements Provider
     public static function label(): string
     {
         return 'MSG91 (SMS)';
+    }
+
+    public static function maxValueLength(): int
+    {
+        return self::MAX_VALUE_LENGTH;
     }
 
     public static function channel(): NotificationChannel

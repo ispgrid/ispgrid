@@ -345,6 +345,15 @@ it('checks phone numbers against the digit count in the app settings', function 
     newCustomerForm()->set('mobile', '98765432')->call('save')->assertHasNoErrors();
 });
 
+it('takes phone numbers of any length in the range from the app settings', function () {
+    AppSetting::put('phone_digits', '10');
+    AppSetting::put('phone_digits_min', '7');
+
+    newCustomerForm()->assertSee('7 to 10 digits')->set('mobile', '123456')->call('save')->assertHasErrors(['mobile'])->assertSee('Enter 7 to 10 digits.');
+    newCustomerForm()->set('mobile', '1234567')->call('save')->assertHasNoErrors();
+    newCustomerForm()->set('username', 'bob')->set('mobile', '1234567890')->call('save')->assertHasNoErrors();
+});
+
 it('takes the title from the list', function () {
     newCustomerForm()->set('title', 'Mrs')->call('save')->assertHasNoErrors();
     expect(Account::query()->where('username', 'alice')->value('title'))->toBe('Mrs');

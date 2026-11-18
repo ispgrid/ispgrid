@@ -38,14 +38,14 @@ final class CustomerRules
      *
      * @return array<string, list<mixed>>
      */
-    public static function rules(bool $isNew, bool $isIpoe, bool $hasAddress, int $phoneDigits): array
+    public static function rules(bool $isNew, bool $isIpoe, bool $hasAddress, PhoneLength $phoneLength): array
     {
         $required = RequiredCustomerFields::current();
         $contact = [
             'company' => ['nullable', 'string', 'max:255'],
-            'mobile' => self::phone($phoneDigits),
-            'whatsapp' => self::phone($phoneDigits),
-            'alt_number' => self::phone($phoneDigits),
+            'mobile' => self::phone($phoneLength),
+            'whatsapp' => self::phone($phoneLength),
+            'alt_number' => self::phone($phoneLength),
             'email' => ['nullable', 'email', 'max:100'],
             'tax_id' => ['nullable', 'string', 'max:50'],
             'business_id' => ['nullable', 'string', 'max:30'],
@@ -78,17 +78,17 @@ final class CustomerRules
     /**
      * @return list<string>
      */
-    public static function phone(int $digits): array
+    public static function phone(PhoneLength $length): array
     {
-        return ['nullable', 'regex:/^[0-9]{'.$digits.'}$/'];
+        return ['nullable', 'regex:'.$length->pattern()];
     }
 
     /**
      * @return array<string, string>
      */
-    public static function messages(int $phoneDigits): array
+    public static function messages(PhoneLength $phoneLength): array
     {
-        $digits = __('Enter :digits digits.', ['digits' => $phoneDigits]);
+        $digits = $phoneLength->message();
 
         return [
             'mobile.regex' => $digits,

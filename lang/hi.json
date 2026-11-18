@@ -1805,5 +1805,11 @@
     "Webhook ID": "वेबहुक आईडी",
     "The ID of the webhook you add in the PayPal developer dashboard. Select these events: Checkout order approved, Payment capture completed.": "PayPal डेवलपर डैशबोर्ड में जोड़े गए वेबहुक की आईडी। ये इवेंट चुनें: Checkout order approved, Payment capture completed।",
     "PayPal address": "PayPal का पता",
-    "Empty: the address PayPal documents for the environment. Set it only if PayPal moves.": "खाली: इस माहौल के लिए PayPal का बताया हुआ पता। इसे तभी भरें जब PayPal अपना पता बदले।"
+    "Empty: the address PayPal documents for the environment. Set it only if PayPal moves.": "खाली: इस माहौल के लिए PayPal का बताया हुआ पता। इसे तभी भरें जब PayPal अपना पता बदले।",
+    ":min to :max digits": ":min से :max अंक",
+    "Enter :min to :max digits.": ":min से :max अंक डालें।",
+    "Without the country code.": "देश कोड के बिना।",
+    "Shortest phone number": "सबसे छोटा फ़ोन नंबर",
+    "For countries where numbers differ in length. Leave empty when every number has the full length.": "उन देशों के लिए जहाँ नंबरों की लंबाई अलग-अलग होती है। जब हर नंबर पूरी लंबाई का हो तो खाली छोड़ें।",
+    "The shortest number cannot be longer than the phone number digits.": "सबसे छोटा नंबर फ़ोन नंबर के अंकों से लंबा नहीं हो सकता।"
 }

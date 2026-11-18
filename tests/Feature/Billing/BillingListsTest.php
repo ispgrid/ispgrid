@@ -87,6 +87,27 @@ it('exports the GST columns', function () {
         ->and($rows[2])->toBe(['INV-2', '2026-10-21', 'Delhi Co', 'delhi', '07ABCDE1234F1Z5', 'Delhi (07)', '1000.00', '0.00', '0.00', '180.00', '0.00', '0.00', '1180.00', '0.00', '1180.00', 'Unpaid']);
 });
 
+it('exports one tax column and the Tax ID label without GST', function () {
+    turnInvoicingOn('GB', 'single', ['name' => 'VAT', 'rate' => '20']);
+    AppSetting::put('tax_id_label', 'VAT number');
+    listInvoice(Account::factory()->create(['username' => 'london', 'company' => 'London Co', 'tax_id' => 'GB123456789']), '500');
+
+    $rows = csvRows((string) base64_decode(Livewire::test('pages::invoices.index')->call('export')->effects['download']['content']));
+
+    expect($rows[0])->toBe(['Number', 'Date', 'Customer', 'Username', 'VAT number', 'Taxable', 'Tax', 'Round off', 'Total', 'Paid', 'Balance', 'Status'])
+        ->and($rows[1])->toBe(['INV-1', '2026-10-21', 'London Co', 'london', 'GB123456789', '500.00', '100.00', '0.00', '600.00', '0.00', '600.00', 'Unpaid']);
+});
+
+it('keeps the GST columns for GST invoices issued before the tax setup changed', function () {
+    listInvoice(Account::factory()->create(), '500');
+    turnInvoicingOn('GB', 'single', ['name' => 'VAT', 'rate' => '20']);
+
+    $rows = csvRows((string) base64_decode(Livewire::test('pages::invoices.index')->call('export')->effects['download']['content']));
+
+    expect($rows[0][7])->toBe('CGST')
+        ->and($rows[1][7])->toBe('45.00');
+});
+
 it('keeps a formula out of the CSV', function () {
     listInvoice(Account::factory()->create(['username' => 'evil', 'fullname' => '=HYPERLINK("x")']), '500');
 
