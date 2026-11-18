@@ -108,3 +108,29 @@ it('carries the HTTP status on the exception, and none when the gateway was not 
     Http::fake(['https://api.gateway.test/*' => Http::failedConnection()]);
     expect($status())->toBeNull();
 });
+
+it('posts a form and returns the decoded answer, failing without the body', function () {
+    $caller = new class
+    {
+        use CallsGatewayApi;
+
+        /** @return array<string, mixed> */
+        public function form(string $url, array $fields): array
+        {
+            return $this->sendForm(Http::withToken('sk_live_SECRET'), $url, $fields);
+        }
+    };
+
+    Http::fake(['https://api.gateway.test/ok' => Http::response('{"status":1}', 200, ['Content-Type' => 'text/html']), 'https://api.gateway.test/bad' => Http::response('salt-leak', 502)]);
+
+    expect($caller->form('https://api.gateway.test/ok', ['command' => 'verify_payment', 'var1' => 'T1']))->toBe(['status' => 1]);
+    Http::assertSent(fn ($request) => $request->method() === 'POST' && $request->isForm() && $request->body() === 'command=verify_payment&var1=T1');
+
+    try {
+        $caller->form('https://api.gateway.test/bad', ['var1' => 'T1']);
+        $this->fail('Expected GatewayUnavailable.');
+    } catch (GatewayUnavailable $exception) {
+        expect($exception->getMessage())->toContain('502')->toContain('api.gateway.test/bad')->not->toContain('salt-leak')
+            ->and($exception->httpStatus)->toBe(502);
+    }
+});

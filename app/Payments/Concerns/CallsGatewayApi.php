@@ -22,12 +22,36 @@ trait CallsGatewayApi
      */
     protected function sendJson(PendingRequest $request, string $method, string $url, array $payload = []): array
     {
-        $where = $this->describeEndpoint($url);
-
         $options = strtoupper($method) === 'GET' ? ($payload === [] ? [] : ['query' => $payload]) : ['json' => $payload];
 
+        return $this->dispatchRequest($request, strtoupper($method), $url, $options);
+    }
+
+    /**
+     * For a provider that takes a form-encoded POST and answers JSON. Same failure handling as sendJson.
+     *
+     * @param  array<string, string>  $fields
+     * @return array<string, mixed>
+     *
+     * @throws GatewayUnavailable
+     */
+    protected function sendForm(PendingRequest $request, string $url, array $fields): array
+    {
+        return $this->dispatchRequest($request->asForm(), 'POST', $url, ['form_params' => $fields]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     *
+     * @throws GatewayUnavailable
+     */
+    private function dispatchRequest(PendingRequest $request, string $method, string $url, array $options): array
+    {
+        $where = $this->describeEndpoint($url);
+
         try {
-            $response = $request->acceptJson()->timeout(20)->send(strtoupper($method), $url, $options);
+            $response = $request->acceptJson()->timeout(20)->send($method, $url, $options);
         } catch (RequestException $exception) {
             throw new GatewayUnavailable("The gateway answered HTTP {$exception->response->status()} ({$where}).", $exception->response->status());
         } catch (ConnectionException|HttpClientException) {

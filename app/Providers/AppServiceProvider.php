@@ -34,6 +34,7 @@ use App\Notifications\Triggers\ServiceExpiresSoon;
 use App\Payments\Cashfree\CashfreeGateway;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
+use App\Payments\Payu\PayuGateway;
 use App\Payments\PhonePe\PhonePeGateway;
 use App\Payments\QuickPay;
 use App\Payments\Razorpay\RazorpayGateway;
@@ -86,6 +87,7 @@ class AppServiceProvider extends ServiceProvider
             $gateways->register(PhonePeGateway::class);
             $gateways->register(RazorpayGateway::class);
             $gateways->register(CashfreeGateway::class);
+            $gateways->register(PayuGateway::class);
 
             return $gateways;
         });
