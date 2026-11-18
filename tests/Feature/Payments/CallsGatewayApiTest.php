@@ -33,6 +33,14 @@ it('sends the payload and returns the decoded answer', function () {
     Http::assertSent(fn ($request) => $request->method() === 'POST' && $request['amount'] === 100);
 });
 
+it('sends an empty payload of a POST as an empty JSON object', function () {
+    Http::fake(['https://api.gateway.test/*' => Http::response(['ok' => true], 200)]);
+
+    apiCaller()->call('post', 'https://api.gateway.test/v1/orders/o1/capture');
+
+    Http::assertSent(fn ($request) => $request->body() === '{}' && $request->hasHeader('Content-Type', 'application/json'));
+});
+
 it('sends a GET without a body', function () {
     Http::fake(['https://api.gateway.test/*' => Http::response(['ok' => true], 200)]);
 
