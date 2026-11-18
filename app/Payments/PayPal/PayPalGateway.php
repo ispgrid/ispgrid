@@ -82,7 +82,7 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
             new SettingField('client_secret', __('Client secret'), 'secret', maxLength: 300),
             new SettingField('webhook_id', __('Webhook ID'), help: __('The ID of the webhook you add in the PayPal developer dashboard. Select these events: Checkout order approved, Payment capture completed.'), maxLength: 100),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('PayPal address'), 'url', required: false, help: __('Empty: the address PayPal documents for the environment. Set it only if PayPal moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('PayPal address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'PayPal']), maxLength: 200, rules: ['url:https']),
         ];
     }
 

@@ -66,6 +66,12 @@ it('takes only an https Paytm address', function () {
         ->assertHasErrors('settings.paytm.host');
 });
 
+it('marks the fields a gateway does not need as optional', function () {
+    Livewire::test('pages::system.online-payments')
+        ->assertSee(__(':label (optional)', ['label' => __('Paytm address')]))
+        ->assertDontSee(__(':label (optional)', ['label' => __('Merchant ID (MID)')]));
+});
+
 it('opens the pay page only with invoicing and a gateway on', function () {
     Livewire::test('pages::system.online-payments')
         ->set('quick_pay', true)

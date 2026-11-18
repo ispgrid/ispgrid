@@ -275,6 +275,25 @@ it('finishes once, also when every step is skipped', function () {
     $this->get(route('dashboard'))->assertOk();
 });
 
+it('opens the same step and country again after a reload', function () {
+    Livewire::test('pages::system.setup')
+        ->set('country', 'GB')
+        ->set('phone_country_code', '+44')
+        ->call('saveRegion')
+        ->assertHasNoErrors()
+        ->call('skip')
+        ->assertSet('step', 'pools');
+
+    Livewire::test('pages::system.setup')
+        ->assertSet('step', 'pools')
+        ->assertSet('country', 'GB')
+        ->assertSet('done', ['region']);
+
+    Livewire::test('pages::system.setup')->call('finish');
+
+    expect(session('setup_progress'))->toBeNull();
+});
+
 it('finishes on the dashboard for any page it does not offer', function () {
     Livewire::test('pages::system.setup')->call('finish', 'staff.index')->assertRedirect(route('dashboard'));
 });

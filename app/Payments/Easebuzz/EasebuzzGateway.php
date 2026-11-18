@@ -94,8 +94,8 @@ final class EasebuzzGateway implements NeedsCustomerDetails, PaymentGateway, Unt
             new SettingField('merchant_key', __('Merchant key'), maxLength: 100),
             new SettingField('salt', __('Salt'), 'secret', help: __('Signs the payment and checks the answers.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('Easebuzz payment address'), 'url', required: false, help: __('Empty: the address Easebuzz documents. Set it only if Easebuzz moves.'), maxLength: 200, rules: ['url:https']),
-            new SettingField('dashboard_host', __('Easebuzz status address'), 'url', required: false, help: __('Empty: the address Easebuzz documents for status checks. Set it only if Easebuzz moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('Easebuzz payment address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'Easebuzz']), maxLength: 200, rules: ['url:https']),
+            new SettingField('dashboard_host', __('Easebuzz status address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'Easebuzz']), maxLength: 200, rules: ['url:https']),
         ];
     }
 

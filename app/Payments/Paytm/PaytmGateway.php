@@ -53,9 +53,9 @@ final class PaytmGateway implements PaymentGateway
             new SettingField('environment', __('Environment'), help: __('test or live. Test keys work only with test, live keys only with live.'), maxLength: 4, rules: ['in:test,live']),
             new SettingField('mid', __('Merchant ID (MID)'), maxLength: 50),
             new SettingField('merchant_key', __('Merchant key'), 'secret', maxLength: 100),
-            new SettingField('website_name', __('Website name'), required: false, help: __('Empty: WEBSTAGING for test, DEFAULT for live. Change it only if Paytm gave you another.'), maxLength: 50),
+            new SettingField('website_name', __('Website name'), required: false, help: __('Leave it empty unless Paytm gave you a website name.'), maxLength: 50),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('Paytm address'), 'url', required: false, help: __('Empty: the address Paytm documents for the environment. Set it only if Paytm moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('Paytm address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'Paytm']), maxLength: 200, rules: ['url:https']),
         ];
     }
 

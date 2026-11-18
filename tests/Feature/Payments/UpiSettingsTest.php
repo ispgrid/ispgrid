@@ -135,3 +135,26 @@ it('builds the default note from the notice phone', function () {
     AppSetting::put('notice_phone', '');
     expect(UpiDetails::current()?->note)->toBe('');
 });
+
+it('turns UPI off without losing the details, and on only with something to pay to', function () {
+    upiPage()->set('upi_enabled', true)->call('saveUpi')->assertHasErrors('upi_enabled');
+
+    expect(AppSetting::valueOf(UpiDetails::SWITCH))->toBeNull();
+
+    upiPage()->set('upi_enabled', true)->set('upi_id', 'shop@okbank')->call('saveUpi')->assertHasNoErrors();
+
+    expect(UpiDetails::current()?->id)->toBe('shop@okbank');
+
+    upiPage()->assertSet('upi_enabled', true)->set('upi_enabled', false)->call('saveUpi')->assertHasNoErrors();
+
+    expect(UpiDetails::current())->toBeNull()
+        ->and(AppSetting::valueOf('billing.upi_id'))->toBe('shop@okbank');
+    upiPage()->assertSet('upi_enabled', false);
+});
+
+it('keeps UPI on for a panel saved before the switch existed', function () {
+    AppSetting::put('billing.upi_id', 'shop@okbank');
+
+    expect(UpiDetails::current()?->id)->toBe('shop@okbank');
+    upiPage()->assertSet('upi_enabled', true);
+});

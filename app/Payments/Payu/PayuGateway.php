@@ -81,8 +81,8 @@ final class PayuGateway implements NeedsCustomerDetails, PaymentGateway, Unteste
             new SettingField('merchant_key', __('Merchant key'), maxLength: 100),
             new SettingField('merchant_salt', __('Merchant salt'), 'secret', help: __('Signs the payment and checks the answers.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('PayU payment address'), 'url', required: false, help: __('Empty: the address PayU documents. Set it only if PayU moves.'), maxLength: 200, rules: ['url:https']),
-            new SettingField('info_host', __('PayU status address'), 'url', required: false, help: __('Empty: the address PayU documents for status checks. Set it only if PayU moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('PayU payment address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'PayU']), maxLength: 200, rules: ['url:https']),
+            new SettingField('info_host', __('PayU status address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'PayU']), maxLength: 200, rules: ['url:https']),
         ];
     }
 
