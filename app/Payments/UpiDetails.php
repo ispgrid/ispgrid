@@ -19,6 +19,9 @@ final readonly class UpiDetails
 
     public const DIRECTORY = 'upi';
 
+    /** The app setting behind the UPI switch: '1' on, '0' off. */
+    public const SWITCH = 'billing.upi_enabled';
+
     /**
      * Pictures a QR may be, by the bytes of the file.
      */
@@ -27,11 +30,12 @@ final readonly class UpiDetails
     public function __construct(public string $id, public string $number, public ?string $qrUrl, public string $note) {}
 
     /**
-     * The details to show customers, or null when the currency is not INR or none of QR, ID and number is set.
+     * The details to show customers, or null when the currency is not INR, UPI is switched off, or none of QR, ID and
+     * number is set.
      */
     public static function current(): ?self
     {
-        if (! self::available()) {
+        if (! self::available() || ! self::switchedOn()) {
             return null;
         }
 
@@ -44,6 +48,15 @@ final readonly class UpiDetails
         }
 
         return new self($id, $number, $qr === '' ? null : route('pay.upi-qr', basename($qr)), self::note());
+    }
+
+    /**
+     * The UPI switch on the Quick pay page. Panels saved before the switch existed have no value: UPI stays on there,
+     * so it shows whenever details are set, as it did before.
+     */
+    public static function switchedOn(): bool
+    {
+        return AppSetting::valueOf(self::SWITCH, '1') !== '0';
     }
 
     /**

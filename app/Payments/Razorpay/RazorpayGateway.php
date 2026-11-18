@@ -77,7 +77,7 @@ final class RazorpayGateway implements NeedsCustomerDetails, PaymentGateway, Unt
             new SettingField('key_secret', __('Key secret'), 'secret', maxLength: 200),
             new SettingField('webhook_secret', __('Webhook secret'), 'secret', help: __('The secret you set for the webhook in the Razorpay dashboard.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('Razorpay address'), 'url', required: false, help: __('Empty: the address Razorpay documents. Set it only if Razorpay moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('Razorpay address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'Razorpay']), maxLength: 200, rules: ['url:https']),
         ];
     }
 

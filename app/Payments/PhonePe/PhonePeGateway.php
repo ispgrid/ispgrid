@@ -71,7 +71,7 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
             new SettingField('webhook_username', __('Webhook username'), help: __('The username you set for the webhook in the PhonePe dashboard.'), maxLength: 100),
             new SettingField('webhook_password', __('Webhook password'), 'secret', help: __('The password you set for the webhook in the PhonePe dashboard.'), maxLength: 100),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('PhonePe address'), 'url', required: false, help: __('Empty: the address PhonePe documents for the environment. Set it only if PhonePe moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('PhonePe address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'PhonePe']), maxLength: 200, rules: ['url:https']),
         ];
     }
 

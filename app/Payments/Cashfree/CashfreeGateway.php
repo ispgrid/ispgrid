@@ -80,7 +80,7 @@ final class CashfreeGateway implements NeedsCustomerDetails, PaymentGateway, Unt
             new SettingField('client_id', __('Client ID'), maxLength: 100),
             new SettingField('client_secret', __('Client secret'), 'secret', help: __('Also signs the webhooks.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('Cashfree address'), 'url', required: false, help: __('Empty: the address Cashfree documents. Set it only if Cashfree moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('Cashfree address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'Cashfree']), maxLength: 200, rules: ['url:https']),
         ];
     }
 

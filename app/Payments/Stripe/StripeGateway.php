@@ -88,7 +88,7 @@ final class StripeGateway implements PaymentGateway, UntestedGateway
             new SettingField('secret_key', __('Secret key'), 'secret', help: __('The Stripe secret key (sk_...) or a restricted key that can read and create Checkout Sessions.'), maxLength: 200),
             new SettingField('webhook_secret', __('Webhook signing secret'), 'secret', help: __('The signing secret (whsec_...) of the webhook endpoint you add in the Stripe dashboard. Select these events: checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.expired.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.
-            new SettingField('host', __('Stripe address'), 'url', required: false, help: __('Empty: the address Stripe documents. Set it only if Stripe moves.'), maxLength: 200, rules: ['url:https']),
+            new SettingField('host', __('Stripe address'), 'url', required: false, help: __('Leave it empty. Fill it in only if :gateway tells you (for example by email) that this address has changed: paste the new address here.', ['gateway' => 'Stripe']), maxLength: 200, rules: ['url:https']),
         ];
     }
 

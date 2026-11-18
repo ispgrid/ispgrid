@@ -31,6 +31,9 @@ new #[Title('Quick pay')] class extends Component
 
     public string $renewal_days = '';
 
+    /** The UPI switch: off hides UPI from the pay page and Selfcare, the details stay saved. */
+    public bool $upi_enabled = false;
+
     public string $upi_id = '';
 
     public string $upi_number = '';
@@ -59,6 +62,7 @@ new #[Title('Quick pay')] class extends Component
         $this->upi_id = (string) AppSetting::valueOf('billing.upi_id', '');
         $this->upi_number = (string) AppSetting::valueOf('billing.upi_number', '');
         $this->upi_note = (string) AppSetting::valueOf('billing.upi_note', '');
+        $this->upi_enabled = $this->savedUpiSwitch();
 
         foreach ($this->gateways()->all() as $key => $class) {
             $this->load($key, $class::settingFields());
@@ -87,7 +91,7 @@ new #[Title('Quick pay')] class extends Component
                 'label' => $class::label(),
                 'fields' => array_map(fn (SettingField $field): array => [
                     'name' => $field->name,
-                    'label' => $field->label,
+                    'label' => $field->required ? $field->label : __(':label (optional)', ['label' => $field->label]),
                     'type' => match ($field->type) {
                         'secret' => 'password', 'number' => 'number', 'url' => 'url', default => 'text'
                     },
@@ -140,7 +144,8 @@ new #[Title('Quick pay')] class extends Component
     }
 
     /**
-     * Saves the UPI ID, number, note and a new QR picture (which replaces the old one and deletes its file).
+     * Saves the UPI switch, ID, number, note and a new QR picture (which replaces the old one and deletes its file).
+     * UPI turns on only with a QR, an ID or a number to pay to.
      */
     public function saveUpi(): void
     {
@@ -150,13 +155,21 @@ new #[Title('Quick pay')] class extends Component
         $this->upi_number = trim($this->upi_number);
         $this->upi_note = trim($this->upi_note);
         $this->validate([
+            'upi_enabled' => ['boolean'],
             'upi_id' => ['nullable', 'max:60', 'regex:/^[A-Za-z0-9._-]{2,}@[A-Za-z0-9]{2,}$/'],
             'upi_number' => ['nullable', 'max:20', 'regex:/^[0-9 +-]+$/'],
             'upi_note' => ['nullable', 'max:200'],
             'upi_qr' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:2048', UpiDetails::qrRule()],
-        ], attributes: ['upi_id' => __('UPI ID'), 'upi_number' => __('UPI number'), 'upi_note' => __('note'), 'upi_qr' => __('QR picture')]);
+        ], attributes: ['upi_enabled' => __('UPI'), 'upi_id' => __('UPI ID'), 'upi_number' => __('UPI number'), 'upi_note' => __('note'), 'upi_qr' => __('QR picture')]);
+
+        $hasQr = $this->upi_qr !== null || AppSetting::valueOf('billing.upi_qr', '') !== '';
+
+        if ($this->upi_enabled && $this->upi_id === '' && $this->upi_number === '' && ! $hasQr) {
+            throw ValidationException::withMessages(['upi_enabled' => __('Add a QR picture, a UPI ID or a UPI number to turn UPI on.')]);
+        }
 
         $old = $this->savedUpi();
+        AppSetting::put(UpiDetails::SWITCH, $this->upi_enabled ? '1' : '0');
         AppSetting::put('billing.upi_id', $this->upi_id);
         AppSetting::put('billing.upi_number', $this->upi_number);
         AppSetting::put('billing.upi_note', $this->upi_note);
@@ -202,15 +215,26 @@ new #[Title('Quick pay')] class extends Component
     }
 
     /**
-     * @return array{upi_id: string, upi_number: string, upi_note: string}
+     * @return array{upi_enabled: string, upi_id: string, upi_number: string, upi_note: string}
      */
     private function savedUpi(): array
     {
         return [
+            'upi_enabled' => $this->savedUpiSwitch() ? '1' : '0',
             'upi_id' => (string) AppSetting::valueOf('billing.upi_id', ''),
             'upi_number' => (string) AppSetting::valueOf('billing.upi_number', ''),
             'upi_note' => (string) AppSetting::valueOf('billing.upi_note', ''),
         ];
+    }
+
+    /**
+     * The saved switch. A panel saved before the switch existed shows it on when details are set (UPI already showed).
+     */
+    private function savedUpiSwitch(): bool
+    {
+        $switch = AppSetting::valueOf(UpiDetails::SWITCH);
+
+        return $switch === null ? UpiDetails::current() !== null : $switch === '1';
     }
 
     /**
