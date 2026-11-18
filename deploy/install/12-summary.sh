@@ -108,8 +108,8 @@ router_radius_ip() {
   esac
 }
 
-#  The setup page shows commands with this server's addresses; a fresh install opens it after the first login.
-artisan setup:server-info --routers="$ROUTERS" --radius-ip="$(router_radius_ip)" --home="$ISPGRID_HOME" ${ADMIN_CREATED:+--pending} >/dev/null ||
+#  The setup page (a fresh install opens it after the first login, see step 5) shows commands with these addresses.
+artisan setup:server-info --routers="$ROUTERS" --radius-ip="$(router_radius_ip)" --home="$ISPGRID_HOME" >/dev/null ||
   warn "The setup page could not be prepared; the panel works without it."
 
 summary_rows no | box_render yes no > "$(dirname "$ISPGRID_CONF")/info.txt"

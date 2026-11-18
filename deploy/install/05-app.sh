@@ -275,5 +275,8 @@ if need_admin; then
   #  From here a failure shows the login in its box: the rerun finds the admin and has no password to show.
   ADMIN_CREATED=1
   say "Admin user $ADMIN_EMAIL created"
+  #  A fresh install: the first login opens the setup page. Marked here, with the admin, so a run that stops later
+  #  and is run again (when the admin already exists) still opens it.
+  artisan setup:server-info --pending >/dev/null || warn "The setup page could not be turned on; the panel works without it."
 fi
 say "Panel code at $ISPGRID_HOME ($(git -C "$ISPGRID_HOME" describe --tags --always 2>/dev/null))"
