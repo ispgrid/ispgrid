@@ -47,6 +47,9 @@ final class StripeGateway implements PaymentGateway, UntestedGateway
     /** Zero-decimal currencies: the amount is sent in whole units. */
     private const ZERO_DECIMAL = ['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
 
+    /** Sent as two decimals, but Stripe refuses fractions of these. */
+    private const WHOLE_UNITS_ONLY = ['ISK', 'UGX'];
+
     /** Presentment currencies without the three-decimal ones (BHD, JOD, KWD, OMR, TND). */
     private const CURRENCIES = [
         'AED', 'AFN', 'ALL', 'AMD', 'ANG', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BGN', 'BIF', 'BMD', 'BND', 'BOB', 'BRL', 'BSD',
@@ -83,7 +86,7 @@ final class StripeGateway implements PaymentGateway, UntestedGateway
         return [
             new SettingField('environment', __('Environment'), help: __('test (Stripe test mode) or live. A label only: the secret key decides the mode.'), maxLength: 4, rules: ['in:test,live']),
             new SettingField('secret_key', __('Secret key'), 'secret', help: __('The Stripe secret key (sk_...) or a restricted key that can read and create Checkout Sessions.'), maxLength: 200),
-            new SettingField('webhook_secret', __('Webhook signing secret'), 'secret', help: __('The signing secret (whsec_...) of the webhook endpoint you add in the Stripe dashboard.'), maxLength: 200),
+            new SettingField('webhook_secret', __('Webhook signing secret'), 'secret', help: __('The signing secret (whsec_...) of the webhook endpoint you add in the Stripe dashboard. Select these events: checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.expired.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.
             new SettingField('host', __('Stripe address'), 'url', required: false, help: __('Empty: the address Stripe documents. Set it only if Stripe moves.'), maxLength: 200, rules: ['url:https']),
         ];
@@ -92,6 +95,11 @@ final class StripeGateway implements PaymentGateway, UntestedGateway
     public function start(OnlinePayment $payment, string $returnUrl): GatewayStart
     {
         $currency = strtoupper($payment->currency);
+
+        if (in_array($currency, self::WHOLE_UNITS_ONLY, true) && ! str_ends_with((string) GatewayAmount::twoDecimals((string) $payment->amount), '.00')) {
+            throw new GatewayUnavailable('Stripe cannot charge a fraction of this currency.');
+        }
+
         $minor = GatewayAmount::minor((string) $payment->amount, in_array($currency, self::ZERO_DECIMAL, true));
 
         $session = $this->call('post', '/v1/checkout/sessions', [

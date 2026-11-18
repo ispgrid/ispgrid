@@ -119,6 +119,18 @@ it('charges a zero-decimal currency in whole units', function () {
     expect($result->amount)->toBe('500.00')->and($result->currency)->toBe('JPY');
 });
 
+it('refuses a fraction of ISK or UGX before calling Stripe, and charges whole ones in two decimals', function (string $currency) {
+    fakeStripe(['id' => STRIPE_SESSION, 'url' => 'https://checkout.stripe.com/c/pay/x']);
+    $fraction = OnlinePayment::factory()->create(['gateway' => 'stripe', 'amount' => '5.50', 'currency' => $currency]);
+
+    expect(fn () => stripe()->start($fraction, 'https://isp.example/r?attempt=X'))->toThrow(GatewayUnavailable::class);
+    Http::assertNothingSent();
+
+    $whole = OnlinePayment::factory()->create(['gateway' => 'stripe', 'amount' => '5.00', 'currency' => $currency]);
+    stripe()->start($whole, 'https://isp.example/r?attempt=X');
+    Http::assertSent(fn (ClientRequest $request): bool => stripeForm($request)['line_items'][0]['price_data']['unit_amount'] === '500');
+})->with(['ISK', 'UGX']);
+
 it('uses the host in the settings and refuses a start without a url', function () {
     fakeStripe(['id' => STRIPE_SESSION, 'url' => 'https://checkout.stripe.com/c/pay/x']);
     stripe(['host' => 'https://stripe.example.net/'])->start($this->payment, 'https://isp.example/r?attempt=X');
