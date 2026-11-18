@@ -316,6 +316,7 @@ it('renders the Cashfree init on the go page and nothing for an unknown init', f
     expect($html)->toContain('<script src="https://sdk.cashfree.com/js/v3/cashfree.js"')
         ->toContain("Cashfree({ mode: 'sandbox' }).checkout({ paymentSessionId: 'sess\u0022\u003C\/script\u003E\u003Cscript\u003Ealert(1)\/\/', redirectTarget: '_self' })")
         ->not->toContain('<script>alert(1)');
+    expect(strpos($html, 'id="pay-go-fallback"'))->toBeLessThan(strpos($html, "getElementById('pay-go-fallback')"));
 
     foreach (['evil', '../x', 'Cashfree', "cashfree\n", 'cash free', ''] as $init) {
         expect($page($init))->not->toContain('checkout(')->not->toContain('Cashfree({');
