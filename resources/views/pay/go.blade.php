@@ -13,6 +13,11 @@
             <script>document.getElementById('pay-go').submit();</script>
         @else
             <script src="{{ $start->url }}" @foreach ($start->fields as $field => $value) data-{{ $field }}="{{ $value }}" @endforeach></script>
+            {{-- The one script a gateway may add: a partial from resources/views/pay/init, chosen by a lowercase name. --}}
+            @php($init = (string) ($start->fields['init'] ?? ''))
+            @if (preg_match('/^[a-z]+$/D', $init) === 1)
+                @includeIf('pay.init.'.$init, ['fields' => $start->fields])
+            @endif
         @endif
     </div>
 </x-layouts::public>

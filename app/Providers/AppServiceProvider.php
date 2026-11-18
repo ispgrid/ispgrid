@@ -31,8 +31,11 @@ use App\Notifications\Triggers\RechargeDone;
 use App\Notifications\Triggers\SelfcareLogin;
 use App\Notifications\Triggers\ServiceExpired;
 use App\Notifications\Triggers\ServiceExpiresSoon;
+use App\Payments\Cashfree\CashfreeGateway;
+use App\Payments\Easebuzz\EasebuzzGateway;
 use App\Payments\PaymentGateways;
 use App\Payments\Paytm\PaytmGateway;
+use App\Payments\Payu\PayuGateway;
 use App\Payments\PhonePe\PhonePeGateway;
 use App\Payments\QuickPay;
 use App\Payments\Razorpay\RazorpayGateway;
@@ -84,6 +87,9 @@ class AppServiceProvider extends ServiceProvider
             $gateways->register(PaytmGateway::class);
             $gateways->register(PhonePeGateway::class);
             $gateways->register(RazorpayGateway::class);
+            $gateways->register(CashfreeGateway::class);
+            $gateways->register(PayuGateway::class);
+            $gateways->register(EasebuzzGateway::class);
 
             return $gateways;
         });

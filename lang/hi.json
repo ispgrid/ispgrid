@@ -1776,5 +1776,22 @@
     "The secret you set for the webhook in the Razorpay dashboard.": "Razorpay डैशबोर्ड में वेबहुक के लिए आपने जो सीक्रेट रखा है।",
     "Razorpay address": "Razorpay का पता",
     "Empty: the address Razorpay documents. Set it only if Razorpay moves.": "खाली: Razorpay का बताया हुआ पता। इसे तभी भरें जब Razorpay अपना पता बदले।",
-    "Webhook secret": "वेबहुक सीक्रेट"
+    "Webhook secret": "वेबहुक सीक्रेट",
+    "test (Cashfree sandbox) or live.": "test (Cashfree सैंडबॉक्स) या live।",
+    "Also signs the webhooks.": "वेबहुक पर हस्ताक्षर भी इसी से होते हैं।",
+    "Cashfree address": "Cashfree का पता",
+    "Empty: the address Cashfree documents. Set it only if Cashfree moves.": "खाली: Cashfree का बताया हुआ पता। इसे तभी भरें जब Cashfree अपना पता बदले।",
+    "test (PayU test server) or live.": "test (PayU टेस्ट सर्वर) या live।",
+    "Merchant salt": "मर्चेंट सॉल्ट",
+    "Signs the payment and checks the answers.": "भुगतान पर हस्ताक्षर करता है और जवाबों की जाँच करता है।",
+    "PayU payment address": "PayU के भुगतान का पता",
+    "Empty: the address PayU documents. Set it only if PayU moves.": "खाली: PayU का बताया हुआ पता। इसे तभी भरें जब PayU अपना पता बदले।",
+    "PayU status address": "PayU के स्टेटस जाँच का पता",
+    "Empty: the address PayU documents for status checks. Set it only if PayU moves.": "खाली: स्टेटस जाँच के लिए PayU का बताया हुआ पता। इसे तभी भरें जब PayU अपना पता बदले।",
+    "test (Easebuzz test server) or live.": "test (Easebuzz टेस्ट सर्वर) या live।",
+    "Salt": "सॉल्ट",
+    "Easebuzz payment address": "Easebuzz के भुगतान का पता",
+    "Empty: the address Easebuzz documents. Set it only if Easebuzz moves.": "खाली: Easebuzz का बताया हुआ पता। इसे तभी भरें जब Easebuzz अपना पता बदले।",
+    "Easebuzz status address": "Easebuzz के स्टेटस जाँच का पता",
+    "Empty: the address Easebuzz documents for status checks. Set it only if Easebuzz moves.": "खाली: स्टेटस जाँच के लिए Easebuzz का बताया हुआ पता। इसे तभी भरें जब Easebuzz अपना पता बदले।"
 }
