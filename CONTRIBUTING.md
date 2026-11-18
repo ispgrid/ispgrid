@@ -100,7 +100,8 @@ registers another the same way.
      the provider requires it.
    - `status($payment)`: ask the provider server to server and return a `GatewayResult`. This is the only thing
      that decides `Paid`, with the amount (two decimals) AND the `currency` (ISO code) taken from the provider's
-     answer: an attempt whose amount or currency differs is never recorded. Unknown or error answers are `Pending`
+     answer: an attempt whose amount or currency differs is never recorded. Only when the provider's answer carries no
+     currency, leave it null or use the one code `currencies()` allows. Unknown or error answers are `Pending`
      (also when the provider cannot be reached); `Failed` only for a final provider state. Leave signatures, tokens
      and keys out of `raw`.
    - `verify($request)`: return the `public_id` of an attempt of your own gateway (filter by `gateway` = your key),
