@@ -445,6 +445,15 @@ it('accepts a genuine return and webhook and names the attempt', function () {
     }
 });
 
+it('does not ask PayPal about an event for an order we never started', function () {
+    Http::fake();
+
+    expect(paypal()->verify(paypalWebhook(paypalHookBody('ORDER-UNKNOWN'))))->toBeNull()
+        ->and(paypal()->verify(paypalWebhook(paypalHookBody(custom: 'NOSUCHATTEMPT'))))->toBeNull();
+
+    Http::assertNothingSent();
+});
+
 it('rejects a bad signature, an unknown attempt and another gateway\'s attempt', function () {
     $other = OnlinePayment::factory()->create(['public_id' => 'OTHERGATEWAYATTEMPT00001', 'gateway' => 'fake', 'gateway_order_id' => 'ORDER-FAKE']);
     $return = fn (array $query): Request => Request::create('/pay/return/paypal', 'GET', $query);

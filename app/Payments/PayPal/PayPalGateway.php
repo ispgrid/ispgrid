@@ -178,8 +178,8 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
 
     /**
      * Only names an attempt. The return is looked up by our `attempt` parameter; PayPal's `token` (the order id), when
-     * present, must be the one saved on that attempt. A webhook needs PayPal to confirm its signature, then names the
-     * order in the event; the attempt must be a PayPal one with that order id (and our custom_id, when the event has it).
+     * present, must be the one saved on that attempt. A webhook must name a PayPal attempt of ours (order id, and our custom_id when the
+     * event has it) before PayPal is asked anything, and then needs PayPal to confirm its signature.
      */
     public function verify(Request $request): ?string
     {
@@ -223,18 +223,6 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
             return null;
         }
 
-        try {
-            // The event goes in as received: PayPal checks the signature over its exact bytes.
-            $raw = substr((string) json_encode($body), 0, -1).',"webhook_event":'.$request->getContent().'}';
-            $answer = $this->authorizedJson('post', $this->host().'/v1/notifications/verify-webhook-signature', rawBody: $raw);
-        } catch (GatewayUnavailable) {
-            return null;
-        }
-
-        if (($answer['verification_status'] ?? null) !== 'SUCCESS') {
-            return null;
-        }
-
         $resource = is_array($event['resource'] ?? null) ? $event['resource'] : [];
         $unit = is_array($resource['purchase_units'][0] ?? null) ? $resource['purchase_units'][0] : [];
         $order = $resource['supplementary_data']['related_ids']['order_id'] ?? (str_starts_with((string) ($event['event_type'] ?? ''), 'CHECKOUT.ORDER.') ? ($resource['id'] ?? null) : null);
@@ -254,7 +242,23 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
 
         $found = $query->value('public_id');
 
-        return is_string($found) ? $found : null;
+        if (! is_string($found)) {
+            return null;
+        }
+
+        try {
+            // The event goes in as received: PayPal checks the signature over its exact bytes.
+            $raw = substr((string) json_encode($body), 0, -1).',"webhook_event":'.$request->getContent().'}';
+            $answer = $this->authorizedJson('post', $this->host().'/v1/notifications/verify-webhook-signature', rawBody: $raw);
+        } catch (GatewayUnavailable) {
+            return null;
+        }
+
+        if (($answer['verification_status'] ?? null) !== 'SUCCESS') {
+            return null;
+        }
+
+        return $found;
     }
 
     /**
