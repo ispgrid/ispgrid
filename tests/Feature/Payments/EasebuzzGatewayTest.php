@@ -136,13 +136,13 @@ it('uses the live and overridden hosts and a letters only first name', function 
         && $request['hash'] === hash('sha512', EASEBUZZ_KEY.'|'.EASEBUZZ_ATTEMPT.'|708.50|Internet bill|R D O Neil Jr|asha@example.com|||||||||||'.EASEBUZZ_SALT));
 });
 
-it('keeps combining marks in the first name', function () {
+it('sends Customer when the name is not plain letters', function () {
     easebuzzFakeInitiate();
     $this->payment->account->update(['fullname' => 'राम']);
 
     easebuzz()->start($this->payment->fresh(), 'https://isp.example/r');
 
-    Http::assertSent(fn (ClientRequest $request): bool => $request['firstname'] === 'राम');
+    Http::assertSent(fn (ClientRequest $request): bool => $request['firstname'] === 'Customer');
 });
 
 it('refuses a start without an email or a mobile', function () {
@@ -222,6 +222,16 @@ it('reports pending for anything that is not a success, a failure too because th
     'success with a junk amount' => [easebuzzEntry('success', 'abc')],
     'another txnid' => [easebuzzEntry('success', txn: 'OTHERTXN')],
     'no txnid' => [['status' => 'success', 'amount' => '708.50']],
+]);
+
+it('reads the transaction from msg as a list or a single object', function (array $msg, GatewayStatus $expected) {
+    easebuzzFakeBody(['status' => true, 'msg' => $msg]);
+
+    expect(easebuzz()->status($this->payment)->status)->toBe($expected);
+})->with([
+    'list' => [[easebuzzEntry('success')], GatewayStatus::Paid],
+    'single object' => [easebuzzEntry('success'), GatewayStatus::Paid],
+    'list with another txnid' => [[easebuzzEntry('success', txn: 'OTHERTXN')], GatewayStatus::Pending],
 ]);
 
 it('reports pending when the answer says it failed or has no transaction', function (array $body) {

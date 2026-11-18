@@ -38,7 +38,7 @@ use Illuminate\Support\Facades\Http;
  * - return (surl/furl, POST) reverse hash: sha512(salt|status|udf10..udf1|email|firstname|productinfo|amount|txnid|key).
  * - the library limits: txnid up to 40 of letters, digits and _ | - /, so our 26 character public id is sent as is;
  *   productinfo up to 45 of letters, digits, spaces and - |; amounts need a decimal point and at least 1.00. The library
- *   allows only ASCII in firstname; that limit is not confirmed by the reference, so letters and marks are kept.
+ *   allows only ASCII letters and spaces in firstname, so any other name is sent as 'Customer'.
  *
  * Nothing the browser or a webhook says is believed. A POST (return or webhook) names an attempt only when its reverse
  * hash is right for our key and salt and its txnid is an attempt of this gateway. Whether Easebuzz signs its webhook the
@@ -299,13 +299,14 @@ final class EasebuzzGateway implements NeedsCustomerDetails, PaymentGateway, Unt
     }
 
     /**
-     * Letters, combining marks and spaces only, at most 60 characters.
+     * ASCII letters and spaces only (Easebuzz's own library allows nothing else), at most 60 characters. A name with
+     * other letters, such as Devanagari, is sent as 'Customer' rather than risk the payment being refused.
      */
     private function firstname(string $name): string
     {
         $clean = trim((string) preg_replace('/\s+/u', ' ', (string) preg_replace('/[^\p{L}\p{M} ]+/u', ' ', $name)));
 
-        return mb_substr($clean !== '' ? $clean : 'Customer', 0, 60);
+        return preg_match('/^[A-Za-z ]+$/', $clean) === 1 ? substr($clean, 0, 60) : 'Customer';
     }
 
     /**
