@@ -142,16 +142,13 @@ final class PayuGateway implements NeedsCustomerDetails, PaymentGateway, Unteste
         $entry = is_array($details) && is_array($details[$txnid] ?? null) ? $details[$txnid] : null;
         $state = is_array($entry) && is_string($entry['status'] ?? null) ? $entry['status'] : null;
 
-        if ($entry === null || (string) ($answer['status'] ?? '') !== '1' || (isset($entry['txnid']) && $entry['txnid'] !== $txnid)) {
+        if ($entry === null || ! is_scalar($answer['status'] ?? null) || (string) $answer['status'] !== '1' || (isset($entry['txnid']) && $entry['txnid'] !== $txnid)) {
             return new GatewayResult(GatewayStatus::Pending, providerStatus: $state, raw: $entry === null ? [] : $this->safeRaw($entry));
         }
 
         $raw = $this->safeRaw($entry);
 
-        if ($state === 'failure') {
-            return new GatewayResult(GatewayStatus::Failed, providerStatus: $state, raw: $raw);
-        }
-
+        // A failed try is not final: PayU lets the customer retry the same txnid, and only pending attempts are re-checked.
         if ($state !== 'success') {
             return new GatewayResult(GatewayStatus::Pending, providerStatus: $state, raw: $raw);
         }
@@ -159,7 +156,11 @@ final class PayuGateway implements NeedsCustomerDetails, PaymentGateway, Unteste
         $amount = $entry['amt'] ?? null;
 
         try {
-            $converted = is_string($amount) || is_int($amount) ? GatewayAmount::twoDecimals((string) $amount) : null;
+            $converted = match (true) {
+                is_string($amount), is_int($amount) => GatewayAmount::twoDecimals((string) $amount),
+                is_float($amount) => GatewayAmount::twoDecimals((string) json_encode($amount)),
+                default => null,
+            };
         } catch (GatewayUnavailable) {
             $converted = null;
         }
@@ -231,11 +232,11 @@ final class PayuGateway implements NeedsCustomerDetails, PaymentGateway, Unteste
     }
 
     /**
-     * Letters and spaces only (PayU rejects other characters in a name), at most 60 characters.
+     * Letters, combining marks and spaces only (PayU rejects other characters in a name), at most 60 characters.
      */
     private function firstname(string $name): string
     {
-        $clean = trim((string) preg_replace('/\s+/u', ' ', (string) preg_replace('/[^\p{L} ]+/u', ' ', $name)));
+        $clean = trim((string) preg_replace('/\s+/u', ' ', (string) preg_replace('/[^\p{L}\p{M} ]+/u', ' ', $name)));
 
         return mb_substr($clean !== '' ? $clean : 'Customer', 0, 60);
     }

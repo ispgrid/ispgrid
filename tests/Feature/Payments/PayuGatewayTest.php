@@ -1,7 +1,9 @@
 <?php
 
+use App\Actions\Billing\IssueInvoice;
 use App\Contracts\NeedsCustomerDetails;
 use App\Contracts\UntestedGateway;
+use App\Enums\InvoiceKind;
 use App\Enums\OnlinePaymentStatus;
 use App\Exceptions\GatewayUnavailable;
 use App\Models\Account;
@@ -10,6 +12,7 @@ use App\Models\OnlinePayment;
 use App\Models\Payment;
 use App\Payments\GatewayStatus;
 use App\Payments\Payu\PayuGateway;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -57,6 +60,7 @@ function payuEntry(string $status, string $amount = '708.50', string $txn = PAYU
  */
 function payuFake(array $entry, int $top = 1): void
 {
+    Http::swap(new HttpFactory);
     Http::fake(['*/merchant/postservice*' => Http::response(['status' => $top, 'msg' => '1 out of 1 Transactions Fetched Successfully', 'transaction_details' => [PAYU_TXN => $entry]])]);
 }
 
@@ -113,6 +117,12 @@ it('uses the live and overridden hosts and a letters only first name', function 
         ->and($live->fields['hash'])->toBe(hash('sha512', PAYU_KEY.'|'.PAYU_TXN.'|708.50|Internet bill|R D O Neil Jr|asha@example.com|'.PAYU_ATTEMPT.'||||||||||'.PAYU_SALT));
 });
 
+it('keeps combining marks in the first name', function () {
+    $this->payment->account->update(['fullname' => 'राम']);
+
+    expect(payu()->start($this->payment->fresh(), 'https://isp.example/r')->fields['firstname'])->toBe('राम');
+});
+
 it('refuses a start without an email or a mobile', function () {
     $bare = Account::factory()->create(['mobile' => null, 'email' => null]);
     $attempt = OnlinePayment::factory()->create(['gateway' => 'payu', 'amount' => '10.00', 'currency' => 'INR', 'account_id' => $bare]);
@@ -136,6 +146,15 @@ it('reports paid only for the final success state with the amount and currency',
         ->and($result->providerStatus)->toBe('success');
 });
 
+it('accepts a numeric amount and an array top level status without failing', function () {
+    payuFake([...payuEntry('success'), 'amt' => 708.5]);
+    expect(payu()->status($this->payment)->amount)->toBe('708.50');
+
+    Http::swap(new HttpFactory);
+    Http::fake(['*/merchant/postservice*' => Http::response(['status' => ['1'], 'transaction_details' => [PAYU_TXN => payuEntry('success')]])]);
+    expect(payu()->status($this->payment)->status)->toBe(GatewayStatus::Pending);
+});
+
 it('asks the live status host and writes the amount with two decimals', function () {
     payuFake(payuEntry('success', '708.5'));
 
@@ -143,12 +162,14 @@ it('asks the live status host and writes the amount with two decimals', function
     Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://info.payu.in/merchant/postservice?form=2');
 });
 
-it('reports failed for a final failure state and pending for anything else', function (array $entry, int $top, GatewayStatus $expected) {
+it('reports pending for anything that is not a success, a failure too because PayU allows a retry', function (array $entry, int $top, GatewayStatus $expected) {
     payuFake($entry, $top);
 
     expect(payu()->status($this->payment)->status)->toBe($expected);
 })->with([
-    'failure' => [payuEntry('failure'), 1, GatewayStatus::Failed],
+    'failure' => [payuEntry('failure'), 1, GatewayStatus::Pending],
+    'array status' => [[...payuEntry('success'), 'status' => ['x']], 1, GatewayStatus::Pending],
+    'array amount' => [[...payuEntry('success'), 'amt' => ['1']], 1, GatewayStatus::Pending],
     'pending' => [payuEntry('pending'), 1, GatewayStatus::Pending],
     'not found' => [['mihpayid' => 'Not Found', 'status' => 'Not Found'], 1, GatewayStatus::Pending],
     'top level 0' => [payuEntry('success'), 0, GatewayStatus::Pending],
@@ -236,6 +257,22 @@ describe('through the routes', function () {
         'lower amount' => [payuEntry('success', '1.00'), OnlinePaymentStatus::NeedsAttention],
         'higher amount' => [payuEntry('success', '9999.00'), OnlinePaymentStatus::NeedsAttention],
     ]);
+
+    it('keeps a failed try pending and still records the payment when the customer retries and pays', function () {
+        turnQuickPayOn('7');
+        app(IssueInvoice::class)->handle($this->payment->account, billingLines('100'), false, InvoiceKind::Manual, now());
+        $this->payment->update(['amount' => '118.00', 'dues_amount' => '118.00']);
+
+        payuFake(payuEntry('failure', '118.00'));
+        $this->post(route('pay.webhook', 'payu'), payuSigned(['status' => 'failure', 'amount' => '118.00']))->assertOk();
+
+        expect($this->payment->fresh()->status)->toBe(OnlinePaymentStatus::Pending)->and(Payment::query()->count())->toBe(0);
+
+        payuFake(payuEntry('success', '118.00'));
+        $this->post(route('pay.webhook', 'payu'), payuSigned(['amount' => '118.00']))->assertOk();
+
+        expect($this->payment->fresh()->status)->toBe(OnlinePaymentStatus::Paid)->and(Payment::query()->count())->toBe(1);
+    });
 
     it('records nothing for a posted success whose amount was changed by the browser', function () {
         payuFake(payuEntry('pending'));
