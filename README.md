@@ -179,6 +179,12 @@ For each NAS:
 
 The full order, with the MikroTik side, is in [SETUP.md](SETUP.md).
 
+On a fresh install, the first login opens a **setup page** that walks through these steps: the country (which fills
+the currency, dates, phone numbers and tax labels), the first NAS with the tunnel command to run on the server, the
+customers' and disabled pools with the RouterOS commands built from your addresses, and a first plan. In India it
+also sets up GST invoices, UPI and the session history the DoT licence asks for. Every step can be skipped and
+everything stays editable later. The pages below do the same, one by one.
+
 1. **System, App settings:** currency, phone format, language, the Hotspot switch, and how long the login log and
    session history are kept.
 2. **Network, Pools:** add the IP pools your NAS hand out, with the same names as on the NAS.

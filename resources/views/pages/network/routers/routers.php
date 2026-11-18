@@ -5,14 +5,13 @@ use App\Livewire\Concerns\AuthorizesEveryRequest;
 use App\Livewire\Concerns\RestartsFreeRadius;
 use App\Livewire\Concerns\ShowsToasts;
 use App\Models\Nas;
-use App\Rules\NotUsedByTrashed;
 use App\Support\IpAddress;
+use App\Support\NasRules;
 use App\Support\RouterOsVersion;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -152,7 +151,7 @@ new #[Title('NAS')] class extends Component
         $this->authorize($router === null ? 'create' : 'update', $router ?? Nas::class);
 
         $this->nasname = IpAddress::normalize($this->nasname) ?? trim($this->nasname);
-        $validated = $this->validate($this->rules($router?->id), $this->messages());
+        $validated = $this->validate(NasRules::rules($router?->id), NasRules::messages());
 
         $attributes = [
             'shortname' => $validated['shortname'],
@@ -241,41 +240,5 @@ new #[Title('NAS')] class extends Component
     {
         $this->reset('editingId', 'shortname', 'nasname', 'secret', 'routeros_version', 'description');
         $this->resetErrorBag();
-    }
-
-    /**
-     * @return array<string, array<int, mixed>>
-     */
-    private function rules(?int $ignoreId): array
-    {
-        return [
-            'shortname' => ['required', 'string', 'max:32', 'regex:/^[\x20-\x7E]+$/D',
-                Rule::unique(Nas::class, 'shortname')->withoutTrashed()->ignore($ignoreId),
-                new NotUsedByTrashed(Nas::class, 'shortname', __('A deleted NAS uses this name. Restore it instead.'), $ignoreId),
-            ],
-            'nasname' => ['required', 'ipv4',
-                Rule::unique(Nas::class, 'nasname')->withoutTrashed()->ignore($ignoreId),
-                new NotUsedByTrashed(Nas::class, 'nasname', __('A deleted NAS uses this IP address. Restore it instead.'), $ignoreId),
-            ],
-            'secret' => ['required', 'string', 'min:8', 'max:60', 'regex:/^[A-Za-z0-9._~!@#%^*+=-]+$/D'],
-            'routeros_version' => ['required', 'string', function (string $attribute, string $value, Closure $fail): void {
-                if (RouterOsVersion::parse($value) === null) {
-                    $fail(__('Enter the version as the NAS shows it, e.g. 7.23.7.'));
-                }
-            }],
-            'description' => ['nullable', 'string', 'max:200'],
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function messages(): array
-    {
-        return [
-            'nasname.ipv4' => __('Enter the IPv4 address the NAS sends RADIUS from, e.g. 10.0.0.1.'),
-            'shortname.regex' => __('Use English letters, digits and symbols only: FreeRADIUS loads this name.'),
-            'secret.regex' => __('Use letters, digits and . _ ~ ! @ # % ^ * + = - only.'),
-        ];
     }
 };

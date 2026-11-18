@@ -6,6 +6,7 @@ use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\QuickPayController;
 use App\Http\Controllers\UpiQrController;
+use App\Http\Middleware\RedirectToFirstRunSetup;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -28,7 +29,8 @@ $callback = [EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSess
 Route::match(['get', 'post'], 'pay/return/{gateway}', [PaymentGatewayController::class, 'return'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->middleware('throttle:60,1')->name('pay.return');
 Route::post('pay/webhook/{gateway}', [PaymentGatewayController::class, 'webhook'])->where('gateway', '[a-z0-9_-]+')->withoutMiddleware($callback)->name('pay.webhook');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', RedirectToFirstRunSetup::class])->group(function () {
+    Route::livewire('setup', 'pages::system.setup')->name('setup');
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
     Route::livewire('customers', 'pages::customers.index')->name('customers.index');
     Route::livewire('customers/create', 'pages::customers.form')->name('customers.create');
