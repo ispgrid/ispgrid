@@ -26,7 +26,7 @@ it('shows the saved settings and the server timezone', function () {
 
     Livewire::test('pages::system.app-settings')
         ->assertSet('date_format', 'd/m/Y')
-        ->assertSet('expiry_mode', 'exact')
+        ->assertSet('expiry_mode', 'midnight')
         ->assertSee('Asia/Kolkata');
 });
 
@@ -35,13 +35,13 @@ it('saves the settings and records each change', function () {
         ->set('phone_country_code', '+1')
         ->set('date_format', 'Y-m-d')
         ->set('tax_id_label', 'VAT number')
-        ->set('expiry_mode', 'midnight')
+        ->set('expiry_mode', 'exact')
         ->call('save')
         ->assertHasNoErrors()
         ->assertDispatched('toast', message: 'Settings saved.');
 
     expect(AppSetting::valueOf('phone_country_code'))->toBe('+1')
-        ->and(AppSetting::valueOf('expiry_mode'))->toBe('midnight')
+        ->and(AppSetting::valueOf('expiry_mode'))->toBe('exact')
         ->and(Activity::query()->where('event', 'updated')->count())->toBe(4);
 });
 

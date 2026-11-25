@@ -22,7 +22,20 @@ final class ExpiryCalculator
 
     public static function fromSettings(): self
     {
-        return new self((string) AppSetting::valueOf('expiry_mode', 'exact'));
+        return new self((string) AppSetting::valueOf('expiry_mode', 'midnight'));
+    }
+
+    /**
+     * The modes staff choose from, by key; midnight (the default on new installs) first.
+     *
+     * @return array<string, string>
+     */
+    public static function modes(): array
+    {
+        return [
+            'midnight' => __('At midnight at the end of the last day'),
+            'exact' => __('At the recharge time on the last day'),
+        ];
     }
 
     public function next(?CarbonInterface $currentExpiry, int $validity, ValidityUnit $unit, CarbonInterface $now): CarbonImmutable

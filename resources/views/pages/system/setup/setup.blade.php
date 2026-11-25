@@ -9,12 +9,14 @@
 
     <ol class="flex flex-wrap gap-2 text-sm" aria-label="{{ __('Steps') }}">
         @foreach ($this->steps as $key => $label)
-            <li @class([
-                'rounded-full px-3 py-1',
-                'bg-ink text-white dark:bg-signal dark:text-ink' => $step === $key,
-                'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' => $step !== $key && in_array($key, $done, true),
-                'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300' => $step !== $key && ! in_array($key, $done, true),
-            ]) @if ($step === $key) aria-current="step" @endif>{{ $loop->iteration }}. {{ $label }}</li>
+            <li>
+                <button type="button" wire:click="jump('{{ $key }}')" @class([
+                    'rounded-full px-3 py-1',
+                    'bg-ink text-white dark:bg-signal dark:text-ink' => $step === $key,
+                    'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-200 dark:hover:bg-green-900' => $step !== $key && in_array($key, $done, true),
+                    'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700' => $step !== $key && ! in_array($key, $done, true),
+                ]) @if ($step === $key) aria-current="step" @endif>{{ $loop->iteration }}. {{ $label }}</button>
+            </li>
         @endforeach
     </ol>
 
@@ -104,7 +106,8 @@
                     ? __('Paste this on the NAS too, so PPPoE logins go to RADIUS (the /radius lines came from the tunnel script, with the secret :secret):', ['secret' => $secret])
                     : __('Paste these commands on the NAS:') }}</x-ui.text>
                 <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->radiusCommands) }}</pre>
-                <div class="flex justify-end">
+                <div class="flex flex-wrap justify-between gap-3">
+                    <x-ui.button variant="ghost" wire:click="back">{{ __('Back') }}</x-ui.button>
                     <x-ui.button wire:click="skip">{{ __('Continue') }}</x-ui.button>
                 </div>
             @endif
@@ -123,10 +126,30 @@
                 @if ($this->poolCommands !== [])
                     <x-ui.text>{{ __('If this pool does not exist on the NAS yet (the first command lists nothing), paste the second. Use the NAT line only if this NAS gives customers the internet; its internet port must be in the WAN interface list.') }}</x-ui.text>
                     <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->poolCommands) }}</pre>
-                    @if ($this->localAddress)
-                        <x-ui.text muted>{{ __('The NAS keeps :address for its own end of the PPPoE link (local address in the PPP profile), so it is left out of the pool.', ['address' => $this->localAddress]) }}</x-ui.text>
+                @endif
+            </x-ui.card>
+
+            <x-ui.card class="grid grid-cols-1 gap-5">
+                <div>
+                    <x-ui.heading>{{ __('PPPoE server') }}</x-ui.heading>
+                    <x-ui.text muted class="mt-1">{{ __('The PPPoE server on the NAS and its default profile, which gives every connection the NAS\'s own address and DNS servers.') }}</x-ui.text>
+                </div>
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <x-ui.input wire:model.live.debounce.400ms="gateway" :label="__('NAS address for PPPoE')" :placeholder="$this->localAddress ?? '10.255.255.1'"
+                        :description="$this->localAddress ? __('Leave empty to use :address, which the pool leaves out for the NAS.', ['address' => $this->localAddress]) : __('One address the pool does not hand out. Never your upstream provider\'s gateway.')" />
+                    <x-ui.input wire:model.live.debounce.400ms="pppoe_interface" english maxlength="64" :label="__('Customers\' port')" placeholder="bridge1" :description="__('The port, VLAN or bridge your customers are on, as the NAS names it.')" />
+                </div>
+                @if ($this->pppoeCommands !== [])
+                    <x-ui.text>{{ __('Paste these on the NAS. Change the DNS servers if you use others.') }}</x-ui.text>
+                    <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->pppoeCommands) }}</pre>
+                    @if (count($this->pppoeCommands) === 1)
+                        <x-ui.text muted>{{ __('Type the customers\' port to see the PPPoE server command.') }}</x-ui.text>
                     @endif
                     <x-ui.alert variant="warning">{{ __('Then connect one test customer and check that these addresses can reach the internet.') }}</x-ui.alert>
+                @elseif ($this->poolCommands !== [])
+                    <x-ui.text muted>{{ __('Type the NAS address for PPPoE to see the commands.') }}</x-ui.text>
+                @else
+                    <x-ui.text muted>{{ __('Type the customers\' pool above to see the commands.') }}</x-ui.text>
                 @endif
             </x-ui.card>
 
@@ -212,8 +235,53 @@
                     <x-ui.text muted class="mt-1">{{ __('The DoT licence asks ISPs to keep IPDR records and customer documents. Check the period your licence states.') }}</x-ui.text>
                 </div>
                 <x-ui.checkbox wire:model="keep_two_years" :label="__('Keep session history for 2 years (730 days)')" />
-                <x-ui.text>{{ __('IPDR reports and customer documents (KYC) are add-ons. To install them, run on this server:') }}</x-ui.text>
-                <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->indiaAddons) }}</pre>
+                <x-ui.text muted>{{ __('IPDR records and customer documents (KYC) are add-ons: the next step offers them.') }}</x-ui.text>
+            </x-ui.card>
+
+            <div class="flex flex-wrap justify-between gap-3">
+                <x-ui.button variant="ghost" wire:click="back">{{ __('Back') }}</x-ui.button>
+                <div class="flex flex-wrap gap-3">
+                    <x-ui.button variant="secondary" wire:click="skip">{{ __('Skip this step') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Save and continue') }}</x-ui.button>
+                </div>
+            </div>
+        </form>
+    @elseif ($step === 'options')
+        <form wire:submit="saveOptions" class="grid grid-cols-1 gap-6">
+            <x-ui.card class="grid grid-cols-1 gap-5">
+                <div>
+                    <x-ui.heading>{{ __('Expiry') }}</x-ui.heading>
+                    <x-ui.text muted class="mt-1">{{ __('At midnight, a 30-day recharge made on the 1st at 15:00 lasts until the 31st at 00:00, so customers do not lose the internet in the middle of the day.') }}</x-ui.text>
+                </div>
+                <x-ui.select wire:model="expiry_mode" :label="__('A recharge expires')" :options="$this->expiryModes" />
+            </x-ui.card>
+
+            <x-ui.card class="grid grid-cols-1 gap-5">
+                <div>
+                    <x-ui.heading>{{ __('Selfcare') }}</x-ui.heading>
+                    <x-ui.text muted class="mt-1">{{ __('A portal where customers see their plan, usage and invoices. Staff give each customer a Selfcare password on the customer page.') }}</x-ui.text>
+                </div>
+                <x-ui.switch wire:model="selfcare" :label="__('Selfcare for customers')" :description="__('Customers log in at :url', ['url' => $this->selfcareUrl])" />
+            </x-ui.card>
+
+            <x-ui.card class="grid grid-cols-1 gap-5">
+                <div>
+                    <x-ui.heading>{{ __('Add-ons') }}</x-ui.heading>
+                    <x-ui.text muted class="mt-1">{{ __('Tick the ones you want: the panel shows the command to run on this server.') }}</x-ui.text>
+                </div>
+                <div class="grid grid-cols-1 gap-3">
+                    @foreach ($this->addonChoices as $key => $addon)
+                        @if ($addon['installed'])
+                            <x-ui.text>{{ $addon['name'] }}: {{ __('installed') }}</x-ui.text>
+                        @else
+                            <x-ui.checkbox wire:model.live="addons" id="setup-addon-{{ $key }}" value="{{ $key }}" :label="$addon['name']" :description="$addon['description']" />
+                        @endif
+                    @endforeach
+                </div>
+                @if ($this->addonCommands !== [])
+                    <x-ui.text>{{ __('Run on this server as root:') }}</x-ui.text>
+                    <pre class="rounded-lg bg-zinc-100 p-3 text-sm break-all whitespace-pre-wrap dark:bg-zinc-800" data-command>{{ implode("\n", $this->addonCommands) }}</pre>
+                @endif
             </x-ui.card>
 
             <div class="flex flex-wrap justify-between gap-3">

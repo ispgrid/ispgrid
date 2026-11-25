@@ -100,15 +100,38 @@ final class RouterCommands
     }
 
     /**
-     * The add-on commands an Indian ISP usually needs: IPDR logs and customer documents (KYC).
-     *
-     * @return array<string, string>
+     * Whether the pool hands out this address (a subnet's network, NAS and broadcast addresses are left out).
      */
-    public static function indiaAddons(): array
+    public static function handsOut(Ipv4Block $block, string $ip): bool
     {
-        return [
-            'ipdr' => 'sudo ispgrid addon add ispgrid/ipdr',
-            'documents' => 'sudo ispgrid addon add ispgrid/documents',
-        ];
+        $range = Ipv4Block::parse(self::poolRange($block));
+        $address = ip2long($ip);
+
+        return $range !== null && $address !== false && $address >= $range->first && $address <= $range->last;
+    }
+
+    /**
+     * The default PPP profile (SETUP.md section 2): the NAS's own address on every PPPoE link, the customers' pool
+     * (a pool or static IP that RADIUS sends wins) and DNS servers, without which customers connect but no site opens.
+     */
+    public static function pppProfile(string $gateway, string $pool): string
+    {
+        return "/ppp profile set default local-address={$gateway} remote-address={$pool} dns-server=8.8.8.8,1.1.1.1 change-tcp-mss=yes";
+    }
+
+    /**
+     * The PPPoE server on the port or bridge the customers are on (SETUP.md section 2).
+     */
+    public static function pppoeServer(string $interface): string
+    {
+        return "/interface pppoe-server server add service-name=ispgrid interface={$interface} default-profile=default authentication=pap,chap,mschap1,mschap2 disabled=no";
+    }
+
+    /**
+     * The root command that installs an add-on on this server.
+     */
+    public static function addAddon(string $package): string
+    {
+        return "sudo ispgrid addon add {$package}";
     }
 }
