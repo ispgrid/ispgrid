@@ -22,7 +22,7 @@ class AppSettingSeeder extends Seeder
             'phone_digits' => '10',
             'tax_id_label' => 'GSTIN',
             'business_id_label' => 'PAN',
-            'expiry_mode' => 'exact',
+            'expiry_mode' => 'midnight',
             'locale' => 'en',
             'default_pool_ppp' => '',
             'default_pool_hotspot' => '',

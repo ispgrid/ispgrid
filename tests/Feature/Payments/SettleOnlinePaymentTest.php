@@ -32,6 +32,7 @@ use Tests\Fakes\FakeGateway;
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-10-21 10:00:00'));
     turnQuickPayOn('7');
+    AppSetting::put('expiry_mode', 'exact');
     $this->plan = Plan::factory()->create(['price' => 500, 'validity' => 30]);
     $this->account = Account::factory()->create(['username' => 'kushal', 'plan_id' => $this->plan->id, 'expiry' => now()->addDays(20)]);
 });

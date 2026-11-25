@@ -234,7 +234,7 @@ it('sets up GST invoices, UPI and two years of sessions for India', function () 
         ->set('upi_id', 'linkio@okhdfcbank')
         ->call('saveIndia')
         ->assertHasNoErrors()
-        ->assertSet('step', 'finish');
+        ->assertSet('step', 'options');
 
     $billing = BillingSettings::current();
     expect($billing->enabled)->toBeTrue()
@@ -261,7 +261,7 @@ it('has no India step outside India', function () {
         ->set('country', 'GB')
         ->set('step', 'plan')
         ->call('skip')
-        ->assertSet('step', 'finish');
+        ->assertSet('step', 'options');
 });
 
 it('finishes once, also when every step is skipped', function () {
@@ -324,3 +324,73 @@ it('keeps the address a subnet pool leaves for the NAS out of the pool', functio
     'range as typed' => ['10.10.0.5-10.10.0.9', '10.10.0.5-10.10.0.9', null],
     'tiny subnet' => ['10.10.0.0/31', '10.10.0.0-10.10.0.1', null],
 ]);
+
+it('shows the PPPoE profile with the address a subnet leaves for the NAS, and the server once the port is typed', function () {
+    Livewire::test('pages::system.setup')
+        ->set('step', 'pools')
+        ->set('pool_range', '10.10.0.0/22')
+        ->assertSee('/ppp profile set default local-address=10.10.0.1 remote-address=pppoe_pool dns-server=8.8.8.8,1.1.1.1 change-tcp-mss=yes')
+        ->assertDontSee('/interface pppoe-server')
+        ->set('pppoe_interface', 'vlan100')
+        ->assertSee('/interface pppoe-server server add service-name=ispgrid interface=vlan100 default-profile=default');
+});
+
+it('asks for the NAS address when the pool is a range, and keeps it out of the pools', function () {
+    $page = Livewire::test('pages::system.setup')
+        ->set('step', 'pools')
+        ->set('pool_range', '10.10.0.2-10.10.3.254')
+        ->assertDontSee('/ppp profile')
+        ->set('gateway', '10.10.0.9')
+        ->assertDontSee('/ppp profile')
+        ->set('disabled_range', '172.16.250.0/24')
+        ->call('savePools')
+        ->assertHasErrors(['gateway']);
+
+    $page->set('gateway', '10.255.255.1')
+        ->assertSee('/ppp profile set default local-address=10.255.255.1 remote-address=pppoe_pool')
+        ->call('savePools')
+        ->assertHasNoErrors();
+});
+
+it('saves midnight expiry and Selfcare, and shows only the add-on commands ticked', function () {
+    AppSetting::put('expiry_mode', 'exact');
+
+    Livewire::test('pages::system.setup')
+        ->set('step', 'options')
+        ->assertSet('expiry_mode', 'midnight')
+        ->assertSet('selfcare', false)
+        ->assertDontSee('sudo ispgrid addon add')
+        ->set('addons', ['documents'])
+        ->assertSee('sudo ispgrid addon add ispgrid/documents')
+        ->assertDontSee('sudo ispgrid addon add ispgrid/ipdr')
+        ->set('selfcare', true)
+        ->call('saveOptions')
+        ->assertHasNoErrors()
+        ->assertSet('step', 'finish');
+
+    expect(AppSetting::valueOf('expiry_mode'))->toBe('midnight')
+        ->and(AppSetting::valueOf('selfcare.enabled'))->toBe('1');
+});
+
+it('goes back to any step after the NAS is saved, and keeps the NAS after a reload', function () {
+    AppSetting::put(FirstRunSetup::ROUTERS, 'lan');
+    AppSetting::put(FirstRunSetup::RADIUS_IP, '192.168.88.10');
+
+    $page = Livewire::test('pages::system.setup')
+        ->set('step', 'nas')
+        ->set('shortname', 'office-nas')
+        ->set('nasname', '192.168.88.1')
+        ->set('routeros_version', '7.19.4')
+        ->call('saveNas')
+        ->assertHasNoErrors()
+        ->call('jump', 'region')
+        ->assertSet('step', 'region')
+        ->call('jump', 'nowhere')
+        ->assertSet('step', 'region');
+
+    Livewire::test('pages::system.setup')
+        ->call('jump', 'nas')
+        ->assertSet('nasId', Nas::query()->sole()->id)
+        ->assertSet('secret', $page->get('secret'))
+        ->assertSee('NAS office-nas saved.');
+});

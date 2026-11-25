@@ -15,6 +15,8 @@ use App\Models\PaymentMethod;
 use App\Models\Plan;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
+use App\Support\Addons\AddonManifest;
+use App\Support\ExpiryCalculator;
 use App\Support\IpAddress;
 use App\Support\Ipv4Block;
 use App\Support\NasRules;
@@ -22,6 +24,7 @@ use App\Support\PhoneLength;
 use App\Support\PlanRules;
 use App\Support\RateLimit;
 use App\Support\RouterOsVersion;
+use App\Support\Selfcare;
 use App\Support\Setup\CountryDefaults;
 use App\Support\Setup\FirstRunSetup;
 use App\Support\Setup\RouterCommands;
@@ -51,6 +54,12 @@ new #[Title('Setup')] class extends Component
 
     /** The name and range rule pools share with the NAS (letters, digits and . _ -). */
     private const POOL_NAME = '/^[A-Za-z0-9_.-]+$/D';
+
+    /** A RouterOS interface name the PPPoE command can take without quotes. */
+    private const INTERFACE_NAME = '/^[A-Za-z0-9_.-]{1,64}$/D';
+
+    /** The add-ons the setup offers, by key: their Composer package. */
+    private const ADDONS = ['ipdr' => 'ispgrid/ipdr', 'documents' => 'ispgrid/documents'];
 
     public string $step = 'region';
 
@@ -101,6 +110,10 @@ new #[Title('Setup')] class extends Component
 
     public string $disabled_range = '';
 
+    public string $gateway = '';
+
+    public string $pppoe_interface = '';
+
     public string $plan_name = '';
 
     public string $download_speed = '';
@@ -131,6 +144,13 @@ new #[Title('Setup')] class extends Component
 
     public bool $keep_two_years = true;
 
+    public string $expiry_mode = 'midnight';
+
+    public bool $selfcare = false;
+
+    /** @var list<string> The add-ons (ADDONS keys) the operator wants the commands for. */
+    public array $addons = [];
+
     public function mount(): void
     {
         $this->authorizeAccess();
@@ -155,6 +175,8 @@ new #[Title('Setup')] class extends Component
         $this->secret = Str::password(24, symbols: false);
         $this->disabled_pool_name = (string) (RadiusSetting::query()->value('disabled_users_pool') ?: 'disabled_pool');
         $this->company_name = $company->name !== '' ? $company->name : $this->isp_name;
+        $this->restoreNas();
+        $this->selfcare = Selfcare::isOpen();
         $saved = session(self::PROGRESS.'.step');
         $this->step = is_string($saved) && array_key_exists($saved, $this->steps()) ? $saved : 'region';
     }
@@ -181,6 +203,7 @@ new #[Title('Setup')] class extends Component
             'pools' => __('Pools'),
             'plan' => __('First plan'),
             'india' => $this->country === 'IN' ? __('India') : null,
+            'options' => __('Options'),
             'finish' => __('Finish'),
         ]);
     }
@@ -318,6 +341,7 @@ new #[Title('Setup')] class extends Component
         ]);
 
         $this->nasId = $nas->id;
+        session()->put(self::PROGRESS.'.nas', $nas->id);
         $this->markDone('nas');
         $this->restartFreeRadiusAfter(__('NAS saved.'));
     }
@@ -356,6 +380,43 @@ new #[Title('Setup')] class extends Component
     }
 
     /**
+     * The NAS's own address on every PPPoE link: the one typed, else the address a subnet leaves for it. Null while
+     * there is none, or when the customers' pool would hand it out too.
+     */
+    #[Computed]
+    public function pppoeGateway(): ?string
+    {
+        $gateway = trim($this->gateway) === '' ? $this->localAddress : IpAddress::normalize($this->gateway);
+
+        if ($gateway === null || filter_var($gateway, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return null;
+        }
+
+        return $this->poolBlock !== null && RouterCommands::handsOut($this->poolBlock, $gateway) ? null : $gateway;
+    }
+
+    /**
+     * The PPP profile command once the pool and the NAS's address are known, then the PPPoE server once the
+     * customers' port is typed.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function pppoeCommands(): array
+    {
+        if ($this->poolCommands === [] || $this->pppoeGateway === null) {
+            return [];
+        }
+
+        $interface = trim($this->pppoe_interface);
+
+        return [
+            RouterCommands::pppProfile($this->pppoeGateway, $this->pool_name),
+            ...(preg_match(self::INTERFACE_NAME, $interface) === 1 ? [RouterCommands::pppoeServer($interface)] : []),
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     #[Computed]
@@ -391,7 +452,10 @@ new #[Title('Setup')] class extends Component
             'pool_range' => ['required', 'string', $this->rangeRule(...)],
             'disabled_pool_name' => ['required', 'string', 'max:64', 'regex:'.self::POOL_NAME, 'different:pool_name'],
             'disabled_range' => ['required', 'string', $this->rangeRule(...)],
+            'gateway' => ['nullable', 'ipv4', $this->gatewayRule(...)],
+            'pppoe_interface' => ['nullable', 'regex:'.self::INTERFACE_NAME],
         ], [
+            'pppoe_interface.regex' => __('Use the name as the NAS shows it: letters, digits and . _ - only.'),
             'pool_name.regex' => __('Use letters, digits and . _ - only, as on the NAS.'),
             'disabled_pool_name.regex' => __('Use letters, digits and . _ - only, as on the NAS.'),
         ]);
@@ -503,12 +567,82 @@ new #[Title('Setup')] class extends Component
     }
 
     /**
+     * The add-ons the setup offers, by key: name, what it does and whether this server already has it.
+     *
+     * @return array<string, array{name: string, description: string, installed: bool}>
+     */
+    #[Computed]
+    public function addonChoices(): array
+    {
+        $installed = array_map(fn ($addon): string => $addon->package, app(AddonManifest::class)->all());
+        $about = [
+            'ipdr' => [__('Session records (IPDR)'), __('Keeps every session with its IP address, with search and export for requests from the authorities.')],
+            'documents' => [__('Customer documents (KYC)'), __('ID and address proofs on the customer page.')],
+        ];
+        $choices = [];
+
+        foreach (self::ADDONS as $key => $package) {
+            $choices[$key] = ['name' => $about[$key][0], 'description' => $about[$key][1], 'installed' => in_array($package, $installed, true)];
+        }
+
+        return $choices;
+    }
+
+    /**
+     * The commands for the add-ons ticked that this server does not have yet.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function addonCommands(): array
+    {
+        $commands = [];
+
+        foreach (self::ADDONS as $key => $package) {
+            if (in_array($key, $this->addons, true) && ! $this->addonChoices[$key]['installed']) {
+                $commands[] = RouterCommands::addAddon($package);
+            }
+        }
+
+        return $commands;
+    }
+
+    /**
      * @return array<string, string>
      */
     #[Computed]
-    public function indiaAddons(): array
+    public function expiryModes(): array
     {
-        return RouterCommands::indiaAddons();
+        return ExpiryCalculator::modes();
+    }
+
+    #[Computed]
+    public function selfcareUrl(): string
+    {
+        return Selfcare::url();
+    }
+
+    /**
+     * When a recharge ends and whether customers get the Selfcare portal. Add-ons are only offered as commands: the
+     * panel never installs them.
+     */
+    public function saveOptions(): void
+    {
+        $this->authorize('manage-app-settings');
+
+        $validated = $this->validate([
+            'expiry_mode' => ['required', Rule::in(array_keys(ExpiryCalculator::modes()))],
+            'selfcare' => ['boolean'],
+        ]);
+
+        DB::transaction(function () use ($validated): void {
+            AppSetting::put('expiry_mode', $validated['expiry_mode']);
+            AppSetting::put('selfcare.enabled', $validated['selfcare'] ? '1' : '0');
+        }, attempts: 3);
+
+        $this->markDone('options');
+        $this->goTo($this->nextStep());
+        $this->toast(__('Settings saved.'));
     }
 
     /**
@@ -575,6 +709,19 @@ new #[Title('Setup')] class extends Component
     {
         $this->resetErrorBag();
         $this->goTo($this->nextStep());
+    }
+
+    /**
+     * Opens any step from the list at the top, for example to change the country after the NAS is saved.
+     */
+    public function jump(string $step): void
+    {
+        if (! array_key_exists($step, $this->steps())) {
+            return;
+        }
+
+        $this->resetErrorBag();
+        $this->goTo($step);
     }
 
     public function back(): void
@@ -727,6 +874,42 @@ new #[Title('Setup')] class extends Component
     private function pool(string $name, string $range): Pool
     {
         return Pool::query()->firstOrCreate(['name' => $name], ['description' => __('IPs on the NAS: :range', ['range' => $range])]);
+    }
+
+    /**
+     * The NAS saved earlier in the setup, after a reload (a new language reloads the page): its commands stay shown
+     * and it is not added twice.
+     */
+    private function restoreNas(): void
+    {
+        $id = session(self::PROGRESS.'.nas');
+        $nas = is_int($id) ? Nas::query()->find($id) : null;
+
+        if ($nas === null) {
+            return;
+        }
+
+        $this->nasId = $nas->id;
+        $this->shortname = $nas->shortname;
+        $this->nasname = $nas->nasname;
+        $this->secret = $nas->secret;
+        $this->routeros_version = (string) $nas->routeros_version;
+    }
+
+    /**
+     * The NAS's PPPoE address must stay out of both pools, or the NAS hands it to a customer too.
+     */
+    private function gatewayRule(string $attribute, mixed $value, Closure $fail): void
+    {
+        $ip = is_string($value) ? (IpAddress::normalize($value) ?? $value) : '';
+
+        foreach ([$this->poolBlock, $this->disabledBlock] as $block) {
+            if ($block !== null && RouterCommands::handsOut($block, $ip)) {
+                $fail(__('The NAS address cannot be one the pools hand out.'));
+
+                return;
+            }
+        }
     }
 
     private function rangeRule(string $attribute, mixed $value, Closure $fail): void

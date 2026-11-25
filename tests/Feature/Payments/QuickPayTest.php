@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-10-21 10:00:00'));
     turnQuickPayOn('7');
+    AppSetting::put('expiry_mode', 'exact');
     $this->plan = Plan::factory()->create(['price' => 500, 'validity' => 30]);
 });
 

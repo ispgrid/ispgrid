@@ -11,6 +11,7 @@ use App\Models\IpRange;
 use App\Models\Pool;
 use App\Models\RadiusSetting;
 use App\Support\AccountNumbers;
+use App\Support\ExpiryCalculator;
 use App\Support\Hotspot;
 use App\Support\NoticePage;
 use App\Support\PasswordPattern;
@@ -341,10 +342,7 @@ new #[Title('App settings')] class extends Component
     #[Computed]
     public function expiryModes(): array
     {
-        return [
-            'exact' => __('At the recharge time on the last day'),
-            'midnight' => __('At midnight at the end of the last day'),
-        ];
+        return ExpiryCalculator::modes();
     }
 
     #[Computed]

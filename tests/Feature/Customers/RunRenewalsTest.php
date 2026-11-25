@@ -20,6 +20,7 @@ use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-10-31 23:50:00'));
+    AppSetting::put('expiry_mode', 'exact');
     $this->plan = Plan::factory()->create(['name' => 'Home 25', 'validity' => 30, 'price' => 599]);
 });
 
