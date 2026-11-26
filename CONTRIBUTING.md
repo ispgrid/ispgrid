@@ -157,6 +157,18 @@ is a full example.
   trailing arguments, a `RechargeKind` and the id of the staff member the recharge is recorded for; calls with the
   first six keep working. Since core 0.1.6 it takes a ninth, `App\Billing\ChargeOptions` (an adjusted price, the
   payment taken now, an invoice already issued); without it an invoiced recharge gets an unpaid invoice.
+- **Customers an add-on makes (core 0.1.27):** `App\Actions\Customers\CreateAccount::handle($columns, $source)` creates
+  one customer, Inactive and without a plan, with its FreeRADIUS rows, the next account ID and a "Created" entry; it
+  sends no message. `$columns` may hold only `username`, `password`, `fullname`, `service_type` (required), `mobile`,
+  `email`, `remarks`, `mac_type`, `nas_id`, `connection_type_id`, `billing_free` and `notifications_off`; `$source`
+  names your add-on (lowercase letters, digits and `-`) and is stored in `accounts.source`. A taken username throws
+  `UniqueConstraintViolationException`. `RechargeAccount` then gives it a plan and makes it Active.
+  `SetAccountStatus::handle($accountId, AccountStatus $status, $remark)` and `DeleteAccount::handle($accountId)`
+  change the status or soft delete, as the customer page does; when the first returns true, or after a delete, queue
+  `DisconnectAccount::dispatchIfOnline($username, DisconnectReason::StatusChanged)` (or `Deleted`) after your
+  transaction. The customers list and the dashboard counts leave customers with a source out unless staff pick them
+  in the Source filter. You may read `App\Models\Account` and `App\Models\Plan` (never write them yourself) and query `Account::query()->core()`
+  for customers staff made. Check `class_exists(CreateAccount::class)` on older cores.
 - **Views:** Livewire multi-file components and core's `x-ui.*` components (no Flux, no logic in Blade). Core builds
   its CSS from its own views only, so a Tailwind class that core does not use has no CSS in an add-on view; menu and
   button icons are the names in `App\Support\Heroicons`.

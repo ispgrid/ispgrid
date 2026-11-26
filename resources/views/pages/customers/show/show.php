@@ -1,8 +1,10 @@
 <?php
 
 use App\Actions\Customers\CancelRecharge;
+use App\Actions\Customers\DeleteAccount;
 use App\Actions\Customers\RechargeAccount;
 use App\Actions\Customers\RenameAccount;
+use App\Actions\Customers\SetAccountStatus;
 use App\Actions\Radius\ResetDevices;
 use App\Actions\Radius\SyncAccountToRadius;
 use App\Actions\Radius\UnlockAccount;
@@ -874,7 +876,7 @@ new #[Title('Customer')] class extends Component
      * Sets the status and logs one "Status changed" entry with the old and new status and the remark (the
      * model's own log is switched off for this save).
      */
-    public function changeStatus(SyncAccountToRadius $sync): void
+    public function changeStatus(SetAccountStatus $setStatus): void
     {
         $this->authorize('changeStatus', $this->account);
         $this->remark = trim($this->remark);
@@ -890,7 +892,7 @@ new #[Title('Customer')] class extends Component
         ]);
 
         try {
-            $changed = $this->writeStatus($sync);
+            $changed = $setStatus->handle($this->accountId, AccountStatus::from((int) $this->status), $this->remark);
         } catch (ModelNotFoundException) {
             $this->toastDeletedMeanwhile();
 
@@ -904,29 +906,6 @@ new #[Title('Customer')] class extends Component
         $this->toast($changed && DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::StatusChanged)
             ? __('Status changed. The customer is disconnected so it applies now.')
             : __('Status changed.'));
-    }
-
-    private function writeStatus(SyncAccountToRadius $sync): bool
-    {
-        return DB::transaction(function () use ($sync): bool {
-            $account = Account::query()->lockForUpdate()->findOrFail($this->accountId);
-            $old = $account->status_id;
-
-            $account->disableLogging();
-            $account->update(['status_id' => (int) $this->status]);
-            $changed = $sync->handle($account);
-
-            activity()
-                ->performedOn($account)
-                ->event('status-changed')
-                ->withChanges([
-                    'old' => ['status' => $old->label()],
-                    'attributes' => ['status' => $account->status_id->label(), 'remark' => $this->remark],
-                ])
-                ->log('status-changed');
-
-            return $changed;
-        }, attempts: 3);
     }
 
     /**
@@ -1220,12 +1199,12 @@ new #[Title('Customer')] class extends Component
      * the ipoes row, the bound devices and the counters go, so the customer can no longer log in and the device
      * can be used by another customer. One "Deleted" entry records the IP, the pool and every device.
      */
-    public function delete(SyncAccountToRadius $sync, ResetDevices $reset, UnlockAccount $unlock): void
+    public function delete(DeleteAccount $delete): void
     {
         $this->authorize('delete', $this->account);
 
         try {
-            $this->softDelete($sync, $reset, $unlock);
+            $delete->handle($this->accountId);
         } catch (ModelNotFoundException) {
             $this->toastDeletedMeanwhile();
 
@@ -1237,45 +1216,6 @@ new #[Title('Customer')] class extends Component
         $this->toast(DisconnectAccount::dispatchIfOnline($this->account->username, DisconnectReason::Deleted)
             ? __('Customer deleted. Their open session is disconnected.')
             : __('Customer deleted. They can no longer log in.'));
-    }
-
-    private function softDelete(SyncAccountToRadius $sync, ResetDevices $reset, UnlockAccount $unlock): void
-    {
-        DB::transaction(function () use ($sync, $reset, $unlock): void {
-            $account = Account::query()->with(['ip', 'pool'])->lockForUpdate()->findOrFail($this->accountId);
-            $previousIpId = $account->ip_id;
-            $devices = DB::table('account_macs')->where('username', $account->username)->orderBy('learned_at')->get()
-                ->map(fn (object $row): array => [
-                    'mac' => self::macText($row->mac_norm),
-                    'bound' => (string) $row->learned_at,
-                    'last_seen' => $row->last_seen === null ? null : (string) $row->last_seen,
-                ])
-                ->all();
-            $removed = array_filter([
-                'ip_address' => $account->ip?->address,
-                'pool' => $account->pool?->name,
-                'devices' => implode(', ', array_column($devices, 'mac')),
-            ], fn (?string $value): bool => $value !== null && $value !== '');
-
-            // Every service ends with the customer (a restore does not bring them back); the delete below frees the
-            // static IP and its own entry records it.
-            CustomerService::query()->where('account_id', $account->id)->whereNull('ended_at')
-                ->update(['ended_at' => now(), 'ended_by' => auth()->id(), 'end_reason' => 'Customer deleted']);
-
-            $account->disableLogging();
-            $account->update(['ip_id' => null, 'pool_id' => null]);
-            $account->delete();
-            $sync->handle($account, $previousIpId);
-            $reset->handle($account->username);
-            $unlock->handle($account->username);
-
-            activity()
-                ->performedOn($account)
-                ->event('deleted')
-                ->withChanges(['old' => $removed, 'attributes' => []])
-                ->withProperties(['devices' => $devices])
-                ->log('deleted');
-        }, attempts: 3);
     }
 
     /**
