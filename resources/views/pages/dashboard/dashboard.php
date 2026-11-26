@@ -20,7 +20,7 @@ new #[Title('Dashboard')] class extends Component
     /**
      * The numbers of the day, each opening the list it counts when the role can open that list.
      *
-     * @return list<array{label: string, value: int, href: ?string}>
+     * @return list<array{label: string, value: int, href: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>
      */
     #[Computed]
     public function todayFigures(): array
@@ -34,7 +34,7 @@ new #[Title('Dashboard')] class extends Component
     /**
      * The money cards (View sales only; empty otherwise).
      *
-     * @return list<array{label: string, value: string, href: ?string, hint: ?string}>
+     * @return list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>
      */
     #[Computed]
     public function moneyFigures(): array
@@ -43,6 +43,31 @@ new #[Title('Dashboard')] class extends Component
         $user = auth()->user();
 
         return MoneyFigures::cards($user);
+    }
+
+    /**
+     * The day's figures and the money cards together, values formatted, split into the dashboard's groups. Needs
+     * attention runs from the most urgent: expired, expiring, disabled, dues.
+     *
+     * @return array{attention: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>, customers: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>, renewals: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>, money: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>}
+     */
+    #[Computed]
+    public function cardGroups(): array
+    {
+        $groups = ['attention' => [], 'customers' => [], 'renewals' => [], 'money' => []];
+
+        foreach ($this->todayFigures as $card) {
+            $groups[$card['group']][] = [...$card, 'value' => number_format($card['value']), 'hint' => null];
+        }
+
+        foreach ($this->moneyFigures as $card) {
+            $groups[$card['group']][] = $card;
+        }
+
+        $urgency = array_flip([__('Expired in the last 7 days'), __('Expiring within 7 days'), __('Disabled'), __('Dues')]);
+        usort($groups['attention'], fn (array $a, array $b): int => ($urgency[$a['label']] ?? PHP_INT_MAX) <=> ($urgency[$b['label']] ?? PHP_INT_MAX));
+
+        return $groups;
     }
 
     /**

@@ -1905,5 +1905,10 @@
     "Keeps every session with its IP address, with search and export for requests from the authorities.": "हर सेशन को उसके IP पते के साथ रखता है, अधिकारियों के अनुरोधों के लिए खोज और एक्सपोर्ट के साथ।",
     "Customer documents (KYC)": "ग्राहक दस्तावेज़ (KYC)",
     "ID and address proofs on the customer page.": "ग्राहक के पेज पर पहचान और पते के प्रमाण।",
-    "The NAS address cannot be one the pools hand out.": "NAS का पता ऐसा नहीं हो सकता जो पूल देते हैं।"
+    "The NAS address cannot be one the pools hand out.": "NAS का पता ऐसा नहीं हो सकता जो पूल देते हैं।",
+    "Renewals": "नवीनीकरण",
+    "last 7 days": "पिछले 7 दिन",
+    "per day": "प्रति दिन",
+    "this month": "इस महीने",
+    "6 months": "6 महीने"
 }
