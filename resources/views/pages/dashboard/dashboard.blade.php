@@ -16,7 +16,7 @@
 
     @if ($this->cardGroups['attention'] !== [])
         <div class="grid grid-cols-1 gap-3">
-            <x-ui.heading class="flex items-center gap-2 text-red-700! dark:text-red-400!">
+            <x-ui.heading @class(['flex items-center gap-2', 'text-red-700! dark:text-red-400!' => $this->attentionUrgent])>
                 <x-ui.icon name="exclamation-triangle" class="size-5" />
                 {{ __('Needs attention') }}
             </x-ui.heading>

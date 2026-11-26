@@ -53,11 +53,11 @@ it('counts each number of the day and opens the list it counts', function () {
 
     $figures = todayFigures(User::factory()->create());
 
-    expect(array_keys($figures))->toBe(['Total', 'Online now', 'Active', 'Disabled', 'Expiring today', 'Expiring within 7 days',
-        'Without a renewal', 'Expired in the last 7 days', 'Renewed today', 'New today', 'New this month', 'Static IP expiring within 7 days'])
+    expect(array_keys($figures))->toBe(['Expired in the last 7 days', 'Expiring within 7 days', 'Disabled', 'Total', 'Online now', 'Active',
+        'Expiring today', 'Without a renewal', 'Renewed today', 'New today', 'New this month', 'Static IP expiring within 7 days'])
         ->and(array_map(fn (array $figure): int => $figure['value'], $figures))->toBe([
-            'Total' => 11, 'Online now' => 2, 'Active' => 8, 'Disabled' => 2, 'Expiring today' => 2, 'Expiring within 7 days' => 3,
-            'Without a renewal' => 1, 'Expired in the last 7 days' => 1, 'Renewed today' => 1, 'New today' => 1, 'New this month' => 2,
+            'Expired in the last 7 days' => 1, 'Expiring within 7 days' => 3, 'Disabled' => 2, 'Total' => 11, 'Online now' => 2, 'Active' => 8,
+            'Expiring today' => 2, 'Without a renewal' => 1, 'Renewed today' => 1, 'New today' => 1, 'New this month' => 2,
             'Static IP expiring within 7 days' => 1,
         ])
         ->and($figures['Online now']['href'])->toBe(route('online.index'))
@@ -161,4 +161,24 @@ it('builds the customer trends from stored history', function () {
         ->and($cards['Renewed today']['trend'])->toBe([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
         ->and($cards['New this month']['trend'])->toHaveCount(10)
         ->and($cards['New this month']['trend'][1])->toBe(1.0);
+});
+
+it('leaves deleted customers out of the renewed trend, as the card does', function () {
+    $gone = Account::factory()->create();
+    Recharge::factory()->for($gone)->create();
+    $gone->delete();
+
+    $cards = collect(TodayFigures::cards(User::factory()->create()))->keyBy('label');
+
+    expect($cards['Renewed today']['value'])->toBe(0)
+        ->and(collect($cards['Renewed today']['trend'])->last())->toBe(0.0);
+});
+
+it('ends the renewed trend on the number its card shows', function () {
+    Recharge::factory()->count(2)->create();
+    Recharge::factory()->create(['created_at' => now()->subDay()]);
+
+    $card = collect(TodayFigures::cards(User::factory()->create()))->keyBy('label')['Renewed today'];
+
+    expect(collect($card['trend'])->last())->toBe((float) $card['value']);
 });

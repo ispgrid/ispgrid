@@ -46,9 +46,9 @@ new #[Title('Dashboard')] class extends Component
     }
 
     /**
-     * The day's figures and the money cards together, values formatted, split into the dashboard's groups. Needs
-     * attention runs from the most urgent: expired, expiring, disabled, dues. Money values are long, so their cards are
-     * compact.
+     * The day's figures and the money cards together, values formatted, split into the dashboard's groups in the order
+     * the figures come (Needs attention: expired, expiring, disabled, then dues). Money values are long, so their cards
+     * are compact.
      *
      * @return array{attention: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>, customers: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>, renewals: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>, money: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>}
      */
@@ -65,10 +65,16 @@ new #[Title('Dashboard')] class extends Component
             $groups[$card['group']][] = [...$card, 'compact' => true];
         }
 
-        $urgency = array_flip([__('Expired in the last 7 days'), __('Expiring within 7 days'), __('Disabled'), __('Dues')]);
-        usort($groups['attention'], fn (array $a, array $b): int => ($urgency[$a['label']] ?? PHP_INT_MAX) <=> ($urgency[$b['label']] ?? PHP_INT_MAX));
-
         return $groups;
+    }
+
+    /**
+     * Whether any Needs attention tile has something to warn about; the heading is red only then.
+     */
+    #[Computed]
+    public function attentionUrgent(): bool
+    {
+        return collect($this->cardGroups['attention'])->contains(fn (array $card): bool => $card['tone'] !== 'neutral');
     }
 
     /**

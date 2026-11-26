@@ -46,3 +46,21 @@ it('keeps the Dues amount compact in the attention row', function () {
     expect(Livewire::test('pages::dashboard')->instance()->cardGroups['attention'])
         ->each(fn ($card) => $card->compact->toBe($card->value['label'] === 'Dues'));
 });
+
+it('orders Needs attention from the most urgent', function () {
+    turnInvoicingOn();
+    $this->actingAs(staffHolding(...Permission::cases()));
+
+    expect(array_column(Livewire::test('pages::dashboard')->instance()->cardGroups['attention'], 'label'))
+        ->toBe(['Expired in the last 7 days', 'Expiring within 7 days', 'Disabled', 'Dues']);
+});
+
+it('colors the Needs attention heading only when a tile needs attention', function () {
+    $this->actingAs(staffHolding(...Permission::cases()));
+
+    Livewire::test('pages::dashboard')->assertSee('Needs attention')->assertDontSeeHtml('text-red-700!');
+
+    Account::factory()->suspended()->create();
+
+    Livewire::test('pages::dashboard')->assertSeeHtml('text-red-700!');
+});

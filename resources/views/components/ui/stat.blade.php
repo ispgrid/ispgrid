@@ -29,7 +29,10 @@
         'flex flex-col rounded-xl border border-zinc-200 p-4 sm:p-5 dark:border-zinc-700',
         $styles['edge'],
         $tinted ? $styles['tint'] : 'bg-white dark:bg-zinc-900',
-        'hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:hover:border-zinc-500' => $href !== null,
+        'focus-visible:outline-2 focus-visible:outline-zinc-500' => $href !== null,
+        // Hover darkens the plain sides only, so the colored left edge stays.
+        'hover:border-zinc-400 dark:hover:border-zinc-500' => $href !== null && $styles['edge'] === '',
+        'hover:border-y-zinc-400 hover:border-e-zinc-400 dark:hover:border-y-zinc-500 dark:hover:border-e-zinc-500' => $href !== null && $styles['edge'] !== '',
     ];
 @endphp
 
