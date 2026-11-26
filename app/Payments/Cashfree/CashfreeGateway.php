@@ -10,6 +10,7 @@ use App\Models\OnlinePayment;
 use App\Notifications\SettingField;
 use App\Payments\Concerns\CallsGatewayApi;
 use App\Payments\CustomerDetails;
+use App\Payments\EnvironmentField;
 use App\Payments\GatewayAmount;
 use App\Payments\GatewayResult;
 use App\Payments\GatewayStart;
@@ -76,7 +77,7 @@ final class CashfreeGateway implements NeedsCustomerDetails, PaymentGateway, Unt
     public static function settingFields(): array
     {
         return [
-            new SettingField('environment', __('Environment'), help: __('test (Cashfree sandbox) or live.'), maxLength: 4, rules: ['in:test,live']),
+            EnvironmentField::make(__('Test uses the Cashfree sandbox.')),
             new SettingField('client_id', __('Client ID'), maxLength: 100),
             new SettingField('client_secret', __('Client secret'), 'secret', help: __('Also signs the webhooks.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.

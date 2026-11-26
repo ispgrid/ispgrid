@@ -14,6 +14,7 @@ use App\Models\Plan;
 use App\Models\Recharge;
 use App\Models\User;
 use App\Support\Dashboard\MoneyFigures;
+use App\Support\Sparkline;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
@@ -184,4 +185,61 @@ it('trends sales from recharges when invoicing is off', function () {
     Recharge::factory()->create(['amount' => 70, 'created_at' => now()->subDays(3), 'cancelled_at' => now()->subDays(3)]);
 
     expect(collect(MoneyFigures::cards($this->boss))->keyBy('label')['Sales today']['trend'])->toBe([0.0, 0.0, 0.0, 250.0, 0.0, 0.0, 500.0]);
+});
+
+/**
+ * A money card's amount as a number, for comparing it with the last point of its trend.
+ */
+function moneyAmount(string $value): float
+{
+    return (float) preg_replace('/[^\d.]/', '', $value);
+}
+
+it('leaves removed payments out of the collected trend', function () {
+    turnInvoicingOn();
+    $removed = moneyInvoice('50', '59');
+    app(RemovePayment::class)->handle($removed->payments()->sole()->id, 'Bounced');
+
+    $cards = collect(MoneyFigures::cards($this->boss))->keyBy('label');
+
+    expect(collect($cards['Collected today']['trend'])->last())->toBe(0.0)
+        ->and(collect($cards['Collected this month']['trend'])->last())->toBe(0.0);
+});
+
+it('draws no line for this month on the 1st', function () {
+    turnInvoicingOn();
+    $this->travelTo(Carbon::parse('2026-11-01 10:00:00'));
+    moneyInvoice('100', '118');
+
+    $trend = collect(MoneyFigures::cards($this->boss))->keyBy('label')['Collected this month']['trend'];
+
+    expect($trend)->toBe([118.0])->and(Sparkline::points($trend))->toBeNull();
+});
+
+it('ends each money trend on the amount its card shows', function () {
+    turnInvoicingOn();
+    $this->travelTo(Carbon::parse('2026-09-12 10:00:00'));
+    moneyInvoice('200', '236');
+    $this->travelTo(Carbon::parse('2026-10-03 10:00:00'));
+    moneyInvoice('100', '50');
+    $this->travelTo(Carbon::parse('2026-10-21 10:00:00'));
+    moneyInvoice('500', '590', 'UPI');
+
+    $cards = collect(MoneyFigures::cards($this->boss))->keyBy('label');
+
+    foreach (['Collected today', 'Collected this month', 'Collected last month', 'Invoiced this month', 'Invoiced last month'] as $label) {
+        expect(collect($cards[$label]['trend'])->last())->toBe(moneyAmount($cards[$label]['value']), $label);
+    }
+});
+
+it('ends each sales trend on the amount its card shows', function () {
+    Recharge::factory()->create(['amount' => 500]);
+    Recharge::factory()->create(['amount' => 250, 'created_at' => now()->subDays(3)]);
+    Recharge::factory()->create(['amount' => 90, 'created_at' => now()->subMonthNoOverflow()]);
+
+    $cards = collect(MoneyFigures::cards($this->boss))->keyBy('label');
+
+    foreach (['Sales today', 'Sales this month', 'Sales last month'] as $label) {
+        expect(collect($cards[$label]['trend'])->last())->toBe(moneyAmount($cards[$label]['value']), $label);
+    }
 });

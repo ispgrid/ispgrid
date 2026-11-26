@@ -8,6 +8,7 @@ use App\Exceptions\GatewayUnavailable;
 use App\Models\OnlinePayment;
 use App\Notifications\SettingField;
 use App\Payments\Concerns\CallsGatewayApi;
+use App\Payments\EnvironmentField;
 use App\Payments\GatewayAmount;
 use App\Payments\GatewayResult;
 use App\Payments\GatewayStart;
@@ -64,7 +65,7 @@ final class PhonePeGateway implements PaymentGateway, UntestedGateway
     public static function settingFields(): array
     {
         return [
-            new SettingField('environment', __('Environment'), help: __('test or live. Test keys work only with test, live keys only with live.'), maxLength: 4, rules: ['in:test,live']),
+            EnvironmentField::make(__('Test keys work only with Test, live keys only with Live.')),
             new SettingField('client_id', __('Client ID'), maxLength: 100),
             new SettingField('client_version', __('Client version'), maxLength: 20),
             new SettingField('client_secret', __('Client secret'), 'secret', maxLength: 200),

@@ -8,6 +8,7 @@ use App\Exceptions\GatewayUnavailable;
 use App\Models\OnlinePayment;
 use App\Notifications\SettingField;
 use App\Payments\Concerns\CallsGatewayApi;
+use App\Payments\EnvironmentField;
 use App\Payments\GatewayAmount;
 use App\Payments\GatewayResult;
 use App\Payments\GatewayStart;
@@ -77,7 +78,7 @@ final class PayPalGateway implements PaymentGateway, UntestedGateway
     public static function settingFields(): array
     {
         return [
-            new SettingField('environment', __('Environment'), help: __('test (PayPal sandbox) or live. Sandbox credentials work only with test, live credentials only with live.'), maxLength: 4, rules: ['in:test,live']),
+            EnvironmentField::make(__('Test uses the PayPal sandbox. Sandbox credentials work only with Test, live credentials only with Live.')),
             new SettingField('client_id', __('Client ID'), maxLength: 200),
             new SettingField('client_secret', __('Client secret'), 'secret', maxLength: 300),
             new SettingField('webhook_id', __('Webhook ID'), help: __('The ID of the webhook you add in the PayPal developer dashboard. Select these events: Checkout order approved, Payment capture completed.'), maxLength: 100),

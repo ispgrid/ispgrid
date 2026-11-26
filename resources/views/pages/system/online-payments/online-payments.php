@@ -27,6 +27,9 @@ new #[Title('Quick pay')] class extends Component
 {
     use AuthorizesEveryRequest, ShowsToasts, WithFileUploads;
 
+    /** A gateway with more currencies than this shows their count in its badge, not the list. */
+    private const BADGE_CURRENCIES = 6;
+
     public bool $quick_pay = false;
 
     public string $renewal_days = '';
@@ -78,7 +81,9 @@ new #[Title('Quick pay')] class extends Component
     }
 
     /**
-     * @return list<array{key: string, label: string, fields: list<array{name: string, label: string, type: string, help: ?string}>, webhook: string, currencyOk: bool, currencies: string, untested: bool}>
+     * A gateway that takes many currencies shows their count, with the full list on hover.
+     *
+     * @return list<array{key: string, label: string, fields: list<array{name: string, label: string, type: string, help: ?string, options: array<string, string>}>, webhook: string, currencyOk: bool, currencies: string, currencyList: ?string, untested: bool}>
      */
     #[Computed]
     public function gatewayCards(): array
@@ -86,6 +91,8 @@ new #[Title('Quick pay')] class extends Component
         $cards = [];
 
         foreach ($this->gateways()->all() as $key => $class) {
+            $currencies = $class::currencies();
+            $many = count($currencies) > self::BADGE_CURRENCIES;
             $cards[] = [
                 'key' => $key,
                 'label' => $class::label(),
@@ -93,13 +100,15 @@ new #[Title('Quick pay')] class extends Component
                     'name' => $field->name,
                     'label' => $field->required ? $field->label : __(':label (optional)', ['label' => $field->label]),
                     'type' => match ($field->type) {
-                        'secret' => 'password', 'number' => 'number', 'url' => 'url', default => 'text'
+                        'secret' => 'password', 'number' => 'number', 'url' => 'url', 'select' => 'select', default => 'text'
                     },
                     'help' => $field->isSecret() && in_array($field->name, $this->savedSecrets[$key] ?? [], true) ? __('Saved. Leave empty to keep it.') : $field->help,
+                    'options' => $field->options,
                 ], $class::settingFields()),
                 'webhook' => route('pay.webhook', $key),
                 'currencyOk' => $this->gateways()->supportsCurrency($key),
-                'currencies' => implode(', ', $class::currencies()),
+                'currencies' => $many ? __(':count currencies', ['count' => count($currencies)]) : implode(', ', $currencies),
+                'currencyList' => $many ? implode(', ', $currencies) : null,
                 'untested' => is_subclass_of($class, UntestedGateway::class),
             ];
         }

@@ -6,6 +6,7 @@ use App\Contracts\PaymentGateway;
 use App\Exceptions\GatewayUnavailable;
 use App\Models\OnlinePayment;
 use App\Notifications\SettingField;
+use App\Payments\EnvironmentField;
 use App\Payments\GatewayResult;
 use App\Payments\GatewayStart;
 use App\Payments\GatewayStatus;
@@ -50,7 +51,7 @@ final class PaytmGateway implements PaymentGateway
     public static function settingFields(): array
     {
         return [
-            new SettingField('environment', __('Environment'), help: __('test or live. Test keys work only with test, live keys only with live.'), maxLength: 4, rules: ['in:test,live']),
+            EnvironmentField::make(__('Test keys work only with Test, live keys only with Live.')),
             new SettingField('mid', __('Merchant ID (MID)'), maxLength: 50),
             new SettingField('merchant_key', __('Merchant key'), 'secret', maxLength: 100),
             new SettingField('website_name', __('Website name'), required: false, help: __('Leave it empty unless Paytm gave you a website name.'), maxLength: 50),
