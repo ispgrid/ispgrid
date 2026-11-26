@@ -23,7 +23,7 @@
             <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
                 @foreach ($this->cardGroups['attention'] as $figure)
                     <x-ui.stat wire:key="attention-{{ $loop->index }}" :label="$figure['label']" :value="$figure['value']" :href="$figure['href']" :tone="$figure['tone']"
-                        :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" tinted />
+                        :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" :compact="$figure['compact']" tinted />
                 @endforeach
             </div>
         </div>
@@ -36,7 +36,7 @@
                 <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
                     @foreach ($this->cardGroups[$group] as $figure)
                         <x-ui.stat wire:key="{{ $group }}-{{ $loop->index }}" :label="$figure['label']" :value="$figure['value']" :href="$figure['href']" :tone="$figure['tone']"
-                            :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" />
+                            :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" :compact="$figure['compact']" />
                     @endforeach
                 </div>
             </div>
@@ -49,7 +49,7 @@
             <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
                 @foreach ($this->cardGroups['money'] as $figure)
                     <x-ui.stat wire:key="money-{{ $loop->index }}" :label="$figure['label']" :value="$figure['value']" :href="$figure['href']" :tone="$figure['tone']"
-                        :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" />
+                        :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" :compact="$figure['compact']" />
                 @endforeach
             </div>
             <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

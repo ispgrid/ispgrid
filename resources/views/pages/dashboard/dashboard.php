@@ -47,9 +47,10 @@ new #[Title('Dashboard')] class extends Component
 
     /**
      * The day's figures and the money cards together, values formatted, split into the dashboard's groups. Needs
-     * attention runs from the most urgent: expired, expiring, disabled, dues.
+     * attention runs from the most urgent: expired, expiring, disabled, dues. Money values are long, so their cards are
+     * compact.
      *
-     * @return array{attention: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>, customers: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>, renewals: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>, money: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>}
+     * @return array{attention: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>, customers: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>, renewals: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>, money: list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string, compact: bool}>}
      */
     #[Computed]
     public function cardGroups(): array
@@ -57,11 +58,11 @@ new #[Title('Dashboard')] class extends Component
         $groups = ['attention' => [], 'customers' => [], 'renewals' => [], 'money' => []];
 
         foreach ($this->todayFigures as $card) {
-            $groups[$card['group']][] = [...$card, 'value' => number_format($card['value']), 'hint' => null];
+            $groups[$card['group']][] = [...$card, 'value' => number_format($card['value']), 'hint' => null, 'compact' => false];
         }
 
         foreach ($this->moneyFigures as $card) {
-            $groups[$card['group']][] = $card;
+            $groups[$card['group']][] = [...$card, 'compact' => true];
         }
 
         $urgency = array_flip([__('Expired in the last 7 days'), __('Expiring within 7 days'), __('Disabled'), __('Dues')]);

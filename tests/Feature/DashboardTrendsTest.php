@@ -37,3 +37,8 @@ it('draws sparkline points', function () {
         ->and(Sparkline::points([7]))->toBeNull()
         ->and(Sparkline::points([]))->toBeNull();
 });
+
+it('indexes the dates the trends count by', function () {
+    expect(Schema::hasIndex('recharges', ['created_at']))->toBeTrue()
+        ->and(Schema::hasIndex('accounts', ['created_at']))->toBeTrue();
+});

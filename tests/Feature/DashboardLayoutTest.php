@@ -29,3 +29,20 @@ it('renders on an empty database', function () {
 
     Livewire::test('pages::dashboard')->assertOk()->assertSee('Needs attention')->assertSeeHtml('<polyline points="0,12 20,12');
 });
+
+it('keeps money amounts a size smaller than the counts, so large amounts fit', function () {
+    turnInvoicingOn();
+    $this->actingAs(staffHolding(...Permission::cases()));
+
+    Livewire::test('pages::dashboard')
+        ->assertSeeHtml('text-xl font-semibold tabular-nums sm:text-2xl')
+        ->assertSeeHtml('text-2xl font-semibold tabular-nums sm:text-3xl');
+});
+
+it('keeps the Dues amount compact in the attention row', function () {
+    turnInvoicingOn();
+    $this->actingAs(staffHolding(...Permission::cases()));
+
+    expect(Livewire::test('pages::dashboard')->instance()->cardGroups['attention'])
+        ->each(fn ($card) => $card->compact->toBe($card->value['label'] === 'Dues'));
+});

@@ -8,10 +8,11 @@
     'trend' => null,
     'caption' => null,
     'tinted' => false,
+    'compact' => false,
 ])
 
 {{-- One dashboard figure. The tone (green, amber, red or neutral) colors the number, the icon chip and the left edge;
-     tinted fills the whole card, for the Needs attention row. The trend is a list of numbers drawn as a small line. --}}
+     tinted fills the whole card, for the Needs attention row; compact keeps long values (money) a size smaller. The trend is a list of numbers drawn as a small line. --}}
 @php
     $styles = match ($tone) {
         'green' => ['number' => 'text-deep-green dark:text-signal', 'chip' => 'bg-mint text-deep-green dark:bg-green-900/40 dark:text-signal',
@@ -41,7 +42,7 @@
             </span>
         @endif
     </span>
-    <span @class(['mt-1 block text-2xl font-semibold tabular-nums sm:text-3xl', $styles['number']])>{{ $value }}</span>
+    <span @class([$compact ? 'mt-1 block text-xl font-semibold tabular-nums sm:text-2xl' : 'mt-1 block text-2xl font-semibold tabular-nums sm:text-3xl', $styles['number']])>{{ $value }}</span>
     @if ($hint !== null)
         <span class="mt-1 block text-xs text-zinc-600 dark:text-zinc-400">{{ $hint }}</span>
     @endif
