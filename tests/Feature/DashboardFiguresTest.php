@@ -132,3 +132,33 @@ it('does not count a cancelled recharge or a plan switch as renewed today', func
 
     expect(todayFigures(User::factory()->create())['Renewed today']['value'])->toBe(0);
 });
+
+it('groups and colors the cards, warnings turning neutral at zero', function () {
+    Account::factory()->suspended()->create();
+
+    $cards = collect(TodayFigures::cards(User::factory()->create()))->keyBy('label');
+
+    expect($cards['Disabled'])->toMatchArray(['group' => 'attention', 'tone' => 'red', 'icon' => 'no-symbol'])
+        ->and($cards['Expired in the last 7 days'])->toMatchArray(['group' => 'attention', 'tone' => 'neutral'])
+        ->and($cards['Expiring within 7 days']['tone'])->toBe('neutral')
+        ->and($cards['Online now'])->toMatchArray(['group' => 'customers', 'tone' => 'green', 'caption' => 'last 7 days'])
+        ->and($cards['Renewed today']['group'])->toBe('renewals')
+        ->and($cards['Total']['trend'])->toBeNull();
+});
+
+it('builds the customer trends from stored history', function () {
+    usageDay('alice', '2026-10-09', 10);
+    usageDay('alice', '2026-10-10', 10);
+    usageDay('bob', '2026-10-10', 10);
+    Account::factory()->create(['created_at' => '2026-10-02 10:00:00']);
+    $renewed = Account::factory()->create(['created_at' => '2026-09-01 10:00:00']);
+    Recharge::factory()->for($renewed)->count(2)->create(['created_at' => '2026-10-10 08:00:00']);
+    Recharge::factory()->for($renewed)->create(['created_at' => '2026-10-08 08:00:00', 'cancelled_at' => '2026-10-08 09:00:00']);
+
+    $cards = collect(TodayFigures::cards(User::factory()->create()))->keyBy('label');
+
+    expect($cards['Online now']['trend'])->toBe([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0])
+        ->and($cards['Renewed today']['trend'])->toBe([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+        ->and($cards['New this month']['trend'])->toHaveCount(10)
+        ->and($cards['New this month']['trend'][1])->toBe(1.0);
+});

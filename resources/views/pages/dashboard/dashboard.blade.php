@@ -14,41 +14,42 @@
         </x-ui.alert>
     @endforeach
 
-    <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        @foreach ($this->todayFigures as $figure)
-            @if ($figure['href'])
-                <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
-                    <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                    <span class="mt-2 block text-2xl font-semibold tabular-nums sm:text-3xl">{{ number_format($figure['value']) }}</span>
-                </a>
-            @else
-                <div class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-zinc-700 dark:bg-zinc-900">
-                    <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                    <span class="mt-2 block text-2xl font-semibold tabular-nums sm:text-3xl">{{ number_format($figure['value']) }}</span>
-                </div>
-            @endif
-        @endforeach
-    </div>
+    @if ($this->cardGroups['attention'] !== [])
+        <div class="grid grid-cols-1 gap-3">
+            <x-ui.heading class="flex items-center gap-2 text-red-700! dark:text-red-400!">
+                <x-ui.icon name="exclamation-triangle" class="size-5" />
+                {{ __('Needs attention') }}
+            </x-ui.heading>
+            <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+                @foreach ($this->cardGroups['attention'] as $figure)
+                    <x-ui.stat wire:key="attention-{{ $loop->index }}" :label="$figure['label']" :value="$figure['value']" :href="$figure['href']" :tone="$figure['tone']"
+                        :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" :compact="$figure['compact']" tinted />
+                @endforeach
+            </div>
+        </div>
+    @endif
 
-    @if ($this->moneyFigures !== [])
+    @foreach (['customers' => __('Customers'), 'renewals' => __('Renewals')] as $group => $heading)
+        @if ($this->cardGroups[$group] !== [])
+            <div class="grid grid-cols-1 gap-3" wire:key="group-{{ $group }}">
+                <x-ui.heading>{{ $heading }}</x-ui.heading>
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+                    @foreach ($this->cardGroups[$group] as $figure)
+                        <x-ui.stat wire:key="{{ $group }}-{{ $loop->index }}" :label="$figure['label']" :value="$figure['value']" :href="$figure['href']" :tone="$figure['tone']"
+                            :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" :compact="$figure['compact']" />
+                    @endforeach
+                </div>
+            </div>
+        @endif
+    @endforeach
+
+    @if ($this->cardGroups['money'] !== [])
         <div class="grid grid-cols-1 gap-3">
             <x-ui.heading>{{ __('Money') }}</x-ui.heading>
-            <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                @foreach ($this->moneyFigures as $figure)
-                    @if ($figure['href'])
-                        <a href="{{ $figure['href'] }}" wire:navigate class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500">
-                            <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                            <span class="mt-2 block text-xl font-semibold tabular-nums sm:text-2xl">{{ $figure['value'] }}</span>
-                        </a>
-                    @else
-                        <div class="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-zinc-700 dark:bg-zinc-900">
-                            <span class="block text-sm text-zinc-600 dark:text-zinc-400">{{ $figure['label'] }}</span>
-                            <span class="mt-2 block text-xl font-semibold tabular-nums sm:text-2xl">{{ $figure['value'] }}</span>
-                            @if ($figure['hint'])
-                                <span class="mt-1 block text-xs text-zinc-600 dark:text-zinc-400">{{ $figure['hint'] }}</span>
-                            @endif
-                        </div>
-                    @endif
+            <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+                @foreach ($this->cardGroups['money'] as $figure)
+                    <x-ui.stat wire:key="money-{{ $loop->index }}" :label="$figure['label']" :value="$figure['value']" :href="$figure['href']" :tone="$figure['tone']"
+                        :icon="$figure['icon']" :hint="$figure['hint']" :trend="$figure['trend']" :caption="$figure['caption']" :compact="$figure['compact']" />
                 @endforeach
             </div>
             <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

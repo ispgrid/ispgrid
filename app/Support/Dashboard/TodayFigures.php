@@ -6,6 +6,7 @@ use App\Enums\AccountStatus;
 use App\Enums\RechargeKind;
 use App\Models\Account;
 use App\Models\Radacct;
+use App\Models\Recharge;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,10 @@ use Illuminate\Support\Facades\DB;
 final class TodayFigures
 {
     /**
-     * @return list<array{label: string, value: int, href: ?string}>
+     * Each card carries its group (attention, customers or renewals), its tone (green, amber, red or neutral; a warning
+     * at 0 is neutral), an icon and, where the panel keeps history, a short trend with its caption.
+     *
+     * @return list<array{label: string, value: int, href: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>
      */
     public static function cards(User $user): array
     {
@@ -26,33 +30,56 @@ final class TodayFigures
         $link = fn (array $filters): ?string => $customers ? route('customers.index', $filters) : null;
 
         $expiringWeek = fn (): Builder => self::active()->whereBetween('expiry', [now(), now()->addDays(7)]);
+        $week = now()->subDays(6);
+
+        $disabled = Account::query()->whereIn('status_id', [AccountStatus::Inactive, AccountStatus::Suspended])->count();
+        $expiringToday = self::active()->whereBetween('expiry', [now(), now()->endOfDay()])->count();
+        $expiring = $expiringWeek()->count();
+        $withoutRenewal = $expiringWeek()->where('auto_renew', false)->doesntHave('waitingRenewal')->count();
+        $expired = self::active()->where('expiry', '>=', now()->subDays(7))->where('expiry', '<', now())->count();
+        $staticIp = $expiringWeek()->whereNotNull('ip_id')->count();
 
         return [
-            ['label' => __('Total'), 'value' => Account::query()->count(), 'href' => $link([])],
-            ['label' => __('Online now'), 'value' => Radacct::query()->open()->distinct()->count('username'),
-                'href' => $user->can('view-online-sessions') ? route('online.index') : null],
-            ['label' => __('Active'), 'value' => self::active()->count(), 'href' => $link(['status' => $active])],
-            ['label' => __('Disabled'), 'value' => Account::query()->whereIn('status_id', [AccountStatus::Inactive, AccountStatus::Suspended])->count(),
-                'href' => $link(['disabled' => 1])],
-            ['label' => __('Expiring today'), 'value' => self::active()->whereBetween('expiry', [now(), now()->endOfDay()])->count(),
-                'href' => $link(['status' => $active, 'expiring' => 'today'])],
-            ['label' => __('Expiring within 7 days'), 'value' => $expiringWeek()->count(),
-                'href' => $link(['status' => $active, 'expiring' => 1])],
-            ['label' => __('Without a renewal'), 'value' => $expiringWeek()->where('auto_renew', false)->doesntHave('waitingRenewal')->count(),
-                'href' => $link(['status' => $active, 'expiring' => 1, 'norenewal' => 1])],
-            ['label' => __('Expired in the last 7 days'), 'value' => self::active()->where('expiry', '>=', now()->subDays(7))->where('expiry', '<', now())->count(),
-                'href' => $link(['status' => $active, 'expired' => 7])],
-            ['label' => __('Renewed today'), 'value' => Account::query()->whereExists(fn ($query) => $query->select(DB::raw(1))->from('recharges')
+            self::card(__('Total'), Account::query()->count(), $link([]), 'customers', 'neutral', 'users'),
+            self::card(__('Online now'), Radacct::query()->open()->distinct()->count('username'),
+                $user->can('view-online-sessions') ? route('online.index') : null, 'customers', 'green', 'wifi',
+                Trends::perDay(DB::table(config('ispgrid.usage_database').'.usage_daily'), 'day', $week, 'COUNT(DISTINCT username)'), __('last 7 days')),
+            self::card(__('Active'), self::active()->count(), $link(['status' => $active]), 'customers', 'green', 'check-circle'),
+            self::card(__('Disabled'), $disabled, $link(['disabled' => 1]), 'attention', self::warning($disabled, 'red'), 'no-symbol'),
+            self::card(__('Expiring today'), $expiringToday, $link(['status' => $active, 'expiring' => 'today']), 'renewals', self::warning($expiringToday, 'amber'), 'clock'),
+            self::card(__('Expiring within 7 days'), $expiring, $link(['status' => $active, 'expiring' => 1]), 'attention', self::warning($expiring, 'amber'), 'clock'),
+            self::card(__('Without a renewal'), $withoutRenewal, $link(['status' => $active, 'expiring' => 1, 'norenewal' => 1]), 'renewals', self::warning($withoutRenewal, 'amber'), 'arrow-path'),
+            self::card(__('Expired in the last 7 days'), $expired, $link(['status' => $active, 'expired' => 7]), 'attention', self::warning($expired, 'red'), 'exclamation-triangle'),
+            self::card(__('Renewed today'), Account::query()->whereExists(fn ($query) => $query->select(DB::raw(1))->from('recharges')
                 ->whereColumn('recharges.account_id', 'accounts.id')->where('recharges.created_at', '>=', now()->startOfDay())
                 ->whereNull('recharges.cancelled_at')->where('recharges.kind', '!=', RechargeKind::SwitchPlan->value))->count(),
-                'href' => $link(['renewed' => 1])],
-            ['label' => __('New today'), 'value' => Account::query()->where('created_at', '>=', now()->startOfDay())->count(),
-                'href' => $link(['created' => 'today'])],
-            ['label' => __('New this month'), 'value' => Account::query()->where('created_at', '>=', now()->startOfMonth())->count(),
-                'href' => $link(['created' => 'month'])],
-            ['label' => __('Static IP expiring within 7 days'), 'value' => $expiringWeek()->whereNotNull('ip_id')->count(),
-                'href' => $link(['status' => $active, 'expiring' => 1, 'staticip' => 1])],
+                $link(['renewed' => 1]), 'renewals', 'green', 'arrow-path',
+                Trends::perDay(Recharge::query()->counted(), 'created_at', $week, 'COUNT(DISTINCT account_id)'), __('last 7 days')),
+            self::card(__('New today'), Account::query()->where('created_at', '>=', now()->startOfDay())->count(),
+                $link(['created' => 'today']), 'customers', 'neutral', 'user-plus'),
+            self::card(__('New this month'), Account::query()->where('created_at', '>=', now()->startOfMonth())->count(),
+                $link(['created' => 'month']), 'customers', 'green', 'user-plus',
+                Trends::perDay(Account::query(), 'created_at', now()->startOfMonth()), __('per day')),
+            self::card(__('Static IP expiring within 7 days'), $staticIp, $link(['status' => $active, 'expiring' => 1, 'staticip' => 1]),
+                'renewals', self::warning($staticIp, 'amber'), 'globe-alt'),
         ];
+    }
+
+    /**
+     * @param  ?list<float>  $trend
+     * @return array{label: string, value: int, href: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}
+     */
+    private static function card(string $label, int $value, ?string $href, string $group, string $tone, string $icon, ?array $trend = null, ?string $caption = null): array
+    {
+        return ['label' => $label, 'value' => $value, 'href' => $href, 'group' => $group, 'tone' => $tone, 'icon' => $icon, 'trend' => $trend, 'caption' => $caption];
+    }
+
+    /**
+     * A warning card takes its color only when there is something to warn about.
+     */
+    private static function warning(int $value, string $tone): string
+    {
+        return $value > 0 ? $tone : 'neutral';
     }
 
     /**

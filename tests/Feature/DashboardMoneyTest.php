@@ -147,3 +147,41 @@ it('leaves cancelled recharges and plan switches out of sales', function () {
 
     expect(moneyCards($this->boss)['Sales today']['value'])->toBe('500.00');
 });
+
+it('groups and trends the money cards', function () {
+    turnInvoicingOn();
+    moneyInvoice('500.00', '200.00');
+    moneyInvoice('300.00');
+
+    $cards = collect(MoneyFigures::cards($this->boss))->keyBy('label');
+
+    expect($cards['Dues'])->toMatchArray(['group' => 'attention', 'tone' => 'red', 'trend' => null])
+        ->and($cards['Collected today'])->toMatchArray(['group' => 'money', 'tone' => 'green', 'caption' => 'last 7 days'])
+        ->and($cards['Collected today']['trend'])->toBe([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 200.0])
+        ->and($cards['Collected this month']['trend'])->toHaveCount(21)
+        ->and(collect($cards['Invoiced this month']['trend'])->last())->toBe(944.0)
+        ->and($cards['Invoiced last month']['trend'])->toHaveCount(6)
+        ->and($cards['Invoiced last month']['tone'])->toBe('neutral');
+});
+
+it('shows Dues as neutral when nothing is owed', function () {
+    turnInvoicingOn();
+    moneyInvoice('500.00', '590.00');
+
+    expect(collect(MoneyFigures::cards($this->boss))->keyBy('label')['Dues']['tone'])->toBe('neutral');
+});
+
+it('leaves cancelled invoices out of the invoiced trend', function () {
+    turnInvoicingOn();
+    app(CancelInvoice::class)->handle(moneyInvoice('400.00')->id, 'Wrong');
+
+    expect(collect(collect(MoneyFigures::cards($this->boss))->keyBy('label')['Invoiced this month']['trend'])->last())->toBe(0.0);
+});
+
+it('trends sales from recharges when invoicing is off', function () {
+    Recharge::factory()->create(['amount' => 500]);
+    Recharge::factory()->create(['amount' => 250, 'created_at' => now()->subDays(3)]);
+    Recharge::factory()->create(['amount' => 70, 'created_at' => now()->subDays(3), 'cancelled_at' => now()->subDays(3)]);
+
+    expect(collect(MoneyFigures::cards($this->boss))->keyBy('label')['Sales today']['trend'])->toBe([0.0, 0.0, 0.0, 250.0, 0.0, 0.0, 500.0]);
+});
