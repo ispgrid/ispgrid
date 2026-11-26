@@ -11,6 +11,7 @@ use App\Models\OnlinePayment;
 use App\Notifications\SettingField;
 use App\Payments\Concerns\CallsGatewayApi;
 use App\Payments\CustomerDetails;
+use App\Payments\EnvironmentField;
 use App\Payments\GatewayAmount;
 use App\Payments\GatewayResult;
 use App\Payments\GatewayStart;
@@ -72,7 +73,7 @@ final class RazorpayGateway implements NeedsCustomerDetails, PaymentGateway, Unt
     public static function settingFields(): array
     {
         return [
-            new SettingField('environment', __('Environment'), help: __('test or live. Razorpay keys carry their own mode, this only labels it.'), maxLength: 4, rules: ['in:test,live']),
+            EnvironmentField::make(__('Razorpay keys carry their own mode, this only labels it.')),
             new SettingField('key_id', __('Key ID'), maxLength: 100),
             new SettingField('key_secret', __('Key secret'), 'secret', maxLength: 200),
             new SettingField('webhook_secret', __('Webhook secret'), 'secret', help: __('The secret you set for the webhook in the Razorpay dashboard.'), maxLength: 200),

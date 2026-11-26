@@ -10,6 +10,7 @@ use App\Models\OnlinePayment;
 use App\Notifications\SettingField;
 use App\Payments\Concerns\CallsGatewayApi;
 use App\Payments\CustomerDetails;
+use App\Payments\EnvironmentField;
 use App\Payments\GatewayAmount;
 use App\Payments\GatewayResult;
 use App\Payments\GatewayStart;
@@ -77,7 +78,7 @@ final class PayuGateway implements NeedsCustomerDetails, PaymentGateway, Unteste
     public static function settingFields(): array
     {
         return [
-            new SettingField('environment', __('Environment'), help: __('test (PayU test server) or live.'), maxLength: 4, rules: ['in:test,live']),
+            EnvironmentField::make(__('Test uses the PayU test server.')),
             new SettingField('merchant_key', __('Merchant key'), maxLength: 100),
             new SettingField('merchant_salt', __('Merchant salt'), 'secret', help: __('Signs the payment and checks the answers.'), maxLength: 200),
             // https only: the replies decide whether a payment counts as paid.

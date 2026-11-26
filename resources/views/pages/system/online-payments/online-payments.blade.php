@@ -63,7 +63,7 @@
                 <form wire:submit="save('{{ $gateway['key'] }}')" class="flex flex-1 flex-col gap-5">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <x-ui.heading>{{ $gateway['label'] }}</x-ui.heading>
-                        <x-ui.badge>{{ $gateway['currencies'] }}</x-ui.badge>
+                        <x-ui.badge :title="$gateway['currencyList']">{{ $gateway['currencies'] }}</x-ui.badge>
                     </div>
 
                     @unless ($gateway['currencyOk'])
@@ -78,13 +78,23 @@
 
                     <div x-show="$wire.enabled[@js($gateway['key'])]" @unless ($enabled[$gateway['key']] ?? false) style="display: none" @endunless class="grid grid-cols-1 gap-5">
                         @foreach ($gateway['fields'] as $field)
-                            <x-ui.input
-                                wire:model="settings.{{ $gateway['key'] }}.{{ $field['name'] }}"
-                                :type="$field['type']"
-                                :label="$field['label']"
-                                :description="$field['help']"
-                                autocomplete="off"
-                            />
+                            @if ($field['type'] === 'select')
+                                <x-ui.select
+                                    wire:model="settings.{{ $gateway['key'] }}.{{ $field['name'] }}"
+                                    :label="$field['label']"
+                                    :description="$field['help']"
+                                    :options="$field['options']"
+                                    :placeholder="__('Choose')"
+                                />
+                            @else
+                                <x-ui.input
+                                    wire:model="settings.{{ $gateway['key'] }}.{{ $field['name'] }}"
+                                    :type="$field['type']"
+                                    :label="$field['label']"
+                                    :description="$field['help']"
+                                    autocomplete="off"
+                                />
+                            @endif
                         @endforeach
 
                         <div class="grid grid-cols-1 gap-1 text-sm">

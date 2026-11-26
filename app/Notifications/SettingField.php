@@ -12,8 +12,10 @@ use Illuminate\Contracts\Validation\ValidationRule;
 final readonly class SettingField
 {
     /**
-     * @param  'text'|'secret'|'url'|'number'  $type  a secret is stored encrypted and never shown again
+     * @param  'text'|'secret'|'url'|'number'|'select'  $type  a secret is stored encrypted and never shown again; a select
+     *                                                         offers $options (drawn as a list on the Online payments page)
      * @param  list<string|ValidationRule|Closure>  $rules  further checks of the provider's own (text fields only)
+     * @param  array<string, string>  $options  a select's choices, saved value => label
      */
     public function __construct(
         public string $name,
@@ -25,6 +27,7 @@ final readonly class SettingField
         public ?int $max = null,
         public int $maxLength = 255,
         public array $rules = [],
+        public array $options = [],
     ) {}
 
     public function isSecret(): bool
@@ -41,6 +44,10 @@ final readonly class SettingField
 
         if ($this->type === 'number') {
             return [...$rules, 'integer', 'between:'.($this->min ?? 0).','.($this->max ?? 1000000)];
+        }
+
+        if ($this->type === 'select') {
+            return [...$rules, 'string', 'in:'.implode(',', array_keys($this->options))];
         }
 
         $rules = [...$rules, 'string', 'max:'.$this->maxLength, ...$this->rules];
