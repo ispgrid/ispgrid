@@ -23,7 +23,7 @@ final class Sparkline
         $range = max($values) - $min;
         $points = [];
 
-        foreach (array_values($values) as $index => $value) {
+        foreach ($values as $index => $value) {
             $x = $index * $width / ($count - 1);
             $y = $range == 0 ? $height / 2 : $height - ($value - $min) / $range * $height;
             $points[] = self::number($x).','.self::number($y);

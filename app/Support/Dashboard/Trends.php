@@ -18,6 +18,8 @@ final class Trends
      * One value per day from $from to today, oldest first.
      *
      * @param  EloquentBuilder<*>|QueryBuilder  $query
+     * @param  literal-string  $column
+     * @param  literal-string  $aggregate
      * @return list<float>
      */
     public static function perDay(EloquentBuilder|QueryBuilder $query, string $column, CarbonInterface $from, string $aggregate = 'COUNT(*)'): array
@@ -37,6 +39,8 @@ final class Trends
      * One value per month for the $months full months that end with last month, oldest first.
      *
      * @param  EloquentBuilder<*>|QueryBuilder  $query
+     * @param  literal-string  $column
+     * @param  literal-string  $aggregate
      * @return list<float>
      */
     public static function perMonth(EloquentBuilder|QueryBuilder $query, string $column, int $months, string $aggregate = 'COUNT(*)'): array
@@ -68,6 +72,9 @@ final class Trends
 
     /**
      * @param  EloquentBuilder<*>|QueryBuilder  $query
+     * @param  literal-string  $key
+     * @param  literal-string  $column
+     * @param  literal-string  $aggregate
      * @return array<string, string|int|float|null>
      */
     private static function grouped(EloquentBuilder|QueryBuilder $query, string $key, string $column, CarbonInterface $from, CarbonInterface $until, string $aggregate): array
