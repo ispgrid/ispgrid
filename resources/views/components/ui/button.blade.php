@@ -17,7 +17,7 @@
             'secondary' => 'border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700',
             'danger' => 'bg-red-600 text-white hover:bg-red-500',
             'ghost' => 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800',
-            default => 'bg-ink text-white hover:bg-zinc-700 dark:bg-signal dark:text-ink dark:hover:bg-green-400',
+            default => 'bg-deep-green text-white hover:bg-green-800 dark:bg-signal dark:text-ink dark:hover:bg-green-400',
         },
     ];
 @endphp
