@@ -27,7 +27,10 @@ use Illuminate\Database\Eloquent\Builder;
 final class MoneyFigures
 {
     /**
-     * @return list<array{label: string, value: string, href: ?string, hint: ?string}>
+     * Each card carries its group (money, or attention for Dues), its tone, an icon and, where the panel keeps history,
+     * a short trend with its caption.
+     *
+     * @return list<array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}>
      */
     public static function cards(User $user): array
     {
@@ -40,23 +43,34 @@ final class MoneyFigures
         $today = now()->startOfDay();
         $month = now()->startOfMonth();
         $lastMonth = $month->subMonthNoOverflow();
+        $week = now()->subDays(6);
 
         if (! $settings->enabled) {
             return [
-                ['label' => __('Sales today'), 'value' => $money->format(self::sales($today)), 'href' => null, 'hint' => null],
-                ['label' => __('Sales this month'), 'value' => $money->format(self::sales($month)), 'href' => null, 'hint' => null],
-                ['label' => __('Sales last month'), 'value' => $money->format(self::sales($lastMonth, $month)), 'href' => null, 'hint' => null],
+                self::card(__('Sales today'), $money->format(self::sales($today)), null, null, 'money', 'green', 'banknotes',
+                    Trends::perDay(self::countedRecharges(), 'created_at', $week, 'SUM(amount)'), __('last 7 days')),
+                self::card(__('Sales this month'), $money->format(self::sales($month)), null, null, 'money', 'green', 'banknotes',
+                    Trends::running(Trends::perDay(self::countedRecharges(), 'created_at', $month, 'SUM(amount)')), __('this month')),
+                self::card(__('Sales last month'), $money->format(self::sales($lastMonth, $month)), null, null, 'money', 'green', 'banknotes',
+                    Trends::perMonth(self::countedRecharges(), 'created_at', 6, 'SUM(amount)'), __('6 months')),
             ];
         }
 
+        $dues = self::sum(self::invoices(), 'balance');
+
         $cards = [
-            ['label' => __('Collected today'), 'value' => $money->format(self::sum(self::payments($today))), 'href' => null, 'hint' => null],
-            ['label' => __('Collected this month'), 'value' => $money->format(self::sum(self::payments($month))), 'href' => null, 'hint' => self::byMethod($month, $money)],
-            ['label' => __('Collected last month'), 'value' => $money->format(self::sum(self::payments($lastMonth, $month))), 'href' => null, 'hint' => null],
-            ['label' => __('Invoiced this month'), 'value' => $money->format(self::sum(self::invoices()->where('issue_date', '>=', $month->toDateString()), 'total')), 'href' => null, 'hint' => null],
-            ['label' => __('Invoiced last month'), 'value' => $money->format(self::sum(self::invoices()->where('issue_date', '>=', $lastMonth->toDateString())->where('issue_date', '<', $month->toDateString()), 'total')), 'href' => null, 'hint' => null],
-            ['label' => __('Dues'), 'value' => $money->format(self::sum(self::invoices(), 'balance')),
-                'href' => $user->can('viewAny', Account::class) ? route('customers.index', ['dues' => 1]) : null, 'hint' => null],
+            self::card(__('Collected today'), $money->format(self::sum(self::payments($today))), null, null, 'money', 'green', 'banknotes',
+                Trends::perDay(Payment::query(), 'paid_at', $week, 'SUM(amount)'), __('last 7 days')),
+            self::card(__('Collected this month'), $money->format(self::sum(self::payments($month))), null, self::byMethod($month, $money), 'money', 'green', 'banknotes',
+                Trends::running(Trends::perDay(Payment::query(), 'paid_at', $month, 'SUM(amount)')), __('this month')),
+            self::card(__('Collected last month'), $money->format(self::sum(self::payments($lastMonth, $month))), null, null, 'money', 'green', 'banknotes',
+                Trends::perMonth(Payment::query(), 'paid_at', 6, 'SUM(amount)'), __('6 months')),
+            self::card(__('Invoiced this month'), $money->format(self::sum(self::invoices()->where('issue_date', '>=', $month->toDateString()), 'total')), null, null,
+                'money', 'neutral', 'document-text', Trends::running(Trends::perDay(self::invoices(), 'issue_date', $month, 'SUM(total)')), __('this month')),
+            self::card(__('Invoiced last month'), $money->format(self::sum(self::invoices()->where('issue_date', '>=', $lastMonth->toDateString())->where('issue_date', '<', $month->toDateString()), 'total')), null, null,
+                'money', 'neutral', 'document-text', Trends::perMonth(self::invoices(), 'issue_date', 6, 'SUM(total)'), __('6 months')),
+            self::card(__('Dues'), $money->format($dues), $user->can('viewAny', Account::class) ? route('customers.index', ['dues' => 1]) : null, null,
+                'attention', Decimal::compare($dues, '0') > 0 ? 'red' : 'neutral', 'banknotes'),
         ];
 
         if (! $settings->invoiceHotspot) {
@@ -64,11 +78,20 @@ final class MoneyFigures
                 ->whereHas('account', fn (Builder $account) => $account->withTrashed()->where('service_type', ServiceType::Hotspot));
 
             if ($hotspot->exists()) {
-                $cards[] = ['label' => __('Hotspot sales this month'), 'value' => $money->format(self::sum($hotspot)), 'href' => null, 'hint' => null];
+                $cards[] = self::card(__('Hotspot sales this month'), $money->format(self::sum($hotspot)), null, null, 'money', 'green', 'banknotes');
             }
         }
 
         return $cards;
+    }
+
+    /**
+     * @param  ?list<float>  $trend
+     * @return array{label: string, value: string, href: ?string, hint: ?string, group: string, tone: string, icon: string, trend: ?list<float>, caption: ?string}
+     */
+    private static function card(string $label, string $value, ?string $href, ?string $hint, string $group, string $tone, string $icon, ?array $trend = null, ?string $caption = null): array
+    {
+        return ['label' => $label, 'value' => $value, 'href' => $href, 'hint' => $hint, 'group' => $group, 'tone' => $tone, 'icon' => $icon, 'trend' => $trend, 'caption' => $caption];
     }
 
     /**
@@ -116,8 +139,17 @@ final class MoneyFigures
      */
     private static function recharges(CarbonInterface $since, ?CarbonInterface $until = null): Builder
     {
-        return Recharge::query()->counted()->where('created_at', '>=', $since)->when($until, fn (Builder $query) => $query->where('created_at', '<', $until))
-            ->whereHas('account', fn (Builder $account) => $account->withTrashed()->where('billing_free', false));
+        return self::countedRecharges()->where('created_at', '>=', $since)->when($until, fn (Builder $query) => $query->where('created_at', '<', $until));
+    }
+
+    /**
+     * The recharges that count as sales: not cancelled, not plan switches, not Free customers.
+     *
+     * @return Builder<Recharge>
+     */
+    private static function countedRecharges(): Builder
+    {
+        return Recharge::query()->counted()->whereHas('account', fn (Builder $account) => $account->withTrashed()->where('billing_free', false));
     }
 
     private static function sales(CarbonInterface $since, ?CarbonInterface $until = null): string
