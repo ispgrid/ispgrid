@@ -22,6 +22,9 @@
         <x-ui.select wire:model.live="connection" :label="__('Connection type')" :options="$this->connectionTypes" :placeholder="__('All connection types')" />
         <x-ui.select wire:model.live="expiring" :label="__('Expiring')" :options="$this->expiringChoices" />
         <x-ui.select wire:model.live="expired" :label="__('Expired')" :options="$this->expiredChoices" />
+        @if ($this->sources !== [])
+            <x-ui.select wire:model.live="source" :label="__('Source')" :options="$this->sources" />
+        @endif
         </div>
     </div>
 

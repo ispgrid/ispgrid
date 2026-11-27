@@ -11,6 +11,8 @@ use Carbon\CarbonInterface;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,7 +30,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * until FreeRADIUS stamps its first login (app-integration.md section 8).
  */
 #[Fillable(['username', 'account_number', 'password', 'title', 'fullname', 'company', 'mobile', 'whatsapp', 'alt_number', 'email',
-    'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id',
+    'tax_id', 'business_id', 'remarks', 'notifications_off', 'address_id', 'connection_type_id', 'user_id', 'source',
     'service_type', 'mac_type', 'plan_id', 'nas_id', 'status_id', 'expiry', 'hotspot_pending_validity', 'hotspot_first_login_at',
     'usage_since', 'auto_renew', 'billing_free', 'discount_type', 'discount_percent', 'discount_amount', 'payment_terms_days', 'billing_name',
     'billing_address_id', 'place_of_supply', 'ip_id', 'pool_id', 'override_plan', 'override_until', 'override_upload', 'override_download', 'override_burst_upload', 'override_burst_download',
@@ -109,6 +111,17 @@ class Account extends Model
             'selfcare_password_set_at' => 'datetime',
             'selfcare_last_login_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Customers staff and the import made, without those an add-on made (source set, such as voucher cards).
+     *
+     * @param  Builder<Account>  $query
+     */
+    #[Scope]
+    protected function core(Builder $query): void
+    {
+        $query->whereNull('accounts.source');
     }
 
     /**

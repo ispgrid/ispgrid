@@ -27,7 +27,7 @@ new #[Title('Customers')] class extends Component
 {
     use AuthorizesEveryRequest, WithPagination;
 
-    private const FILTERS = ['search', 'status', 'plan', 'type', 'router', 'connection', 'expiring', 'expired', 'norenewal', 'disabled', 'created', 'renewed', 'staticip', 'dues'];
+    private const FILTERS = ['search', 'status', 'plan', 'type', 'router', 'connection', 'expiring', 'expired', 'norenewal', 'disabled', 'created', 'renewed', 'staticip', 'dues', 'source'];
 
     /**
      * Filters the dashboard links use that have no control on this page, cleared together.
@@ -90,6 +90,12 @@ new #[Title('Customers')] class extends Component
      */
     #[Url]
     public bool $dues = false;
+
+    /**
+     * '' (customers staff and the import made), 'all', or the add-on that made them (accounts.source).
+     */
+    #[Url]
+    public string $source = '';
 
     public function mount(): void
     {
@@ -192,6 +198,23 @@ new #[Title('Customers')] class extends Component
     }
 
     /**
+     * The Source choices, or none while no add-on has made a customer (the filter then stays hidden).
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function sources(): array
+    {
+        $sources = Account::withTrashed()->whereNotNull('source')->distinct()->orderBy('source')->pluck('source')->all();
+
+        if ($sources === []) {
+            return [];
+        }
+
+        return ['' => __('Customers'), 'all' => __('All, with add-ons')] + array_combine($sources, $sources);
+    }
+
+    /**
      * @return array<int, string>
      */
     #[Computed]
@@ -238,6 +261,8 @@ new #[Title('Customers')] class extends Component
 
         return Account::query()
             ->when($this->status === 'deleted', fn (Builder $query) => $query->onlyTrashed())
+            ->when($this->source === '', fn (Builder $query) => $query->core())
+            ->when($this->source !== '' && $this->source !== 'all', fn (Builder $query) => $query->where('source', $this->source))
             ->when(ctype_digit($this->status), fn (Builder $query) => $query->where('status_id', (int) $this->status))
             ->when($this->plan !== '', fn (Builder $query) => $query->where('plan_id', (int) $this->plan))
             ->when($this->type !== '', fn (Builder $query) => $query->where('service_type', $this->type))
